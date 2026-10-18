@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-14T12:50:03.479Z",
+  "updatedAt": "2026-10-18T15:15:59.662Z",
   "hot": {
     "rule": [
       {
@@ -494,6 +494,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "reviewer-producer-retires-the-third-party-review-acceptance",
+        "kind": "decision",
+        "description": "is the producer that lets the  commit-leg acceptance (, ) be retired.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\reviewer-producer-retires-the-third-party-review-acceptance.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff.md",
+        "updatedAt": "2026-10-18"
+      },
+      {
         "name": "skill-first-cli-auxiliary-sub-agent-dispatch",
         "kind": "decision",
         "description": "Slice #009 (PRD #002) added a new  CLI primitive.",
@@ -882,6 +890,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "backlog-open-markers-need-a-head-measurement",
+        "kind": "convention",
+        "description": "The backlog's OPEN markers are not machine-checked.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\backlog-open-markers-need-a-head-measurement.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff.md",
+        "updatedAt": "2026-10-18"
+      },
+      {
         "name": "comparing-counts-across-rounds-guarantees-a-false-regression-report",
         "kind": "convention",
         "description": "A long job measured its own size repeatedly and kept disagreeing: 14 → 22 → 25 → 27 changed files, RD test counts of ...",
@@ -1156,6 +1172,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-guard-that-reads-the-thing-it-guards-is-not-a-guard.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-29-session-b7cf21/rd/requests/2026-10-02-monotonicity-head-anchor.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "a-guards-name-is-not-its-predicate",
+        "kind": "lesson",
+        "description": "and  say \"must be a single path segment\", but they use , which is a traversal guard and admits .",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-guards-name-is-not-its-predicate.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff.md",
+        "updatedAt": "2026-10-18"
       },
       {
         "name": "a-hand-maintained-allow-list-that-points-at-an-old-machine-path-is-a-silent-gate-not-a-working-one",

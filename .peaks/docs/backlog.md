@@ -3224,7 +3224,7 @@ defect above. **There was no entry to update.** §2.52 and §2.52a are left byte
   - the **S1 policy-exception end-to-end trigger** — the mechanism is tested only at the pure-function layer, and
     "allowed to rise" ≠ "has risen".
 
-### 7.10 `peaks-reviewer` is half-built: a skip is reported as a pass (found 2026-10-10; open)
+### 7.10 `peaks-reviewer` is half-built: a skip is reported as a pass (found 2026-10-10; **IMPLEMENTED 2026-10-18 — rid `rid-reviewer-producer-path`, uncommitted at the time of writing**)
 
 - **Where**: `src/services/reviewer/reviewer-service.ts` (`skippedEnvelope`);
   `src/services/reviewer/reviewer-config.ts:77`; `src/cli/commands/reviewer-commands.ts`.
@@ -3259,6 +3259,18 @@ violations: [], gateAction: 'allow', reason}` — **a review that never happened
   ③ `status` must distinguish three states and put the ≥2 requirement into `nextActions`; ④ add tests.
 - **Recorded honestly elsewhere**: `peaks-race-code`'s design (U9) already states "independent-model audit not achieved"
   rather than passing off a fresh-context subagent as an independent model.
+
+**IMPLEMENTED 2026-10-18 (rid `rid-reviewer-producer-path`, uncommitted at the time of writing).** All four
+minimal-set items plus the producer path landed: `peaks reviewer config` is flag-driven and merges the section
+without clobbering unrelated keys (it refuses an unparseable file); every non-verdict path returns
+`passed: false` + `gateAction: 'warn'` (`src/services/reviewer/reviewer-envelopes.ts`); `status` has three states
+(`no-section` / `insufficient-providers` / `configured`) and puts the ≥2 requirement in `nextActions`;
+`peaks reviewer run --write` writes `rd/third-party-review.md` + `.json` and writes nothing on a skip.
+4 test files / 33 tests. QA re-checked the one repair (single-segment session id) with a mutation control:
+`a/b` is now refused before `mkdir`. Measured at closure: reviewer suite 33/33, `tsc` exit 0, repo tier
+63 files / 645 tests, `verify-pipeline` complete. **Residuals:** `getSessionDir` / `isUnsafePathInput` still
+admit `a/b` (see §16's new finding); `distinctFromKarpathy` still treats `skipped` as distinct; `schemaPath`
+is written but never read at runtime.
 
 ### 7.11 Two tool defects (small, high reuse) — one corrected and one open (found 2026-10-10)
 
@@ -3812,6 +3824,8 @@ the blocked command — it is that a gate which refuses legitimate work is the t
   names its own artifact. The reading below is kept because it is the measurement the slice rests on —
   not because it is still true. **One half of this item stays open**: `backCompatUntil: 'v2.14.0'` is
   deliberately unchanged and the window is still roughly twenty minors past its stated expiry.
+  **2026-10-18:** the window itself is now enforced at the commit leg (`0cfc25c0`, §16); the `mut`
+  producer is still absent, while `rd/third-party-review.md` gained one via §7.10.
 
   **The warning IS produced.** It is then **discarded by the caller**:
   `checkPrerequisites` populates a `warnings` array and `artifact-prerequisites.ts:618-628` `continue`s
@@ -5836,9 +5850,9 @@ Not one of the three is about a check; all three are about producing and binding
 
 **The reusable reading:** the workflow's expensive defects are in its plumbing, not its checks. A gate whose artifact cannot be produced in-order is not enforcing anything — it is charging rent. Worth measuring: across this session's seven slices, these three traps consumed more wall-clock than every code defect the reviews found, combined.
 
-### 13.3 Two gates disagree with the type tables that are supposed to define them (found 2026-10-16; **open**)
+### 13.3 Two gates disagree with the type tables that are supposed to define them (found 2026-10-16; **first half CLOSED 2026-10-17, second half open**)
 
-- **`docs` requests.** `artifact-prerequisites.ts`'s `MINIMAL_TABLE` gives a `docs` request **no QA requirement** — its only contract is PRD content. But the **pipeline** checker enforces a QA phase for **every** rid regardless of type, so s6 passed every transition gate and was then refused at commit time for a requirement its own type table says does not exist. Two enforcement layers, one table, different answers.
+- **`docs` requests.** `artifact-prerequisites.ts`'s `MINIMAL_TABLE` gives a `docs` request **no QA requirement** — its only contract is PRD content. But the **pipeline** checker enforces a QA phase for **every** rid regardless of type, so s6 passed every transition gate and was then refused at commit time for a requirement its own type table says does not exist. Two enforcement layers, one table, different answers. **CLOSED 2026-10-17 by `d62eda51` (slice A): both readers now derive from the type tables, and `artifact-prerequisites.ts:557` skips the evidence contract for types whose table has no `rd:qa-handoff` row.**
 - **`ceilings` cannot express a floor, and the reason first given was wrong.** s5's design needed a second mechanism because `compareCeilings` puts a *rise* in `raised` ⇒ `ok:false` — the direction is inverted, and that is now verified (`compare.mjs:87→100→109`). The *sub*-reason originally offered ("a percentage cannot live there at all") was falsified: `Number.isInteger(47.0)` is `true`, and 47.0 is the seed. The conclusion survives on direction alone; the overreach is recorded because it is this repository's most-repeated defect class.
 
 Related, and the reason s7's ruling matters: **`scripts/coverage-c8.mjs` demanded 100 % for months and was called by nothing** — a gate that cannot pass measures nothing, exactly as a gate that cannot fail enforces nothing. See §13.4.
@@ -5897,7 +5911,7 @@ The maintainer approved six items with *"A-F全都处理吧"* and went to sleep;
 
 | # | Item | Where | Disposition |
 | --- | --- | --- | --- |
-| **1** | **A prettier CRASH reads as a clean tree.** `listDifferent` catches with `if (err.status === 1 && typeof err.stdout === 'string') return err.stdout;`. **`typeof '' === 'string'`**, so an exit-1 crash with empty stdout returns `''`, `unformattedFiles()` yields `[]`, and the leg prints `0 unformatted file(s)` + `held`. **Every slice in this sweep cited "the format ratchet is green" as evidence, and that sentence has a hole in it.** Demonstrated on a copy by slice E's security review; the exact condition located by the orchestrator. | `.husky/format-check-ratchet.mjs:112-120` | **OPEN — highest-value item in this section.** The fix is one condition (`err.stdout.trim() !== ''`), and the comment above it already states the right principle: *"a failure to measure must never read as a pass."* |
+| **1** | **A prettier CRASH reads as a clean tree.** `listDifferent` catches with `if (err.status === 1 && typeof err.stdout === 'string') return err.stdout;`. **`typeof '' === 'string'`**, so an exit-1 crash with empty stdout returns `''`, `unformattedFiles()` yields `[]`, and the leg prints `0 unformatted file(s)` + `held`. **Every slice in this sweep cited "the format ratchet is green" as evidence, and that sentence has a hole in it.** Demonstrated on a copy by slice E's security review; the exact condition located by the orchestrator. | `.husky/format-check-ratchet.mjs:112-120` | **FIXED 2026-10-17 (`988c6197`) — corrected here 2026-10-18.** The shipped condition is `err.status === 1 && typeof err.stdout === 'string' && err.stdout.trim() !== ''`; a crash with empty stdout is refused, not read as a clean tree. This row still said OPEN because the fix landed without a backlog update. |
 | **2** | **44 of 53 tracked top-level entries are invisible in a composite diff.** A curated trigger list is the design, but three are **guard-bearing and measured-unreachable**: `.gitignore` + `src/**` does not select `tests/unit/workspace/top-level-change-id-guard.test.ts` — and CLAUDE.md names that test one of four defences for the top-level change-id hard ban; `.gitattributes` + `src` misses `tests/unit/hooks/staged-parity-gate.test.ts`; `pnpm-workspace.yaml` + `src` misses `tests/unit/scripts/packages-build-prerequisite.test.ts`. | `scripts/test-changed-classify.mjs:34` | **CLOSED 2026-10-17** (`43f3cc51`). The tier proposal was measured first and rejected: `workspace/` + `hooks/` + `scripts/` is **+43 files over a 59-file tier** (×1.73), and two of the three are already reached through the `scripts/` trigger and `.husky/`. The shipped shape is a **declared path→reader map** for `.gitignore` and `pnpm-workspace.yaml`, plus `/^\.gitattributes$/` as a full-suite trigger (no root reader exists — the recorded mapping was a comment). Census with the shipped classifier over all 2246 non-empty commits: `.gitignore` 45 = 27 trigger + 9 unmapped + **9 composite**; the arm requires a non-comment line that names the key, carries a read/join call, binds it to `REPO_ROOT`, and carries no write call, with red controls for a comment-only mention, a temp-root read, a write, and a deleted reader. |
 | **3** | **A declared request type is never corroborated.** `resolveRequestType` returns the carrier's `- type:` verbatim; `checkTypeSanity` remains caller-opt-in and is absent from the commit leg. Scoping changed **which** session's carrier may declare the type, not **whether** the declaration is checked. | `request-type-resolution.ts`, `pipeline-verify-service.ts:165` | **CLOSED 2026-10-17** (`f7de7828`). The suggested remedy — call `checkTypeSanity` from the commit leg — was **measured and rejected**: `chore` is consistent only with a lockfile-only diff, so it would refuse the repository's own infrastructure chores; and the commit leg has no rid↔commit binding (13 RD artifacts sat at `implemented`). The shipped rule is narrow: a `docs`/`chore`/`config` rid whose diff touches `src/**` or `packages/<name>/src/**` is refused at `rd:implemented`, `rd:qa-handoff` and `rd:handed-off`, sharing one NUL-split `git` enumeration with the file-size ratchet. **The slice was retyped `chore → refactor` because the rule caught its own author**; the full refactor evidence chain (code review, security, perf, QA) is recorded. Perf block accepted explicitly: `qa-handoff`/`handed-off` add 2 spawns (~126 ms one-shot) to close the late-change window. |
 | **4** | **The skip-state is the write path's unscoped twin.** `canSkipSlice` reads the type through an **unscoped** `showRequestArtifact` — the exact shape slice A removed from the read path. And for a type `SKIPPABLE_TYPES` permits, the record **is** its own authorization: no reader can tell a planted file from a written one. | `workflow-skip-service.ts` | **CLOSED 2026-10-17** (`98614528`). `SKIPPABLE_TYPES` is now **derived**: `QA_FREE_TYPES = VALID_REQUEST_TYPES.filter(t => !typeRequiresQaPhase(t))`, so it is exactly `docs` + `chore`; `config` left the allowlist because it requires a QA phase. The read path refuses a record the write path could not have produced (empty reason, empty/untrimmed gate names, C0/DEL/C1 control characters), the byline falls back to `unknown` for a control-bearing git name, and the skip line says **"record says applied by …"**, not "applied by". Residual: a well-formed planted record for a QA-free type is still indistinguishable; ③c bounds it by refusing product source. |
@@ -5970,3 +5984,18 @@ The 2026-10-18 evaluation selected the P0 items and shipped two slices. Both are
 - `rd/third-party-review.md` — `backCompatUntil: v2.15.0`, installed 4.1.6. No reviewer configured (`peaks reviewer status` → `configured: false`, `reason: no-reviewer-config`).
 
 Neither artifact was hand-written. **The durable observation is that a `backCompatUntil` window is not enforced by anything**: the code still soft-passes roughly twenty minors after the stated expiry, so "past expiry" is a note a reader must notice, not a gate that fires. This is the same class as §9.2's "the code carries its own expiry note and nothing enforces it", and it is now the strongest remaining candidate for a small hardening slice: derive a hard-fail from the installed version at the stated `backCompatUntil`, or remove the window and give the two prerequisites a real producer.
+
+**CLOSED 2026-10-18 — by `0cfc25c0`, after this section was written.** The commit leg now refuses a closed, missing
+`backCompat` window unless `.peaks/lint/backcompat-expired-acceptance.json` carries a current entry
+(path + until + reason + reviewBy, with `reviewBy` capped at two minors ahead); `verifyPipeline` counts
+`checkExpiredBackCompatCommitGate` in `complete`, and `initWorkspace` seeds the list idempotently. The two windows
+above are recorded as accepted debt with `reviewBy: v4.2.0`; the transition stays soft by design. **What remains is
+the producer side, not the enforcement:** `mut/mut-report.json` still has no producer (`peaks tact read` is
+unregistered), and `rd/third-party-review.md` now has one — `peaks reviewer run --write` — when a reviewer is
+configured. §7.10 records that producer; the `mut` producer is still open.
+
+**New finding (2026-10-18, found while closing §7.10):** `getSessionDir` / `tryGetSessionDir` state "must be a
+single path segment", but they use `isUnsafePathInput`, which admits `a/b` — that predicate is a traversal guard,
+not a single-segment guard. The reviewer producer now refuses `/` and `\` locally; the canonical session-dir helper
+still does not. Impact is bounded to nesting under `.peaks/_runtime/` (no `..` escape), but the contract and the
+predicate disagree. A dedicated single-segment predicate, used by both entries, is the fix.
