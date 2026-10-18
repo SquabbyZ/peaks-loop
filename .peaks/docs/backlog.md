@@ -243,11 +243,22 @@ string, and `'a\u0000b'` were `ok` exit 0 on the DAG path before (the empty stri
 a nonexistent DAG path reports `INVALID_ROLE`, not `INVALID_DAG`/ENOENT. The injection control (stub
 `validateRole` to null) reds 6 of the 8 arms. The warm path and `validateRole` are unchanged.
 
-### 2.2 `reviewer-dispatch-policy` — 11 of 13 exports still unreferenced
+### 2.2 `reviewer-dispatch-policy` — 11 of 13 exports still unreferenced (found 2026-09-24; **CLOSED 2026-10-19 — re-measured, 3 dead type aliases removed, the 5→3 table pinned**)
 
 - **Measured**: 13/13 exports had zero references across `src/`+`packages/`+`scripts/` (865 files scanned). F2 wired
   one call path; **11 remain unreferenced**, and **the 5→3 decision-table half is pinned by nothing** (the predicate
   half is covered by `reviewer-dispatch-policy.test.ts`, 6 cases, added `7191140f`).
+
+**CLOSED 2026-10-19 (rid `rid-reviewer-policy-exports`).** Re-measured with `grep -rnw` across
+`src/`+`packages/`+`scripts/`+`skills/`+`tests/`: the backlog's 11/13 was stale. Three type aliases
+(`RdReviewRequestType`, `RdFanoutReviewer`, `RdFanoutRequestType`) had zero importers and no package
+re-export, so they are now module-internal (13 exports → 10; declaration emit checked). The
+decision-table half is pinned by `reviewer-dispatch-policy-decision-table.test.ts` (6 cases):
+`RD_FANOUT_REQUEST_TYPES` is exactly the subset of `RD_REVIEW_REQUEST_TYPES` that
+`isFanoutTriggerType` accepts; `reviewerListFor(fanout)` equals `RD_FANOUT_REVIEWERS` minus
+`RD_DEPRECATED_REVIEWERS`; `karpathySlotIndex` indexes 2 and is -1 for config/docs/chore; the legacy
+5-way order minus the two deprecated slots equals `RD_FANOUT_REVIEWERS`. Mutation controls (fanout-swap
+3F/3P; deprecated-add 3F/3P) red the target arms. No dispatch behavior changed.
 
 ### 2.3 Two vocabularies over one threshold table
 

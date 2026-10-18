@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-18T20:55:09.340Z",
+  "updatedAt": "2026-10-18T21:16:01.349Z",
   "hot": {
     "rule": [
       {
@@ -526,6 +526,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "remove-a-dead-type-alias-only-after-proving-no-package-reexport",
+        "kind": "decision",
+        "description": "Three type aliases were dropped from the export list after: zero  importers across , , , , ; no package entry naming ...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\remove-a-dead-type-alias-only-after-proving-no-package-reexport.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-policy.md",
+        "updatedAt": "2026-10-18"
+      },
+      {
         "name": "reviewer-producer-retires-the-third-party-review-acceptance",
         "kind": "decision",
         "description": "is the producer that lets the  commit-leg acceptance (, ) be retired.",
@@ -1034,6 +1042,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "pin-a-decision-table-not-only-its-predicates",
+        "kind": "convention",
+        "description": "The predicate half ( + ) was already pinned.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\pin-a-decision-table-not-only-its-predicates.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-policy.md",
+        "updatedAt": "2026-10-18"
+      },
+      {
         "name": "pin-behavior-through-the-public-export",
         "kind": "convention",
         "description": "The new tests import  /  from the package's public surface (), not from the private store module, and assert the refu...",
@@ -1539,6 +1555,14 @@
         "description": "walks the TypeScript AST for calls whose callee is bound to a  import.",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\an-ast-guard-resolves-a-const-alias-not-a-parameter.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-container.md",
+        "updatedAt": "2026-10-18"
+      },
+      {
+        "name": "an-export-count-is-a-measurement-with-a-date",
+        "kind": "lesson",
+        "description": "The backlog said \"11 of 13 exports still unreferenced\" from a 2026-09 measurement.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\an-export-count-is-a-measurement-with-a-date.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-policy.md",
         "updatedAt": "2026-10-18"
       },
       {

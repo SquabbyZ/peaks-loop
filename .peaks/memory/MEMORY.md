@@ -51,7 +51,7 @@
 - [windows-shell-quoting-divergence](windows-shell-quoting-divergence.md) — <!-- peaks-feedback-promoted: layer=A --> On Windows, when testing  or similar nested-quote patterns, the test outcom...
 - [writing-a-value-then-reading-it-back-locks-the-first-guess](writing-a-value-then-reading-it-back-locks-the-first-guess.md) — <!-- peaks-feedback-promoted: layer=A --> **一个组件若把"自己派生的值"写进某处、又在后续运行里把该值读回来当作自己的输入，它就把自己锁在了首次猜测上。** 2026-09-13 实测（pe...
 
-## decision (16)
+## decision (17)
 
 - [a-spawned-child-unref-must-wait-for-close](a-spawned-child-unref-must-wait-for-close.md) — Both isolation-lease spawners must resolve the envelope and then defer  with  inside the  handler.
 - [backlog-14-7-closed-by-a-parity-arm-not-a-shared-import](backlog-14-7-closed-by-a-parity-arm-not-a-shared-import.md) — §14.7's two type derivations were closed by a parity arm, not by deriving one from the other.
@@ -62,6 +62,7 @@
 - [peaks-ide-dashboard-ok-policy-workspace-only-default](peaks-ide-dashboard-ok-policy-workspace-only-default.md) — peaks-ide dashboard ok-policy: workspace-only (default) Rule  now defaults to :  is  whenever the workspace layout / ...
 - [peaks-memory-scan-is-intentionally-not-a-cli](peaks-memory-scan-is-intentionally-not-a-cli.md) — is intentionally NOT a CLI command.
 - [peaks-zvec-spike-proposal-2026-06-18](2026-06-18-peaks-zvec-spike-proposal.md) — Proposal:  目录整改 + zvec 集成评估 **Status**: DRAFT — 待用户 review（2026-06-18） **Locked decisions**: Semantic search 策略 = **Y...
+- [remove-a-dead-type-alias-only-after-proving-no-package-reexport](remove-a-dead-type-alias-only-after-proving-no-package-reexport.md) — Three type aliases were dropped from the export list after: zero  importers across , , , , ; no package entry naming ...
 - [reviewer-producer-retires-the-third-party-review-acceptance](reviewer-producer-retires-the-third-party-review-acceptance.md) — is the producer that lets the  commit-leg acceptance (, ) be retired.
 - [skill-first-cli-auxiliary-sub-agent-dispatch](skill-first-cli-auxiliary-sub-agent-dispatch.md) — Slice #009 (PRD #002) added a new  CLI primitive.
 - [slim-ideadapter-shape-is-the-contract](slim-ideadapter-shape-is-the-contract.md) — Slice #1 established the slim  shape: 4 string fields (id, displayName, envVar, hookEvent, toolMatcher) + 1 settings ...
@@ -129,7 +130,7 @@
 - [widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything](widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything.md) — A2 deliberately declined to widen the citation guard to bare non-test paths, and recorded the cost as "50 findings, n...
 - [workspace-underscore-convention](workspace-underscore-convention.md) — Under , any top-level directory whose name starts with  is **ephemeral** and is automatically gitignored by the  rule...
 
-## convention (26)
+## convention (27)
 
 - [a-safety-classifier-denial-is-not-a-missing-red-side](a-safety-classifier-denial-is-not-a-missing-red-side.md) — The RD's first red-side attempt (mutating the real source and running tests) was refused by the safety classifier.
 - [a-slice-that-adds-src-files-owes-a-baseline-regen](a-slice-that-adds-src-files-owes-a-baseline-regen.md) — A commit that adds  files must regenerate  before the next tier run, or  and  go red for a reason unrelated to the cu...
@@ -145,6 +146,7 @@
 - [one-type-line-two-readers-and-the-parity-corpus](one-type-line-two-readers-and-the-parity-corpus.md) — is the canonical  reader (trim; hyphen bullet; whole value; ; LAST usable line wins).
 - [peaks-ide-skill-is-the-skill-first-pattern-5-step-flow-uses-existing-cli-primitives](peaks-ide-skill-is-the-skill-first-pattern-5-step-flow-uses-existing-cli-primitives.md) — The  skill () is the canonical example of the dev-preference red line "skill is primary, CLI is auxiliary".
 - [peaks-loop-forgiving-cli-filters-kind-type-outcome-fall-through-to-unfiltered-on-unknown](peaks-cli-forgiving-cli-filters-kind-type-outcome-fall-through-to-unfiltered-on-unknown.md) — peaks-loop CLI subcommands that accept a structured filter (, , , etc.) should treat unknown values as "no filter" ra...
+- [pin-a-decision-table-not-only-its-predicates](pin-a-decision-table-not-only-its-predicates.md) — The predicate half ( + ) was already pinned.
 - [pin-behavior-through-the-public-export](pin-behavior-through-the-public-export.md) — The new tests import  /  from the package's public surface (), not from the private store module, and assert the refu...
 - [project-option-is-canonical-project-root-source](project-option-is-canonical-project-root-source.md) — The  option is the canonical project-root source.
 - [quote-the-contract-line-in-the-fix](quote-the-contract-line-in-the-fix.md) — The fix's docblock quotes  ("MUST be exactly three leading comments") and derives the folding rule from it.
@@ -166,7 +168,7 @@
 - [src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior](src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior.md) — The  module is the single source of truth for IDE-aware behavior.
 - [src-services-session-canonical-workspace-resolver](src-services-session-canonical-workspace-resolver.md) — is the canonical home for the per-session workspace.
 
-## lesson (135)
+## lesson (136)
 
 - [2026-06-26-unknown-sid-root-cause](archived/2026-06-26-unknown-sid-root-cause.md) — Root cause + remediation log for the  and  orphan session dirs.
 - [2026-07-28-rid-034-handoff-no-sediment-block](2026-07-28-rid-034-handoff-no-sediment-block.md) — rid-034 收尾遇 sediment 反向 — no peaks-memory:start/end 闭合块 **Date:** 2026-07-28 **Rid:** 2026-07-28-rid-034-v2-13-0-clea...
@@ -214,6 +216,7 @@
 - [ac-pass-list-is-not-a-completion-bar](ac-pass-list-is-not-a-completion-bar.md) — 本切片 QA 报 **11/11 AC pass**，RD 自评审却找出 **4 条 MEDIUM**，全部落在 QA 那 11 条 AC 之外：(CR-1)  的成功提示被打成  输出到 stderr；(CR-2) 自实现 matc...
 - [an-allowlist-that-matches-any-value-cannot-fail](an-allowlist-that-matches-any-value-cannot-fail.md) — allowlisted  — ANY state value — before the placeholder rules ran.
 - [an-ast-guard-resolves-a-const-alias-not-a-parameter](an-ast-guard-resolves-a-const-alias-not-a-parameter.md) — walks the TypeScript AST for calls whose callee is bound to a  import.
+- [an-export-count-is-a-measurement-with-a-date](an-export-count-is-a-measurement-with-a-date.md) — The backlog said "11 of 13 exports still unreferenced" from a 2026-09 measurement.
 - [an-installed-build-whose-version-string-matches-the-worktree-can-still-be-missing-every-new-file](an-installed-build-whose-version-string-matches-the-worktree-can-still-be-missing-every-new-file.md) — PATH resolution is not a build check.
 - [an-llm-facing-contract-copy-must-be-guarded-by-a-test-that-reads-the-file-itself](an-llm-facing-contract-copy-must-be-guarded-by-a-test-that-reads-the-file-itself.md) — has 21 values; the sentence telling LLMs which  values are legal advertised 7 — and the same stale sentence had been ...
 - [auto-compact context probe 根因修复 — 三级链全断 + vendor-neutral + token-based 模型感知校准](2026-09-01-auto-compact-context-probe-root-cause.md) — auto-compact context probe 根因修复 > **优先级**：项目级 lesson。任何 context-probe / auto-compact 改动必须遵守本文三条约束：(1) fallback 必须 ada...
