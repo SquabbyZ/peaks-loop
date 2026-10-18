@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-18T16:03:49.459Z",
+  "updatedAt": "2026-10-18T16:51:40.567Z",
   "hot": {
     "rule": [
       {
@@ -453,6 +453,14 @@
       }
     ],
     "decision": [
+      {
+        "name": "a-spawned-child-unref-must-wait-for-close",
+        "kind": "decision",
+        "description": "Both isolation-lease spawners must resolve the envelope and then defer  with  inside the  handler.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-spawned-child-unref-must-wait-for-close.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-container.md",
+        "updatedAt": "2026-10-18"
+      },
       {
         "name": "backlog-14-7-closed-by-a-parity-arm-not-a-shared-import",
         "kind": "decision",
@@ -930,6 +938,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "never-quote-a-vitest-selector-glob",
+        "kind": "convention",
+        "description": "A quoted  is a vitest filter string, not a shell glob, so it matches nothing and the run is green over zero files.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\never-quote-a-vitest-selector-glob.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-container.md",
+        "updatedAt": "2026-10-18"
+      },
+      {
         "name": "one-type-line-two-readers-and-the-parity-corpus",
         "kind": "convention",
         "description": "is the canonical  reader (trim; hyphen bullet; whole value; ; LAST usable line wins).",
@@ -1332,6 +1348,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\ac-pass-list-is-not-a-completion-bar.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-12-session-e37ef0/txt/handoff.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "an-ast-guard-resolves-a-const-alias-not-a-parameter",
+        "kind": "lesson",
+        "description": "walks the TypeScript AST for calls whose callee is bound to a  import.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\an-ast-guard-resolves-a-const-alias-not-a-parameter.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-container.md",
+        "updatedAt": "2026-10-18"
       },
       {
         "name": "an-installed-build-whose-version-string-matches-the-worktree-can-still-be-missing-every-new-file",

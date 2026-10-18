@@ -5691,7 +5691,7 @@ It was first called cosmetic on the strength of this module's own comment (`:42-
 
 The unblock used here was to **rename the two affected request artifacts** to their bare-rid form. That is a workaround, not a repair: any fresh request directory whose first file lacks a prefix reproduces it. Worth a ruling: `requestIdFromFileName` should strip any leading digit run that cannot be part of a date-shaped rid, or `getNextNumber` should not read a leading year as a sequence number.
 
-### 11.4 `dispatch --isolation container` exits **0** having dispatched nothing (found 2026-10-15; **open; the most consequential item in this section**)
+### 11.4 `dispatch --isolation container` exits **0** having dispatched nothing (found 2026-10-15; **FIXED 2026-10-19 — rid `rid-container-lease-envelope`, uncommitted at the time of writing**)
 
 Measured three times by the code review and again by QA, on a host and project where `--isolation worktree` and no-isolation both emit full envelopes:
 
@@ -5701,6 +5701,20 @@ Measured three times by the code review and again by QA, on a host and project w
 The mechanism, isolated past the first reviewer's reading by QA: `src/services/dispatch/isolation-lease.ts:191` calls `child.unref()` **synchronously**, where the worktree path at `:104-105` defers it with `setImmediate` — and the worktree path's own comment states the consequence (*"the unref races the buffered stdout close and the test receives an empty JSON envelope"*). The container path's comment reads *"See spawnWorktreeLease above for the rationale"*: it cites the rationale and does not apply it. QA narrowed it further — the sync unref is **necessary but conditional**, in that deferring it, or running it with other pending work in the loop, both receive the envelope.
 
 **Why this matters beyond the bug:** a `--isolation container` dispatch that silently does nothing while reporting success is worse than one that fails, and it has **zero test coverage** — which is why the slice that deleted the *advertised* surface is the one that surfaced it. It is out of scope for §11's slice (the PRD put the container surface out of bounds) and needs its own.
+
+**FIXED 2026-10-19 (rid `rid-container-lease-envelope`).** The container path now defers
+`child.unref()` with `setImmediate` in the `close` handler, mirroring the worktree path. Measured with a
+fake Docker on PATH: before — exit 0, **0 stdout bytes**; after — exit 1, **1695 stdout bytes**,
+`ISOLATION_CONTAINER_SPAWN_FAILED` (742 bytes under tsx). A new `isolation-lease.test.ts` covers both
+spawners; the seam-preserving pre-fix mutant gives 1 failed / 5 passed (the literal HEAD gives 5 / 1
+because the seam did not exist there). QA caught one regression the RD's own tier run missed: the
+`spawnImpl` parameter was invisible to `spawn-windows-hide-guard`, whose AST resolves a same-file
+`const` alias but not a parameter; the fix uses
+`const spawnImpl = spawnImplOverride ?? childProcessSpawn`. The RD's green tier used a **quoted**
+`"tests/unit/*.test.ts"`, which matches nothing (§14.9), so the root tier containing the guard never
+ran — the same trap the QA then avoided by running it unquoted. **Residual:** the nonzero branch
+reports stderr only, so a `DOCKER_RUN_FAILED` written to stdout is omitted from the refusal; the
+worktree spawner has the identical shape. Recorded, not changed.
 
 ### 11.5 The `--rescope` waiver is weaker than its own comment claims (found 2026-10-15 by the security audit; **open, latent**)
 
