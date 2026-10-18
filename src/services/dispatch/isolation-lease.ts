@@ -11,15 +11,20 @@ import { spawn as childProcessSpawn } from 'node:child_process';
  * dispatch is already async, the lease is a few hundred ms of FS work,
  * and we need the leaseId before we build the dispatch record.
  */
-export function spawnWorktreeLease(args: {
-  projectRoot: string;
-  sessionId: string;
-  rid: string;
-  role: string;
-  purpose: string;
-}): Promise<{ leaseId: string; path: string; branch: string; expiresAt: number }> {
+export function spawnWorktreeLease(
+  args: {
+    projectRoot: string;
+    sessionId: string;
+    rid: string;
+    role: string;
+    purpose: string;
+  },
+  spawnImplOverride: typeof childProcessSpawn = childProcessSpawn
+): Promise<{ leaseId: string; path: string; branch: string; expiresAt: number }> {
+  // A same-file alias, not the parameter, is what the spawn guard resolves.
+  const spawnImpl = spawnImplOverride ?? childProcessSpawn;
   return new Promise((resolve, reject) => {
-    const child = childProcessSpawn(
+    const child = spawnImpl(
       process.execPath,
       [
         // The compiled CLI lives in dist/cli/peaks.js. We pass the entry
@@ -117,15 +122,20 @@ export function spawnWorktreeLease(args: {
  * path because the envelope surfaces a different set of
  * fields (image + containerId; see container-lease.ts).
  */
-export function spawnContainerLease(args: {
-  projectRoot: string;
-  sessionId: string;
-  rid: string;
-  role: string;
-  purpose: string;
-}): Promise<{ leaseId: string }> {
+export function spawnContainerLease(
+  args: {
+    projectRoot: string;
+    sessionId: string;
+    rid: string;
+    role: string;
+    purpose: string;
+  },
+  spawnImplOverride: typeof childProcessSpawn = childProcessSpawn
+): Promise<{ leaseId: string }> {
+  // A same-file alias, not the parameter, is what the spawn guard resolves.
+  const spawnImpl = spawnImplOverride ?? childProcessSpawn;
   return new Promise((resolve, reject) => {
-    const child = childProcessSpawn(
+    const child = spawnImpl(
       process.execPath,
       [
         process.argv[1] ?? '',
@@ -186,8 +196,13 @@ export function spawnContainerLease(args: {
         return;
       }
       resolve({ leaseId: env.data.lease.leaseId });
+      // Same deferral as spawnWorktreeLease: the unref must not run
+      // before the close, or the parent's event loop empties before
+      // the buffered stdout drains and the caller sees an empty
+      // envelope with exit 0.
+      setImmediate(() => {
+        child.unref();
+      });
     });
-    // See spawnWorktreeLease above for the rationale.
-    child.unref();
   });
 }
