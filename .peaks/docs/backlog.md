@@ -526,7 +526,7 @@ copy's own location the fixture root, and it ran 9 such arms with no production 
 slice's repair 1, and the gate's own header — which still described the top-level reach — corrected with
 it.
 
-### 2.13 A second prerequisite on the **root** `dist/` axis — two unit files, one of them misleading (found 2026-09-24)
+### 2.13 A second prerequisite on the **root** `dist/` axis — two unit files, one of them misleading (found 2026-09-24; **FIXED 2026-10-19 — rid `rid-root-dist-prereq`, the cheap arm**)
 
 - **Where**: the repo-root `dist/`, **not** `packages/*/dist`. `src/` is tested as TS through the vitest
   alias, but the root `dist/cli/index.js` is spawned by exactly one unit file
@@ -553,6 +553,17 @@ it.
 - **Open, two ways out**: accept the ~9–14 s, or give `verify-codegraph-tarball.test.ts` a stated
   prerequisite so its failure is directed rather than a bare `-0 +1` assertion diff. The second is
   cheaper and matches the pattern the handoff already ruled correct.
+
+**FIXED 2026-10-19 (rid `rid-root-dist-prereq`) — the cheap arm.** `verify-codegraph-tarball.test.ts`
+now calls `assertBuiltPath(projectRoot, 'dist/services/codegraph')` from
+`tests/unit/_setup/root-dist-prerequisite.ts` before its AC1 arm, so a missing root build reads as
+`Prerequisite missing: … Run "pnpm build" in the repo root before running this test.` instead of
+`expected 1 to be +0`. Measured with the root `dist/` renamed aside: before — `Test Files 2 failed (2)`,
+`Tests 1 failed | 2 passed (3)` with the bare assertion; after — the same two files fail with directed
+messages, `Tests 1 failed | 4 passed (5)`, and `dist/` restores with no `dist.__moved*` residue.
+**The ≈9–14 s cost call survives:** no implicit root build was added. Residuals: the helper's message is
+a second copy of the statusline sentence; an empty-but-present `dist/services/codegraph` is not caught;
+the reproduction renamed the real tree once.
 
 ### 2.14 Three more places the build guard returns green without establishing anything (rescued 2026-09-25)
 

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-18T19:05:55.551Z",
+  "updatedAt": "2026-10-18T19:25:44.037Z",
   "hot": {
     "rule": [
       {
@@ -475,6 +475,14 @@
         "description": "The \"exactly three leading comments\" rule is enforced only BEFORE the first executable line.",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\comments-after-executable-code-are-not-contract-bound.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-bdd.md",
+        "updatedAt": "2026-10-18"
+      },
+      {
+        "name": "do-not-wire-an-implicit-root-build-to-fix-a-message",
+        "kind": "decision",
+        "description": "§2.13 had two ways out: accept the ≈9–14 s implicit root build, or give the misleading test a stated prerequisite.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\do-not-wire-an-implicit-root-build-to-fix-a-message.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-rootdist.md",
         "updatedAt": "2026-10-18"
       },
       {
@@ -1026,6 +1034,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "share-the-directed-failure-helper",
+        "kind": "convention",
+        "description": "The remediation sentence lives in one helper () and the two consumers use it; the approximate build cost is stated in...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\share-the-directed-failure-helper.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-rootdist.md",
+        "updatedAt": "2026-10-18"
+      },
+      {
         "name": "stage-new-files-before-regenerating-the-baseline",
         "kind": "convention",
         "description": "The gate baseline must be regenerated AFTER -ing any new file it should count.",
@@ -1300,6 +1316,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-leg-must-not-choose-its-own-population.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-29-session-b7cf21/rd/requests/w10-silent-warning-scope.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "a-missing-prerequisite-must-read-as-a-prerequisite",
+        "kind": "lesson",
+        "description": "read the repo-root  but asserted only on the script's exit code, so an unbuilt tree produced  — indistinguishable fro...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-missing-prerequisite-must-read-as-a-prerequisite.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-rootdist.md",
+        "updatedAt": "2026-10-18"
       },
       {
         "name": "a-multi-slice-job-that-shares-one-rid-reopens-the-evidence-collision-hole-rid-scoping-was-built-to-close",
