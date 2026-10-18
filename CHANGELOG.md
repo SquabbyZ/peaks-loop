@@ -1,5 +1,36 @@
 # Changelog
 
+## 4.1.7 — 2026-10-18（提交腿硬门、契约表派生、过期债棘轮，以及 canonical store 与 IDE skill 树的漂移检查）
+
+**版本级别**: 未发布区间 `v4.1.6..HEAD` 共 **5 个 commit**（**1 feat / 2 refactor / 1 chore / 1 docs**）。取 **patch**，依维护者 2026-07-22 的常设规则"默认版本新增采用最小的版本位"。
+
+### 1. `backCompatUntil` 在提交腿真正关闭（`0cfc25c0`）
+
+`prerequisite-checks.ts` 早就算出 `expiredWindow` 并把它写进软 warning，但没有任何边界把它变成失败；到 4.1.6 为止，`mut/mut-report.json` 与 `rd/third-party-review.md` 已在声明窗口之后约二十个 minor 仍然软通过。现在 `peaks workflow verify-pipeline` 在"过期 + 缺 artifact + 无当前接受"时返回 `complete:false`；`peaks request transition` 仍保持软 warning。接受清单在 `.peaks/lint/backcompat-expired-acceptance.json`，每条带 reason 与 `reviewBy`（上限 installed + 2 minor）；`initWorkspace` 幂等播种，`reviewBy` 在播种时推导；缺失清单 fail-closed，doctor 以 `error` 报告。路径解析抽到 leaf 模块，transition 与 commit gate 共用。
+
+### 2. `rdGatesForType` 从契约表派生（`98f5ed60`）
+
+三个手写的请求类型列表（`bugfix`、`!docs/chore/config`、`feature|refactor|bugfix|config`）被一张 `RD_EVIDENCE_GATES` 表和 `contractEvidencePaths` 取代；重复的 `RD_EVIDENCE_PROBE` 映射删除，`pipeline-verify-gate-support.ts` 净减 75 行。六种类型的 gate 列表逐项不变，由表驱动测试钉住；一个 lookup seam 与两个 binding 用例证明生产函数确实走契约，而不是另一份列表。
+
+### 3. 过期 grace 标记的只减不增棘轮（`f02c6be6`）
+
+129 个 `grace: 1 minor release (v2.14.0)` 标记分布在 83 个已跟踪的 `src/**` 文件里，宽限期早已过去而没有机制执行。新增 `expired-grace-ratchet.test.ts` + `_expired-grace-scan.ts`，以 `git ls-files` 为人口、以 `.peaks/lint/expired-grace-baseline.json` 为基线：新未登记标记、计数变化或陈旧条目都会变红。控制臂与两次真实控制（删一条基线、加一条假条目）都按预期失败。**129 个 catch 没有逐个改写**——棘轮记录债务并禁止增长。
+
+### 4. canonical store 与 IDE skill 树的漂移检查（`f1525621`）
+
+新增只读 doctor 检查 `skills:reference-parity`：比较 `$PEAKS_HOME`（或 `~/.peaks`）下的 canonical skill store 与每个已存在的 IDE skill 根，点名"一侧有、另一侧没有"的文件，并提示 **"Ask the LLM to run `peaks skill sync`"**。junction 比较相等；realpath visited set 防 symlink 环；store 不可读时报告 warning。schema 增加加法式 `skills:<topic>:<ide>:<skill>` id 形状。顺带修复 `peaks skill doctor` 忽略 `severity` 的问题：warning 现在只展示，不再把 exit code 置 1。
+
+### 5. backlog 重测（`2e6fd7e9`）
+
+§14.5 的 `--rid` 穿越在 HEAD 上已由 request-id 校验拒绝，重测记录在案；§14.8 关闭；新增 §16 记录本轮两个切片与两个 `backCompatUntil` 软门。
+
+### 用户可见行为
+
+- `peaks workflow verify-pipeline` 新增一个提交腿硬失败；`peaks request transition` 保持软。
+- `peaks doctor` 新增 `skills:reference-parity` 检查。
+- `peaks skill doctor` 的 warning 不再导致 exit 1。
+- 无破坏性变更；4.1.6 的行为除上述三点外保持不变。
+
 ## 4.1.6 — 2026-10-18（三类闸规则收紧：配置路径的 reader、skip 允许列表、声明类型；两个 refactor 切片被自己新增的规则抓住）
 
 **版本级别**: 未发布区间 `v4.1.5..HEAD` 共 **38 个 commit**（**2 feat / 11 fix / 3 refactor / 7 chore / 8 docs / 4 test+style**）。取 **patch**，依维护者 2026-07-22 的常设规则"默认版本新增采用最小的版本位"。**本版含两处用户可见的行为收紧**，按 4.1.5 的先例明写：声明为 `docs`/`chore`/`config` 的请求不能再携带产品源码；`config` 不再能通过 skip 记录跳过它的 QA 阶段。
