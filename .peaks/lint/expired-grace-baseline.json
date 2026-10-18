@@ -1,0 +1,421 @@
+{
+  "version": 1,
+  "currentMinor": "4.1",
+  "files": [
+    {
+      "path": "src/cli/commands/classify-signals.ts",
+      "occurrences": 3,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/cli/commands/code-job-shape-commands.ts",
+      "occurrences": 1,
+      "versions": ["unversioned"]
+    },
+    {
+      "path": "src/cli/commands/code-runtime-session.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/cli/commands/compact-settle-command.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/cli/commands/core/doctor-probes.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/cli/commands/core/skill-presence-housekeeping-commands.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/cli/commands/dispatch-envelope.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/cli/commands/dispatch-prompt-composition.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/cli/commands/gate-commands-enforce.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/cli/commands/heartbeat-commands-action.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/cli/commands/outer-cache-commands.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/cli/commands/playwright-ls-stop-commands.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/cli/commands/playwright-session-store.ts",
+      "occurrences": 2,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/cli/commands/preferences-commands.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/cli/commands/share-runners.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/cli/commands/slice-decompose-artifacts.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/cli/commands/verdict-aggregate-command.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/cli/commands/workspace/helpers.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/cli/program.ts",
+      "occurrences": 2,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/artifacts/artifact-prerequisites.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/artifacts/request-artifact-service.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/audit-independent/handoff-readers.ts",
+      "occurrences": 2,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/audit-independent/perf-audit-service.ts",
+      "occurrences": 2,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/audit/enforcers/active-skill-resolver.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/audit/enforcers/lint-audit-regression.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/audit/enforcers/resume-detection.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/audit/red-lines-service.ts",
+      "occurrences": 9,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/compact/request-transition-hook.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/compact/suggest-service.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/config/config-file-io.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/config/config-safety.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/config/config-service.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/dispatch/batch-counter.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/dispatch/dispatch-record-writer.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/dispatch/sub-agent-dispatcher.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/doctor/doctor-service/checks/dist-source-version.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/doctor/doctor-service/checks/gateguard-conflict.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/ide/adapters/claude-code-local-state.ts",
+      "occurrences": 2,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/ide/shared/atomic-json.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/job/job-progress-store.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/log/logger.ts",
+      "occurrences": 5,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/log/retention.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/memory/llm-reranker.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/memory/project-context-service.ts",
+      "occurrences": 3,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/memory/project-memory-service/index/ranking.ts",
+      "occurrences": 3,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/memory/project-memory-service/store/paths.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/mode/mode-enforcement.ts",
+      "occurrences": 2,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/observability/jsonl-store.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/qa/browser-event-logger.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/rd/rd-service.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/recommendations/capability-map-service.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/reviewer/reviewer-service.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/sc/sc-service.ts",
+      "occurrences": 3,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/scan/existing-system-service.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/session/caller-binding-service.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/session/session-binding-bridge.ts",
+      "occurrences": 7,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/session/session-manager.ts",
+      "occurrences": 6,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/session/session-resume-service.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/signal/cancel-handler.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/skills/skill-presence-service.ts",
+      "occurrences": 2,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/skills/skill-runbook-service.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/skills/skill-statusline-model.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/skills/statusline-settings-service.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/skills/sync-service-support.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/skills/sync-service.ts",
+      "occurrences": 2,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/slice/cross-pass-edge-merger.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/slice/slice-archive-service.ts",
+      "occurrences": 2,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/slice/slice-decompose-runners.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/standards/project-context-support.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/tech/tech-service.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/test-cache/test-cache-service.ts",
+      "occurrences": 2,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/verdict/envelope-parsers.ts",
+      "occurrences": 2,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/workflow/plan-refresher.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/workflow/plan-trigger-detector.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/workflow/workflow-autonomous-resume-helpers.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/workflow/workflow-autonomous-resume-validation.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/workflow/workflow-skip-service.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/workflow/workflow-state-store.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/workspace/migrate-1-4-1-service.ts",
+      "occurrences": 2,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/workspace/reconcile-migrate.ts",
+      "occurrences": 2,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/workspace/reconcile-service.ts",
+      "occurrences": 3,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/services/workspace/workspace-service.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    },
+    {
+      "path": "src/shared/fs-utils.ts",
+      "occurrences": 1,
+      "versions": ["v2.14.0"]
+    }
+  ]
+}
