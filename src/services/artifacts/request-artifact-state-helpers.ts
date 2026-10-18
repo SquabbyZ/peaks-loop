@@ -1,5 +1,6 @@
 import type { PrerequisiteCheckResult, RequestType } from './artifact-prerequisites.js';
 import type { RequestArtifactRole } from './artifact-templates.js';
+import { unmetPrerequisiteMessage } from './prerequisite-checks.js';
 
 export type RequestArtifactState =
   | 'draft'
@@ -52,9 +53,7 @@ export class PrerequisitesNotSatisfiedError extends Error {
     missing: PrerequisiteCheckResult['missing'],
     warnings: PrerequisiteCheckResult['warnings'] = []
   ) {
-    super(
-      `Cannot transition ${role} to ${newState}: ${missing.length} unmet requirement${missing.length === 1 ? '' : 's'} under .peaks/_runtime/${sessionId}/`
-    );
+    super(unmetPrerequisiteMessage(role, newState, sessionId, missing));
     this.name = 'PrerequisitesNotSatisfiedError';
     this.role = role;
     this.newState = newState;

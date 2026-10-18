@@ -237,3 +237,48 @@ export async function bodyViolationsIfDeclared(
   if (!hasBodyChecks(prerequisite)) return [];
   return prerequisiteBodyViolations(prerequisite, await read());
 }
+
+/**
+ * One unmet prerequisite as `checkPrerequisites` reports it. `path` and
+ * `description` are unchanged from the pre-`kind` shape so every existing
+ * consumer keeps reading them; `kind` is the machine-readable answer to "is the
+ * file absent, or present and failing its body contract?" — the question a
+ * consumer previously had to infer by parsing the prose.
+ *
+ *   - `absent`: nothing resolved at `path`.
+ *   - `body`: a file resolved and failed the body markers its prerequisite
+ *     declares.
+ */
+export type UnmetPrerequisite = {
+  path: string;
+  description: string;
+  kind: 'absent' | 'body';
+};
+
+/**
+ * The transition refusal's message line: the total plus the split a reader
+ * needs to tell "you have not written it" from "you wrote it and it does not
+ * satisfy the contract". A bare total sent a producer to produce a file that
+ * already existed.
+ *
+ * A zero count is omitted, so the line never reads
+ * `…: 0 missing artifacts, 1 present but invalid`.
+ */
+export function unmetPrerequisiteMessage(
+  role: string,
+  newState: string,
+  sessionId: string,
+  missing: ReadonlyArray<Pick<UnmetPrerequisite, 'kind'>>
+): string {
+  const absent = missing.filter((entry) => entry.kind === 'absent').length;
+  const invalid = missing.length - absent;
+  const counts = [
+    ...(absent === 0 ? [] : [`${absent} missing artifact${absent === 1 ? '' : 's'}`]),
+    ...(invalid === 0 ? [] : [`${invalid} present but invalid`])
+  ].join(', ');
+  const total = missing.length;
+  return (
+    `Cannot transition ${role} to ${newState}: ${total} unmet requirement${total === 1 ? '' : 's'}` +
+    `${counts === '' ? '' : `: ${counts}`} under .peaks/_runtime/${sessionId}/`
+  );
+}

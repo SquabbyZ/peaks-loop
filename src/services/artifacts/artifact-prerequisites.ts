@@ -94,7 +94,7 @@ export type ArtifactPrerequisite = {
 
 export type PrerequisiteCheckResult = {
   ok: boolean;
-  missing: Array<{ path: string; description: string }>;
+  missing: Array<{ path: string; description: string; kind: 'absent' | 'body' }>;
   /**
    * Missing files inside a back-compat window (see
    * `ArtifactPrerequisite.backCompat`). NOT a failure — the gate does not throw
@@ -511,7 +511,7 @@ export async function checkPrerequisites(
   // The two tiers are built by the resolver module, so the commit gate and this
   // transition probe the same directories.
   const roots = sessionRootsFor(options.projectRoot, options.sessionId);
-  const missing: Array<{ path: string; description: string }> = [];
+  const missing: Array<{ path: string; description: string; kind: 'absent' | 'body' }> = [];
   const warnings: Array<{ path: string; code: string; message: string }> = [];
   for (const prerequisite of requirements) {
     const relative = resolvePrerequisitePath(prerequisite, options.requestId);
@@ -530,7 +530,7 @@ export async function checkPrerequisites(
         warnings.push(softWarning);
         continue;
       }
-      missing.push({ path: relative, description: prerequisite.description });
+      missing.push({ kind: 'absent', path: relative, description: prerequisite.description });
       continue;
     }
     // Read handed over as a thunk: the no-body-contract guard lives with the check.
@@ -538,7 +538,7 @@ export async function checkPrerequisites(
       readFile(absolute, 'utf8')
     );
     for (const description of bodyViolations) {
-      missing.push({ path: relative, description });
+      missing.push({ kind: 'body', path: relative, description });
     }
   }
   // own `gateEvidence` DECLARATION must be true — every path it names must
@@ -580,12 +580,12 @@ export async function checkPrerequisites(
     // deleted section is the shed this arm exists to close.
     const { describeJudgedRefusal, verifyJudgedDeclaration } =
       await import('../audit-independent/judged-declaration-check.js');
-    for (const refusal of verifyJudgedDeclaration({
+    for (const gap of verifyJudgedDeclaration({
       projectRoot: options.projectRoot,
       sessionId: options.sessionId,
       requestId: options.requestId
     }).refusals) {
-      missing.push({ path: refusal.artifact, description: describeJudgedRefusal(refusal) });
+      missing.push({ kind: 'body', path: gap.artifact, description: describeJudgedRefusal(gap) });
     }
   }
 

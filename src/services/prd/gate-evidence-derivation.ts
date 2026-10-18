@@ -78,6 +78,7 @@ import { join } from 'node:path';
 import { pathExists } from 'peaks-loop-shared/fs';
 
 import { getPrerequisitesFor, type RequestType } from '../artifacts/artifact-prerequisites.js';
+import type { UnmetPrerequisite } from '../artifacts/prerequisite-checks.js';
 import { showRequestArtifact } from '../artifacts/request-artifact-service.js';
 import { readHandoffGateEvidence } from './handoff-gate-evidence.js';
 import { resolveHandoffPath } from './handoff-service.js';
@@ -196,7 +197,7 @@ export async function deriveGateEvidenceForRequest(opts: {
 /** `missing` / `warnings` in the same shape `checkPrerequisites` reports. */
 export interface GateEvidenceDeclarationCheck {
   readonly ok: boolean;
-  readonly missing: ReadonlyArray<{ path: string; description: string }>;
+  readonly missing: ReadonlyArray<UnmetPrerequisite>;
   readonly warnings: ReadonlyArray<{ path: string; code: string; message: string }>;
 }
 
@@ -254,6 +255,7 @@ export async function checkDeclaredGateEvidence(opts: {
       ok: false,
       missing: [
         {
+          kind: 'body',
           path: `gateEvidence(${declared.status})`,
           description:
             `the handoff's gateEvidence declaration is unusable (${declared.status}) — ` +
@@ -264,12 +266,13 @@ export async function checkDeclaredGateEvidence(opts: {
     };
   }
 
-  const missing: Array<{ path: string; description: string }> = [];
+  const missing: UnmetPrerequisite[] = [];
   for (const key of GATE_EVIDENCE_KEYS) {
     const declaredPath = declared.evidence[key];
     if (declaredPath === undefined) continue;
     if (await pathExists(join(opts.projectRoot, declaredPath))) continue;
     missing.push({
+      kind: 'absent',
       path: `gateEvidence.${key}`,
       description: `gateEvidence.${key} declares "${declaredPath}", which does not exist`
     });
