@@ -129,7 +129,7 @@
 - [widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything](widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything.md) — A2 deliberately declined to widen the citation guard to bare non-test paths, and recorded the cost as "50 findings, n...
 - [workspace-underscore-convention](workspace-underscore-convention.md) — Under , any top-level directory whose name starts with  is **ephemeral** and is automatically gitignored by the  rule...
 
-## convention (19)
+## convention (20)
 
 - [a-slice-that-adds-src-files-owes-a-baseline-regen](a-slice-that-adds-src-files-owes-a-baseline-regen.md) — A commit that adds  files must regenerate  before the next tier run, or  and  go red for a reason unrelated to the cu...
 - [audit-artifact-convention](audit-artifact-convention.md) — Audit artifact writer generalization (Slice 2026-06-26-audit-artifact-writer-generalization).
@@ -137,6 +137,7 @@
 - [backlog-open-markers-need-a-head-measurement](backlog-open-markers-need-a-head-measurement.md) — The backlog's OPEN markers are not machine-checked.
 - [comparing-counts-across-rounds-guarantees-a-false-regression-report](comparing-counts-across-rounds-guarantees-a-false-regression-report.md) — A long job measured its own size repeatedly and kept disagreeing: 14 → 22 → 25 → 27 changed files, RD test counts of ...
 - [detectidefromcontext-iterates-listadapterids](detectidefromcontext-iterates-listadapterids.md) — MUST iterate  (from ), never a hardcoded list of IdeId strings.
+- [fail-closed-to-the-readers-existing-sentinel](fail-closed-to-the-readers-existing-sentinel.md) — The invalid stage returns  — the same sentinel  already returns for malformed JSON, a wrong version, and a missing file.
 - [never-quote-a-vitest-selector-glob](never-quote-a-vitest-selector-glob.md) — A quoted  is a vitest filter string, not a shell glob, so it matches nothing and the run is green over zero files.
 - [one-type-line-two-readers-and-the-parity-corpus](one-type-line-two-readers-and-the-parity-corpus.md) — is the canonical  reader (trim; hyphen bullet; whole value; ; LAST usable line wins).
 - [peaks-ide-skill-is-the-skill-first-pattern-5-step-flow-uses-existing-cli-primitives](peaks-ide-skill-is-the-skill-first-pattern-5-step-flow-uses-existing-cli-primitives.md) — The  skill () is the canonical example of the dev-preference red line "skill is primary, CLI is auxiliary".
@@ -159,7 +160,7 @@
 - [src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior](src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior.md) — The  module is the single source of truth for IDE-aware behavior.
 - [src-services-session-canonical-workspace-resolver](src-services-session-canonical-workspace-resolver.md) — is the canonical home for the per-session workspace.
 
-## lesson (130)
+## lesson (132)
 
 - [2026-06-26-unknown-sid-root-cause](archived/2026-06-26-unknown-sid-root-cause.md) — Root cause + remediation log for the  and  orphan session dirs.
 - [2026-07-28-rid-034-handoff-no-sediment-block](2026-07-28-rid-034-handoff-no-sediment-block.md) — rid-034 收尾遇 sediment 反向 — no peaks-memory:start/end 闭合块 **Date:** 2026-07-28 **Rid:** 2026-07-28-rid-034-v2-13-0-clea...
@@ -192,12 +193,14 @@
 - [a-prose-claim-about-what-a-timeout-does-while-holding-evidence-only-of-what-it-is](a-prose-claim-about-what-a-timeout-does-while-holding-evidence-only-of-what-it-is.md) — 断言行为之前，先测行为；断言不存在之前，先确认自己读到了输出 案例一：算式是真的，回收是假的（2026-10-01，rid ）  求值成 18,000,000 ms （5 小时），而命名与注释要的是 300,000 ms。这一半是**...
 - [a-ratchet-on-a-count-cannot-see-substitution](a-ratchet-on-a-count-cannot-see-substitution.md) — 对「数量」打棘轮，看不见「替换」 事实（2026-10-09，rid-038 的 format-check 棘轮，QA 独立发现） 第一版 CI 棘轮断言 ，成功时打印： **QA 指出这个判据有个洞**：**修掉一个旧的未格式化文件...
 - [a-refusal-needs-a-machine-shape-not-only-prose](a-refusal-needs-a-machine-shape-not-only-prose.md) — already said "N unmet requirement(s)" and the CLI already said , but  still listed a PRESENT file under a field named...
+- [a-refusal-path-can-throw-instead-of-refusing](a-refusal-path-can-throw-instead-of-refusing.md) — 's refusal builds its message with .
 - [a-registry-or-behaviour-hash-cannot-see-a-function-body-and-cannot-see-a-dropped-re-export](a-registry-or-behaviour-hash-cannot-see-a-function-body-and-cannot-see-a-dropped-re-export.md) — Five batches each "proved" behaviour-preserving refactors by hashing the rendered command registry before and after.
 - [a-self-check-whose-file-set-comes-from-the-diff-covers-neither-agent-s-window](a-self-check-whose-file-set-comes-from-the-diff-covers-neither-agent-s-window.md) — An RD reported "eslint + prettier --check clean **on the new test file**" — singular.
 - [a-silent-push-on-this-repo-is-the-pre-push-hook-running-the-full-suite](a-silent-push-on-this-repo-is-the-pre-push-hook-running-the-full-suite.md) — On 2026-09-25,  produced **zero bytes of output for over two minutes**.
 - [a-single-measurement-of-a-host-sensitive-command-is-not-a-fact-about-the-command](a-single-measurement-of-a-host-sensitive-command-is-not-a-fact-about-the-command.md) — Four measurements of one  on this repo spread **8.89 s – 14.2 s** (~60 %): , from three different agents.
 - [a-slice-whose-core-behaviour-no-artifact-specifies-costs-multiples-of-its-peers](a-slice-whose-core-behaviour-no-artifact-specifies-costs-multiples-of-its-peers.md) — S1, S2 and S3 of  each needed **one** repair pass.
 - [a-spent-flag-stops-protecting-what-it-named](a-spent-flag-stops-protecting-what-it-named.md) — was invented so that redrawing the lint scope had to be **stated**: the guard refuses a scope change, the operator pa...
+- [a-typed-field-from-json-is-unvalidated](a-typed-field-from-json-is-unvalidated.md) — is typed , but it comes out of a JSON file and  cast the parse.
 - [a-wave-is-accepted-by-the-total-that-its-leaves-cannot-see](a-wave-is-accepted-by-the-total-that-its-leaves-cannot-see.md) — C wave 7 drove  60,271 → 54,318.
 - [ac-pass-list-is-not-a-completion-bar](ac-pass-list-is-not-a-completion-bar.md) — 本切片 QA 报 **11/11 AC pass**，RD 自评审却找出 **4 条 MEDIUM**，全部落在 QA 那 11 条 AC 之外：(CR-1)  的成功提示被打成  输出到 stderr；(CR-2) 自实现 matc...
 - [an-allowlist-that-matches-any-value-cannot-fail](an-allowlist-that-matches-any-value-cannot-fail.md) — allowlisted  — ANY state value — before the placeholder rules ran.

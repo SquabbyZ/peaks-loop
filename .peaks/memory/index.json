@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-18T19:25:44.037Z",
+  "updatedAt": "2026-10-18T19:46:41.586Z",
   "hot": {
     "rule": [
       {
@@ -970,6 +970,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "fail-closed-to-the-readers-existing-sentinel",
+        "kind": "convention",
+        "description": "The invalid stage returns  — the same sentinel  already returns for malformed JSON, a wrong version, and a missing file.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\fail-closed-to-the-readers-existing-sentinel.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-release.md",
+        "updatedAt": "2026-10-18"
+      },
+      {
         "name": "never-quote-a-vitest-selector-glob",
         "kind": "convention",
         "description": "A quoted  is a vitest filter string, not a shell glob, so it matches nothing and the run is green over zero files.",
@@ -1366,6 +1374,14 @@
         "updatedAt": "2026-10-18"
       },
       {
+        "name": "a-refusal-path-can-throw-instead-of-refusing",
+        "kind": "lesson",
+        "description": "'s refusal builds its message with .",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-refusal-path-can-throw-instead-of-refusing.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-release.md",
+        "updatedAt": "2026-10-18"
+      },
+      {
         "name": "a-registry-or-behaviour-hash-cannot-see-a-function-body-and-cannot-see-a-dropped-re-export",
         "kind": "lesson",
         "description": "Five batches each \"proved\" behaviour-preserving refactors by hashing the rendered command registry before and after.",
@@ -1412,6 +1428,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-spent-flag-stops-protecting-what-it-named.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-29-session-b7cf21/rd/requests/w11b-scope-growth-vs-shrink.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "a-typed-field-from-json-is-unvalidated",
+        "kind": "lesson",
+        "description": "is typed , but it comes out of a JSON file and  cast the parse.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-typed-field-from-json-is-unvalidated.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-release.md",
+        "updatedAt": "2026-10-18"
       },
       {
         "name": "a-wave-is-accepted-by-the-total-that-its-leaves-cannot-see",

@@ -249,7 +249,7 @@ Every item below is one instance. The corollary that decided how each was handle
 red-line`), the latter maps to `action` (`ok|soft-warn|auto-compact-now|red-line`). `auto-fire` has no `action`
   equivalent. H4 aligned the two on behaviour but **did not unify the vocabularies**.
 
-### 2.4 `readReleaseState` trusts an unvalidated `currentStage`
+### 2.4 `readReleaseState` trusts an unvalidated `currentStage` (found 2026-09-24; **FIXED 2026-10-19 — rid `rid-release-stage-validation`**)
 
 - **Where**: `src/services/release/release-state.ts:85-100` — `readReleaseState` casts
   (`JSON.parse(raw) as Partial<ReleaseState>`, `:90`) and returns `parsed.active` verbatim (`:94`). It
@@ -267,6 +267,19 @@ red-line`), the latter maps to `action` (`ok|soft-warn|auto-compact-now|red-line
     `isValidStageTransition` returns `false`. It is a **display/typing lie, not a transition-safety hole.**
   - That matters for prioritisation: §2.4 is a small, contained fix (validate on read, e.g. via
     `isReleaseStage`, and decide what to do with a stage that fails), not a release-safety defect.
+
+**FIXED 2026-10-19 (rid `rid-release-stage-validation`).** `readReleaseState` now fails closed to
+`EMPTY_RELEASE_STATE` when `active` or ANY `history` record carries a stage `isReleaseStage` rejects
+(`hasValidStage`), matching the reader's existing behavior for malformed JSON and a wrong version.
+Measured: `hotfixed` / `bogus-stage` on active or in history → `EMPTY_RELEASE_STATE`; a legal stage
+reads unchanged; a mixed valid-active/invalid-history file fails closed. Mutation controls (both
+guards removed: 4/5 arms red; history guard only: 1/8) prove the arms discriminate. Untouched:
+`isValidStageTransition`, `VALID_TRANSITIONS`, `transitionRelease`, `rollbackRelease` (byte-identical).
+**New findings, measured and not fixed:** `transitionRelease`'s refusal message indexes
+`VALID_TRANSITIONS[from]` and throws `TypeError: Cannot read properties of undefined (reading 'join')`
+when `from` is unknown — in-repo unreachable (all three call sites pass `readReleaseState` output), but
+reachable by a direct import with a hand-built state; `hotfixRelease` silently drops an unknown prior
+record; `stageHistory[].stage` is not validated. The first is filed separately in §16.
 
 ### 2.5 `metadataKey` check is unreachable for object input
 
@@ -6054,3 +6067,11 @@ single path segment", but they use `isUnsafePathInput`, which admits `a/b` — t
 not a single-segment guard. The reviewer producer now refuses `/` and `\` locally; the canonical session-dir helper
 still does not. Impact is bounded to nesting under `.peaks/_runtime/` (no `..` escape), but the contract and the
 predicate disagree. A dedicated single-segment predicate, used by both entries, is the fix.
+
+**New finding (2026-10-19, found while closing §2.4):** `transitionRelease`'s refusal path builds its
+message with `VALID_TRANSITIONS[from].join(…)`; when `from` is an unknown stage the property is
+`undefined` and the call throws `TypeError: Cannot read properties of undefined (reading 'join')`
+instead of refusing. In-repo it is unreachable — every call site passes `readReleaseState` output, and
+the reader now fails closed — but a direct library caller with a hand-built state reaches it. The fix
+is a fallback `?? []` in the message builder; left for a separate slice because it touches the
+transition path §2.4 was told not to change.
