@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-18T15:15:59.662Z",
+  "updatedAt": "2026-10-18T16:03:49.459Z",
   "hot": {
     "rule": [
       {
@@ -454,6 +454,14 @@
     ],
     "decision": [
       {
+        "name": "backlog-14-7-closed-by-a-parity-arm-not-a-shared-import",
+        "kind": "decision",
+        "description": "§14.7's two type derivations were closed by a parity arm, not by deriving one from the other.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\backlog-14-7-closed-by-a-parity-arm-not-a-shared-import.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-parity.md",
+        "updatedAt": "2026-10-18"
+      },
+      {
         "name": "ide-adapter-resource-profile-framework",
         "kind": "decision",
         "description": "IdeAdapter resource-profile framework (slice #011) Decision (2026-06-07, slice #011, peaks-code full-auto) The  shape...",
@@ -874,6 +882,14 @@
     ],
     "convention": [
       {
+        "name": "a-slice-that-adds-src-files-owes-a-baseline-regen",
+        "kind": "convention",
+        "description": "A commit that adds  files must regenerate  before the next tier run, or  and  go red for a reason unrelated to the cu...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-slice-that-adds-src-files-owes-a-baseline-regen.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-parity.md",
+        "updatedAt": "2026-10-18"
+      },
+      {
         "name": "audit-artifact-convention",
         "kind": "convention",
         "description": "Audit artifact writer generalization (Slice 2026-06-26-audit-artifact-writer-generalization).",
@@ -912,6 +928,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\detectidefromcontext-iterates-listadapterids.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "one-type-line-two-readers-and-the-parity-corpus",
+        "kind": "convention",
+        "description": "is the canonical  reader (trim; hyphen bullet; whole value; ; LAST usable line wins).",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\one-type-line-two-readers-and-the-parity-corpus.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-parity.md",
+        "updatedAt": "2026-10-18"
       },
       {
         "name": "peaks-ide-skill-is-the-skill-first-pattern-5-step-flow-uses-existing-cli-primitives",
