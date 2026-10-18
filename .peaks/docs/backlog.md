@@ -1721,7 +1721,7 @@ shape holes that were blind even before the split — constructors, and unbound 
 both closed with no new offenders. The item said "thirteen modules"; the directory is sixteen, counted by
 `readdirSync` in the test and by `ls | wc -l` here, both agreeing.
 
-### 2.29 `peaks job subagent-cleanup` reports `cleaned: true` while removing nothing, because its pending set lives in the dispatching process's memory (found 2026-10-02, C wave 7 closure)
+### 2.29 `peaks job subagent-cleanup` reports `cleaned: true` while removing nothing, because its pending set lives in the dispatching process's memory (found 2026-10-02, C wave 7 closure; **FIXED 2026-10-19 — rid `rid-subagent-cleanup-ledger`**)
 
 C wave 7's closure step ran `peaks job subagent-cleanup --job-id 2026-10-01-c-wave7-excess --batch-id <uuid>
 --json` for all five leaf batches plus the `file-size-excess-row` batch. All six returned
@@ -1745,6 +1745,16 @@ orchestrator records it as done. Two acceptance items for whoever fixes it — (
 read from the on-disk ledger so a CLI invocation observes what the dispatching run left there; (2) `cleaned`
 must be `false` (or the command must fail) when the named batch is absent from the ledger, so "nothing to
 clean" is distinguishable from "cleaned it".
+
+**FIXED 2026-10-19 (rid `rid-subagent-cleanup-ledger`).** `cleanup()` now reads
+`.peaks/_sub_agents/<sid>/active-dispatches.json` and finalizes matching `queued` rows via
+`markCompleted` — the same effect `sub-agent finalize --batch` has — and `cleaned: true` requires at
+least one finalized row. An absent batch returns `cleaned: false` and the CLI exits 1 with
+`BATCH_NOT_CLEANED`; `--force` is now read and extends the clean to non-`queued` rows, but never
+rescues an absent batch. The in-memory map is kept for same-process callers and covered by an arm.
+Measured on a temp ledger: before — exit 0, `cleaned: true`, ledger byte-identical; after — present:
+index 1→0 rows and the record `done`; absent: exit 1, ledger unchanged. The integration assertion that
+pinned `cleaned: true` was corrected, and that file's line count is unchanged.
 
 ### 2.30 ~~The request state machine refuses real shell syntax but accepts an unfilled template~~ (found 2026-10-02; **central claim retracted 2026-10-02** — see the note at the end of this entry; extends §2.25 and §2.26)
 

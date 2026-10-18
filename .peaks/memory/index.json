@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-18T22:00:47.404Z",
+  "updatedAt": "2026-10-18T22:25:05.006Z",
   "hot": {
     "rule": [
       {
@@ -534,6 +534,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "read-the-durable-ledger-and-keep-the-in-memory-set",
+        "kind": "decision",
+        "description": "The fix reads  and finalizes matching rows via , the same effect  has.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\read-the-durable-ledger-and-keep-the-in-memory-set.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-cleanup.md",
+        "updatedAt": "2026-10-18"
+      },
+      {
         "name": "remove-a-dead-type-alias-only-after-proving-no-package-reexport",
         "kind": "decision",
         "description": "Three type aliases were dropped from the export list after: zero  importers across , , , , ; no package entry naming ...",
@@ -1031,6 +1039,14 @@
         "description": "A quoted  is a vitest filter string, not a shell glob, so it matches nothing and the run is green over zero files.",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\never-quote-a-vitest-selector-glob.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-container.md",
+        "updatedAt": "2026-10-18"
+      },
+      {
+        "name": "nothing-to-clean-must-not-read-as-cleaned",
+        "kind": "convention",
+        "description": "An absent batch now returns , and the CLI exits 1 with , naming the ledger path.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\nothing-to-clean-must-not-read-as-cleaned.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-cleanup.md",
         "updatedAt": "2026-10-18"
       },
       {
@@ -1556,6 +1572,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-spent-flag-stops-protecting-what-it-named.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-29-session-b7cf21/rd/requests/w11b-scope-growth-vs-shrink.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "a-success-value-can-be-the-never-did-anything-branch",
+        "kind": "lesson",
+        "description": "returned  when the batch was NOT in its in-memory set, and a fresh CLI process always had an empty set.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-success-value-can-be-the-never-did-anything-branch.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-cleanup.md",
+        "updatedAt": "2026-10-18"
       },
       {
         "name": "a-typed-field-from-json-is-unvalidated",
