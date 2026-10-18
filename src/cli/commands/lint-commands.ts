@@ -223,7 +223,7 @@ export function registerLintCommands(program: Command, io: ProgramIO): void {
       .option('--timeout-ms <ms>', 'subprocess timeout in milliseconds (default 60000)')
       .option(
         '--baseline-file <path>',
-        'baseline JSON output path (default .peaks/lint/baseline.json)'
+        'baseline JSON path, read for existing waivers and written with the scan (default .peaks/lint/baseline.json)'
       )
   ).action((options: LintOptions) => {
     let timeoutMs: number | undefined;
@@ -244,15 +244,19 @@ export function registerLintCommands(program: Command, io: ProgramIO): void {
       return;
     }
     const cwd = process.cwd();
+    // The flag governs BOTH sides: the runner subtracts the named file below,
+    // and `writeBaselineJson` writes back to it. Resolve it before `runOptions`
+    // so the read side cannot silently fall back to the default baseline.
+    const baselineFile = options.baselineFile ?? '.peaks/lint/baseline.json';
     const runOptions: EslintRunOptions = {
       cwd,
       diffOnly: false,
+      baselineFile,
       ...(options.scope !== undefined ? { scope: options.scope } : {}),
       ...(options.configPath !== undefined ? { configPath: options.configPath } : {}),
       ...(timeoutMs !== undefined ? { timeoutMs } : {})
     };
     const result = runEslint(runOptions);
-    const baselineFile = options.baselineFile ?? '.peaks/lint/baseline.json';
     const written = writeBaselineJson(resolveProjectRoot(cwd), baselineFile, result);
     const envelope = ok(
       'code.lint.baseline',
