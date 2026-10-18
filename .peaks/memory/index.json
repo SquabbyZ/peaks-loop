@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-18T19:46:41.586Z",
+  "updatedAt": "2026-10-18T20:13:17.070Z",
   "hot": {
     "rule": [
       {
@@ -922,6 +922,14 @@
     ],
     "convention": [
       {
+        "name": "a-safety-classifier-denial-is-not-a-missing-red-side",
+        "kind": "convention",
+        "description": "The RD's first red-side attempt (mutating the real source and running tests) was refused by the safety classifier.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-safety-classifier-denial-is-not-a-missing-red-side.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-memory-tests.md",
+        "updatedAt": "2026-10-18"
+      },
+      {
         "name": "a-slice-that-adds-src-files-owes-a-baseline-regen",
         "kind": "convention",
         "description": "A commit that adds  files must regenerate  before the next tier run, or  and  go red for a reason unrelated to the cu...",
@@ -1008,6 +1016,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\peaks-cli-forgiving-cli-filters-kind-type-outcome-fall-through-to-unfiltered-on-unknown.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-10-session-6bcac7/txt/handoff-2026-06-10-fuzzy-matching-implementation.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "pin-behavior-through-the-public-export",
+        "kind": "convention",
+        "description": "The new tests import  /  from the package's public surface (), not from the private store module, and assert the refu...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\pin-behavior-through-the-public-export.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-memory-tests.md",
+        "updatedAt": "2026-10-18"
       },
       {
         "name": "project-option-is-canonical-project-root-source",
@@ -1356,6 +1372,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-prose-claim-about-what-a-timeout-does-while-holding-evidence-only-of-what-it-is.md",
         "sourceArtifact": null,
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "a-public-export-needs-a-test-even-when-one-input-cannot-reach-the-branch",
+        "kind": "lesson",
+        "description": "The item was titled \"unreachable for object input\", but the corrected measurement is the opposite: the predicate recu...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-public-export-needs-a-test-even-when-one-input-cannot-reach-the-branch.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-memory-tests.md",
+        "updatedAt": "2026-10-18"
       },
       {
         "name": "a-ratchet-on-a-count-cannot-see-substitution",

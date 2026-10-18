@@ -129,8 +129,9 @@
 - [widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything](widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything.md) — A2 deliberately declined to widen the citation guard to bare non-test paths, and recorded the cost as "50 findings, n...
 - [workspace-underscore-convention](workspace-underscore-convention.md) — Under , any top-level directory whose name starts with  is **ephemeral** and is automatically gitignored by the  rule...
 
-## convention (20)
+## convention (22)
 
+- [a-safety-classifier-denial-is-not-a-missing-red-side](a-safety-classifier-denial-is-not-a-missing-red-side.md) — The RD's first red-side attempt (mutating the real source and running tests) was refused by the safety classifier.
 - [a-slice-that-adds-src-files-owes-a-baseline-regen](a-slice-that-adds-src-files-owes-a-baseline-regen.md) — A commit that adds  files must regenerate  before the next tier run, or  and  go red for a reason unrelated to the cu...
 - [audit-artifact-convention](audit-artifact-convention.md) — Audit artifact writer generalization (Slice 2026-06-26-audit-artifact-writer-generalization).
 - [audit-decision-record-convention](audit-decision-record-convention.md) — Red-line audit snapshots produced by  are persisted as project-memory decisions at .
@@ -142,6 +143,7 @@
 - [one-type-line-two-readers-and-the-parity-corpus](one-type-line-two-readers-and-the-parity-corpus.md) — is the canonical  reader (trim; hyphen bullet; whole value; ; LAST usable line wins).
 - [peaks-ide-skill-is-the-skill-first-pattern-5-step-flow-uses-existing-cli-primitives](peaks-ide-skill-is-the-skill-first-pattern-5-step-flow-uses-existing-cli-primitives.md) — The  skill () is the canonical example of the dev-preference red line "skill is primary, CLI is auxiliary".
 - [peaks-loop-forgiving-cli-filters-kind-type-outcome-fall-through-to-unfiltered-on-unknown](peaks-cli-forgiving-cli-filters-kind-type-outcome-fall-through-to-unfiltered-on-unknown.md) — peaks-loop CLI subcommands that accept a structured filter (, , , etc.) should treat unknown values as "no filter" ra...
+- [pin-behavior-through-the-public-export](pin-behavior-through-the-public-export.md) — The new tests import  /  from the package's public surface (), not from the private store module, and assert the refu...
 - [project-option-is-canonical-project-root-source](project-option-is-canonical-project-root-source.md) — The  option is the canonical project-root source.
 - [quote-the-contract-line-in-the-fix](quote-the-contract-line-in-the-fix.md) — The fix's docblock quotes  ("MUST be exactly three leading comments") and derives the folding rule from it.
 - [r-2-symlink-guard-for-settings-writes](r-2-symlink-guard-for-settings-writes.md) — R-2 hard rule: settings files (, , etc.) MUST NOT be writable through a symlink.
@@ -160,7 +162,7 @@
 - [src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior](src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior.md) — The  module is the single source of truth for IDE-aware behavior.
 - [src-services-session-canonical-workspace-resolver](src-services-session-canonical-workspace-resolver.md) — is the canonical home for the per-session workspace.
 
-## lesson (132)
+## lesson (133)
 
 - [2026-06-26-unknown-sid-root-cause](archived/2026-06-26-unknown-sid-root-cause.md) — Root cause + remediation log for the  and  orphan session dirs.
 - [2026-07-28-rid-034-handoff-no-sediment-block](2026-07-28-rid-034-handoff-no-sediment-block.md) — rid-034 收尾遇 sediment 反向 — no peaks-memory:start/end 闭合块 **Date:** 2026-07-28 **Rid:** 2026-07-28-rid-034-v2-13-0-clea...
@@ -191,6 +193,7 @@
 - [a-multi-slice-job-that-shares-one-rid-reopens-the-evidence-collision-hole-rid-scoping-was-built-to-close](a-multi-slice-job-that-shares-one-rid-reopens-the-evidence-collision-hole-rid-scoping-was-built-to-close.md) — Gate C's evidence paths are rid-scoped (, , …) so two slices cannot occupy one slot.
 - [a-name-keyed-sweep-cannot-see-a-class-defined-by-position](a-name-keyed-sweep-cannot-see-a-class-defined-by-position.md) — Two repairs to the same defect were each reviewed by their own instance and each left the class open.
 - [a-prose-claim-about-what-a-timeout-does-while-holding-evidence-only-of-what-it-is](a-prose-claim-about-what-a-timeout-does-while-holding-evidence-only-of-what-it-is.md) — 断言行为之前，先测行为；断言不存在之前，先确认自己读到了输出 案例一：算式是真的，回收是假的（2026-10-01，rid ）  求值成 18,000,000 ms （5 小时），而命名与注释要的是 300,000 ms。这一半是**...
+- [a-public-export-needs-a-test-even-when-one-input-cannot-reach-the-branch](a-public-export-needs-a-test-even-when-one-input-cannot-reach-the-branch.md) — The item was titled "unreachable for object input", but the corrected measurement is the opposite: the predicate recu...
 - [a-ratchet-on-a-count-cannot-see-substitution](a-ratchet-on-a-count-cannot-see-substitution.md) — 对「数量」打棘轮，看不见「替换」 事实（2026-10-09，rid-038 的 format-check 棘轮，QA 独立发现） 第一版 CI 棘轮断言 ，成功时打印： **QA 指出这个判据有个洞**：**修掉一个旧的未格式化文件...
 - [a-refusal-needs-a-machine-shape-not-only-prose](a-refusal-needs-a-machine-shape-not-only-prose.md) — already said "N unmet requirement(s)" and the CLI already said , but  still listed a PRESENT file under a field named...
 - [a-refusal-path-can-throw-instead-of-refusing](a-refusal-path-can-throw-instead-of-refusing.md) — 's refusal builds its message with .

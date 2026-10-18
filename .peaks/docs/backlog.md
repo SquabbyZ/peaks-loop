@@ -281,13 +281,23 @@ when `from` is unknown — in-repo unreachable (all three call sites pass `readR
 reachable by a direct import with a hand-built state; `hotfixRelease` silently drops an unknown prior
 record; `stageHistory[].stage` is not validated. The first is filed separately in §16.
 
-### 2.5 `metadataKey` check is unreachable for object input
+### 2.5 `metadataKey` check is unreachable for object input (found 2026-09-24; **CLOSED 2026-10-19 — the branch stays and is now covered**)
 
 - **Where**: `src/services/memory/project-memory-service/store/atomic-write.ts`
 - **Measured**: `containsSensitiveConfigValue` **recurses into values**, so `{…body:{token:'x'}}` returns `true`;
   the branch is only unreachable for **string** input. `assertSafeMemory` is a **public export** (`index.ts:100`),
   so deleting the branch **would** weaken detection. Zero test coverage.
 - **Corrected in-session**: the tech-doc's mechanism description was wrong and is now right; the branch itself stays.
+
+**CLOSED 2026-10-19 (rid `rid-memory-sensitive-value-tests`).** The branch stays. The slice adds
+`tests/unit/services/memory/memory-metadata-sensitive-value.test.ts` (9 arms) covering the three inputs
+through the PUBLIC exports: a nested sensitive object → `containsSensitiveConfigValue` true and
+`assertSafeMemory` refuses with the metadata-key check; a plain string → false (the non-object branch);
+a clean object → false/accepted. Extras cover two-level nesting, a sensitive key behind an array,
+null/scalar inputs, and `matchedTerm === null`. Red-side evidence was reproduced on a copy (no-recurse
+predicate: 5 failed / 4 passed; branch deleted: 2 failed / 7 passed) after the safety classifier
+refused the first in-place attempt. Coverage: `atomic-write.ts` 100 % statements / branches / lines;
+the recursion at `config-validation.ts:143-154` is covered. **Production diff is empty.**
 
 ### 2.6 A guard whose two dimensions have no assertions
 
