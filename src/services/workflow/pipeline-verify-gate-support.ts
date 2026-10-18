@@ -15,6 +15,7 @@ import {
   type RequestType
 } from '../artifacts/artifact-prerequisites.js';
 import * as qaPhase from './pipeline-verify-qa-phase.js';
+import { rdEvidenceProbe, rdGatesForType } from './pipeline-verify-rd-phase.js';
 import { prerequisiteBodyViolations } from '../artifacts/prerequisite-checks.js';
 import type {
   RequestArtifactRole,
@@ -143,77 +144,9 @@ function contractBodyViolations(
   return prerequisiteBodyViolations(prerequisite, readFileSync(absolutePath, 'utf8'));
 }
 
-export function rdGatesForType(requestType: RequestType): PipelineGate[] {
-  const gates: PipelineGate[] = [
-    {
-      name: 'rd-request-exists',
-      description: 'RD request artifact created',
-      passed: false,
-      detail: ''
-    }
-  ];
-
-  // This slot used to pin a `tech-doc` gate to `rd/tech-doc.md`, an artifact
-  // failed trees `peaks request transition` accepts (QA repair cycle 1). The
-  // design / scope record the contract DOES name at `rd:qa-handoff` is
-  // `prd/handoff.md`, so that is the gate: table-derived, like the others.
-  // (`rd/tech-doc.md` still has two non-gate readers — final-review's evidence
-  // budget and the resume detector. Neither is served by failing a compliant
-  // slice.)
-  if (contractEvidencePaths('rd', 'qa-handoff', requestType, 'prd/handoff.md') !== null) {
-    gates.push({
-      name: 'prd-handoff',
-      description: 'PRD handoff capsule (approved scope + non-goals)',
-      passed: false,
-      detail: ''
-    });
-  }
-  if (requestType === 'bugfix') {
-    gates.push({
-      name: 'bug-analysis',
-      description: 'Bug root-cause analysis',
-      passed: false,
-      detail: ''
-    });
-  }
-  if (requestType !== 'docs' && requestType !== 'chore' && requestType !== 'config') {
-    gates.push({
-      name: 'code-review',
-      description: 'Code review evidence',
-      passed: false,
-      detail: ''
-    });
-  }
-  if (
-    requestType === 'feature' ||
-    requestType === 'refactor' ||
-    requestType === 'bugfix' ||
-    requestType === 'config'
-  ) {
-    gates.push({
-      name: 'security-review',
-      description: 'Security review evidence',
-      passed: false,
-      detail: ''
-    });
-  }
-  // The perf evidence the contract requires at `rd:qa-handoff` is `AUDIT_PERF`
-  // — `audit/perf-<rid>.md`, with `audit/perf.md` and `rd/perf-baseline.md` as
-  // side as `performance-findings`, checking `qa/performance-findings-<rid>.md`
-  // — a path the v2.11.0 D1/D4 trim dropped. Relocating the gate (rather than
-  // deleting it) is what keeps AC3's control meaningful: perf evidence that is
-  // genuinely absent must still fail.
-  if (contractEvidencePaths('rd', 'qa-handoff', requestType, 'rd/perf-baseline.md') !== null) {
-    gates.push({
-      name: 'perf-baseline',
-      description: 'Performance audit evidence',
-      passed: false,
-      detail: ''
-    });
-  }
-
-  return gates;
-}
+/** Re-exported so existing importers keep one import path; the builder and the
+ *  table it filters live in `pipeline-verify-rd-phase.ts`. */
+export { rdGatesForType };
 
 /**
  * The QA phase's gate list for one type.
@@ -267,21 +200,13 @@ export function resolveRdEvidencePaths(
   nextActions: string[],
   tracker: CanonicalPathTracker
 ): CanonicalPathTracker {
-  // The path each gate is about. The contract is consulted first — see
-  // `contractEvidencePaths`; `rdGatesForType` only builds a gate when the
-  // contract carries its prerequisite, so this is the name the gate stands
-  // for, not a second path table.
-  const RD_EVIDENCE_PROBE: Record<string, string> = {
-    'prd-handoff': 'prd/handoff.md',
-    'bug-analysis': 'rd/bug-analysis.md',
-    'code-review': 'rd/code-review.md',
-    'security-review': 'rd/security-review.md',
-    'perf-baseline': 'rd/perf-baseline.md'
-  };
+  // The path each gate is about, read off the table that declared the gate —
+  // not a second path table. The contract is consulted first — see
+  // `contractEvidencePaths`.
   let anyEvidenceResolved = tracker.anyEvidenceResolved;
   let allResolvedPathsCanonical = tracker.allResolvedPathsCanonical;
   for (const gate of gates.slice(1)) {
-    const probeName = RD_EVIDENCE_PROBE[gate.name]!;
+    const probeName = rdEvidenceProbe(gate.name);
     const relativePaths = (
       contractEvidencePaths('rd', 'qa-handoff', requestType, probeName) ?? [probeName]
     ).map((relative) => relative.replace('<rid>', rid));

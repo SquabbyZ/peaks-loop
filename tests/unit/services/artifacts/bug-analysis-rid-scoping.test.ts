@@ -332,11 +332,12 @@ describe('(integration) the legacy tier and the readers outside the table', () =
   });
 
   it('pins the probe name verify-pipeline hard-codes against the table', () => {
-    // `RD_EVIDENCE_PROBE['bug-analysis']` in pipeline-verify-gate-support.ts is
-    // the literal pinned here. The map is not a second path table because
-    // `contractEvidencePaths` is consulted with this name first — and that only
-    // holds while the table still accepts the name. Drop the legacy tier and
-    // this returns null, the map's literal stops resolving, and this fails.
+    // The `bug-analysis` row of `RD_EVIDENCE_GATES` in
+    // pipeline-verify-rd-phase.ts carries the literal pinned here. The row is not
+    // a second path table because `contractEvidencePaths` is consulted with this
+    // name first — and that only holds while the table still accepts the name.
+    // Drop the legacy tier and this returns null, the row's literal stops
+    // resolving, and this fails.
     const paths = contractEvidencePaths(
       'rd',
       'qa-handoff',
