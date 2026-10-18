@@ -32,23 +32,26 @@
  * mechanism — an LLM reads prose, not TypeScript exports — and that is the
  * reason every export below sat at zero importers until slice F2.
  *
- * Pinning is half-done. The two test files this block used to cite —
- * element pinning) and
- * back-compat cases) — were both deleted in `f17aa377`. The **predicate
- * half** was re-pinned by `tests/unit/rd/reviewer-dispatch-policy.test.ts`
- * (`7191140f`, 6 cases: `RD_DEPRECATED_REVIEWERS` + `isDeprecatedReviewer`).
+ * Pinning is complete. The two test files this block used to cite were
+ * both deleted in `f17aa377`. The **predicate half**
+ * (`RD_DEPRECATED_REVIEWERS` + `isDeprecatedReviewer`) was re-pinned by
+ * `tests/unit/rd/reviewer-dispatch-policy.test.ts` (`7191140f`, 6 cases).
  * The **decision-table half** — `RD_FANOUT_REVIEWERS`' 3-element
  * membership, `reviewerListFor`, `karpathySlotIndex`,
- * `shouldDispatchKarpathy` — still has no pin.
+ * `shouldDispatchKarpathy` — is pinned by
+ * `tests/unit/rd/reviewer-dispatch-policy-decision-table.test.ts`,
+ * including the 5→3 relationship: the fanout request types are exactly
+ * the review request types `isFanoutTriggerType` accepts, and no
+ * deprecated reviewer appears in the returned list.
  *
  * `src/cli/commands/sub-agent-shared.ts` (`deprecatedReviewerWarnings`),
  * invoked from the dispatch chokepoint in
  * `src/cli/commands/dispatch-commands.ts` and pinned by
- * `tests/unit/cli/sub-agent-dispatch-deprecated-reviewer.test.ts`. Before
- * that, all 13 exports had zero importers across src/ + packages/ +
- * scripts/, so nothing rejected or rerouted `security-reviewer` /
- * `perf-baseline-reviewer` on the way in. That import is still the only
- * one: the other 12 exports below remain unreferenced in this repo.
+ * `tests/unit/cli/sub-agent-dispatch-deprecated-reviewer.test.ts`, is the
+ * only runtime importer. The decision-table exports are pinned by tests
+ * rather than imported, which is the point of the table. The three type
+ * aliases derived from the tuple constants are module-internal: no
+ * importer names them, so they are not exported.
  *
  * For `config | docs | chore` request types, the slice already skips
  * the entire fanout (SKILL.md line 132 says "Config / docs / chore: no
@@ -83,7 +86,7 @@ export const RD_REVIEW_REQUEST_TYPES = [
   'docs',
   'chore'
 ] as const;
-export type RdReviewRequestType = (typeof RD_REVIEW_REQUEST_TYPES)[number];
+type RdReviewRequestType = (typeof RD_REVIEW_REQUEST_TYPES)[number];
 
 /**
  * The 3-sub-agent fanout triggered at the end of RD implementation
@@ -96,7 +99,7 @@ export const RD_FANOUT_REVIEWERS = [
   'qa-test-cases-writer',
   'karpathy-reviewer'
 ] as const;
-export type RdFanoutReviewer = (typeof RD_FANOUT_REVIEWERS)[number];
+type RdFanoutReviewer = (typeof RD_FANOUT_REVIEWERS)[number];
 
 /**
  * Reviewer roles removed from the v2.11.x 5-way fanout. Exposed as a
@@ -116,7 +119,7 @@ export type RdDeprecatedReviewer = (typeof RD_DEPRECATED_REVIEWERS)[number];
 
 /** Subset of request types that fire the 3-way fanout. */
 export const RD_FANOUT_REQUEST_TYPES = ['feat', 'bugfix', 'refactor'] as const;
-export type RdFanoutRequestType = (typeof RD_FANOUT_REQUEST_TYPES)[number];
+type RdFanoutRequestType = (typeof RD_FANOUT_REQUEST_TYPES)[number];
 
 /**
  * True iff the karpathy-reviewer sub-agent should be dispatched for
