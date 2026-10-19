@@ -5822,9 +5822,31 @@ The gate does not read that Markdown as the audit. It reads a **judged declarati
 
 Worth a ruling: either the SKILL should make the envelope the only production path (so the failure is "you skipped the pipeline", not "file missing"), or the refusal should name the unmet **declaration** rather than the absent path.
 
-### 11.2 `peaks request init --role qa` writes a template that nothing fills, and the transition refuses on it two steps later (found 2026-10-15; **open**)
+### 11.2 `peaks request init --role qa` writes a template that nothing fills, and the transition refuses on it two steps later (found 2026-10-15; **FIXED 2026-10-19 — rid `rid-qa-template-openspec`, commit `41073d7a`**)
 
 `request init` produces a template containing `<id>` placeholders. §10.4 established that the QA role has no in-order way to create `qa/.initiated` once its artifact exists, so this session ran `request init --role qa` to get the carrier. That created `qa/requests/<rid>.md` **as an unfilled template**, and `qa:running` then refused with `LINT_GATE_FAILED` on two `<id>` tokens in the OpenSpec section — a section that cannot be filled at all, because this repository's `openspec/` holds only `baselines/` and no `changes/`. The producer is handed a template whose sections are unfillable and then blocked for not filling them.
+
+**FIXED 2026-10-19 (rid `rid-qa-template-openspec`).** The fix is at the producer, not the
+checker: `renderQaTemplateBody(hasOpenspecChanges)` renders one attributable line —
+`- N/A — openspec/changes/ is absent; no validate run` — when the directory is absent, and keeps
+the prompt form (`- change-id: <id>`, `- peaks openspec validate <id> data.valid: true | false`)
+when it exists. `renderTemplate` resolves the flag once from an explicit
+`RenderTemplateContext { requestType, projectRoot }` (exported; the other four roles ignore it).
+Measured on the real CLI in this repository: pristine `request init --role qa` + `request lint` →
+`ok: true`, `findings: []`; `qa:running` → exit 0. With `openspec/changes/` created, the prompt
+form is byte-identical to HEAD. The QA injection control — flag forced true with the directory
+absent — still produces 2 findings and `qa:running` still refuses with `LINT_GATE_FAILED`, so the
+gate can still fail. 4 new BDD tests; tier 63 files / 648 tests; `tsc` exit 0; the placeholder
+lint rule and the transition are untouched.
+
+**Residuals, recorded not changed:** (a) `existsSync` tests *existence*, not "a non-empty
+directory", so an existing-but-empty `openspec/changes/` (or a regular file of that name) selects
+the prompt form and would recreate the unfillable section; (b) the flag is repo-global, not
+request-scoped, so a repository that has the directory but not a change id for this request still
+renders the prompt form; (c) two adjacent doc comments still describe the bodies as "hoisted
+VERBATIM" / `renderTemplate` as a "pure function", which the functional QA body and the new
+filesystem probe make stale. None of the three blocks the transition, and (a)/(b) need a
+definition of "fillable" that the current AC does not have.
 
 ### 11.3 A date-shaped request id collides with the numeric filename prefix, and it **blocks the commit** (found 2026-10-15; **CLOSED 2026-10-19 — already fixed by the `NUMBERED_PREFIX_RE` family; re-verified**)
 
