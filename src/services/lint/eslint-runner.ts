@@ -25,7 +25,6 @@ import { resolveNpxInvocation } from './npx-resolver.js';
 import {
   ESLINT_PACKAGE_PINS,
   type EslintFinding,
-  type EslintMessage,
   type EslintRunOptions,
   type EslintRunResult,
   type EslintState,
@@ -35,16 +34,17 @@ import {
   aggregateRedLine,
   buildEslintArgs,
   EMPTY_DIFF_RANGE,
+  emptyPopulationReason,
   EMPTY_REDLINE,
   emptyResult,
   inDiff,
   loadBaseline,
   matchBaseline,
   resolveProjectRoot,
-  severityFor,
   summarize,
   type DiffRange
 } from './eslint-runner-support.js';
+import { parseEslintReport, type ParsedReport } from './eslint-report.js';
 
 export { ESLINT_PACKAGE_PINS } from './eslint-runner-types.js';
 export { buildEslintArgs, resolveProjectRoot } from './eslint-runner-support.js';
@@ -123,7 +123,9 @@ export function runEslint(options: EslintRunOptions): EslintRunResult {
       'execution-failed',
       start,
       error instanceof Error ? error.message : String(error),
-      'the eslint argument list could not be built'
+      {
+        reason: 'the eslint argument list could not be built'
+      }
     );
   }
 
@@ -179,14 +181,11 @@ export function runEslint(options: EslintRunOptions): EslintRunResult {
     // and did not finish, and that difference is the whole diagnosis.
     const timedOut = (result.error as NodeJS.ErrnoException).code === 'ETIMEDOUT';
     const budgetMs = options.timeoutMs ?? ESLINT_DEFAULT_TIMEOUT_MS;
-    return emptyResult(
-      state,
-      start,
-      typeof result.stdout === 'string' ? result.stdout : '',
-      timedOut
+    return emptyResult(state, start, typeof result.stdout === 'string' ? result.stdout : '', {
+      reason: timedOut
         ? `eslint did not finish within the ${budgetMs}ms spawn timeout`
         : `eslint could not be spawned: ${message}`
-    );
+    });
   }
 
   if (result.signal !== null && result.signal !== undefined) {
@@ -198,53 +197,36 @@ export function runEslint(options: EslintRunOptions): EslintRunResult {
       'execution-failed',
       start,
       typeof result.stdout === 'string' ? result.stdout : '',
-      `eslint was killed by ${result.signal} after ${Date.now() - start}ms (spawn timeout ${budgetMs}ms)`
+      {
+        reason: `eslint was killed by ${result.signal} after ${Date.now() - start}ms (spawn timeout ${budgetMs}ms)`
+      }
     );
   }
 
   const stdout = typeof result.stdout === 'string' ? result.stdout : '';
-  let findings: EslintFinding[] = [];
+  // A valid JSON report means eslint RAN. Its exit code is 2 when nothing
+  // matched the scope, so the exit code alone cannot tell "the scope is empty"
+  // from "the toolchain is missing" — that distinction is §2.41's whole point.
+  let report: ParsedReport = { findings: [], checkedFiles: 0, ignoredFiles: 0 };
+  let parsedOutput = false;
   if (stdout.trim().length > 0) {
     try {
-      const parsed = JSON.parse(stdout) as ReadonlyArray<EslintMessage>;
-      for (const entry of parsed) {
-        if (typeof entry !== 'object' || entry === null) continue;
-        const parentFile =
-          typeof (entry as { filePath?: unknown }).filePath === 'string'
-            ? (entry as { filePath: string }).filePath
-            : '';
-        const messages = Array.isArray((entry as { messages?: unknown[] }).messages)
-          ? (entry as { messages: EslintMessage[] }).messages
-          : [];
-        for (const m of messages) {
-          if (m === null || typeof m !== 'object') continue;
-          findings.push({
-            filePath:
-              typeof m.filePath === 'string' && m.filePath.length > 0 ? m.filePath : parentFile,
-            line: typeof m.line === 'number' ? m.line : 0,
-            column: typeof m.column === 'number' ? m.column : 0,
-            ruleId: typeof m.ruleId === 'string' ? m.ruleId : null,
-            severity: severityFor(m.severity),
-            message: typeof m.message === 'string' ? m.message : ''
-          });
-        }
-      }
+      report = parseEslintReport(stdout);
+      parsedOutput = true;
     } catch {
-      return emptyResult(
-        'execution-failed',
-        start,
-        stdout,
-        `eslint stdout was not valid JSON (${stdout.length} bytes)`
-      );
+      return emptyResult('execution-failed', start, stdout, {
+        reason: `eslint stdout was not valid JSON (${stdout.length} bytes)`
+      });
     }
   }
+  const { findings, checkedFiles, ignoredFiles } = report;
 
-  if (result.status !== 0 && findings.length === 0) {
-    return emptyResult(
-      'eslint-missing',
-      start,
-      typeof result.stderr === 'string' ? result.stderr : stdout
-    );
+  // eslint exits 2 with an empty stdout when the scope matched no file at all.
+  // That is an empty population (§2.41), not a missing toolchain.
+  const stderr = typeof result.stderr === 'string' ? result.stderr : '';
+  const noFilesMatched = /No files matching the pattern/.test(stderr);
+  if (result.status !== 0 && findings.length === 0 && !parsedOutput && !noFilesMatched) {
+    return emptyResult('eslint-missing', start, stderr.length > 0 ? stderr : stdout);
   }
 
   // PRD-002b slice: incremental-first / no-touch-stockcode filters.
@@ -281,6 +263,17 @@ export function runEslint(options: EslintRunOptions): EslintRunResult {
   }
 
   const redLine = redLineMode === 'baseline-aware' ? aggregateRedLine(baseline) : EMPTY_REDLINE;
+  if (checkedFiles === 0 && options.allowEmpty !== true) {
+    // Backlog §2.41: a count of findings must carry the population that
+    // produced it, and an empty population is refused rather than reported
+    // green. eslint skips dot-directories by default, so this is the state a
+    // scope like `.husky` used to reach silently.
+    return emptyResult('empty-scope', start, stdout, {
+      reason: emptyPopulationReason(options.scope, ignoredFiles),
+      checkedFiles,
+      ignoredFiles
+    });
+  }
   const finalState: EslintState =
     baseline.length === 0 && diffOnly && options.baselineFile !== undefined
       ? 'baseline-missing'
@@ -292,6 +285,8 @@ export function runEslint(options: EslintRunOptions): EslintRunResult {
     summary: summarize(activeFindings),
     durationMs: Date.now() - start,
     rawOutput: stdout,
+    checkedFiles,
+    ignoredFiles,
     baselineWaived: waived,
     redLine
   };

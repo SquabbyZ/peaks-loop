@@ -64,14 +64,17 @@ describe('runEslint', () => {
   });
 
   it('when eslint runs cleanly, should return state ok with empty findings', () => {
-    // given: eslint exits 0 with an empty JSON array
-    queueSpawnSequence([{ status: 0, stdout: '[]' }]);
+    // given: eslint examined one file and found nothing in it
+    queueSpawnSequence([
+      { status: 0, stdout: JSON.stringify([{ filePath: 'src/a.ts', messages: [] }]) }
+    ]);
 
     // when: runEslint is invoked
     const result = runEslint({ cwd: process.cwd() });
 
-    // then: state must be ok with zero findings
+    // then: state must be ok with zero findings over a non-empty population
     expect(result.state).toBe('ok');
+    expect(result.checkedFiles).toBe(1);
     expect(result.findings).toEqual([]);
     expect(result.summary).toEqual({ error: 0, warn: 0, info: 0 });
   });
@@ -304,7 +307,8 @@ describe('runEslint', () => {
         'utf8'
       );
       queueSpawnSequence([
-        { status: 0, stdout: '[]' }, // npx eslint: clean
+        // eslint examined one file cleanly (a non-empty population, §2.41)
+        { status: 0, stdout: JSON.stringify([{ filePath: 'src/a.ts', messages: [] }]) },
         { status: 0, stdout: '' } // git diff: empty (no extra calls expected, queue exhausted)
       ]);
 

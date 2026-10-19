@@ -40,6 +40,7 @@
     "../../src/**/*",
     "../../tests/**/*",
     "../../scripts/**/*",
+    "../../.husky/**/*",
     "../../packages/*/src/**/*",
     "../../packages/*/tests/**/*",
     "../../packages/*/vitest.config.ts"

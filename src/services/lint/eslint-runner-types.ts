@@ -13,7 +13,17 @@ export const ESLINT_PACKAGE_PINS = {
 export type RedLineMode = 'none' | 'baseline-aware';
 
 export type EslintState =
-  'ok' | 'eslint-missing' | 'npx-failed' | 'execution-failed' | 'baseline-missing';
+  | 'ok'
+  | 'eslint-missing'
+  | 'npx-failed'
+  | 'execution-failed'
+  | 'baseline-missing'
+  /**
+   * eslint ran and examined ZERO files. A count of findings over an empty
+   * population cannot be told apart from a clean run, so it is refused unless
+   * the caller opts in with `allowEmpty` (backlog §2.41).
+   */
+  | 'empty-scope';
 
 export type EslintFinding = {
   readonly filePath: string;
@@ -51,6 +61,15 @@ export type EslintRunResult = {
   readonly durationMs: number;
   readonly rawOutput: string;
   /**
+   * Files eslint actually examined (backlog §2.41). A finding count is only
+   * meaningful next to the population that produced it: "0 findings" over 0
+   * files is indistinguishable from "0 findings" over 2000. Entries eslint
+   * skipped ("File ignored …") do not count; they are reported separately.
+   */
+  readonly checkedFiles: number;
+  /** Entries eslint skipped, e.g. a dot-path without `--no-ignore`. */
+  readonly ignoredFiles: number;
+  /**
    * Why a non-`ok` state was reached. Four different conditions — an
    * unbuildable argument list, a spawn failure, a signal kill (which is how a
    * spawn timeout lands) and unparseable linter output — all reported
@@ -72,6 +91,11 @@ export type EslintRunOptions = {
   readonly diffOnly?: boolean;
   readonly baselineFile?: string;
   readonly redLineMode?: RedLineMode;
+  /**
+   * Accept an examined population of 0 instead of refusing it. The explicit
+   * opt-in §2.41 requires; without it `runEslint` returns `empty-scope`.
+   */
+  readonly allowEmpty?: boolean;
 };
 
 export type EslintMessage = {

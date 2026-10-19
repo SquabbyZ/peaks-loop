@@ -27,15 +27,13 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok } from 'peaks-loop-shared/result';
-import { CLI_VERSION } from 'peaks-loop-shared/version';
-import { repoRelativeKey } from '../../shared/path-utils.js';
 import { detectEslint } from '../../services/lint/detect-eslint.js';
 import {
-  resolveProjectRoot,
   runEslint,
   type EslintRunOptions,
   type EslintRunResult
 } from '../../services/lint/eslint-runner.js';
+import { emitBaseline } from './lint-baseline-command.js';
 
 type LintOptions = {
   scope?: string;
@@ -51,6 +49,7 @@ type LintOptions = {
   baselineFile?: string;
   redLine?: boolean;
   baseline?: boolean;
+  allowEmpty?: boolean;
 };
 
 function parseTimeoutMs(value: string | undefined): number | undefined {
@@ -60,33 +59,6 @@ function parseTimeoutMs(value: string | undefined): number | undefined {
     throw new Error(`--timeout-ms must be a positive integer; received "${value}"`);
   }
   return parsed;
-}
-
-function writeBaselineJson(
-  projectRoot: string,
-  baselineFile: string,
-  result: EslintRunResult
-): { path: string; violations: number } {
-  const fullPath = join(projectRoot, baselineFile);
-  mkdirSync(dirname(fullPath), { recursive: true });
-  // Write the SAME key the reader matches on. Writing ESLint's absolute
-  // `filePath` here is what re-rooted the file on whichever machine ran
-  // the command, so the next checkout inherited keys it could not match.
-  const violations = result.findings.map((f) => ({
-    ruleId: f.ruleId,
-    file: repoRelativeKey(f.filePath, projectRoot),
-    line: f.line,
-    severity: f.severity,
-    message: f.message
-  }));
-  const payload = {
-    version: 1,
-    generatedAt: new Date().toISOString(),
-    toolVersion: `peaks-loop-${CLI_VERSION}`,
-    violations
-  };
-  writeFileSync(fullPath, JSON.stringify(payload, null, 2), 'utf8');
-  return { path: fullPath, violations: violations.length };
 }
 
 function writeRedLineSummary(
@@ -126,6 +98,29 @@ function writeRedLineSummary(
   lines.push('');
   writeFileSync(fullPath, lines.join('\n'), 'utf8');
   return { path: fullPath, ruleIds: result.redLine.map((r) => r.ruleId) };
+}
+
+function checkRunOptions(
+  options: LintOptions,
+  cwd: string,
+  timeoutMs: number | undefined
+): EslintRunOptions {
+  return {
+    cwd,
+    ...(options.scope !== undefined ? { scope: options.scope } : {}),
+    ...(options.config !== undefined ? { configPath: options.config } : {}),
+    ...(options.baselineFile !== undefined ? { baselineFile: options.baselineFile } : {}),
+    ...(options.allowEmpty === true ? { allowEmpty: true } : {}),
+    ...(timeoutMs !== undefined ? { timeoutMs } : {})
+  };
+}
+
+/** §2.41: an opted-in empty population still warns instead of reading green. */
+function populationWarnings(result: EslintRunResult): string[] {
+  if (result.checkedFiles !== 0) return [];
+  return [
+    'checkedFiles=0 — the requested scope examined no files, so its finding count says nothing (--allow-empty opted in).'
+  ];
 }
 
 export function registerLintCommands(program: Command, io: ProgramIO): void {
@@ -170,6 +165,7 @@ export function registerLintCommands(program: Command, io: ProgramIO): void {
       .option('--timeout-ms <ms>', 'subprocess timeout in milliseconds (default 60000)')
       .option('--baseline-file <path>', 'baseline JSON path (default .peaks/lint/baseline.json)')
       .option('--red-line', 'also write .peaks/memory/lint-redline-summary.md')
+      .option('--allow-empty', 'accept a scope that examined 0 files instead of refusing it')
   ).action((options: LintOptions) => {
     let timeoutMs: number | undefined;
     try {
@@ -189,21 +185,14 @@ export function registerLintCommands(program: Command, io: ProgramIO): void {
       return;
     }
     const cwd = process.cwd();
-    const runOptions: EslintRunOptions = {
-      cwd,
-      ...(options.scope !== undefined ? { scope: options.scope } : {}),
-      ...(options.config !== undefined ? { configPath: options.config } : {}),
-      ...(options.baselineFile !== undefined ? { baselineFile: options.baselineFile } : {}),
-      ...(timeoutMs !== undefined ? { timeoutMs } : {})
-    };
-    const result = runEslint(runOptions);
+    const result = runEslint(checkRunOptions(options, cwd, timeoutMs));
     const extras: Record<string, unknown> = {};
     if (options.redLine === true) {
       extras.redLineSummary = writeRedLineSummary(cwd, result);
     }
     const envelope =
       result.state === 'ok' || result.state === 'baseline-missing'
-        ? ok('code.lint', { ...result, ...extras }, [], [])
+        ? ok('code.lint', { ...result, ...extras }, populationWarnings(result), [])
         : fail(
             'code.lint',
             result.state.toUpperCase().replace(/-/g, '_'),
@@ -229,6 +218,7 @@ export function registerLintCommands(program: Command, io: ProgramIO): void {
         '--baseline-file <path>',
         'baseline JSON path, read for existing waivers and written with the scan (default .peaks/lint/baseline.json)'
       )
+      .option('--allow-empty', 'accept a scope that examined 0 files instead of refusing it')
   ).action((options: LintOptions) => {
     let timeoutMs: number | undefined;
     try {
@@ -247,29 +237,6 @@ export function registerLintCommands(program: Command, io: ProgramIO): void {
       );
       return;
     }
-    const cwd = process.cwd();
-    // The flag governs BOTH sides: the runner subtracts the named file below,
-    // and `writeBaselineJson` writes back to it. Resolve it before `runOptions`
-    // so the read side cannot silently fall back to the default baseline.
-    const baselineFile = options.baselineFile ?? '.peaks/lint/baseline.json';
-    const runOptions: EslintRunOptions = {
-      cwd,
-      diffOnly: false,
-      baselineFile,
-      ...(options.scope !== undefined ? { scope: options.scope } : {}),
-      ...(options.config !== undefined ? { configPath: options.config } : {}),
-      ...(timeoutMs !== undefined ? { timeoutMs } : {})
-    };
-    const result = runEslint(runOptions);
-    const written = writeBaselineJson(resolveProjectRoot(cwd), baselineFile, result);
-    const envelope = ok(
-      'code.lint.baseline',
-      { state: result.state, findings: result.findings.length, ...written },
-      [],
-      [
-        'Commit baseline.json (or .gitignore it). Peak-loop ships its own baseline as a reference fixture.'
-      ]
-    );
-    printResult(io, envelope, options.json);
+    emitBaseline(io, options, timeoutMs);
   });
 }

@@ -176,11 +176,48 @@ export function aggregateRedLine(baseline: readonly BaselineViolation[]): readon
 export const EMPTY_DIFF_RANGE: readonly DiffRange[] = [];
 export const EMPTY_REDLINE: readonly RedLineEntry[] = [];
 
+/**
+ * eslint skips dot-paths by default (backlog §2.41): a hand-run over
+ * `.husky/*.mjs` answers "File ignored by default" and exits 0, so a run that
+ * examined nothing is indistinguishable from a clean one. Any path SEGMENT
+ * starting with a dot (but not the `.`/`..` navigational segments) makes the
+ * requested scope one eslint will not look at unaided.
+ */
+export function isDotPathScope(scope: string | undefined): boolean {
+  if (scope === undefined || scope.length === 0) return false;
+  return scope
+    .split(/[\\/]/)
+    .some((segment) => segment.length > 1 && segment.startsWith('.') && segment !== '..');
+}
+
+/** A message eslint emits for an entry it skipped instead of examining. */
+export function isIgnoredMessage(message: string): boolean {
+  return /^File ignored/.test(message);
+}
+
+/** The §2.41 refusal text for an examined population of 0. */
+export function emptyPopulationReason(scope: string | undefined, ignoredFiles: number): string {
+  const populationNote =
+    ignoredFiles > 0
+      ? ` ${ignoredFiles} path(s) were skipped as ignored (eslint ignores dot-directories by default).`
+      : '';
+  return (
+    `the requested scope "${scope ?? '.'}" examined 0 files; a finding count over an empty population ` +
+    `cannot be told apart from a clean run.${populationNote} Pass --allow-empty to accept an empty population.`
+  );
+}
+
+export type EmptyDetail = {
+  readonly reason?: string;
+  readonly checkedFiles?: number;
+  readonly ignoredFiles?: number;
+};
+
 export function emptyResult(
   state: EslintState,
   start: number,
   rawOutput: string,
-  reason?: string
+  detail: EmptyDetail = {}
 ): EslintRunResult {
   return {
     state,
@@ -188,7 +225,9 @@ export function emptyResult(
     summary: { error: 0, warn: 0, info: 0 },
     durationMs: Date.now() - start,
     rawOutput,
-    ...(reason === undefined ? {} : { reason }),
+    checkedFiles: detail.checkedFiles ?? 0,
+    ignoredFiles: detail.ignoredFiles ?? 0,
+    ...(detail.reason === undefined ? {} : { reason: detail.reason }),
     baselineWaived: [],
     redLine: EMPTY_REDLINE
   };
@@ -216,6 +255,10 @@ export function buildEslintArgs(options: EslintRunOptions): string[] {
   // `options.configPath`.
   const effectiveConfigPath = options.configPath ?? join('config', 'eslint', '.peaks-rules.cjs');
   args.push('--config', effectiveConfigPath);
+  // A dot-path scope is invisible to eslint's default ignore rules (§2.41).
+  // `--no-ignore` is only sound here because the caller named the scope
+  // explicitly; the default scope (`.`) never takes this branch.
+  if (isDotPathScope(options.scope)) args.push('--no-ignore');
   args.push(...(options.scope !== undefined && options.scope.length > 0 ? [options.scope] : ['.']));
   return args;
 }
