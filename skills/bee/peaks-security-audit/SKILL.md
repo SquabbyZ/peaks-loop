@@ -155,6 +155,26 @@ hash in the artifact, and `rd:qa-handoff` re-hashes them, so a declared path edi
 refuses that transition. **Declare what you judged, not what you touched** — the check can tell
 that a declared path moved, and it cannot tell that an undeclared one did.
 
+#### Where the audit loop terminates (BLOCKING discipline)
+
+The content-hash binding is intentional: **any** later edit to a judged path — including a
+comment-only edit — invalidates the audit, and the transition refuses until the audit is re-run.
+That is the correct behaviour, and it is also an unbounded loop if the audit's own findings are
+fixed after it runs: fixing a finding edits a judged path, which invalidates the audit, whose
+re-run can surface the next finding. Nothing in the CLI can bound this; the skill must:
+
+1. **Freeze `src/` before the audit.** The audit is the **last** producer step, not a mid-slice
+   reviewer. Do not run it, then edit code, then run it again by default.
+2. **A re-run is required, never optional.** After a post-audit edit, the artifact is stale — the
+   transition will refuse, and no hand-editing of `## Judged content` is a substitute (the
+   declaration is written by `run`, and hand-authoring it fails §11.1).
+3. **Record the remaining findings as accepted residuals.** A finding that survives the frozen
+   diff is a decision, not a blocker: put it in the backlog / handoff residuals with the reason it
+   was accepted. Do not spend a second audit on comment text.
+4. **If a finding must be fixed, fix everything the re-run will judge in one pass,** then run the
+   audit exactly once more. Two audits are the normal ceiling for a slice; a third means the
+   freeze step was skipped.
+
 The artifact body has the required sections per `.peaks/project-scan/audit-output-schema.md`:
 
 - `## Summary` — 1-paragraph narrative
