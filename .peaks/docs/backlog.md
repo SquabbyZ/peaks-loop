@@ -117,6 +117,15 @@
 > renumbered or rewritten; §9.49 is an append.**
 >
 > **Revised 2026-10-18 — §14.5 and §14.8 were re-measured, and §16 is new.** §14.5's `--rid` traversal is refused at HEAD by the request-id pattern, so its disposition no longer says "Present at HEAD"; no code was changed by the re-measurement. §14.8 is closed by `98f5ed60`. §16 records the evaluation follow-up: the expired-grace ratchet (`f02c6be6`, 129 markers / 83 files), the derived RD gate builder, and two `backCompatUntil` gates that still soft-pass past their stated expiry. **No existing item was renumbered, and §14.7 remains open.**
+>
+> **Revised 2026-10-19 — §17.1 fixes (1) and (2) shipped.** Commit `ec106774` (session
+> `2026-10-19-session-94b084`, rid `rid-step08-remedy-exemption`) exempts a real
+> `peaks code detect-job` invocation from the Step 0.8 gate by reading the hook payload on stdin,
+> and makes `--suggested-job-id` optional when `--is-job false` (default `single-task`). §17.1's
+> fix directions (3) and (4) remain open; its entry now records the evidence, the accepted
+> residuals, and the two repair rounds the independent reviews forced. **No existing item was
+> renumbered.** §14.7's fix (`cfcb853f`) also landed after the 2026-10-18 line above, so the
+> "remains open" note there is superseded by §14.7's own row.
 
 ---
 
@@ -6391,7 +6400,7 @@ open" means a decision is pending, not that nobody looked. Each row is either a 
 
 ## 17. The Step 0.8 Job-shape gate (2026-10-19)
 
-### 17.1 A session that owns Job ledgers but never recorded a Job-shape decision gets a `BLOCKED` on every Bash call — and the remedy is itself a Bash call
+### 17.1 A session that owns Job ledgers but never recorded a Job-shape decision gets a `BLOCKED` on every Bash call — and the remedy is itself a Bash call (found 2026-10-19; **fixes (1)+(2) FIXED 2026-10-19 — commit `ec106774`; (3)+(4) remain open**)
 
 **Observed** (2026-10-19, during the 24h backlog run): every Bash tool call surfaced
 `PreToolUse:Bash hook error — Failed with non-blocking status code: BLOCKED: No Job-shape decision
@@ -6438,11 +6447,32 @@ the `allow-no-decision-recorded` arm. A project that uses Job mode and skips `de
 - The recorded decision is per session and immutable without `--force`. A session that later
   becomes a Job cannot correct `--is-job false` without knowing about `--force`.
 
-**Disposition — recorded, not fixed in the release.** Fix directions, cheapest first: (1) exempt the
-remedy command from the gate (allow when the Bash command itself invokes
-`peaks code detect-job`, or allow a `PEAKS_STEP08_REMEDY=1` one-shot); (2) make
-`--suggested-job-id` optional when `--is-job false`, defaulting to a slug like
-`single-task`; (3) when `peaks job init` creates the first ledger, write a provisional
-`job-shape.json` (or refuse with the remedy) so a ledger can never exist without a decision; (4)
-have the gate name the exit code it used so a non-blocking harness classification is visible in the
-transcript. None of these is a meta-layer change; (1) and (2) are one small slice each.
+**Disposition — fixes (1) and (2) shipped 2026-10-19 (commit `ec106774`); (3) and (4) remain open.**
+Fix directions, cheapest first: (1) exempt the remedy command from the gate — **shipped**: the gate
+reads the PreToolUse payload's `tool_input.command` on stdin and allows a real
+`peaks code detect-job` invocation under the named `allow-remedy-command` verdict; the parse is
+narrow (separators, quoted/comment/here-doc mentions, backticks and `$(` keep the gate closed) and
+the exemption writes no `job-shape.json`; (2) make `--suggested-job-id` optional when `--is-job
+false`, defaulting to `single-task` — **shipped**; (3) when `peaks job init` creates the first
+ledger, write a provisional `job-shape.json` (or refuse with the remedy) so a ledger can never exist
+without a decision — **open**; (4) have the gate name the exit code it used so a non-blocking
+harness classification is visible in the transcript — **open**. None of these is a meta-layer
+change.
+
+**Evidence for the shipped half.** Session `2026-10-19-session-94b084`, rid
+`rid-step08-remedy-exemption`. Unit 26/26 and integration 17/17; `tsc --noEmit` clean; `pnpm build`
+OK. Measured end-to-end: with a ledger and no decision, a stdin payload carrying the remedy returns
+exit 0 / `mode: remedy-command` and writes no decision; `ls` and `echo "peaks code detect-job …"`
+still exit 2; `$(rm -rf build)` and the backtick form now block as well. Through the installed
+PowerShell hook shell, stdin reaches the CLI intact. `--is-job false` without an id records
+`single-task`; `--is-job true` without an id is refused as `INVALID_FLAG` and writes nothing; an
+explicit id still wins. Code review: PASS-WITH-FINDINGS (no CRITICAL/HIGH); Karpathy review: pass
+after two repair rounds; security audit: `warn` with two LOW observations (the pre-existing
+session-id traversal surface in the extracted readers, and an uncapped stdin accumulation bounded by
+the 2 s timeout); perf audit: pass. `peaks workflow verify-pipeline` reports `complete: true`.
+
+**Residuals from the shipped half.** The 2 s stdin timeout has no automated test; `cd x && peaks
+code detect-job`, `node bin/peaks.js code detect-job`, `A="a b" peaks code detect-job`, and a
+single-quoted rationale containing a literal backtick stay fail-closed; a harness that does not
+forward stdin would pay the timeout on every Bash call (Claude Code on this host forwards it); and
+the pre-existing PowerShell native-exit-2→1 mapping is unchanged.
