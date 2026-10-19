@@ -118,14 +118,16 @@
 >
 > **Revised 2026-10-18 — §14.5 and §14.8 were re-measured, and §16 is new.** §14.5's `--rid` traversal is refused at HEAD by the request-id pattern, so its disposition no longer says "Present at HEAD"; no code was changed by the re-measurement. §14.8 is closed by `98f5ed60`. §16 records the evaluation follow-up: the expired-grace ratchet (`f02c6be6`, 129 markers / 83 files), the derived RD gate builder, and two `backCompatUntil` gates that still soft-pass past their stated expiry. **No existing item was renumbered, and §14.7 remains open.**
 >
-> **Revised 2026-10-19 — §17.1 fixes (1) and (2) shipped.** Commit `ec106774` (session
+> **Revised 2026-10-19 — §17.1 is fully shipped.** Commit `ec106774` (session
 > `2026-10-19-session-94b084`, rid `rid-step08-remedy-exemption`) exempts a real
 > `peaks code detect-job` invocation from the Step 0.8 gate by reading the hook payload on stdin,
-> and makes `--suggested-job-id` optional when `--is-job false` (default `single-task`). §17.1's
-> fix directions (3) and (4) remain open; its entry now records the evidence, the accepted
-> residuals, and the two repair rounds the independent reviews forced. **No existing item was
-> renumbered.** §14.7's fix (`cfcb853f`) also landed after the 2026-10-18 line above, so the
-> "remains open" note there is superseded by §14.7's own row.
+> and makes `--suggested-job-id` optional when `--is-job false` (default `single-task`). Commit
+> `d08cf12f` (rid `rid-step08-ledger-provisional`) closes the other half: `peaks job init` writes a
+> provisional decision when the session has none (and surfaces an unreadable existing one with a
+> `--force` remedy), and the gate's block arms name exit 2. The entry records both halves, the
+> evidence, the accepted residuals, and the repair rounds the independent reviews forced. **No
+> existing item was renumbered.** §14.7's fix (`cfcb853f`) also landed after the 2026-10-18 line
+> above, so the "remains open" note there is superseded by §14.7's own row.
 
 ---
 
@@ -6400,7 +6402,7 @@ open" means a decision is pending, not that nobody looked. Each row is either a 
 
 ## 17. The Step 0.8 Job-shape gate (2026-10-19)
 
-### 17.1 A session that owns Job ledgers but never recorded a Job-shape decision gets a `BLOCKED` on every Bash call — and the remedy is itself a Bash call (found 2026-10-19; **fixes (1)+(2) FIXED 2026-10-19 — commit `ec106774`; (3)+(4) remain open**)
+### 17.1 A session that owns Job ledgers but never recorded a Job-shape decision gets a `BLOCKED` on every Bash call — and the remedy is itself a Bash call (found 2026-10-19; **FIXED 2026-10-19 — `ec106774` fixes (1)+(2), `d08cf12f` fixes (3)+(4)**)
 
 **Observed** (2026-10-19, during the 24h backlog run): every Bash tool call surfaced
 `PreToolUse:Bash hook error — Failed with non-blocking status code: BLOCKED: No Job-shape decision
@@ -6447,19 +6449,24 @@ the `allow-no-decision-recorded` arm. A project that uses Job mode and skips `de
 - The recorded decision is per session and immutable without `--force`. A session that later
   becomes a Job cannot correct `--is-job false` without knowing about `--force`.
 
-**Disposition — fixes (1) and (2) shipped 2026-10-19 (commit `ec106774`); (3) and (4) remain open.**
+**Disposition — all four fix directions shipped 2026-10-19 (`ec106774` for (1)+(2),
+`d08cf12f` for (3)+(4)).**
 Fix directions, cheapest first: (1) exempt the remedy command from the gate — **shipped**: the gate
 reads the PreToolUse payload's `tool_input.command` on stdin and allows a real
 `peaks code detect-job` invocation under the named `allow-remedy-command` verdict; the parse is
 narrow (separators, quoted/comment/here-doc mentions, backticks and `$(` keep the gate closed) and
 the exemption writes no `job-shape.json`; (2) make `--suggested-job-id` optional when `--is-job
 false`, defaulting to `single-task` — **shipped**; (3) when `peaks job init` creates the first
-ledger, write a provisional `job-shape.json` (or refuse with the remedy) so a ledger can never exist
-without a decision — **open**; (4) have the gate name the exit code it used so a non-blocking
-harness classification is visible in the transcript — **open**. None of these is a meta-layer
-change.
+ledger, write a provisional `job-shape.json` so a ledger can never exist without a decision —
+**shipped**: `peaks job init` now writes an `isJob: true`, `confidence: medium` decision naming the
+job and the requested strategy, labelled provisional in its rationale; an existing decision is read
+and never overwritten, an unreadable one is surfaced as `invalid-existing` with a `--force` remedy,
+and the remedy the provisional rationale prints is executed verbatim by the integration suite; (4)
+have the gate name the exit code it used so a non-blocking harness classification is visible in the
+transcript — **shipped**: both block arms carry `exitCode: 2` in the JSON envelope and name `exit 2`
+on stderr. None of these is a meta-layer change.
 
-**Evidence for the shipped half.** Session `2026-10-19-session-94b084`, rid
+**Evidence for the first half.** Session `2026-10-19-session-94b084`, rid
 `rid-step08-remedy-exemption`. Unit 26/26 and integration 17/17; `tsc --noEmit` clean; `pnpm build`
 OK. Measured end-to-end: with a ledger and no decision, a stdin payload carrying the remedy returns
 exit 0 / `mode: remedy-command` and writes no decision; `ls` and `echo "peaks code detect-job …"`
@@ -6471,8 +6478,30 @@ after two repair rounds; security audit: `warn` with two LOW observations (the p
 session-id traversal surface in the extracted readers, and an uncapped stdin accumulation bounded by
 the 2 s timeout); perf audit: pass. `peaks workflow verify-pipeline` reports `complete: true`.
 
-**Residuals from the shipped half.** The 2 s stdin timeout has no automated test; `cd x && peaks
+**Evidence for the second half.** Session `2026-10-19-session-94b084`, rid
+`rid-step08-ledger-provisional`. Unit 12/12 and integration 21/21 (the new provisional suite, the
+gate hook suite and job e2e); `tsc --noEmit` clean; `pnpm build` OK; the three new test files carry
+0 eslint errors/warnings; `peaks-gate.mjs repo` exits 0 and the staged gate passes the four
+in-scope source files. Measured end-to-end: `job init` writes the ledger and a provisional decision,
+and the gate then allows; a second `job init` leaves the decision byte-identical; `isJob: false` and
+`isJob: true` decisions are preserved; a malformed existing file is left untouched and surfaced with
+a `--force` remedy that runs verbatim; both block arms exit 2 with `data.exitCode: 2` and stderr
+naming exit 2, while the allow arm stays exit 0 with no field. Code review: PASS-WITH-FINDINGS after
+one BLOCK was repaired (a 51-line `runJobInit` over the 50-line cap); Karpathy review: pass after
+one repair (the printed remedy needed `--force`); security audit: `warn` with one LOW (the known
+§16 single-segment session-id gap, measured not to escape); perf audit: pass.
+`peaks workflow verify-pipeline` reports `complete: true`.
+
+**Residuals from the first half.** The 2 s stdin timeout has no automated test; `cd x && peaks
 code detect-job`, `node bin/peaks.js code detect-job`, `A="a b" peaks code detect-job`, and a
 single-quoted rationale containing a literal backtick stay fail-closed; a harness that does not
 forward stdin would pay the timeout on every Bash call (Claude Code on this host forwards it); and
 the pre-existing PowerShell native-exit-2→1 mapping is unchanged.
+
+**Residuals from the second half.** A job id outside `^[a-z0-9][a-z0-9-]{2,40}$` cannot be
+represented: the ledger is kept, no decision is written, and the warning reuses the non-conforming
+id; a second `job init` for a different job keeps the first `suggestedJobId` until
+`detect-job --force`; a deliberately recorded `isJob: false` plus a new ledger is allowed (PRD
+non-goal); the ledger-arm reason text still says the decision step was skipped, which since this fix
+can also mean a provisional write failed; the concurrent `JOB_SHAPE_ALREADY_DECIDED` branch is
+untested.
