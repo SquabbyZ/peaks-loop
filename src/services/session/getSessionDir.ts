@@ -26,11 +26,11 @@
  * re-derived at each call site: `../../x` used to be joined verbatim, and
  * the CLI wrote outside the project root while still returning `ok: true`.
  *
- * The predicate is `isUnsafePathInput`, NOT `SESSION_ID_PATTERN` /
- * `validateSessionId`. The latter are stricter than the segment axis and
- * reject ids that are legal today (`sid-1`, a request id reused as the
- * session-dir name), so adopting them would change results for
- * well-formed callers.
+ * The predicate is `isUnsafePathInput` plus a separator check, NOT
+ * `SESSION_ID_PATTERN` / `validateSessionId`. The latter are stricter than
+ * the segment axis and reject ids that are legal today (`sid-1`, a request
+ * id reused as the session-dir name), so adopting them would change results
+ * for well-formed callers.
  *
  * Not covered, recorded rather than implied: the `\0` axis
  * (`isUnsafePathInput` admits a NUL, and `execFileSync` raises EINVAL
@@ -45,12 +45,22 @@
 import { join } from 'node:path';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
 
+/**
+ * The documented contract: one path segment. `isUnsafePathInput` is a
+ * traversal guard only and ADMITS `a/b`, so the separator axes are
+ * checked here as well. The session dir is ONE directory name under
+ * `_runtime/`.
+ */
+function isSinglePathSegment(sessionId: string): boolean {
+  return !isUnsafePathInput(sessionId) && !sessionId.includes('/') && !sessionId.includes('\\');
+}
+
 export function getSessionDir(projectRoot: string, sessionId: string): string {
   // Throwing, not `null` / a tagged result: those widen the return type
   // to `string | null` and make every call site handle a bad id — the
   // per-site slice this guard replaces. This is also the shape the repo
   // already refuses with, and a caller cannot forget to handle a throw.
-  if (isUnsafePathInput(sessionId)) {
+  if (!isSinglePathSegment(sessionId)) {
     throw new Error(`Invalid session id: ${sessionId} (must be a single path segment)`);
   }
   return join(projectRoot, '.peaks', '_runtime', sessionId);
@@ -89,7 +99,7 @@ export function tryGetSessionDir(
   // Deliberately NOT `try { return {ok:true, dir: getSessionDir(...)} } catch`.
   // That would re-introduce the swallow this function exists to remove, and it
   // would also catch a throw from `join` for reasons that are not a bad id.
-  if (isUnsafePathInput(sessionId)) {
+  if (!isSinglePathSegment(sessionId)) {
     return {
       ok: false,
       reason: `Invalid session id: ${sessionId} (must be a single path segment)`

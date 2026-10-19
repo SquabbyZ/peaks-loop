@@ -32,7 +32,8 @@ declareDimensions(
   [{ dim: 'integration', reason: 'pure module' }]
 );
 
-import { getSessionDir } from '~/src/services/session/getSessionDir';
+import { getSessionDir, tryGetSessionDir } from '~/src/services/session/getSessionDir';
+import { isUnsafePathInput } from '~/src/shared/path-safety';
 import {
   CALLER_ID_REGEX,
   CallerIdError,
@@ -67,6 +68,40 @@ describe('Scenario: render — getSessionDir shape', () => {
     // top-level /worktrees /artifacts /etc. under .peaks/<sid>.
     expect(out).toMatch(/\.peaks[\\/]_runtime[\\/]sid$/);
     expect(out).not.toMatch(/\.peaks[\\/]sid[\\/]/);
+  });
+});
+
+describe('Scenario: behavior — session id must be a single path segment', () => {
+  it('when given `a/b`, should reject it even though isUnsafePathInput admits it', () => {
+    // given: a separator-bearing id that the traversal predicate does not flag
+    expect(isUnsafePathInput('a/b')).toBe(false);
+    // when:  both entries are asked for its directory
+    // then:  both refuse rather than nesting under `_runtime/a/b`
+    expect(() => getSessionDir('/proj', 'a/b')).toThrow(
+      'Invalid session id: a/b (must be a single path segment)'
+    );
+    expect(tryGetSessionDir('/proj', 'a/b')).toEqual({
+      ok: false,
+      reason: 'Invalid session id: a/b (must be a single path segment)'
+    });
+  });
+
+  it.each(['a\\b', '..', '.', '/abs', 'C:/abs'])(
+    'when given %j, should reject it in both entries',
+    (id) => {
+      const message = `Invalid session id: ${id} (must be a single path segment)`;
+      expect(() => getSessionDir('/proj', id)).toThrow(message);
+      expect(tryGetSessionDir('/proj', id)).toEqual({ ok: false, reason: message });
+    }
+  );
+
+  it('when given a valid id, should return the canonical path from both entries', () => {
+    // given: a well-formed single-segment id
+    const dir = join('/proj', '.peaks', '_runtime', 'valid-sid-1');
+    // when:  both entries are asked for its directory
+    // then:  both return that canonical path
+    expect(getSessionDir('/proj', 'valid-sid-1')).toBe(dir);
+    expect(tryGetSessionDir('/proj', 'valid-sid-1')).toEqual({ ok: true, dir });
   });
 });
 
