@@ -8,6 +8,7 @@
 import type { Command } from 'commander';
 import type { ProgramIO } from '../cli-helpers.js';
 import { registerRequestInitCommand } from './request-init-command.js';
+import { registerRequestMarkQaInitiatedCommand } from './request-mark-qa-initiated-command.js';
 import { registerRequestListCommand } from './request-list-command.js';
 import { registerRequestShowCommand } from './request-show-command.js';
 import { registerRequestRetagCommand } from './request-retag-command.js';
@@ -25,6 +26,7 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
   const request = program.command('request').description(REQUEST_DESCRIPTION);
 
   registerRequestInitCommand(request, io);
+  registerRequestMarkQaInitiatedCommand(request, io);
   registerRequestListCommand(request, io);
   registerRequestShowCommand(request, io);
   registerRequestRetagCommand(request, io);

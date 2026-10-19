@@ -1,5 +1,4 @@
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { isDirectory, listDirectories } from 'peaks-loop-shared/fs';
 
@@ -11,6 +10,7 @@ import {
   type PrerequisiteCheckResult,
   type RequestType
 } from './artifact-prerequisites.js';
+import { markQaInitiated } from './qa-initiated-marker.js';
 import { ensureSession, getSessionIdCanonical } from '../session/session-manager.js';
 // removed with the change-id axis. The change-id binding file is
 // gone; request-artifact callers pass `options.sessionId` explicitly
@@ -271,17 +271,10 @@ export async function createRequestArtifact(
   await writeFile(path, content, 'utf8');
 
   // Create QA initiated marker so rd:qa-handoff gate can verify QA was invoked.
-  // The marker lives under the SESSION dir (canonical post-F3 home).
+  // The writer is shared with `peaks request mark-qa-initiated`, the in-order
+  // path for a QA role that wrote its artifact before this command ran.
   if (options.role === 'qa') {
-    const qaDir = runtimeRoot(options.projectRoot).join(
-      guardRuntimeSegment(sessionId, 'session id'),
-      guardRuntimeSegment('qa', 'role')
-    );
-    const initiatedPath = join(qaDir, '.initiated');
-    if (!existsSync(initiatedPath)) {
-      await mkdir(qaDir, { recursive: true });
-      await writeFile(initiatedPath, '', 'utf8');
-    }
+    await markQaInitiated({ projectRoot: options.projectRoot, sessionId });
   }
 
   return {

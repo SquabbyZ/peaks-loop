@@ -63,6 +63,13 @@ export type RequestLintOptions = {
   json?: boolean;
 };
 
+export type RequestMarkQaInitiatedOptions = {
+  project: string;
+  /** Restrict the artifact lookup to one session; omitted, the artifact's own session is used. */
+  sessionId?: string;
+  json?: boolean;
+};
+
 export type RequestRepairStatusOptions = {
   project: string;
   sessionId?: string;
