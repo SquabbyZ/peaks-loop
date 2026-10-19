@@ -143,5 +143,5 @@ Each group ran the full RD→QA loop independently. The release commit
 - [[audit-decision-record-convention]] — `peaks audit static --record` shape
 - `src/services/rd/reviewer-dispatch-policy.ts` — canonical decision table + `RD_DEPRECATED_REVIEWERS`
 - `src/services/artifacts/artifact-prerequisites.ts` — `AUDIT_SECURITY` + `AUDIT_PERF` + `AUDIT_REQUIRES_HANDOFF`
-- `skills/peaks-rd/references/v2-12-fanout-collapse.md` — single canonical reference for the collapse contract
-- `skills/peaks-security-audit/SKILL.md` + `skills/peaks-perf-audit/SKILL.md` — new skill surfaces
+- `skills/bee/peaks-rd/references/v2-12-fanout-collapse.md` — single canonical reference for the collapse contract
+- `skills/bee/peaks-security-audit/SKILL.md` + `skills/bee/peaks-perf-audit/SKILL.md` — new skill surfaces

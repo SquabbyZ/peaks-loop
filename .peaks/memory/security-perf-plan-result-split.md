@@ -84,10 +84,10 @@ machine-enforced gates (the JSON envelope + the `--apply` opt-in).
 | `src/services/workflow/plan-trigger-detector.ts` | 5-rule trigger table |
 | `src/services/workflow/artifact-paths.ts` | `resolveSecurityFindingsPath` / `resolvePerformanceFindingsPath` + lazy migration |
 | `src/cli/commands/workflow-plan-commands.ts` | 3 subcommands under `peaks workflow plan` |
-| `skills/peaks-qa/references/qa-security-test-plan.md` | Plan content schema + trigger table |
-| `skills/peaks-qa/references/qa-perf-test-plan.md` | Same for perf |
-| `skills/peaks-qa/references/qa-transition-gates.md` | Gate C accepts both forms during 1-minor-release |
-| `skills/peaks-rd/references/mandatory-perf-baseline.md` | "Stable across slices within a session; refreshed on trigger" |
+| `skills/bee/peaks-qa/references/qa-security-test-plan.md` | Plan content schema + trigger table |
+| `skills/bee/peaks-qa/references/qa-perf-test-plan.md` | Same for perf |
+| `skills/bee/peaks-qa/references/qa-transition-gates.md` | Gate C accepts both forms during 1-minor-release |
+| `skills/bee/peaks-rd/references/mandatory-perf-baseline.md` | "Stable across slices within a session; refreshed on trigger" |
 
 ## Risks still open (slice-026+ follow-ups)
 

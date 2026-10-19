@@ -134,7 +134,7 @@ Every item below is one instance. The corollary that decided how each was handle
 
 ## 1. Needs a decision, not an implementation
 
-### 1.1 `docs/**` — 165 dangling citations, genre undecided
+### 1.1 `docs/**` — 165 dangling citations, genre undecided (**DISPOSITIONED 2026-10-19 — historical plan documents are exempt, explicitly**)
 
 - **Where**: `docs/superpowers/{plans,specs}/**` (14 files) plus the repo-root `docs/`
 - **Measured**: adding `docs/` to the citation guard's corpus reports **165 findings across 11 files**. Of 71 distinct
@@ -147,8 +147,26 @@ Every item below is one instance. The corollary that decided how each was handle
   that historical plan documents are exempt from citation integrity.
 - **Scale note**: 165 is the same order as 4.0.51's 178/64 when `skills/**` was added — which is why it was not
   widened in-session.
+- **DISPOSITIONED 2026-10-19 — exemption chosen, and the decision is now explicit.** A re-scan of
+  `docs/superpowers/{plans,specs}/**` with the guard's own anchor rules (backticked, repo-anchored,
+  no placeholder/glob token, not resolving on disk) finds **69 distinct non-resolving citations**.
+  Classifying them with `git log --diff-filter=D` splits them into two kinds, and neither is an
+  obligation:
+  - **Existed, then deleted (3):** `.peaks/.active-skill.json` (the legacy active-skill marker, moved
+    to `.peaks/_runtime/active-skill.json` and read through `peaks skill presence`),
+    `scripts/static-scan-mcp-removed.mjs`, and `tests/unit/ide/ide-registry.test.ts`. Each is cited
+    in a design/plan document as a **record of what the slice did** — the deletion is the point.
+  - **Never existed (66):** planned-but-never-built paths (`packages/runtime/**`, the pre-`skills/`
+    `.claude/skills/**` shape), `2026-MM-DD-*` fill-ins, and illustrative snippets (`docs/x.md`,
+    `src/x.ts`). These are **intent**, written before the tree had the file.
 
-### 1.2 `.peaks/memory/` — 83 stale pointers across 42 files
+  The genre decision is therefore extended from "not a corpus origin" to an explicit rule: **a
+  citation inside `docs/superpowers/**` is historical intent and is exempt from citation
+  integrity.** The guard already encodes the first half in `CORPUS_ENTRIES`' comment; the second
+  half is this entry. No file under `docs/superpowers/**` is rewritten, because rewriting a plan's
+  record of a deleted path would destroy the evidence it exists to carry.
+
+### 1.2 `.peaks/memory/` — 83 stale pointers across 42 files (**MECHANICAL CLASS FIXED 2026-10-19**)
 
 - **Measured**: of 1584 backticked repo-anchored paths in `.peaks/memory/`, **608 do not resolve**. Of those, **83
   point at a file that still exists elsewhere** (moved, not deleted) — the genuinely stale class. The rest are
@@ -167,6 +185,31 @@ Every item below is one instance. The corollary that decided how each was handle
   "the path resolves" would refute nothing. Checking it needs the 1584-path traversal, which this pass did not
   re-run. The 83 is therefore still the 2026-09-19 number, not a fresh one.
 - **Note**: `.peaks/memory/` is **not** in the citation guard's corpus, so nothing will flag these automatically.
+
+**MECHANICAL CLASS FIXED 2026-10-19.** Re-scanned all 543 memory files with the guard's anchor
+rules (backticked, repo-anchored, no placeholder/glob token, not resolving on disk), then resolved
+a non-resolving token **only when exactly one tracked file matched its trailing two segments** —
+so no ambiguous rewrite was possible. Applied:
+
+- **36 distinct pointer classes / 47 occurrences / 13 files.** The two classes the entry named are
+  both fully repaired: `skills/<bee-skill>/**` → `skills/bee/<bee-skill>/**` (27 tokens, including
+  the bare `skills/peaks-rd` and the `skills/peaks-reviewer/` directory), the
+  `src/services/mut/**` extraction → `packages/peaks-loop-mut/src/services/mut/**` (8 tokens),
+  `src/version.ts` → `packages/peaks-loop-shared/src/version.ts`, one moved test
+  (`tests/unit/services/code/…` → `tests/unit/code/…`), and 11 abbreviated
+  `integration/…` → `tests/integration/…` tokens.
+- `peaks memory reindex --apply` after the edits: `unclassified: []`, `orphanIndex: []`,
+  `orphanDisk: []`.
+
+**What remains, and why it is not mechanically fixable.** 427 distinct non-resolving tokens remain
+(708 occurrences). 151 are ephemeral `.peaks/_runtime/<session>/` artifacts that legitimately no
+longer exist — retained as the record of what a session produced, not as live pointers. The rest
+are (a) planned-but-never-built paths, (b) historical referents, and (c) 2 ambiguous basenames the
+unique-suffix rule refused to guess. Under the same rule that found the 36, **zero** remaining
+tokens point at a file that still exists elsewhere with a unique match: the "moved, not deleted"
+class is now empty. A future fix of the remaining class would have to decide what a memory's
+pointer *means* when its referent is gone, which is a genre question of the same kind §1.1 just
+answered, not a mechanical rewrite.
 
 ### 1.3 `test-style-contract.md` moved — downstream unverified
 

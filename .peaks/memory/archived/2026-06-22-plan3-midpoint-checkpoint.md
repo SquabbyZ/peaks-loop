@@ -36,7 +36,7 @@ status: archived
 - **Task 5:** `src/services/rd/strategic-stage.ts` — pass-through to `writeStrategy` for consistent public surface.
 - **Task 6:** `src/services/rd/tactical-stage.ts` — runs `runAstGate` then `writeImpl` (orchestrator).
 - **Task 7:** Add new exports `runStrategic` + `runTactical` to `src/services/rd/rd-service.ts`. **User decision (2026-06-22):** do NOT refactor existing `runRd` — ADD new exports only.
-- **Task 8:** Append sub-stage docs to `src/skills/peaks-rd/SKILL.md`.
+- **Task 8:** Append sub-stage docs to `skills/bee/peaks-rd/SKILL.md`.
 - **Task 9:** `tests/integration/rd/end-to-end-split.test.ts` — strategic → tactical → sig chain.
 - **Task 10:** `tests/integration/rd/ast-gate-cross-version.test.ts` — Plan 1 + Plan 3 alignment.
 - **Task 11:** Slice check (`tsc + vitest + peaks slice check`) + README entry.

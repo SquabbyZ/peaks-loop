@@ -29,7 +29,7 @@ In this session (2026-06-27-session-b483e6) we finished:
 ## What remains for Group A completion
 
 - **Tier 1.4**: `peaks project template init` CLI (`src/cli/commands/project-template-commands.ts` + register in `program.ts` + unit test). ~150 LoC TS + ~80 LoC test.
-- **Tier 2**: `peaks-security-audit` skill. Files: `skills/peaks-security-audit/SKILL.md` + `skills/peaks-security-audit/references/audit-protocol.md` + `src/cli/commands/security-audit-commands.ts` + register + 6 unit tests. ~500 LoC + 200 LoC test.
+- **Tier 2**: `peaks-security-audit` skill. Files: `skills/bee/peaks-security-audit/SKILL.md` + `skills/bee/peaks-security-audit/references/audit-protocol.md` + `src/cli/commands/security-audit-commands.ts` + register + 6 unit tests. ~500 LoC + 200 LoC test.
 - **Tier 3**: `peaks-perf-audit` skill (symmetric to Tier 2). ~500 LoC + 200 LoC test.
 - **5-way fan-out** (per peaks-rd SKILL.md hard constraint): code-reviewer + security-reviewer + perf-baseline-reviewer + qa-test-cases-writer + karpathy-reviewer. Must run before `rd:qa-handoff` transition.
 - **peaks-qa invocation**: business test (Gate A1-A4 + Gate D). peaks-qa in v2.11.0 is business-test only; security/perf covered by RD 5-way fan-out.
@@ -75,12 +75,12 @@ In this session (2026-06-27-session-b483e6) we finished:
   - `writeSecurityAuditArtifact` (atomic tmp+rename write)
   - `runSecurityAudit` (convenience wrapper)
   - **NOT YET typechecked** — service was written but `peaks slice check` not re-run. **Resume MUST run `peaks slice check` immediately** to catch any typecheck errors. Likely safe: 0 external imports beyond `node:fs`/`node:path`/`node:crypto`.
-- `skills/peaks-security-audit/` + `skills/peaks-perf-audit/` + their `references/` subdirs created (empty).
+- `skills/bee/peaks-security-audit` + `skills/peaks-perf-audit/` + their `references/` subdirs created (empty).
 
 ### STILL missing for Group A completion
 
-- **Tier 2 SKILL.md**: `skills/peaks-security-audit/SKILL.md` — parent LLM prompt + skill contract. ~150 lines markdown.
-- **Tier 2 references**: `skills/peaks-security-audit/references/audit-protocol.md` — OWASP Top-10 + threat model checklist. ~200 lines.
+- **Tier 2 SKILL.md**: `skills/bee/peaks-security-audit/SKILL.md` — parent LLM prompt + skill contract. ~150 lines markdown.
+- **Tier 2 references**: `skills/bee/peaks-security-audit/references/audit-protocol.md` — OWASP Top-10 + threat model checklist. ~200 lines.
 - **Tier 2 CLI**: `src/cli/commands/security-audit-commands.ts` + 1-line register in `src/cli/program.ts`. ~100 lines TS + register.
 - **Tier 2 unit tests**: `tests/unit/services/audit-independent/security-audit-service.test.ts` — 6 cases per PRD AC-2.8. ~200 lines.
 - **Tier 3**: full mirror of Tier 2 for `peaks-perf-audit`. ~700 lines.
@@ -130,11 +130,11 @@ version bump to 2.12.0.)
 
 ### Added in this late-late update
 
-- **`skills/peaks-security-audit/SKILL.md`** — parent LLM prompt + skill contract, 8-dim threat model + OWASP Top-10 mapping, 5-step workflow
-- **`skills/peaks-security-audit/references/audit-protocol.md`** — 8-dim checklist + severity scoring + verdict aggregation
+- **`skills/bee/peaks-security-audit/SKILL.md`** — parent LLM prompt + skill contract, 8-dim threat model + OWASP Top-10 mapping, 5-step workflow
+- **`skills/bee/peaks-security-audit/references/audit-protocol.md`** — 8-dim checklist + severity scoring + verdict aggregation
 - **`src/cli/commands/security-audit-commands.ts`** — `peaks security-audit detect` + `peaks security-audit run` (envelope via --envelope or stdin), registered in `src/cli/program.ts`
 - **`tests/unit/services/audit-independent/security-audit-service.test.ts`** — **16 test cases** (above the 6-case minimum from PRD AC-2.8)
-- **`skills/peaks-perf-audit/SKILL.md`** + `references/audit-protocol.md` — perf mirror with 6-dim methodology
+- **`skills/bee/peaks-perf-audit/SKILL.md`** + `references/audit-protocol.md` — perf mirror with 6-dim methodology
 - **`src/services/audit-independent/perf-audit-service.ts`** — symmetric to security-audit-service.ts (~470 LoC, 5-state detector, EMPIRICAL/STATIC/N/A methodology in renderer)
 - **`src/cli/commands/perf-audit-commands.ts`** — `peaks perf-audit detect` + `peaks perf-audit run`
 - **`tests/unit/services/audit-independent/perf-audit-service.test.ts`** — **16 test cases** (above the 6-case minimum from PRD AC-3.7)

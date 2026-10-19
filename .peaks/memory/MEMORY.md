@@ -135,7 +135,7 @@
 - [widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything](widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything.md) — A2 deliberately declined to widen the citation guard to bare non-test paths, and recorded the cost as "50 findings, n...
 - [workspace-underscore-convention](workspace-underscore-convention.md) — Under , any top-level directory whose name starts with  is **ephemeral** and is automatically gitignored by the  rule...
 
-## convention (35)
+## convention (36)
 
 - [a-marker-writer-should-be-o-excl-and-shared](a-marker-writer-should-be-o-excl-and-shared.md) — The marker is created with ; an existing marker returns  and its bytes are untouched.
 - [a-safety-classifier-denial-is-not-a-missing-red-side](a-safety-classifier-denial-is-not-a-missing-red-side.md) — The RD's first red-side attempt (mutating the real source and running tests) was refused by the safety classifier.
@@ -167,6 +167,7 @@
 - [share-the-warm-paths-rule-not-a-second-vocabulary](share-the-warm-paths-rule-not-a-second-vocabulary.md) — The DAG path imports the same  the warm path uses.
 - [stage-new-files-before-regenerating-the-baseline](stage-new-files-before-regenerating-the-baseline.md) — The gate baseline must be regenerated AFTER -ing any new file it should count.
 - [sub-agent-scratch-belongs-under-peaks-runtime-sessionid-rd-scratch-and-the-reason-is-functional](sub-agent-scratch-belongs-under-peaks-runtime-sessionid-rd-scratch-and-the-reason-is-functional.md) — Sub-agent scratch files belong under , never at a path outside the repository.
+- [the-scope-scanner-reads-backticked-paths-outside-the-in-scope-list](the-scope-scanner-reads-backticked-paths-outside-the-in-scope-list.md) — parses  for backticked paths.
 - [trae-install-inherits-slice-1-s-registry-driven-code-path-no-install-code-was-added](trae-install-inherits-slice-1-s-registry-driven-code-path-no-install-code-was-added.md) — Slice #2's Trae support is purely "fill the table" —  for Trae users uses the same registry-driven install path as Cl...
 - [use-the-readers-own-locator-in-the-lint](use-the-readers-own-locator-in-the-lint.md) — calls  — the same locator the transition uses — rather than a second regex over the body.
 - [validate-before-the-expensive-read](validate-before-the-expensive-read.md) — The role check runs before the DAG file is opened.
@@ -181,7 +182,7 @@
 - [src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior](src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior.md) — The  module is the single source of truth for IDE-aware behavior.
 - [src-services-session-canonical-workspace-resolver](src-services-session-canonical-workspace-resolver.md) — is the canonical home for the per-session workspace.
 
-## lesson (143)
+## lesson (144)
 
 - [2026-06-26-unknown-sid-root-cause](archived/2026-06-26-unknown-sid-root-cause.md) — Root cause + remediation log for the  and  orphan session dirs.
 - [2026-07-28-rid-034-handoff-no-sediment-block](2026-07-28-rid-034-handoff-no-sediment-block.md) — rid-034 收尾遇 sediment 反向 — no peaks-memory:start/end 闭合块 **Date:** 2026-07-28 **Rid:** 2026-07-28-rid-034-v2-13-0-clea...
@@ -215,6 +216,7 @@
 - [a-missing-prerequisite-must-read-as-a-prerequisite](a-missing-prerequisite-must-read-as-a-prerequisite.md) — read the repo-root  but asserted only on the script's exit code, so an unbuilt tree produced  — indistinguishable fro...
 - [a-multi-slice-job-that-shares-one-rid-reopens-the-evidence-collision-hole-rid-scoping-was-built-to-close](a-multi-slice-job-that-shares-one-rid-reopens-the-evidence-collision-hole-rid-scoping-was-built-to-close.md) — Gate C's evidence paths are rid-scoped (, , …) so two slices cannot occupy one slot.
 - [a-name-keyed-sweep-cannot-see-a-class-defined-by-position](a-name-keyed-sweep-cannot-see-a-class-defined-by-position.md) — Two repairs to the same defect were each reviewed by their own instance and each left the class open.
+- [a-producer-must-not-emit-a-section-the-consumer-cannot-fill](a-producer-must-not-emit-a-section-the-consumer-cannot-fill.md) — rendered an OpenSpec exit gate carrying  placeholders, then the  transition refused the pristine template with .
 - [a-prose-claim-about-what-a-timeout-does-while-holding-evidence-only-of-what-it-is](a-prose-claim-about-what-a-timeout-does-while-holding-evidence-only-of-what-it-is.md) — 断言行为之前，先测行为；断言不存在之前，先确认自己读到了输出 案例一：算式是真的，回收是假的（2026-10-01，rid ）  求值成 18,000,000 ms （5 小时），而命名与注释要的是 300,000 ms。这一半是**...
 - [a-public-export-needs-a-test-even-when-one-input-cannot-reach-the-branch](a-public-export-needs-a-test-even-when-one-input-cannot-reach-the-branch.md) — The item was titled "unreachable for object input", but the corrected measurement is the opposite: the predicate recu...
 - [a-ratchet-on-a-count-cannot-see-substitution](a-ratchet-on-a-count-cannot-see-substitution.md) — 对「数量」打棘轮，看不见「替换」 事实（2026-10-09，rid-038 的 format-check 棘轮，QA 独立发现） 第一版 CI 棘轮断言 ，成功时打印： **QA 指出这个判据有个洞**：**修掉一个旧的未格式化文件...

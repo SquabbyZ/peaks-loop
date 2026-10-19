@@ -122,7 +122,7 @@ D7 is the smallest unit of auto-resume: "I just `/compact`'d, please continue". 
 - **D7.k — New module** `src/services/code/post-compact-detector.ts` — encapsulates detection logic; exposes `detectPostCompactResume(sid, projectRoot): Promise<PostCompactResumeProbe>`
 - **D7.l — Extend** `src/services/code/mode-gate.ts` (from D5) — add `shouldAutoProceedOnPostCompact()` that always returns `true`; documents the D7.b override in code
 - **D7.m — New CLI** `peaks code post-compact-detect --project <repo> --json` — LLM can probe before invoking Step 0.7 logic
-- **D7.n — Test** `tests/unit/services/code/post-compact-detector.test.ts` covering: 4 modes × 3 checkpoint states (today / yesterday / none) × 2 binding states (bound / unbound) = 24 cases; plus the multi-checkpoint disambiguation test (3 sessions, verify most-recent wins); plus the missing-mode-field test
+- **D7.n — Test** `tests/unit/code/post-compact-detector.test.ts` covering: 4 modes × 3 checkpoint states (today / yesterday / none) × 2 binding states (bound / unbound) = 24 cases; plus the multi-checkpoint disambiguation test (3 sessions, verify most-recent wins); plus the missing-mode-field test
 - **D7.o — Test** `tests/unit/skill-post-compact-resume.test.ts` covering SKILL.md Step 0.7 prose + the log-line shape + the Step 0.7 AskUserQuestion mock (assert NOT called)
 
 ### PostCompactResumeProbe schema
@@ -185,7 +185,7 @@ The detector MUST be the single source of truth — no inline `isPostCompact()` 
 
 ## Test requirements
 
-- New `tests/unit/services/code/post-compact-detector.test.ts`:
+- New `tests/unit/code/post-compact-detector.test.ts`:
   - 4 modes × 3 checkpoint states (today / yesterday / none) × 2 binding states (bound / unbound) = 24 cases
   - Multi-checkpoint disambiguation (3 sessions with today's checkpoint → most-recent wins)
   - Stale-checkpoint (yesterday → fall through)

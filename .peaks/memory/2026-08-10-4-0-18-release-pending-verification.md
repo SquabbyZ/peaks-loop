@@ -71,7 +71,7 @@ gh run list --workflow=publish.yml --limit 5
 Lockfile pin is 0.0.47, but bump-version.mjs bumped working tree to 0.0.48. CI's `pnpm install --frozen-lockfile` would re-resolve to 0.0.47 (already published) → CLI_VERSION drift fail.
 
 **Fix**: Either
-1. **Revert working tree to pre-bump state** for `packages/*/package.json` + `src/version.ts` (root stays at 4.0.18 because 4.0.18 is what the tag says, but shared stays at 0.0.47 which is already published)
+1. **Revert working tree to pre-bump state** for `packages/*/package.json` + `packages/peaks-loop-shared/src/version.ts` (root stays at 4.0.18 because 4.0.18 is what the tag says, but shared stays at 0.0.47 which is already published)
 2. **Or wait for shared@0.0.48 to publish first** (chicken-and-egg — this release IS the shared publish)
 
 Option 1 is the recommended fix per the 4.0.14 sediment lesson.

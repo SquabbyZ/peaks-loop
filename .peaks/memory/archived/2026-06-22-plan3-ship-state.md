@@ -43,7 +43,7 @@ e40ebcc docs(rd): SKILL.md notes for 2 sub-stages
 - **Task 5:** `src/services/rd/strategic-stage.ts` (15 lines) — pass-through orchestrator. 1/1 test pass.
 - **Task 6:** `src/services/rd/tactical-stage.ts` (33 lines) — runs AST gate, then `writeImpl`. 2/2 tests pass.
 - **Task 7:** `src/services/rd/rd-service.ts` — ADDED `runStrategic` + `runTactical` thin re-exports + type exports. Smoke test verifies sig chain. 1/1 test pass.
-- **Task 8:** `skills/peaks-rd/SKILL.md` — Sub-stages section (placed BEFORE `## References` table; see lesson below). Slim-content test 18/18 pass.
+- **Task 8:** `skills/bee/peaks-rd/SKILL.md` — Sub-stages section (placed BEFORE `## References` table; see lesson below). Slim-content test 18/18 pass.
 - **Task 9:** `tests/integration/rd/end-to-end-split.test.ts` — strategic → tactical → sig chain. 1/1 test pass.
 - **Task 10:** `tests/integration/rd/ast-gate-cross-version.test.ts` — Plan 1 + Plan 3 alignment. 1/1 test pass.
 - **Task 11:** `README.md` — peaks-rd 双阶段 entry appended after peaks-mut section. tsc clean, full suite 3713/3713.
@@ -80,7 +80,7 @@ e40ebcc docs(rd): SKILL.md notes for 2 sub-stages
 - `tests/unit/services/rd/rd-service.test.ts` (39 lines)
 - `tests/integration/rd/end-to-end-split.test.ts` (34 lines)
 - `tests/integration/rd/ast-gate-cross-version.test.ts` (64 lines)
-- `skills/peaks-rd/SKILL.md` (modified — +18 lines for Sub-stages section)
+- `skills/bee/peaks-rd/SKILL.md` (modified — +18 lines for Sub-stages section)
 - `README.md` (modified — +9 lines for peaks-rd 双阶段 entry)
 
 All service files < 100 lines except ast-gate.ts (90) and strategy.ts (98). Well under Karpathy 800-line cap.

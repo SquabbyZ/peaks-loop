@@ -29,16 +29,16 @@ Integration slice (29 files) profiled independently:
 
 | File | Wall |
 |---|---|
-| `integration/config-migrate-cli.test.ts` | 86.4s |
-| `integration/ide/install-skills-dispatch.test.ts` | 84.0s |
-| `integration/job-e2e.test.ts` | 83.1s |
-| `integration/slice-ls-cli.test.ts` | 74.4s |
-| `integration/full-migration.test.ts` | 72.8s |
-| `integration/code-detect-job-command.test.ts` | 70.5s |
-| `integration/preferences-cli.test.ts` | 70.5s |
-| `integration/workspace-clean-cli.test.ts` | 63.2s |
-| `integration/code-gate-step-08-hook.test.ts` | 61.8s |
-| `integration/g7-g8-dogfood.test.ts` | 60.8s |
+| `tests/integration/config-migrate-cli.test.ts` | 86.4s |
+| `tests/integration/ide/install-skills-dispatch.test.ts` | 84.0s |
+| `tests/integration/job-e2e.test.ts` | 83.1s |
+| `tests/integration/slice-ls-cli.test.ts` | 74.4s |
+| `tests/integration/full-migration.test.ts` | 72.8s |
+| `tests/integration/code-detect-job-command.test.ts` | 70.5s |
+| `tests/integration/preferences-cli.test.ts` | 70.5s |
+| `tests/integration/workspace-clean-cli.test.ts` | 63.2s |
+| `tests/integration/code-gate-step-08-hook.test.ts` | 61.8s |
+| `tests/integration/g7-g8-dogfood.test.ts` | 60.8s |
 
 10 slowest integration files alone = ~728s wall. There are 29
 integration files → roughly 1500-2000s integration total.

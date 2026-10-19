@@ -19,7 +19,7 @@ metadata:
 - **G1 fixture-replay**: 32 real-shipment fixtures + `peaks fixture capture` CLI + `pnpm test:replay`
 - **G2 silent-warning**: TS-AST lint detector + 142 baseline grace markers + `pnpm lint:silent-warning`
 - **G3 prose-only ≤5%**: 89 → 6 promote enforcers (prose ratio 60.1% → 0%) + `pnpm audit:prose-ratio`
-- **G4 third-party reviewer**: `skills/peaks-reviewer/` + `~/.peaks/config.json.reviewer` schema + `THIRD_PARTY_REVIEW` prereq (soft-warn v2.14.0, hard-fail v2.15.0)
+- **G4 third-party reviewer**: `skills/bee/peaks-reviewer` + `~/.peaks/config.json.reviewer` schema + `THIRD_PARTY_REVIEW` prereq (soft-warn v2.14.0, hard-fail v2.15.0)
 - **G5 race-detector**: 4 fuzz-hardened modules + fixed `share-commands` LWW flake + `pnpm test:race` (`--repeat=20`)
 
 **5 RD sub-agent contracts landed:**
@@ -64,6 +64,6 @@ metadata:
 - `src/services/audit/enforcers/`, `src/services/audit/prose-ratio-calculator.ts`, `src/services/audit/static-audit-service.ts` (NEW)
 - `scripts/lint/`, `scripts/fixture-capture.mjs` (NEW)
 - `schemas/` (NEW replay-fixture + reviewer-envelope schemas)
-- `skills/peaks-reviewer/` (NEW skill)
+- `skills/bee/peaks-reviewer` (NEW skill)
 - `src/cli/commands/reviewer-commands.ts`, `src/cli/commands/audit-commands.ts`, `src/cli/program.ts`, `src/services/artifacts/artifact-prerequisites.ts`, `vitest.config.ts` (MODIFIED)
 - `tests/unit/replay/`, `tests/unit/lint/`, `tests/unit/reviewer/`, `tests/unit/audit/` (NEW test suites)

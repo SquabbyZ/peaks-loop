@@ -53,7 +53,7 @@ The chosen scope was deliberately minimal — peaks-loop is **not** the source, 
 
 1. **A new doctor check** — `integration:gateguard-peaks-conflict` in `src/services/doctor/doctor-service.ts:476-545`. Probe reads `~/.claude/settings.json` + project `.claude/settings.json`, scans PreToolUse entries for `gateguard` / `fact-force` / `fact_force` needles, returns ok:false when detected without a `.peaks/**` skip. Probe is injected via `options.gateguardProbe` so tests don't depend on real `~/.claude/`. Test coverage: 5 cases (no gateguard / gateguard without skip / gateguard with skip / uninitialized project / project-only hook) — all green.
 2. **Schema extension** — `schemas/doctor-report.schema.json` pattern now accepts `integration:<target>` ids; `doctor-self:check-id-pattern` self-check still passes for the new id.
-3. **SKILL.md pre-flight** — `skills/peaks-qa/SKILL.md` will gain a top-of-skill "If you see `[Fact-Forcing Gate]` mid-edit, run `ECC_DISABLED_HOOKS=pre:edit-write:gateguard-fact-force` first" red line. (Pending edit in this slice.)
+3. **SKILL.md pre-flight** — `skills/bee/peaks-qa/SKILL.md` will gain a top-of-skill "If you see `[Fact-Forcing Gate]` mid-edit, run `ECC_DISABLED_HOOKS=pre:edit-write:gateguard-fact-force` first" red line. (Pending edit in this slice.)
 4. **Memory** — this file. Future LLM sessions, when they see the Image, will match the keyword `gateguard` and skip the 30-minute "is this peaks-loop?" rabbit hole.
 
 ## Short-term workaround (use this until the gateguard author ships a fix)

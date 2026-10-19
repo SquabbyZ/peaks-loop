@@ -48,7 +48,7 @@ The 3 failures were all `STACK_TRACE_ERROR` = vitest timeouts:
 |---|---|---|
 | `unit/workflow-autonomous-resume-validation.test.ts` | "keeps resume preview when resume JSON change id does not match" | 124578ms |
 | `unit/workflow-autonomous-service.test.ts` | "marks resume ready when evidence refs end the validation report body" | 128843ms |
-| `integration/ide/install-skills-dispatch.test.ts` | "PEAKS_CLAUDE_SKILLS_DIR back-compat override writes to the env-var target" | 127159ms |
+| `tests/integration/ide/install-skills-dispatch.test.ts` | "PEAKS_CLAUDE_SKILLS_DIR back-compat override writes to the env-var target" | 127159ms |
 
 All three hit the global `testTimeout: 120_000` cliff exactly.
 None were parallelism failures — they're **single-task real
