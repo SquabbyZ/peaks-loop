@@ -9,6 +9,10 @@ import { JobStateStore } from '../../services/job/job-state-store.js';
 import { JobOrchestrator } from '../../services/job/job-orchestrator.js';
 import { emitJobEvent } from '../../services/job/job-event-emitter.js';
 import { JobInitInputSchema } from '../../services/job/job-types.js';
+import {
+  ensureProvisionalJobShapeDecision,
+  type ProvisionalDecisionOutcome
+} from '../../services/code/job-shape-provisional.js';
 import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
 import {
   asJson,
@@ -79,6 +83,58 @@ function parseJobInitInput(opts: JobInitOpts, sessionId: string, project: string
   });
 }
 
+interface JobInitReport {
+  readonly state: ReturnType<JobOrchestrator['init']>;
+  readonly statePath: string;
+  readonly provisional: ProvisionalDecisionOutcome;
+}
+
+/**
+ * The advice a provisional outcome owes the caller. `written` and
+ * `already-decided` are the expected outcomes and stay silent; the two failure
+ * arms carry the exact command that repairs them (the unreadable-file arm needs
+ * `--force`, because a decision file exists but cannot be replaced without it).
+ */
+function provisionalAdvice(
+  jobId: string,
+  outcome: ProvisionalDecisionOutcome
+): { warnings: string[]; nextActions: string[] } {
+  if (outcome.written || outcome.reason === 'already-decided') {
+    return { warnings: [], nextActions: [] };
+  }
+  const force = outcome.reason === 'invalid-existing' ? ' --force' : '';
+  const remedy = `peaks code detect-job --is-job true --suggested-job-id ${jobId}${force}`;
+  const problem =
+    outcome.reason === 'invalid-existing'
+      ? `The existing Job-shape decision at ${outcome.path} is unreadable (${outcome.error})`
+      : `Could not write the provisional Job-shape decision at ${outcome.path}: ${outcome.error}`;
+  return {
+    warnings: [`${problem}. Run \`${remedy}\` to replace it.`],
+    nextActions: [
+      `Run \`${remedy}\`; until a readable decision exists \`peaks code gate-step-08\` blocks Bash calls in this session.`
+    ]
+  };
+}
+
+/** The success envelope, unchanged except for advice when the decision is unreadable. */
+function printJobInitResult(io: ProgramIO, opts: JobInitOpts, report: JobInitReport): void {
+  const { warnings, nextActions } = provisionalAdvice(report.state.jobId, report.provisional);
+  printResult(
+    io,
+    ok(
+      'init',
+      {
+        jobId: report.state.jobId,
+        sliceCount: report.state.slices.length,
+        statePath: report.statePath
+      },
+      warnings,
+      nextActions
+    ),
+    asJson(opts)
+  );
+}
+
 function runJobInit(opts: JobInitOpts, io: ProgramIO): void {
   const project = projectRoot(opts);
   // Resolve sessionId: explicit flag > PEAKS_SESSION_ID > caller-first session binding
@@ -105,16 +161,20 @@ function runJobInit(opts: JobInitOpts, io: ProgramIO): void {
     mainLoopStrategy: parsed.data.mainLoopStrategy,
     rotateEvery: parsed.data.rotateEvery
   });
+  // Step 0.8 — a ledger must never exist without a decision. The ledger is
+  // already on disk (the `orch.init` line above), so this either leaves the
+  // session with a decision or reports why it could not; it never refuses the
+  // ledger that was just written. An existing decision is never overwritten.
+  const provisional = ensureProvisionalJobShapeDecision(project, sessionId, {
+    jobId: state.jobId,
+    strategy: parsed.data.mainLoopStrategy
+  });
   emitJobStarted(state);
-  printResult(
-    io,
-    ok('init', {
-      jobId: state.jobId,
-      sliceCount: state.slices.length,
-      statePath: `${jobRoot.rootDir}/${state.jobId}/state.json`
-    }),
-    asJson(opts)
-  );
+  printJobInitResult(io, opts, {
+    state,
+    statePath: `${jobRoot.rootDir}/${state.jobId}/state.json`,
+    provisional
+  });
 }
 
 function runJobStatus(opts: JobStatusOpts, io: ProgramIO): void {

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-19T09:32:06.750Z",
+  "updatedAt": "2026-10-19T12:25:32.409Z",
   "hot": {
     "rule": [
       {
@@ -2204,6 +2204,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\2026-08-11-rid-001-redo-fake-green-recovery-closure.md",
         "sourceArtifact": null,
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "satisfy-a-gate-s-invariant-at-the-producer-and-make-the-printed-remedy-run-verbatim",
+        "kind": "lesson",
+        "description": "A gate that refuses a state is not the place to fix the state.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\satisfy-a-gate-s-invariant-at-the-producer-and-make-the-printed-remedy-run-verbatim.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-19-session-94b084/txt/handoff-ledger-provisional.md",
+        "updatedAt": "2026-10-19"
       },
       {
         "name": "security-perf-plan-result-split",

@@ -96,9 +96,11 @@ export function readPromptFromLastPromptFile(projectRoot: string, sessionId: str
 /**
  * Job ids this session owns a ledger for, sorted.
  *
- * A ledger is `job/<jid>/state.json`, which only `peaks job init` writes, and
- * `job-shape.json` is written by `peaks code detect-job` and by nothing else —
- * so a ledger with no decision is the decision step having been skipped.
+ * A ledger is `job/<jid>/state.json`, which only `peaks job init` writes.
+ * `peaks code detect-job` writes the deliberate `job-shape.json`; since backlog
+ * §17.1 fix (3) `peaks job init` also writes a PROVISIONAL one right after the
+ * ledger. A ledger with no decision is therefore a ledger from before that fix
+ * or a provisional write that failed — not proof the decision step was skipped.
  */
 export function ledgerJobIds(projectRoot: string, sessionId: string): string[] {
   const jobDir = join(runtimeSessionDir(projectRoot, sessionId), 'job');

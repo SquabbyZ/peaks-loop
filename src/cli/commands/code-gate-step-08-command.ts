@@ -212,7 +212,8 @@ function printGateStep08Blocked(
     blockMessage,
     {
       promptSource: verdict.promptSource,
-      backupRegex: STEP_08_BACKUP_REGEX.toString()
+      backupRegex: STEP_08_BACKUP_REGEX.toString(),
+      exitCode: 2
     },
     [
       'Run `peaks code detect-job --is-job true --rationale <text> --suggested-job-id <slug>` (or `--is-job false --rationale <text>`, whose id defaults to `single-task`) to record the Job-shape verdict.',
@@ -220,7 +221,9 @@ function printGateStep08Blocked(
       ...context.hintActions
     ]
   );
-  io.stderr(`${blockMessage}\n`);
+  io.stderr(
+    `${blockMessage}\nThis gate blocks with exit 2; a harness that reports it as non-blocking has overridden the hook's exit code.\n`
+  );
   printResult(io, envelope, json);
   process.exitCode = 2;
 }
@@ -238,7 +241,8 @@ function printGateStep08BlockedWithLedger(
     blockMessage,
     {
       ledgerJobIds: verdict.ledgerJobIds,
-      backupRegex: STEP_08_BACKUP_REGEX.toString()
+      backupRegex: STEP_08_BACKUP_REGEX.toString(),
+      exitCode: 2
     },
     [
       'Run `peaks code detect-job --is-job true --rationale <text> --suggested-job-id <slug>` (or `--is-job false --rationale <text>`, whose id defaults to `single-task`) to record the Job-shape verdict the Job ledger presumes.',
@@ -246,7 +250,9 @@ function printGateStep08BlockedWithLedger(
       ...context.hintActions
     ]
   );
-  io.stderr(`${blockMessage}\n`);
+  io.stderr(
+    `${blockMessage}\nThis gate blocks with exit 2; a harness that reports it as non-blocking has overridden the hook's exit code.\n`
+  );
   printResult(io, envelope, json);
   process.exitCode = 2;
 }
