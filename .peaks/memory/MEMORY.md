@@ -51,7 +51,7 @@
 - [windows-shell-quoting-divergence](windows-shell-quoting-divergence.md) — <!-- peaks-feedback-promoted: layer=A --> On Windows, when testing  or similar nested-quote patterns, the test outcom...
 - [writing-a-value-then-reading-it-back-locks-the-first-guess](writing-a-value-then-reading-it-back-locks-the-first-guess.md) — <!-- peaks-feedback-promoted: layer=A --> **一个组件若把"自己派生的值"写进某处、又在后续运行里把该值读回来当作自己的输入，它就把自己锁在了首次猜测上。** 2026-09-13 实测（pe...
 
-## decision (19)
+## decision (20)
 
 - [a-spawned-child-unref-must-wait-for-close](a-spawned-child-unref-must-wait-for-close.md) — Both isolation-lease spawners must resolve the envelope and then defer  with  inside the  handler.
 - [backlog-14-7-closed-by-a-parity-arm-not-a-shared-import](backlog-14-7-closed-by-a-parity-arm-not-a-shared-import.md) — §14.7's two type derivations were closed by a parity arm, not by deriving one from the other.
@@ -64,6 +64,7 @@
 - [peaks-memory-scan-is-intentionally-not-a-cli](peaks-memory-scan-is-intentionally-not-a-cli.md) — is intentionally NOT a CLI command.
 - [peaks-zvec-spike-proposal-2026-06-18](2026-06-18-peaks-zvec-spike-proposal.md) — Proposal:  目录整改 + zvec 集成评估 **Status**: DRAFT — 待用户 review（2026-06-18） **Locked decisions**: Semantic search 策略 = **Y...
 - [read-the-durable-ledger-and-keep-the-in-memory-set](read-the-durable-ledger-and-keep-the-in-memory-set.md) — The fix reads  and finalizes matching rows via , the same effect  has.
+- [refuse-an-empty-population-before-writing-a-baseline](refuse-an-empty-population-before-writing-a-baseline.md) — An empty examined population returns  (exit 1) unless ;  refuses before writing, so a mistyped scope cannot overwrite...
 - [remove-a-dead-type-alias-only-after-proving-no-package-reexport](remove-a-dead-type-alias-only-after-proving-no-package-reexport.md) — Three type aliases were dropped from the export list after: zero  importers across , , , , ; no package entry naming ...
 - [reviewer-producer-retires-the-third-party-review-acceptance](reviewer-producer-retires-the-third-party-review-acceptance.md) — is the producer that lets the  commit-leg acceptance (, ) be retired.
 - [skill-first-cli-auxiliary-sub-agent-dispatch](skill-first-cli-auxiliary-sub-agent-dispatch.md) — Slice #009 (PRD #002) added a new  CLI primitive.
@@ -132,10 +133,11 @@
 - [widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything](widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything.md) — A2 deliberately declined to widen the citation guard to bare non-test paths, and recorded the cost as "50 findings, n...
 - [workspace-underscore-convention](workspace-underscore-convention.md) — Under , any top-level directory whose name starts with  is **ephemeral** and is automatically gitignored by the  rule...
 
-## convention (31)
+## convention (32)
 
 - [a-safety-classifier-denial-is-not-a-missing-red-side](a-safety-classifier-denial-is-not-a-missing-red-side.md) — The RD's first red-side attempt (mutating the real source and running tests) was refused by the safety classifier.
 - [a-slice-that-adds-src-files-owes-a-baseline-regen](a-slice-that-adds-src-files-owes-a-baseline-regen.md) — A commit that adds  files must regenerate  before the next tier run, or  and  go red for a reason unrelated to the cu...
+- [an-ignored-message-is-a-skip-not-a-finding](an-ignored-message-is-a-skip-not-a-finding.md) — The report parser counts a  message as an , not a finding.
 - [audit-artifact-convention](audit-artifact-convention.md) — Audit artifact writer generalization (Slice 2026-06-26-audit-artifact-writer-generalization).
 - [audit-decision-record-convention](audit-decision-record-convention.md) — Red-line audit snapshots produced by  are persisted as project-memory decisions at .
 - [backlog-open-markers-need-a-head-measurement](backlog-open-markers-need-a-head-measurement.md) — The backlog's OPEN markers are not machine-checked.
@@ -174,7 +176,7 @@
 - [src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior](src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior.md) — The  module is the single source of truth for IDE-aware behavior.
 - [src-services-session-canonical-workspace-resolver](src-services-session-canonical-workspace-resolver.md) — is the canonical home for the per-session workspace.
 
-## lesson (140)
+## lesson (141)
 
 - [2026-06-26-unknown-sid-root-cause](archived/2026-06-26-unknown-sid-root-cause.md) — Root cause + remediation log for the  and  orphan session dirs.
 - [2026-07-28-rid-034-handoff-no-sediment-block](2026-07-28-rid-034-handoff-no-sediment-block.md) — rid-034 收尾遇 sediment 反向 — no peaks-memory:start/end 闭合块 **Date:** 2026-07-28 **Rid:** 2026-07-28-rid-034-v2-13-0-clea...
@@ -195,6 +197,7 @@
 - [a-flag-can-govern-one-side-of-a-read-write-pair](a-flag-can-govern-one-side-of-a-read-write-pair.md) — passed the flag only to ; the read side () was built without it and silently used the default .
 - [a-gate-bound-to-the-active-session-verifies-nothing](a-gate-bound-to-the-active-session-verifies-nothing.md) — The last slice of job  was resumed from a **fresh** session while its six rid carriers lived under the session that p...
 - [a-gate-invoked-with-no-file-arguments-passes-vacuously-and-exits-0](a-gate-invoked-with-no-file-arguments-passes-vacuously-and-exits-0.md) — with zero in-scope files prints  and **returns 0** (, ).
+- [a-green-over-an-empty-population-is-not-a-measurement](a-green-over-an-empty-population-is-not-a-measurement.md) — reported "File ignored by default" and exit 0.
 - [a-guard-keyed-on-a-file-path-shrinks-silently-when-you-split-that-file](a-guard-keyed-on-a-file-path-shrinks-silently-when-you-split-that-file.md) — Three independent guards in this repo decide what to measure by PATH, so moving code into a sibling removes it from c...
 - [a-guard-named-for-a-rule-but-written-as-a-list-cannot-see-the-next-case](a-guard-named-for-a-rule-but-written-as-a-list-cannot-see-the-next-case.md) — 是 npm 的发布白名单，而**仓库里没有任何东西读它**。漏加一个  导入的模块，后果是**每个用户**在  后 ， 而**全仓 4238 条测试全绿**。本 session 在同一个地方栽了两次（、）。 第三次时，一条守卫被加上了...
 - [a-guard-that-never-ran-is-not-a-passing-guard](a-guard-that-never-ran-is-not-a-passing-guard.md) — A cross-cutting structural guard stayed red through three batches and two commits of this round.

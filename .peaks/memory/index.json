@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-18T23:18:09.013Z",
+  "updatedAt": "2026-10-19T00:06:39.402Z",
   "hot": {
     "rule": [
       {
@@ -542,6 +542,14 @@
         "updatedAt": "2026-10-18"
       },
       {
+        "name": "refuse-an-empty-population-before-writing-a-baseline",
+        "kind": "decision",
+        "description": "An empty examined population returns  (exit 1) unless ;  refuses before writing, so a mistyped scope cannot overwrite...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\refuse-an-empty-population-before-writing-a-baseline.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-lintpop.md",
+        "updatedAt": "2026-10-19"
+      },
+      {
         "name": "remove-a-dead-type-alias-only-after-proving-no-package-reexport",
         "kind": "decision",
         "description": "Three type aliases were dropped from the export list after: zero  importers across , , , , ; no package entry naming ...",
@@ -960,6 +968,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-slice-that-adds-src-files-owes-a-baseline-regen.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-parity.md",
         "updatedAt": "2026-10-18"
+      },
+      {
+        "name": "an-ignored-message-is-a-skip-not-a-finding",
+        "kind": "convention",
+        "description": "The report parser counts a  message as an , not a finding.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\an-ignored-message-is-a-skip-not-a-finding.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-lintpop.md",
+        "updatedAt": "2026-10-19"
       },
       {
         "name": "audit-artifact-convention",
@@ -1388,6 +1404,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-gate-invoked-with-no-file-arguments-passes-vacuously-and-exits-0.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-24-session-b714c7/txt/handoff.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "a-green-over-an-empty-population-is-not-a-measurement",
+        "kind": "lesson",
+        "description": "reported \"File ignored by default\" and exit 0.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-green-over-an-empty-population-is-not-a-measurement.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-lintpop.md",
+        "updatedAt": "2026-10-19"
       },
       {
         "name": "a-guard-keyed-on-a-file-path-shrinks-silently-when-you-split-that-file",

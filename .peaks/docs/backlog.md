@@ -2305,7 +2305,7 @@ path no gate runs. And the same edit pushed a leg to five parameters where HEAD 
 un-formatted helper (`tests/unit/standards/_file-size-cap-scan.ts`) — this entry's own failure mode, now
 refused rather than committed.
 
-### 2.41 eslint ignores dot-directories by default, so a hand-run lint over `.husky/` reports success having checked nothing (found 2026-10-02 while scoping §2.37)
+### 2.41 eslint ignores dot-directories by default, so a hand-run lint over `.husky/` reports success having checked nothing (found 2026-10-02 while scoping §2.37; **FIXED 2026-10-19 — rid `rid-lint-population-report`**)
 
 ```
 eslint --no-eslintrc … .husky/peaks-gate.mjs …            → 33 warnings "File ignored by default", exit 0
@@ -2328,6 +2328,15 @@ it looked at, and refuse when that population is 0 without an explicit opt-in.**
 (`scope.countedFiles`, plus a refusal for an empty or missing hooks dir); the lint legs do not. Apply it to the
 proposed executed-code leg the day it is written, and to `peaks lint check`'s per-directory summaries if the
 next audit finds a directory that can vanish from them.
+
+**FIXED 2026-10-19 (rid `rid-lint-population-report`).** A requested dot-path scope now adds
+`--no-ignore` (and `config/eslint/tsconfig.lint.json` includes `.husky/**/*`), so `.husky` is examined:
+`checkedFiles` 57 for the directory and 1 for the single-file probe, `ignoredFiles` 0. The lint result
+carries `checkedFiles` / `ignoredFiles`; an examined population of 0 refuses with `EMPTY_SCOPE` unless
+`--allow-empty`, and `lint baseline` refuses before writing. An "ignored" message is a skip, not a
+finding. The default scope is unchanged. Baseline regen: `eslintFindings` 1704 → 1703 (a descent),
+`eslintErrors` held, with new rows for `eslint-report.ts` and `lint-baseline-command.ts`. The RD's
+first version raised the ceiling; QA sent it back, and the repair extracted the over-long functions.
 
 ### 2.42 The lint scope itself was narrower-proof than the ratchet: a rescope lowers every ceiling with zero work done, and the missing-row rule makes the exempted files _stricter_ (owner decision 2026-10-03; CLOSED 2026-10-03, rids `2026-10-03-w10-rescope-a` + `…-repair1`)
 
