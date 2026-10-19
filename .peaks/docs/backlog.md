@@ -3431,6 +3431,8 @@ without clobbering unrelated keys (it refuses an unparseable file); every non-ve
 `passed: false` + `gateAction: 'warn'` (`src/services/reviewer/reviewer-envelopes.ts`); `status` has three states
 (`no-section` / `insufficient-providers` / `configured`) and puts the ≥2 requirement in `nextActions`;
 `peaks reviewer run --write` writes `rd/third-party-review.md` + `.json` and writes nothing on a skip.
+(The filename was later scoped per rid by `rid-third-party-rid-scope`, §9.37; the bare path is the
+legacy tier.)
 4 test files / 33 tests. QA re-checked the one repair (single-segment session id) with a mutation control:
 `a/b` is now refused before `mkdir`. Measured at closure: reviewer suite 33/33, `tsc` exit 0, repo tier
 63 files / 645 tests, `verify-pipeline` complete. **Residuals:** `getSessionDir` / `isUnsafePathInput` still
@@ -5240,7 +5242,7 @@ INIT_SESSION_HELP)` — versus line **107** in the same file:
   filename containing `rid`.** The RD re-worded rather than spelling the name around the detector —
   which is the right call, and the difference between fixing the comment and training the guard away.
 
-### 9.37 The same session-scoped collision survives in three other prerequisite paths, and one of them is hard-enforced (measured 2026-10-13 by an independent review of 9.36's fix; **open as the body records it — but the hard instance's per-rid repair landed `47863518` on 2026-10-14, and `THIRD_PARTY_REVIEW` is deliberately still bare**)
+### 9.37 The same session-scoped collision survives in three other prerequisite paths, and one of them is hard-enforced (measured 2026-10-13 by an independent review of 9.36's fix; **CLOSED 2026-10-19 — the hard instance was repaired `47863518`, and `THIRD_PARTY_REVIEW` is now scoped by `bedfb7af`**)
 
 - **Where**: `artifacts/artifact-prerequisites.ts`. 9.36 gave `BUG_ANALYSIS` an `<rid>` placeholder,
   but the repair direction the handoff stated — *"the only prerequisite path with no `<rid>`"* — was
@@ -5275,6 +5277,29 @@ INIT_SESSION_HELP)` — versus line **107** in the same file:
   legacy tier — for `rd/security-review.md` first (it is hard and silent), then a decision for
   `THIRD_PARTY_REVIEW` before its window closes. `qa/.initiated` should be left alone and the reason
   stated, or the table will accumulate changes made to satisfy a pattern rather than a defect.
+
+**CLOSED 2026-10-19.** Both live instances are scoped:
+- `rd/security-review.md` → `rd/security-review-<rid>.md` with the bare path as the legacy tier
+  (`47863518`).
+- `THIRD_PARTY_REVIEW` → `rd/third-party-review-<rid>.md` with the bare path as the legacy tier
+  (rid `rid-third-party-rid-scope`, `bedfb7af`). `peaks reviewer run --write` writes the scoped
+  `.md` + `.json` and validates the rid against `REQUEST_ID_PATTERN` before the first `mkdir`, so the
+  rid cannot escape the directory. Two rids in one session now resolve to two distinct files, and
+  rid A's file does not satisfy rid B.
+
+**The upgrade path is part of the fix, not an afterthought.** The commit-leg acceptance key follows
+the declared stem, and the seed is deliberately idempotent — so a project initialized on v4.1.7
+keeps the bare entry forever. `judgeClosedWindow` now accepts the row's own `legacyRelativePath` /
+`legacyRelativePaths` as aliases with the same `until`, so the upgraded entry still covers the
+window; the alias is one-directional and is not a wildcard (an entry naming a different artifact
+still produces exactly one violation). The karpathy and code reviews independently found this gap
+before the commit; QA reproduced it on a pre-repair copy (refused) and on the repaired source
+(accepted).
+
+`qa/.initiated` is deliberately left bare: it is an existence-only marker, so two slices using the
+same path cannot be judged by a different diff. `MUT_REPORT` stays bare by its own stated argument
+(no producer can write a scoped name). The table now changes for defects, not to satisfy the
+pattern.
 
 ### 9.38 The machine-injected dispatch block tells every sub-agent to run a command the CLI refuses (measured 2026-10-13, by the checker 9.31 built; open, and it was the majority of that checker's findings) — **REPAIRED 2026-10-14**
 

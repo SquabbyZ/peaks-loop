@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-19T02:08:06.434Z",
+  "updatedAt": "2026-10-19T02:55:34.281Z",
   "hot": {
     "rule": [
       {
@@ -576,10 +576,10 @@
       {
         "name": "reviewer-producer-retires-the-third-party-review-acceptance",
         "kind": "decision",
-        "description": "is the producer that lets the  commit-leg acceptance (, ) be retired.",
+        "description": "is the producer that lets the third-party-review commit-leg acceptance (, keyed on the declared  path, ) be retired.",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\reviewer-producer-retires-the-third-party-review-acceptance.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff.md",
-        "updatedAt": "2026-10-18"
+        "updatedAt": "2026-10-19"
       },
       {
         "name": "skill-first-cli-auxiliary-sub-agent-dispatch",
@@ -1058,6 +1058,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "duplicate-reviewer-findings-are-the-class-confirmation",
+        "kind": "convention",
+        "description": "In this slice the karpathy review and the code review independently found the same upgrade-path gap (both rated it ME...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\duplicate-reviewer-findings-are-the-class-confirmation.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-thirdparty.md",
+        "updatedAt": "2026-10-19"
+      },
+      {
         "name": "evaluate-the-policy-module-with-reset-modules-and-stub-env",
         "kind": "convention",
         "description": "The arms use , , and a dynamic import of ;  runs in a .",
@@ -1428,6 +1436,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-dimensional-header-is-not-a-set-of-assertions.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-concurrency.md",
         "updatedAt": "2026-10-18"
+      },
+      {
+        "name": "a-filename-scoping-change-owes-an-upgrade-path",
+        "kind": "lesson",
+        "description": "Changing a prerequisite path to -scoped also changes the commit-leg acceptance key ().",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-filename-scoping-change-owes-an-upgrade-path.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-thirdparty.md",
+        "updatedAt": "2026-10-19"
       },
       {
         "name": "a-flag-can-govern-one-side-of-a-read-write-pair",
