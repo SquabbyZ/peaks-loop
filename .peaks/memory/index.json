@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-19T00:06:39.402Z",
+  "updatedAt": "2026-10-19T00:32:52.148Z",
   "hot": {
     "rule": [
       {
@@ -460,6 +460,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-spawned-child-unref-must-wait-for-close.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-container.md",
         "updatedAt": "2026-10-18"
+      },
+      {
+        "name": "add-the-verb-do-not-weaken-the-init-refusal",
+        "kind": "decision",
+        "description": "The fix adds ; it does not make  accept an existing artifact.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\add-the-verb-do-not-weaken-the-init-refusal.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-qamarker.md",
+        "updatedAt": "2026-10-19"
       },
       {
         "name": "backlog-14-7-closed-by-a-parity-arm-not-a-shared-import",
@@ -953,6 +961,14 @@
       }
     ],
     "convention": [
+      {
+        "name": "a-marker-writer-should-be-o-excl-and-shared",
+        "kind": "convention",
+        "description": "The marker is created with ; an existing marker returns  and its bytes are untouched.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-marker-writer-should-be-o-excl-and-shared.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-qamarker.md",
+        "updatedAt": "2026-10-19"
+      },
       {
         "name": "a-safety-classifier-denial-is-not-a-missing-red-side",
         "kind": "convention",
@@ -1580,6 +1596,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-self-check-whose-file-set-comes-from-the-diff-covers-neither-agent-s-window.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-25-session-0cf437/rd/rid-4134eb10-repair-2.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "a-side-effect-on-a-success-path-has-no-in-order-alternative",
+        "kind": "lesson",
+        "description": "was written only as a side effect of , and that command refuses when the QA artifact already exists.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-side-effect-on-a-success-path-has-no-in-order-alternative.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-qamarker.md",
+        "updatedAt": "2026-10-19"
       },
       {
         "name": "a-silent-push-on-this-repo-is-the-pre-push-hook-running-the-full-suite",

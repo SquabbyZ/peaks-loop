@@ -51,9 +51,10 @@
 - [windows-shell-quoting-divergence](windows-shell-quoting-divergence.md) — <!-- peaks-feedback-promoted: layer=A --> On Windows, when testing  or similar nested-quote patterns, the test outcom...
 - [writing-a-value-then-reading-it-back-locks-the-first-guess](writing-a-value-then-reading-it-back-locks-the-first-guess.md) — <!-- peaks-feedback-promoted: layer=A --> **一个组件若把"自己派生的值"写进某处、又在后续运行里把该值读回来当作自己的输入，它就把自己锁在了首次猜测上。** 2026-09-13 实测（pe...
 
-## decision (20)
+## decision (21)
 
 - [a-spawned-child-unref-must-wait-for-close](a-spawned-child-unref-must-wait-for-close.md) — Both isolation-lease spawners must resolve the envelope and then defer  with  inside the  handler.
+- [add-the-verb-do-not-weaken-the-init-refusal](add-the-verb-do-not-weaken-the-init-refusal.md) — The fix adds ; it does not make  accept an existing artifact.
 - [backlog-14-7-closed-by-a-parity-arm-not-a-shared-import](backlog-14-7-closed-by-a-parity-arm-not-a-shared-import.md) — §14.7's two type derivations were closed by a parity arm, not by deriving one from the other.
 - [comments-after-executable-code-are-not-contract-bound](comments-after-executable-code-are-not-contract-bound.md) — The "exactly three leading comments" rule is enforced only BEFORE the first executable line.
 - [do-not-wire-an-implicit-root-build-to-fix-a-message](do-not-wire-an-implicit-root-build-to-fix-a-message.md) — §2.13 had two ways out: accept the ≈9–14 s implicit root build, or give the misleading test a stated prerequisite.
@@ -133,8 +134,9 @@
 - [widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything](widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything.md) — A2 deliberately declined to widen the citation guard to bare non-test paths, and recorded the cost as "50 findings, n...
 - [workspace-underscore-convention](workspace-underscore-convention.md) — Under , any top-level directory whose name starts with  is **ephemeral** and is automatically gitignored by the  rule...
 
-## convention (32)
+## convention (33)
 
+- [a-marker-writer-should-be-o-excl-and-shared](a-marker-writer-should-be-o-excl-and-shared.md) — The marker is created with ; an existing marker returns  and its bytes are untouched.
 - [a-safety-classifier-denial-is-not-a-missing-red-side](a-safety-classifier-denial-is-not-a-missing-red-side.md) — The RD's first red-side attempt (mutating the real source and running tests) was refused by the safety classifier.
 - [a-slice-that-adds-src-files-owes-a-baseline-regen](a-slice-that-adds-src-files-owes-a-baseline-regen.md) — A commit that adds  files must regenerate  before the next tier run, or  and  go red for a reason unrelated to the cu...
 - [an-ignored-message-is-a-skip-not-a-finding](an-ignored-message-is-a-skip-not-a-finding.md) — The report parser counts a  message as an , not a finding.
@@ -176,7 +178,7 @@
 - [src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior](src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior.md) — The  module is the single source of truth for IDE-aware behavior.
 - [src-services-session-canonical-workspace-resolver](src-services-session-canonical-workspace-resolver.md) — is the canonical home for the per-session workspace.
 
-## lesson (141)
+## lesson (142)
 
 - [2026-06-26-unknown-sid-root-cause](archived/2026-06-26-unknown-sid-root-cause.md) — Root cause + remediation log for the  and  orphan session dirs.
 - [2026-07-28-rid-034-handoff-no-sediment-block](2026-07-28-rid-034-handoff-no-sediment-block.md) — rid-034 收尾遇 sediment 反向 — no peaks-memory:start/end 闭合块 **Date:** 2026-07-28 **Rid:** 2026-07-28-rid-034-v2-13-0-clea...
@@ -219,6 +221,7 @@
 - [a-registry-or-behaviour-hash-cannot-see-a-function-body-and-cannot-see-a-dropped-re-export](a-registry-or-behaviour-hash-cannot-see-a-function-body-and-cannot-see-a-dropped-re-export.md) — Five batches each "proved" behaviour-preserving refactors by hashing the rendered command registry before and after.
 - [a-second-entry-path-bypasses-the-shared-validator](a-second-entry-path-bypasses-the-shared-validator.md) — returned from  before , which is where the warm single-dispatch path runs .
 - [a-self-check-whose-file-set-comes-from-the-diff-covers-neither-agent-s-window](a-self-check-whose-file-set-comes-from-the-diff-covers-neither-agent-s-window.md) — An RD reported "eslint + prettier --check clean **on the new test file**" — singular.
+- [a-side-effect-on-a-success-path-has-no-in-order-alternative](a-side-effect-on-a-success-path-has-no-in-order-alternative.md) — was written only as a side effect of , and that command refuses when the QA artifact already exists.
 - [a-silent-push-on-this-repo-is-the-pre-push-hook-running-the-full-suite](a-silent-push-on-this-repo-is-the-pre-push-hook-running-the-full-suite.md) — On 2026-09-25,  produced **zero bytes of output for over two minutes**.
 - [a-single-measurement-of-a-host-sensitive-command-is-not-a-fact-about-the-command](a-single-measurement-of-a-host-sensitive-command-is-not-a-fact-about-the-command.md) — Four measurements of one  on this repo spread **8.89 s – 14.2 s** (~60 %): , from three different agents.
 - [a-slice-whose-core-behaviour-no-artifact-specifies-costs-multiples-of-its-peers](a-slice-whose-core-behaviour-no-artifact-specifies-costs-multiples-of-its-peers.md) — S1, S2 and S3 of  each needed **one** repair pass.

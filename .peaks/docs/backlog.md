@@ -2905,7 +2905,7 @@ moment it is most expected, which is the thing this repo has refused all week.
 Explicitly not the fix: "push the tag before main". It works by accident, encodes an ordering into a human
 workflow, and the wall comes back the first time someone pushes in the other order.
 
-### 2.54 The release gate greps for one quote style, so a formatting pass silently made the project unreleasable for ~a week (hit 2026-10-03 at the 4.1.0 publish; run #209 failed, registry still 4.0.54)
+### 2.54 The release gate greps for one quote style, so a formatting pass silently made the project unreleasable for ~a week (hit 2026-10-03 at the 4.1.0 publish; run #209 failed, registry still 4.0.54; **FIXED 2026-10-03 — rid `2026-10-03-release-gate-quote-brittle`; re-verified 2026-10-19, 15/15**)
 
 Publishing `v4.1.0` produced the first real red of the day, and it was not in the change being published:
 
@@ -2968,6 +2968,11 @@ Nothing in the push gate changed (checked: no `refs/tags` / stdin handling exist
 out through the escape hatch the refusal text itself names — `PEAKS_GATE_CHANGED_BASE=v4.0.54`, which is also the
 semantically right base for a release. The gate behaviour §2.53 describes is still open, and the meta layer is
 frozen, so it stays open by decision rather than by oversight.
+
+**RE-VERIFIED 2026-10-19.** `scripts/verify-version-parity.mjs` and
+`tests/unit/release/version-parity-gate.test.ts` are present; the suite passes 15/15. The workflow step's
+comment names the fix and states that all value reads go through the quote-tolerant script. **No code
+change was made by the 2026-10-19 run.** §2.53 remains open (the meta layer is frozen).
 
 ### 2.55 Two tests pinned to a literal commit sha run in the one CI job that has no commit history — `main` has been red on CI on every push since 2026-10-02 and green in every place it was ever measured — **CLOSED 2026-10-04 (landed `3c212b06`, pushed; existence of the sha verified 2026-10-14)**
 
@@ -5758,9 +5763,18 @@ neither marker → 2 entries, same path, **distinct** requirements (heading vs i
 `path`, `description` and `--allow-incomplete` are unchanged. The baseline was regenerated after
 staging the new test (`measuredFiles` 752 → 754, no ceiling rose).
 
-### 10.4 `qa/.initiated` is only produced by `peaks request init --role qa`, which **refuses when the request artifact already exists** — so a QA role that writes its artifact first has no in-order way to create the marker (found 2026-10-15; **open**)
+### 10.4 `qa/.initiated` is only produced by `peaks request init --role qa`, which **refuses when the request artifact already exists** — so a QA role that writes its artifact first has no in-order way to create the marker (found 2026-10-15; **FIXED 2026-10-19 — rid `rid-qa-initiated-marker`**)
 
 `request-artifact-service.ts` writes the marker as a side effect of `role === 'qa'`. `request init` then refuses with `REQUEST_INIT_FAILED: A request artifact with id "…" already exists in …/qa/requests. Remove it before re-running`. Any workflow in which the QA role writes `qa/requests/<rid>.md` before `request init --role qa` runs is therefore stuck, and the only ways out are dishonest (delete a real artifact) or unrecorded (hand-create the marker — what this session did). **This is §9.44's class: a carrier can reach a slot there is no in-order way out of.** A `peaks request mark-qa-initiated` verb, or making the marker idempotent rather than init-coupled, would close it.
+
+**FIXED 2026-10-19 (rid `rid-qa-initiated-marker`).** A new
+`peaks request mark-qa-initiated <request-id>` verb resolves the QA artifact, then creates
+`.peaks/_runtime/<sid>/qa/.initiated` with a single `O_EXCL` write. It is idempotent (`created: false`
+on a repeat, existing bytes preserved), never writes under `qa/requests/`, and an absent artifact is
+`QA_ARTIFACT_MISSING` naming `request init`. `createRequestArtifact` delegates its success-path marker
+write to the same service. Measured: artifact present + marker absent → `request init` still refuses,
+the new verb succeeds, the artifact's sha256 is byte-identical, and `checkPrerequisites` no longer
+reports the marker; two concurrent processes yield exactly one `created: true`.
 
 ### 10.5 A `- state:` line that is **absent**, or that carries a **parenthetical**, fails the transition closed — two instances in one slice, both machine-read fields holding human prose (found 2026-10-15; **open**)
 
