@@ -6388,3 +6388,61 @@ open" means a decision is pending, not that nobody looked. Each row is either a 
 | §14.9 / §14.15 process traps | **ACCEPTED, documented.** | Quoted-glob and per-slice CI reading are already stated in the SLICE guidance and the memories; no code carrier can enforce them. |
 | §1.3 moved `test-style-contract.md` | **UNCLOSABLE from this repo.** | The consumer-visible path is `node_modules/peaks-loop/contracts/…`; downstream verification is not in this tree. |
 | §16 `transitionRelease` message on an unknown stage | **RECORDED (unreachable in-repo).** | Every caller passes `readReleaseState` output and the reader now fails closed; the fallback `?? []` is a one-line guard for a direct library caller. |
+
+## 17. The Step 0.8 Job-shape gate (2026-10-19)
+
+### 17.1 A session that owns Job ledgers but never recorded a Job-shape decision gets a `BLOCKED` on every Bash call — and the remedy is itself a Bash call
+
+**Observed** (2026-10-19, during the 24h backlog run): every Bash tool call surfaced
+`PreToolUse:Bash hook error — Failed with non-blocking status code: BLOCKED: No Job-shape decision
+was recorded for this session, but it owns a Job ledger (job/backcompat-expiry-hardening/state.json,
+… 22 ledgers …)`. The commands still ran.
+
+**Mechanism.** `peaks workspace init` copies `.peaks/.claude-settings-template.json` into the
+project's `.claude/settings.local.json`, including a `PreToolUse` hook on the Bash matcher:
+`peaks code gate-step-08 --project "${CLAUDE_PROJECT_DIR}"`. The gate
+(`src/services/code/step-08-gate.ts:255-283`) refuses when `job-shape.json` is absent **and**
+`job/<jid>/state.json` ledgers exist: "`peaks job init` ran and `peaks code detect-job` did not".
+The command sets `process.exitCode = 2` for that verdict
+(`src/cli/commands/code-gate-step-08-command.ts:212-240`), and the CLI's own contract is
+exit 0 = allow, exit 2 = block.
+
+**Measured, and the measurement is unsettling.** Against a scratch project with one ledger and no
+decision, the installed 4.1.8 binary **exits 2** (`peaks code gate-step-08 --project <fixture>
+--session-id demo-sid` → `PATH_EXIT=2`), which is a blocking PreToolUse result. With `--project`
+alone and no resolvable session the gate allows (exit 0). In the session above it reported BLOCKED
+yet the harness classified it as **non-blocking**, so the Bash calls proceeded — the reason is in
+the hook wrapper/harness layer (the entry uses `"shell": "powershell"`; the PATH binary at the time
+was a ten-day-old build), not in the gate's exit code. That difference decides whether this is noise
+or a hard stop.
+
+**The deadlock, if the block is real.** The printed remedy is a CLI command run through Bash —
+`peaks code detect-job --is-job false --suggested-job-id <slug>`. The hook fires on **every** Bash
+call and the ledger branch inspects no command, so in a truly blocking install the remedy is blocked
+by the same gate that asks for it. The session could not recover without running the CLI outside the
+harness. (This is also a Human-NL-Choice-Only trap: the message tells the LLM to run a verb it
+cannot run.)
+
+**Downstream impact — yes, but only for Job-mode users.** The hook template ships to every project
+that runs `peaks workspace init` (`src/cli/commands/workspace/init-actions.ts:121-132`), so the
+downstream surface is real. The trigger is narrower: `job/<jid>/state.json` is written by
+`peaks job init` and by nothing else in `src/` (no dispatch wrapper calls it automatically), so an
+ordinary peaks-loop project — dispatch, requests, reviews — never creates a ledger and always takes
+the `allow-no-decision-recorded` arm. A project that uses Job mode and skips `detect-job` hits it.
+**Ordinary downstream projects are unaffected; Job-mode downstream projects can be blocked.**
+
+**Two smaller defects found alongside.**
+- `--suggested-job-id` is **required even for `--is-job false`**, while `--help` presents it as a
+  Job-mode field. The remedy message prints `--is-job true|false ...`, so a reader who answers
+  `false` is refused for a missing field the message never named.
+- The recorded decision is per session and immutable without `--force`. A session that later
+  becomes a Job cannot correct `--is-job false` without knowing about `--force`.
+
+**Disposition — recorded, not fixed in the release.** Fix directions, cheapest first: (1) exempt the
+remedy command from the gate (allow when the Bash command itself invokes
+`peaks code detect-job`, or allow a `PEAKS_STEP08_REMEDY=1` one-shot); (2) make
+`--suggested-job-id` optional when `--is-job false`, defaulting to a slug like
+`single-task`; (3) when `peaks job init` creates the first ledger, write a provisional
+`job-shape.json` (or refuse with the remedy) so a ledger can never exist without a decision; (4)
+have the gate name the exit code it used so a non-blocking harness classification is visible in the
+transcript. None of these is a meta-layer change; (1) and (2) are one small slice each.
