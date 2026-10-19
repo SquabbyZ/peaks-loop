@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-19T07:27:40.665Z",
+  "updatedAt": "2026-10-19T09:32:06.750Z",
   "hot": {
     "rule": [
       {
@@ -1603,6 +1603,14 @@
         "description": "Making the reviewer's  load-bearing first resolved it against the consumer project root, which broke every consumer: ...",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-packaged-asset-is-not-at-the-consumer-project-root.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-residuals.md",
+        "updatedAt": "2026-10-19"
+      },
+      {
+        "name": "a-pretooluse-gate-that-prints-a-remedy-must-exempt-that-remedy-from-itself",
+        "kind": "lesson",
+        "description": "A gate installed on every Bash call blocks the very command it tells the caller to run.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-pretooluse-gate-that-prints-a-remedy-must-exempt-that-remedy-from-itself.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-19-session-94b084/txt/handoff.md",
         "updatedAt": "2026-10-19"
       },
       {

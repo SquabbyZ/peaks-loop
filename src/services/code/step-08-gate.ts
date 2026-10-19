@@ -32,6 +32,14 @@
  *      The gate never blocks on the ABSENCE of a decision alone: it runs on
  *      every Bash call in every session, so a normal non-Job session must
  *      keep passing through case (c).
+ *      Before any of a–c, one exemption: when the hook payload's command is a
+ *      real `peaks code detect-job` invocation, the gate allows with
+ *      `allow-remedy-command`. The printed remedy is itself a Bash call, so a
+ *      gate that blocks it deadlocks the session that needs it. The parse is
+ *      narrow — a leading env assignment is allowed, the executable tokens
+ *      must be `peaks`, `code`, `detect-job` in order, and a compound line is
+ *      not the remedy. A command that only MENTIONS the verb in a quoted
+ *      string, a comment, or a here-document is not an invocation.
  *
  * Karpathy §2 (Simplicity First): no LLM call inside. The regex is the FIRST
  * time peaks-loop accepts hardcoded keywords — explicitly scoped as a
@@ -39,19 +47,20 @@
  * the semantic call via `peaks code detect-job`.
  */
 
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
-
 import {
   readJobShapeDecision,
   JobShapeDecisionError,
   JOB_SHAPE_NOT_DECIDED
 } from './job-shape-decision.js';
 import { describeNextSlice } from '../job/job-progress-store.js';
-import { isExpectedFsMiss } from '../../shared/fs-utils.js';
+import {
+  ledgerJobIds,
+  readProgressIfAny,
+  readPromptFromLastPromptFile,
+  type Step08Progress
+} from './step-08-session-readers.js';
 
 export const STEP_08_GATE_FILE_NAME = 'job-shape.json' as const;
-export const STEP_08_PROGRESS_FILE_NAME = 'progress.json' as const;
 
 /**
  * Fail-closed backup regex — see module docstring case 3 for why this
@@ -68,15 +77,6 @@ export const STEP_08_PROGRESS_FILE_NAME = 'progress.json' as const;
 export const STEP_08_BACKUP_REGEX =
   /直到|全部|until all done|disavow cost|不用考虑费用|all of them/i;
 
-export interface Step08Progress {
-  readonly jobId: string;
-  readonly done: number;
-  readonly total: number;
-  readonly currentSlice: string;
-  readonly lastCommitSha: string | null;
-  readonly updatedAt: string;
-}
-
 export type Step08PromptSource = 'flag' | 'last-prompt-file' | 'stdin-empty';
 
 export type Step08Verdict =
@@ -86,6 +86,15 @@ export type Step08Verdict =
       readonly progress: Step08Progress | null;
     }
   | { readonly kind: 'allow-single' }
+  | {
+      /**
+       * The Bash command being gated IS the remedy this gate prints. Named
+       * separately so the transcript cannot confuse it with a command in a
+       * session that had already recorded a decision.
+       */
+      readonly kind: 'allow-remedy-command';
+      readonly reason: string;
+    }
   | {
       readonly kind: 'block-missing-decision';
       readonly promptSource: Step08PromptSource;
@@ -101,108 +110,20 @@ export type Step08Verdict =
       readonly reason: string;
     };
 
-export function runtimeSessionDir(projectRoot: string, sessionId: string): string {
-  return join(projectRoot, '.peaks', '_runtime', sessionId);
-}
-
-function progressPath(projectRoot: string, sessionId: string, jid: string): string {
-  // The progress file lives under job/<jid>/progress.json. The jid
-  // comes from job-shape.json (decision.suggestedJobId) — there is
-  // exactly one canonical jid per session under Job mode, so we read
-  // the matching path directly rather than enumerating the job/ dir.
-  // (Rotating mode spawns new jids but only one is "active" at a time;
-  // the active jid is the latest write to job-shape.json.)
-  return join(runtimeSessionDir(projectRoot, sessionId), 'job', jid, STEP_08_PROGRESS_FILE_NAME);
-}
-
-function readProgressIfAny(
-  projectRoot: string,
-  sessionId: string,
-  jid: string
-): Step08Progress | null {
-  const path = progressPath(projectRoot, sessionId, jid);
-  if (!existsSync(path)) return null;
-  try {
-    const raw = readFileSync(path, 'utf8');
-    const parsed = JSON.parse(raw) as Partial<Step08Progress>;
-    if (
-      typeof parsed.jobId === 'string' &&
-      typeof parsed.done === 'number' &&
-      typeof parsed.total === 'number' &&
-      typeof parsed.currentSlice === 'string' &&
-      typeof parsed.updatedAt === 'string'
-    ) {
-      return {
-        jobId: parsed.jobId,
-        done: parsed.done,
-        total: parsed.total,
-        currentSlice: parsed.currentSlice,
-        lastCommitSha: typeof parsed.lastCommitSha === 'string' ? parsed.lastCommitSha : null,
-        updatedAt: parsed.updatedAt
-      };
-    }
-    return null;
-  } catch (err) {
-    // P1 site (S6, 2026-09-15) — same correction as `readPromptFromLastPromptFile`
-    // below: corrupt progress.json stays loud, and a failure that is not an
-    // fs miss (module-load ReferenceError, TypeError from a bad field, …)
-    // propagates instead of reading as "no progress yet".
-    if (err instanceof SyntaxError) throw err;
-    if (!isExpectedFsMiss(err)) throw err;
-    return null;
-  }
-}
-
-function readPromptFromLastPromptFile(projectRoot: string, sessionId: string): string {
-  const path = join(runtimeSessionDir(projectRoot, sessionId), 'txt', 'last-prompt.txt');
-  if (!existsSync(path)) return '';
-  try {
-    return readFileSync(path, 'utf8');
-  } catch (err) {
-    // P1 site (S6, 2026-09-15). This catch was bare — it bound nothing and
-    // swallowed every error class. The sibling reads in this file had been
-    // narrowed; this one had not, so the ONE path that feeds the step-08
-    // backup regex was also the one that could not tell "no prompt file" from
-    // "the module is broken". On the platform this gate exists for, that is
-    // the difference between blocking a disavowal prompt and silently
-    // allowing it. Missing/unreadable text is an empty prompt; anything else
-    // propagates.
-    if (!isExpectedFsMiss(err)) throw err;
-    return '';
-  }
-}
-
-/**
- * Job ids this session owns a ledger for, sorted.
- *
- * A ledger is `job/<jid>/state.json`, which only `peaks job init` writes, and
- * `job-shape.json` is written by `peaks code detect-job` and by nothing else —
- * so a ledger with no decision is the decision step having been skipped.
- */
-function ledgerJobIds(projectRoot: string, sessionId: string): string[] {
-  const jobDir = join(runtimeSessionDir(projectRoot, sessionId), 'job');
-  if (!existsSync(jobDir)) return [];
-  let names: string[];
-  try {
-    names = readdirSync(jobDir);
-  } catch (err) {
-    if (!isExpectedFsMiss(err)) throw err;
-    return [];
-  }
-  return names
-    .filter((name) => existsSync(join(jobDir, name, 'state.json')))
-    .sort((left, right) => left.localeCompare(right));
-}
-
 export interface EvaluateStep08Input {
   readonly projectRoot: string;
   readonly sessionId: string;
   /**
    * Explicit prompt text. When omitted, falls back to
-   * `.peaks/_runtime/<sid>/txt/last-prompt.txt`, then to stdin (the
-   * caller passes stdin verbatim — usually empty in tests).
+   * `.peaks/_runtime/<sid>/txt/last-prompt.txt`. Stdin carries the PreToolUse
+   * payload, not the prompt, and is read only when this is omitted.
    */
   readonly prompt?: string;
+  /**
+   * The Bash command the PreToolUse payload carried, when one was supplied.
+   * Used only for the remedy exemption — it never feeds the prompt regex.
+   */
+  readonly command?: string;
 }
 
 export interface EvaluateStep08Result {
@@ -221,8 +142,47 @@ function noDecisionWithLedgerReason(ledger: readonly string[]): string {
     `No Job-shape decision was recorded for this session, but it owns a Job ledger (${paths}). ` +
     'That means `peaks job init` ran and `peaks code detect-job` did not, so every ' +
     'Job-mode step this gate keys on was skipped. Record the verdict with ' +
-    '`peaks code detect-job --is-job true|false ...`, then retry.'
+    '`peaks code detect-job --is-job false --rationale <text>` (its id defaults to ' +
+    '`single-task`), or `peaks code detect-job --is-job true --rationale <text> ' +
+    '--suggested-job-id <slug>`, then retry.'
   );
+}
+
+const DETECT_JOB_TOKENS = ['peaks', 'code', 'detect-job'] as const;
+const ENV_ASSIGNMENT_RE = /^[A-Za-z_][A-Za-z0-9_]*=/;
+
+const REMEDY_COMMAND_REASON =
+  'The Bash command being run IS the `peaks code detect-job` remedy this gate asks ' +
+  'for when a Job ledger exists without a recorded decision. Allowing it breaks the ' +
+  'deadlock: the remedy is a Bash call and this hook sees every one.';
+
+/** Quotes group; a separator (`;`, `&`, `|`, `<`, `>`, newline) stands alone. */
+const SHELL_TOKEN_RE = /'[^']*'|"[^"]*"|[^\s;|&<>\n]+|[;|&<>\n]/g;
+
+/**
+ * Whether the command the hook is gating is the remedy this gate prints.
+ * Narrow on purpose — no shell parsing: the executable tokens must be
+ * `peaks code detect-job`, optionally behind a simple `NAME=value` env
+ * assignment. A quoted mention is not an invocation, and neither is a
+ * compound line, a comment, a here-document body, or anything carrying a
+ * backtick or `$(` — command substitution could run a different command
+ * inside what looks like the remedy, so it keeps the gate closed.
+ *
+ * LIMIT: an env assignment whose value is itself quoted
+ * (`A="a b" peaks code detect-job`) is not recognised; the flat tokeniser
+ * splits it and the exemption fails closed. A bare `A=b` prefix works.
+ */
+function isDetectJobInvocation(command: string): boolean {
+  if (command.includes('`') || command.includes('$(')) return false;
+  const tokens: string[] = [];
+  for (const match of command.trim().matchAll(SHELL_TOKEN_RE)) {
+    const token = match[0];
+    if (token === '\n' || (token.length === 1 && ';|&<>'.includes(token))) return false;
+    tokens.push(token.replace(/^(['"])(.*)\1$/, '$2'));
+  }
+  let index = 0;
+  while (index < tokens.length && ENV_ASSIGNMENT_RE.test(tokens[index] ?? '')) index += 1;
+  return DETECT_JOB_TOKENS.every((token, offset) => tokens[index + offset] === token);
 }
 
 /** Pure evaluator — does NOT write, does NOT exit. The CLI wrapper reads `allow`. */
@@ -254,6 +214,13 @@ export function evaluateStep08(input: EvaluateStep08Input): EvaluateStep08Result
 
 /** `job-shape.json` is missing — see the module header for the three answers. */
 function decideWithoutJobShapeDecision(input: EvaluateStep08Input): EvaluateStep08Result {
+  if (input.command !== undefined && isDetectJobInvocation(input.command)) {
+    return {
+      allow: true,
+      verdict: { kind: 'allow-remedy-command', reason: REMEDY_COMMAND_REASON },
+      nextSliceLine: null
+    };
+  }
   const promptText =
     input.prompt ?? readPromptFromLastPromptFile(input.projectRoot, input.sessionId);
   const promptSource: Step08PromptSource =

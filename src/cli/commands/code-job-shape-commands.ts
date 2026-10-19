@@ -20,6 +20,9 @@ import { findProjectRoot } from '../../services/config/config-safety.js';
 import { getSkillPresence } from '../../services/skills/skill-presence-service.js';
 import { registerCodeJobShapeReadCommand } from './code-job-shape-commands-read-job-shape.js';
 
+/** A non-Job decision names no Job; it records this valid, deterministic slug. */
+const DEFAULT_SINGLE_TASK_JOB_ID = 'single-task';
+
 export function registerCodeJobShapeCommands(code: Command, io: ProgramIO): void {
   // v3.1.1 Step 0.8 — Job-shape decision recorder.
   // The CLI is a *recorder*, not a judge. The LLM supplies the verdict
@@ -31,14 +34,16 @@ export function registerCodeJobShapeCommands(code: Command, io: ProgramIO): void
       .command('detect-job')
       .description(
         "v3.1.1 Step 0.8: record the LLM's Job-shape judgement. CLI is a recorder, NOT a detector. " +
-          'Pass --is-job true|false, --rationale <text>, --suggested-job-id <slug>. ' +
+          'Pass --is-job true|false and --rationale <text>; --suggested-job-id <slug> is required ' +
+          'when --is-job true and defaults to `single-task` when false. ' +
           'Downstream steps call `peaks code read-job-shape` and refuse to proceed if missing.'
       )
       .requiredOption('--is-job <bool>', "true | false (the LLM's semantic verdict)")
       .requiredOption('--rationale <text>', '1-3 sentences the LLM writes explaining the call')
-      .requiredOption(
+      .option(
         '--suggested-job-id <jid>',
-        'LLM-chosen stable id, slug-safe (/^[a-z0-9][a-z0-9-]{2,40}$/)'
+        'LLM-chosen stable id, slug-safe (/^[a-z0-9][a-z0-9-]{2,40}$/). ' +
+          'Required when --is-job true; defaults to `single-task` when --is-job false.'
       )
       .option('--suggested-strategy <single|rotating>', 'single | rotating', 'single')
       .option('--confidence <high|medium|low>', 'high | medium | low', 'medium')
@@ -53,7 +58,7 @@ export function registerCodeJobShapeCommands(code: Command, io: ProgramIO): void
     async (opts: {
       isJob: string;
       rationale: string;
-      suggestedJobId: string;
+      suggestedJobId?: string;
       suggestedStrategy: string;
       confidence: string;
       force?: boolean;
@@ -112,15 +117,38 @@ export function registerCodeJobShapeCommands(code: Command, io: ProgramIO): void
           process.exitCode = 1;
           return;
         }
-        const jidRe = /^[a-z0-9][a-z0-9-]{2,40}$/;
-        if (!jidRe.test(opts.suggestedJobId)) {
+        // The id names the Job a decision creates, so only a Job decision
+        // requires one. A non-Job decision records the deterministic default;
+        // an explicit id still wins for both values of --is-job.
+        const suggestedJobId =
+          opts.suggestedJobId ?? (opts.isJob === 'false' ? DEFAULT_SINGLE_TASK_JOB_ID : undefined);
+        if (suggestedJobId === undefined) {
           printResult(
             io,
             fail(
               'code.detect-job',
               'INVALID_FLAG',
-              `--suggested-job-id must match /^[a-z0-9][a-z0-9-]{2,40}$/ (got "${opts.suggestedJobId}")`,
-              { provided: opts.suggestedJobId },
+              '--suggested-job-id is required when --is-job true (it names the Job the decision creates)',
+              { provided: null },
+              [
+                'Pass --suggested-job-id <slug> (lowercase, digits, dashes; 3-41 chars)',
+                'Or answer --is-job false and let the id default to `single-task`'
+              ]
+            ),
+            opts.json
+          );
+          process.exitCode = 1;
+          return;
+        }
+        const jidRe = /^[a-z0-9][a-z0-9-]{2,40}$/;
+        if (!jidRe.test(suggestedJobId)) {
+          printResult(
+            io,
+            fail(
+              'code.detect-job',
+              'INVALID_FLAG',
+              `--suggested-job-id must match /^[a-z0-9][a-z0-9-]{2,40}$/ (got "${suggestedJobId}")`,
+              { provided: suggestedJobId },
               ['Pass a slug-safe id (lowercase, digits, dashes; 3-41 chars)']
             ),
             opts.json
@@ -188,7 +216,7 @@ export function registerCodeJobShapeCommands(code: Command, io: ProgramIO): void
           {
             isJob: opts.isJob === 'true',
             rationale: opts.rationale,
-            suggestedJobId: opts.suggestedJobId,
+            suggestedJobId,
             suggestedStrategy: opts.suggestedStrategy,
             confidence: opts.confidence,
             prompt: promptText

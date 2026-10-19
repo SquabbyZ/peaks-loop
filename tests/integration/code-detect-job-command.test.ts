@@ -250,6 +250,99 @@ describe('peaks code detect-job / read-job-shape (v3.1.1 Step 0.8)', () => {
     expect(read.data.decision.suggestedJobId).toBe(written.data.decision.suggestedJobId);
   });
 
+  // Backlog §17.1 fix (2). `--suggested-job-id` names the Job a decision
+  // creates, so it is a Job-mode field. A non-Job decision has no Job to name;
+  // demanding an id anyway refused the exact remedy the gate prints.
+  test('AC4: --is-job false without --suggested-job-id defaults to single-task', () => {
+    const project = makeProject();
+    projects.push(project);
+    const sessionId = '2026-10-19-cli-default-jid';
+    const r = runCli(
+      [
+        '--is-job',
+        'false',
+        '--rationale',
+        'single slice',
+        '--session-id',
+        sessionId,
+        '--project',
+        project,
+        '--json'
+      ],
+      project
+    );
+    expect(r.code).toBe(0);
+    const env = JSON.parse(r.stdout) as {
+      ok: boolean;
+      data: { decision: { isJob: boolean; suggestedJobId: string } };
+    };
+    expect(env.ok).toBe(true);
+    expect(env.data.decision.isJob).toBe(false);
+    expect(env.data.decision.suggestedJobId).toBe('single-task');
+    const filePath = join(project, '.peaks', '_runtime', sessionId, 'job-shape.json');
+    const written = JSON.parse(readFileSync(filePath, 'utf8')) as {
+      decision: { suggestedJobId: string };
+    };
+    expect(written.decision.suggestedJobId).toBe('single-task');
+  });
+
+  test('AC5: --is-job true without --suggested-job-id is refused and writes no decision', () => {
+    const project = makeProject();
+    projects.push(project);
+    const sessionId = '2026-10-19-cli-missing-jid';
+    const r = runCli(
+      [
+        '--is-job',
+        'true',
+        '--rationale',
+        'job',
+        '--session-id',
+        sessionId,
+        '--project',
+        project,
+        '--json'
+      ],
+      project
+    );
+    expect(r.code).toBe(1);
+    const env = JSON.parse(r.stdout) as { ok: boolean; code: string; message: string };
+    expect(env.ok).toBe(false);
+    expect(env.code).toBe('INVALID_FLAG');
+    expect(env.message).toContain('--suggested-job-id');
+    expect(existsSync(join(project, '.peaks', '_runtime', sessionId, 'job-shape.json'))).toBe(
+      false
+    );
+  });
+
+  test('AC6: an explicit --suggested-job-id still wins for both --is-job values', () => {
+    const project = makeProject();
+    projects.push(project);
+    for (const [sessionId, isJob, jid] of [
+      ['2026-10-19-cli-explicit-false', 'false', 'explicit-single'],
+      ['2026-10-19-cli-explicit-true', 'true', 'explicit-job']
+    ] as const) {
+      const r = runCli(
+        [
+          '--is-job',
+          isJob,
+          '--rationale',
+          'explicit id',
+          '--suggested-job-id',
+          jid,
+          '--session-id',
+          sessionId,
+          '--project',
+          project,
+          '--json'
+        ],
+        project
+      );
+      expect(r.code).toBe(0);
+      const env = JSON.parse(r.stdout) as { data: { decision: { suggestedJobId: string } } };
+      expect(env.data.decision.suggestedJobId).toBe(jid);
+    }
+  });
+
   test('read-job-shape on a fresh project returns JOB_SHAPE_NOT_DECIDED', () => {
     const project = makeProject();
     projects.push(project);

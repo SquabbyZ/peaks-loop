@@ -68,7 +68,7 @@
 - [read-the-durable-ledger-and-keep-the-in-memory-set](read-the-durable-ledger-and-keep-the-in-memory-set.md) — The fix reads  and finalizes matching rows via , the same effect  has.
 - [refuse-an-empty-population-before-writing-a-baseline](refuse-an-empty-population-before-writing-a-baseline.md) — An empty examined population returns  (exit 1) unless ;  refuses before writing, so a mistyped scope cannot overwrite...
 - [remove-a-dead-type-alias-only-after-proving-no-package-reexport](remove-a-dead-type-alias-only-after-proving-no-package-reexport.md) — Three type aliases were dropped from the export list after: zero  importers across , , , , ; no package entry naming ...
-- [reviewer-producer-retires-the-third-party-review-acceptance](reviewer-producer-retires-the-third-party-review-acceptance.md) — is the producer that lets the  commit-leg acceptance (, ) be retired.
+- [reviewer-producer-retires-the-third-party-review-acceptance](reviewer-producer-retires-the-third-party-review-acceptance.md) — is the producer that lets the third-party-review commit-leg acceptance (, keyed on the declared  path, ) be retired.
 - [skill-first-cli-auxiliary-sub-agent-dispatch](skill-first-cli-auxiliary-sub-agent-dispatch.md) — Slice #009 (PRD #002) added a new  CLI primitive.
 - [slim-ideadapter-shape-is-the-contract](slim-ideadapter-shape-is-the-contract.md) — Slice #1 established the slim  shape: 4 string fields (id, displayName, envVar, hookEvent, toolMatcher) + 1 settings ...
 - [subagent-tool-matcher-per-ide](subagent-tool-matcher-per-ide.md) — Per-IdeAdapter.subAgentToolMatcher is a string field declared in .
@@ -135,8 +135,9 @@
 - [widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything](widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything.md) — A2 deliberately declined to widen the citation guard to bare non-test paths, and recorded the cost as "50 findings, n...
 - [workspace-underscore-convention](workspace-underscore-convention.md) — Under , any top-level directory whose name starts with  is **ephemeral** and is automatically gitignored by the  rule...
 
-## convention (36)
+## convention (39)
 
+- [a-ci-job-with-no-timeout-waits-six-hours](a-ci-job-with-no-timeout-waits-six-hours.md) — GitHub Actions applies a 360-minute default to a job with no .
 - [a-marker-writer-should-be-o-excl-and-shared](a-marker-writer-should-be-o-excl-and-shared.md) — The marker is created with ; an existing marker returns  and its bytes are untouched.
 - [a-safety-classifier-denial-is-not-a-missing-red-side](a-safety-classifier-denial-is-not-a-missing-red-side.md) — The RD's first red-side attempt (mutating the real source and running tests) was refused by the safety classifier.
 - [a-slice-that-adds-src-files-owes-a-baseline-regen](a-slice-that-adds-src-files-owes-a-baseline-regen.md) — A commit that adds  files must regenerate  before the next tier run, or  and  go red for a reason unrelated to the cu...
@@ -148,10 +149,12 @@
 - [comparing-counts-across-rounds-guarantees-a-false-regression-report](comparing-counts-across-rounds-guarantees-a-false-regression-report.md) — A long job measured its own size repeatedly and kept disagreeing: 14 → 22 → 25 → 27 changed files, RD test counts of ...
 - [derive-the-probe-from-the-resolved-value](derive-the-probe-from-the-resolved-value.md) — The override arms compute  and use , so neither probe can equal the default.
 - [detectidefromcontext-iterates-listadapterids](detectidefromcontext-iterates-listadapterids.md) — MUST iterate  (from ), never a hardcoded list of IdeId strings.
+- [duplicate-reviewer-findings-are-the-class-confirmation](duplicate-reviewer-findings-are-the-class-confirmation.md) — In this slice the karpathy review and the code review independently found the same upgrade-path gap (both rated it ME...
 - [evaluate-the-policy-module-with-reset-modules-and-stub-env](evaluate-the-policy-module-with-reset-modules-and-stub-env.md) — The arms use , , and a dynamic import of ;  runs in a .
 - [fail-closed-to-the-readers-existing-sentinel](fail-closed-to-the-readers-existing-sentinel.md) — The invalid stage returns  — the same sentinel  already returns for malformed JSON, a wrong version, and a missing file.
 - [measure-read-write-parity-with-a-scratch-fixture](measure-read-write-parity-with-a-scratch-fixture.md) — The parity test seeds a scratch baseline with one known tuple and a matching source file, then asserts the written ou...
 - [never-quote-a-vitest-selector-glob](never-quote-a-vitest-selector-glob.md) — A quoted  is a vitest filter string, not a shell glob, so it matches nothing and the run is green over zero files.
+- [not-comparable-is-not-distinct](not-comparable-is-not-distinct.md) — returned true for a  third-party family — and after that arm was fixed, still returned true when the KARPATHY side wa...
 - [nothing-to-clean-must-not-read-as-cleaned](nothing-to-clean-must-not-read-as-cleaned.md) — An absent batch now returns , and the CLI exits 1 with , naming the ledger path.
 - [one-type-line-two-readers-and-the-parity-corpus](one-type-line-two-readers-and-the-parity-corpus.md) — is the canonical  reader (trim; hyphen bullet; whole value; ; LAST usable line wins).
 - [peaks-ide-skill-is-the-skill-first-pattern-5-step-flow-uses-existing-cli-primitives](peaks-ide-skill-is-the-skill-first-pattern-5-step-flow-uses-existing-cli-primitives.md) — The  skill () is the canonical example of the dev-preference red line "skill is primary, CLI is auxiliary".
@@ -182,7 +185,7 @@
 - [src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior](src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior.md) — The  module is the single source of truth for IDE-aware behavior.
 - [src-services-session-canonical-workspace-resolver](src-services-session-canonical-workspace-resolver.md) — is the canonical home for the per-session workspace.
 
-## lesson (144)
+## lesson (149)
 
 - [2026-06-26-unknown-sid-root-cause](archived/2026-06-26-unknown-sid-root-cause.md) — Root cause + remediation log for the  and  orphan session dirs.
 - [2026-07-28-rid-034-handoff-no-sediment-block](2026-07-28-rid-034-handoff-no-sediment-block.md) — rid-034 收尾遇 sediment 反向 — no peaks-memory:start/end 闭合块 **Date:** 2026-07-28 **Rid:** 2026-07-28-rid-034-v2-13-0-clea...
@@ -196,10 +199,12 @@
 - [a-census-guard-cannot-see-an-untracked-file-so-a-pre-commit-green-is-not-a-green](a-census-guard-cannot-see-an-untracked-file-so-a-pre-commit-green-is-not-a-green.md) — The lint ratchet's census legs enumerate their subject with .
 - [a-citation-that-outlives-its-referent-is-silent](a-citation-that-outlives-its-referent-is-silent.md) — **"验证的输入来自被验证者自己" 有两种形态。第一种（自证）已经被记过很多次；第二种是"来自一份不会再被核对的静态清单"—— 这一条在本仓没有专门记录，而它同样致命。** 被引用者消失时，**没有任何机制报警**。于是引用可以无限期...
 - [a-cli-options-parsed-name-is-not-its-flag-name](a-cli-options-parsed-name-is-not-its-flag-name.md) — QA found an adjacent defect while checking the parity fix:  is declared on  and , but the action reads .
+- [a-create-then-write-lock-is-observable-mid-write](a-create-then-write-lock-is-observable-mid-write.md) — is an exclusive CREATE followed by a WRITE, not an atomic create-with-content.
 - [a-degradation-that-carries-no-reason-is-indistinguishable-from-a-success](a-degradation-that-carries-no-reason-is-indistinguishable-from-a-success.md) — built the sub-agent prompt's codegraph block as .
 - [a-dependency-whose-backend-was-replaced-must-be-checked-for-ability-not-for-the-label](a-dependency-whose-backend-was-replaced-must-be-checked-for-ability-not-for-the-label.md) — (2026-10-05) removed  from peaks-loop's own dependencies and from 's , as part of moving peaks-loop's own stores to .
 - [a-digest-that-proves-the-source-side-does-not-prove-the-emit-side](a-digest-that-proves-the-source-side-does-not-prove-the-emit-side.md) — A staleness guard that digests  and compares against a recorded stamp proves only that the sources have not moved.
 - [a-dimensional-header-is-not-a-set-of-assertions](a-dimensional-header-is-not-a-set-of-assertions.md) — The guard's header listed four dimensions — render, behavior, integration, a11y — but every test matched strings in .
+- [a-filename-scoping-change-owes-an-upgrade-path](a-filename-scoping-change-owes-an-upgrade-path.md) — Changing a prerequisite path to -scoped also changes the commit-leg acceptance key ().
 - [a-flag-can-govern-one-side-of-a-read-write-pair](a-flag-can-govern-one-side-of-a-read-write-pair.md) — passed the flag only to ; the read side () was built without it and silently used the default .
 - [a-gate-bound-to-the-active-session-verifies-nothing](a-gate-bound-to-the-active-session-verifies-nothing.md) — The last slice of job  was resumed from a **fresh** session while its six rid carriers lived under the session that p...
 - [a-gate-invoked-with-no-file-arguments-passes-vacuously-and-exits-0](a-gate-invoked-with-no-file-arguments-passes-vacuously-and-exits-0.md) — with zero in-scope files prints  and **returns 0** (, ).
@@ -216,6 +221,8 @@
 - [a-missing-prerequisite-must-read-as-a-prerequisite](a-missing-prerequisite-must-read-as-a-prerequisite.md) — read the repo-root  but asserted only on the script's exit code, so an unbuilt tree produced  — indistinguishable fro...
 - [a-multi-slice-job-that-shares-one-rid-reopens-the-evidence-collision-hole-rid-scoping-was-built-to-close](a-multi-slice-job-that-shares-one-rid-reopens-the-evidence-collision-hole-rid-scoping-was-built-to-close.md) — Gate C's evidence paths are rid-scoped (, , …) so two slices cannot occupy one slot.
 - [a-name-keyed-sweep-cannot-see-a-class-defined-by-position](a-name-keyed-sweep-cannot-see-a-class-defined-by-position.md) — Two repairs to the same defect were each reviewed by their own instance and each left the class open.
+- [a-packaged-asset-is-not-at-the-consumer-project-root](a-packaged-asset-is-not-at-the-consumer-project-root.md) — Making the reviewer's  load-bearing first resolved it against the consumer project root, which broke every consumer: ...
+- [a-pretooluse-gate-that-prints-a-remedy-must-exempt-that-remedy-from-itself](a-pretooluse-gate-that-prints-a-remedy-must-exempt-that-remedy-from-itself.md) — A gate installed on every Bash call blocks the very command it tells the caller to run.
 - [a-producer-must-not-emit-a-section-the-consumer-cannot-fill](a-producer-must-not-emit-a-section-the-consumer-cannot-fill.md) — rendered an OpenSpec exit gate carrying  placeholders, then the  transition refused the pristine template with .
 - [a-prose-claim-about-what-a-timeout-does-while-holding-evidence-only-of-what-it-is](a-prose-claim-about-what-a-timeout-does-while-holding-evidence-only-of-what-it-is.md) — 断言行为之前，先测行为；断言不存在之前，先确认自己读到了输出 案例一：算式是真的，回收是假的（2026-10-01，rid ）  求值成 18,000,000 ms （5 小时），而命名与注释要的是 300,000 ms。这一半是**...
 - [a-public-export-needs-a-test-even-when-one-input-cannot-reach-the-branch](a-public-export-needs-a-test-even-when-one-input-cannot-reach-the-branch.md) — The item was titled "unreachable for object input", but the corrected measurement is the opposite: the predicate recu...
@@ -232,6 +239,7 @@
 - [a-slice-whose-core-behaviour-no-artifact-specifies-costs-multiples-of-its-peers](a-slice-whose-core-behaviour-no-artifact-specifies-costs-multiples-of-its-peers.md) — S1, S2 and S3 of  each needed **one** repair pass.
 - [a-spent-flag-stops-protecting-what-it-named](a-spent-flag-stops-protecting-what-it-named.md) — was invented so that redrawing the lint scope had to be **stated**: the guard refuses a scope change, the operator pa...
 - [a-success-value-can-be-the-never-did-anything-branch](a-success-value-can-be-the-never-did-anything-branch.md) — returned  when the batch was NOT in its in-memory set, and a fresh CLI process always had an empty set.
+- [a-test-whose-verdict-depends-on-the-working-tree-is-not-a-test](a-test-whose-verdict-depends-on-the-working-tree-is-not-a-test.md) — passed on a clean tree and failed when the tree held only : its non-empty branch asserted  even when no changed file ...
 - [a-typed-field-from-json-is-unvalidated](a-typed-field-from-json-is-unvalidated.md) — is typed , but it comes out of a JSON file and  cast the parse.
 - [a-wave-is-accepted-by-the-total-that-its-leaves-cannot-see](a-wave-is-accepted-by-the-total-that-its-leaves-cannot-see.md) — C wave 7 drove  60,271 → 54,318.
 - [ac-pass-list-is-not-a-completion-bar](ac-pass-list-is-not-a-completion-bar.md) — 本切片 QA 报 **11/11 AC pass**，RD 自评审却找出 **4 条 MEDIUM**，全部落在 QA 那 11 条 AC 之外：(CR-1)  的成功提示被打成  输出到 stderr；(CR-2) 自实现 matc...

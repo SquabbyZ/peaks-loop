@@ -69,6 +69,22 @@ afterEach(() => {
   projects.length = 0;
 });
 
+/** `.peaks/_runtime/<sid>/job/<jid>/state.json` — `peaks job init`'s output. */
+function writeJobLedger(project: string, sessionId: string, jid: string): void {
+  const jobDir = join(project, '.peaks', '_runtime', sessionId, 'job', jid);
+  mkdirSync(jobDir, { recursive: true });
+  writeFileSync(
+    join(jobDir, 'state.json'),
+    JSON.stringify({ jobId: jid, slices: [{ status: 'pending' }] }),
+    'utf8'
+  );
+}
+
+/** The PreToolUse payload the Bash matcher pipes into the hook process. */
+function hookPayload(command: string): string {
+  return JSON.stringify({ tool_name: 'Bash', tool_input: { command } });
+}
+
 function writeDecisionAndProgress(
   project: string,
   isJob: boolean,
@@ -201,5 +217,65 @@ describe('peaks code gate-step-08 (v3.1.2) hook integration', () => {
       'utf8'
     );
     void existsSync;
+  });
+});
+
+// Backlog §17.1 fix (1). These spawn the real CLI with the hook payload on
+// stdin — the seam the PreToolUse hook uses — because the defect was that the
+// command was never read at all. `--prompt` is deliberately absent: stdin is
+// only read when the prompt flag does not already name the source.
+describe('Step 0.8 remedy exemption (backlog §17.1)', () => {
+  const REMEDY = 'peaks code detect-job --is-job false --rationale "x"';
+
+  function ledgerProject(): string {
+    const project = makeProject();
+    projects.push(project);
+    writeJobLedger(project, SESSION_ID, 'backcompat-expiry-hardening');
+    return project;
+  }
+
+  test('AC1: a real detect-job invocation on stdin → exit 0 + remedy-command, no decision written', () => {
+    const project = ledgerProject();
+    const r = runCli(
+      ['--project', project, '--session-id', SESSION_ID, '--json'],
+      project,
+      hookPayload(REMEDY)
+    );
+    expect(r.code).toBe(0);
+    const env = JSON.parse(r.stdout) as { ok: boolean; data: { allow: boolean; mode: string } };
+    expect(env.ok).toBe(true);
+    expect(env.data.allow).toBe(true);
+    expect(env.data.mode).toBe('remedy-command');
+    // The exemption permits ONE retry command; it does not record the
+    // decision on the caller's behalf.
+    expect(existsSync(join(project, '.peaks', '_runtime', SESSION_ID, 'job-shape.json'))).toBe(
+      false
+    );
+  });
+
+  test('AC2: an unrelated command still exits 2 with the ledger verdict', () => {
+    const project = ledgerProject();
+    const r = runCli(
+      ['--project', project, '--session-id', SESSION_ID, '--json'],
+      project,
+      hookPayload('ls')
+    );
+    expect(r.code).toBe(2);
+    expect(r.stderr).toMatch(/BLOCKED:/);
+    const env = JSON.parse(r.stdout) as { ok: boolean; code: string };
+    expect(env.ok).toBe(false);
+    expect(env.code).toBe('STEP_08_BLOCKED_WITH_LEDGER');
+  });
+
+  test('AC3: a command that only quotes detect-job still exits 2', () => {
+    const project = ledgerProject();
+    const r = runCli(
+      ['--project', project, '--session-id', SESSION_ID, '--json'],
+      project,
+      hookPayload('echo "peaks code detect-job --is-job false"')
+    );
+    expect(r.code).toBe(2);
+    const env = JSON.parse(r.stdout) as { ok: boolean; code: string };
+    expect(env.code).toBe('STEP_08_BLOCKED_WITH_LEDGER');
   });
 });

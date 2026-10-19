@@ -11,6 +11,7 @@ import {
 } from '../../services/code/step-08-gate.js';
 import { buildContextAuditHint } from '../../services/context/context-audit-hint.js';
 import { resolveOuterSessionId } from '../../services/session/binding-status-service.js';
+import { printGateStep08RemedyCommand, readHookCommand } from './code-gate-step-08-remedy.js';
 import { readActiveSid } from './code-runtime-session.js';
 
 interface CodeGateStep08Opts {
@@ -63,12 +64,12 @@ export function registerCodeGateStep08Command(code: Command, io: ProgramIO): voi
       .option('--session-id <sid>', 'override session id (default: read from active presence)')
       .option(
         '--prompt <text>',
-        'explicit prompt text (default: read last-prompt.txt; stdin ignored)'
+        'explicit prompt text (default: read last-prompt.txt; also skips the stdin hook-payload read)'
       )
   ).action((opts: CodeGateStep08Opts) => runGateStep08(opts, io));
 }
 
-function runGateStep08(opts: CodeGateStep08Opts, io: ProgramIO): void {
+async function runGateStep08(opts: CodeGateStep08Opts, io: ProgramIO): Promise<void> {
   try {
     const sessionId = opts.sessionId ?? readActiveSid(opts.project);
     if (sessionId === null) {
@@ -77,7 +78,8 @@ function runGateStep08(opts: CodeGateStep08Opts, io: ProgramIO): void {
       printGateStep08NoSession(io, opts.json);
       return;
     }
-    const context = resolveGateStep08Context(opts, sessionId);
+    const command = opts.prompt === undefined ? await readHookCommand() : undefined;
+    const context = resolveGateStep08Context(opts, sessionId, command);
     const verdict = context.result.verdict;
     if (verdict.kind === 'allow-job') {
       printGateStep08AllowJob(verdict, context, io, opts.json);
@@ -85,6 +87,10 @@ function runGateStep08(opts: CodeGateStep08Opts, io: ProgramIO): void {
     }
     if (verdict.kind === 'allow-single') {
       printGateStep08AllowSingle(context, io, opts.json);
+      return;
+    }
+    if (verdict.kind === 'allow-remedy-command') {
+      printGateStep08RemedyCommand(verdict, context.hintActions, io, opts.json);
       return;
     }
     if (verdict.kind === 'block-missing-decision') {
@@ -106,7 +112,11 @@ function runGateStep08(opts: CodeGateStep08Opts, io: ProgramIO): void {
   }
 }
 
-function resolveGateStep08Context(opts: CodeGateStep08Opts, sessionId: string): GateStep08Context {
+function resolveGateStep08Context(
+  opts: CodeGateStep08Opts,
+  sessionId: string,
+  command: string | undefined
+): GateStep08Context {
   // hint. Runs ONLY when the window is ≥ 0.70 full, caches the audit
   // result for ≥ 5 min so the transcript is scanned at most once per
   // TTL window, and is fail-soft (null → no extra line). It never
@@ -117,11 +127,17 @@ function resolveGateStep08Context(opts: CodeGateStep08Opts, sessionId: string): 
     outerSessionId: resolveOuterSessionId(opts.project, sessionId)
   });
   const hintActions = hintLine === null ? [] : [hintLine];
-  const evalInput: { projectRoot: string; sessionId: string; prompt?: string } = {
+  const evalInput: {
+    projectRoot: string;
+    sessionId: string;
+    prompt?: string;
+    command?: string;
+  } = {
     projectRoot: opts.project,
     sessionId
   };
   if (opts.prompt !== undefined) evalInput.prompt = opts.prompt;
+  if (command !== undefined) evalInput.command = command;
   const result = evaluateStep08(evalInput);
   return { result, hintActions };
 }
@@ -189,7 +205,7 @@ function printGateStep08Blocked(
   json?: boolean
 ): void {
   const blockMessage =
-    'BLOCKED: prompt looks Job-shaped but peaks code detect-job has not been called. Run `peaks code detect-job --is-job true ...` to record your Job-shape verdict, then retry.';
+    'BLOCKED: prompt looks Job-shaped but peaks code detect-job has not been called. Run `peaks code detect-job --is-job true --rationale <text> --suggested-job-id <slug>` (or `--is-job false --rationale <text>`, whose id defaults to `single-task`) to record your Job-shape verdict, then retry.';
   const envelope = fail(
     'code.gate-step-08',
     'STEP_08_BLOCKED',
@@ -199,7 +215,7 @@ function printGateStep08Blocked(
       backupRegex: STEP_08_BACKUP_REGEX.toString()
     },
     [
-      'Run `peaks code detect-job --is-job true --rationale <text> --suggested-job-id <slug>` to record the Job-shape verdict.',
+      'Run `peaks code detect-job --is-job true --rationale <text> --suggested-job-id <slug>` (or `--is-job false --rationale <text>`, whose id defaults to `single-task`) to record the Job-shape verdict.',
       'Then re-run the Bash tool call.',
       ...context.hintActions
     ]
@@ -225,7 +241,7 @@ function printGateStep08BlockedWithLedger(
       backupRegex: STEP_08_BACKUP_REGEX.toString()
     },
     [
-      'Run `peaks code detect-job --is-job true --rationale <text> --suggested-job-id <slug>` (or `--is-job false`) to record the Job-shape verdict the Job ledger presumes.',
+      'Run `peaks code detect-job --is-job true --rationale <text> --suggested-job-id <slug>` (or `--is-job false --rationale <text>`, whose id defaults to `single-task`) to record the Job-shape verdict the Job ledger presumes.',
       'Then re-run the Bash tool call.',
       ...context.hintActions
     ]

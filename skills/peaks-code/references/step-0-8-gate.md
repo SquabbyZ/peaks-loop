@@ -16,7 +16,8 @@ The CLI does NOT judge whether the request is Job-shaped — that is the LLM's j
 ### Action sequence
 
 1. LLM reads the user prompt and applies judgement → `isJob: boolean + rationale + suggestedJobId + suggestedStrategy + confidence`.
-2. LLM calls `peaks code detect-job --is-job <bool> --rationale <text> --suggested-job-id <jid> --suggested-strategy <single|rotating> --confidence <high|medium|low> [--force]`.
+2. LLM calls `peaks code detect-job --is-job <bool> --rationale <text> [--suggested-job-id <jid>] --suggested-strategy <single|rotating> --confidence <high|medium|low> [--force]`.
+   `--suggested-job-id` is required when `--is-job true` and optional when `--is-job false`, where it defaults to `single-task`.
 3. CLI records to `.peaks/_runtime/<sessionId>/job-shape.json`.
 4. If `isJob: true` → `peaks job init --job-id <jid> --slice-list <...> --main-loop-strategy <strategy> --rotate-every 3` (BEFORE Step 1).
 5. Downstream steps (Step 1, Step 0.81, etc.) call `read-job-shape` to refuse if missing.
