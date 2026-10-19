@@ -128,6 +128,13 @@
 > evidence, the accepted residuals, and the repair rounds the independent reviews forced. **No
 > existing item was renumbered.** §14.7's fix (`cfcb853f`) also landed after the 2026-10-18 line
 > above, so the "remains open" note there is superseded by §14.7's own row.
+>
+> **Revised 2026-10-19, second pass — §2.38 and §9.50 are closed by measurement.** `peaks job
+> add-slice` is registered and appends to an existing ledger (measured on a scratch job: `init`
+> with one slice → `add-slice` returns `added: true, total: 2`), so §2.38's premise — that no
+> subcommand can grow a slice list — no longer holds. The macOS job §9.50 left as AC-6 is green
+> in the current CI matrix (run `39258473501`, `vitest + build (macos-latest, 24.x)` success), so
+> the remaining gate is satisfied. **No existing item was renumbered.**
 
 ---
 
@@ -2233,7 +2240,7 @@ directory does not get a new one. See §2.42 for the criterion change that came 
 clean). The `parserOptions.project` hole itself (the 9 gate modules that cannot be parsed by the gate's
 own config) is **not** closed by this — it is simply no longer scheduled to be closed by a new leg.
 
-### 2.38 `peaks job` cannot grow a job's slice list after init, so an incrementally-planned wave cannot be recorded truthfully (found 2026-10-02, wave 9)
+### 2.38 `peaks job` cannot grow a job's slice list after init, so an incrementally-planned wave cannot be recorded truthfully (found 2026-10-02, wave 9; **CLOSED 2026-10-19 — `peaks job add-slice` appends to an existing ledger**)
 
 `peaks job init --job-id 2026-10-02-c-wave9 --slice-list <one id>` created the wave ledger with `total: 1`.
 Recording slice 2's completion then failed by name:
@@ -2298,6 +2305,17 @@ verifies the sha resolves before writing, and refuses without touching the ledge
 `job add-slice`" instead of naming an id that does not exist. The regression that proves the coupling is
 (c)+(a) together: after a refusal like the one above, following the tool's own `Next:` line must reach a
 command that succeeds.
+
+**CLOSED 2026-10-19 — `peaks job add-slice` exists and appends.** The subcommand set this entry
+enumerated is stale. `peaks job add-slice --job-id <jid> --slice-label <label>` registers one more
+slice on an existing job, is idempotent for a label the job already carries, and re-mirrors
+`progress.json` so `total` follows the ledger (`src/cli/commands/job-add-slice-command.ts`).
+Measured against the source CLI on a scratch job: `job init --slice-list slice-1` reported
+`sliceCount: 1`, then `job add-slice --slice-label slice-2` returned `added: true, total: 2`. The
+second half of the proposed fix — "a checkpoint that records an unknown slice id rather than
+refusing" — was **not** adopted; the ledger remains strict and a caller must add the slice first.
+That is a design choice, not a regression, and the workaround this entry names (one job per slice)
+is no longer necessary.
 
 ### 2.39 A killed leaf left a comment in the shipped source claiming a proof no test performs (wave 9 slice 3, aborted by quota 2026-10-02) — **CLOSED 2026-10-02 (rid `2026-10-02-wave9-generator-split-repair1`)**
 
@@ -5803,7 +5821,7 @@ pattern.
     false. QA also priced the repair the auditor did not: arm 13's `toContain('no rid to verify')` pins
     that exact wording, so "fixing" the sentence is not the cheap change it looks like.
 
-### 9.50 CI went red on `main` for five pushes because 125 commits had never been pushed — both causes fixed in the tree, AC-6 still open (measured 2026-10-14, second cause 2026-10-15)
+### 9.50 CI went red on `main` for five pushes because 125 commits had never been pushed — both causes fixed in the tree, **AC-6 CLOSED 2026-10-19 — the macOS job is green** (measured 2026-10-14, second cause 2026-10-15)
 
 - **How it was found**: while releasing 4.1.5, and **not** by the pre-flight checklist, whose first item is "CI is green on the latest `main` push". `origin/main` was **125 commits** behind the local tree, so CI had never seen any of that work. The first push turned `ci` red on `main` for five consecutive runs (`2e8c8b6a`, `f50210ef`, `889eb709`, `15def424`, `c8dd42f0`), and the last green was `b3468ac5`. **Local green and CI red held at the same time**, because they are different SETS of checks: the format ratchet runs only on push, `tests/integration/**` is outside the default vitest config, and CI additionally runs `npx vitest` with `TZ: UTC` after its own build and ratchet jobs.
 - **Both causes were in `vitest + build`, on all three platforms — and they were two, not one.**
@@ -5812,6 +5830,7 @@ pattern.
 - **The class, searched and bounded, because the second instance matters more than the first.** Only two `tests/unit` files invoke a caller-id-resolving command; this one now supplies the id, and `tests/unit/cli/workflow-init-session-binding.test.ts` already did via `withEnv('PEAKS_CALLER_ID','ci-runner')`. Measured rather than read: **28 caller-id-mentioning unit files (296 tests) and `pnpm test:e2e` (16 tests) all exit 0** under the scrubbed environment. **But the shape does exist in `tests/integration/**`** — CI-only spawners pass no caller id, e.g. `tests/integration/workflow/ac8-empirical.test.ts` — and it is **masked twice**: a job-wide `PEAKS_CALLER_ID: ci-runner` at `ci.yml:390`, and locally the machine's `CLAUDE_CODE_SESSION_ID`. `ci.yml:381-394` **already documents this exact failure mode**; the main `Test` step (`ci.yml:160-166`) carries only `TZ: UTC`, which is why `tests/unit` is the exposed population and the integration mitigation never reached it. That half was **not executed** (integration is excluded from the default config) and is a static finding.
 - **The reusable rule, sedimented to `.peaks/memory/local-only-commits-hide-ci-only-gates.md`**: any gate that runs only on push has a coverage inversely proportional to how often you push. **125 commits unpushed is 125 commits unmeasured.** Check CI before releasing, not after.
 - **Disposition**: cause 1 fixed and verified on two platforms; cause 2 fixed in `src/` with the RED→GREEN evidence attached (the `macos-latest` job is the remaining gate); the integration-shaped class recorded but not acted on.
+- **AC-6 CLOSED 2026-10-19 — the macOS gate is green.** CI run `39258473501` (head `858f8cf5`, the 4.1.9 release commit) reports `vitest + build (macos-latest, 24.x)` **success**, as do the intervening runs since the ledger-reaper fix. The remaining gate this entry named is satisfied; nothing else in the entry is claimed closed.
 
 ### 9.A Recorded, not fixed — the session's accepted risks, smaller items, and open U-questions
 
