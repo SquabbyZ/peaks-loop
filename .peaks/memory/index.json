@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-19T03:57:34.953Z",
+  "updatedAt": "2026-10-19T07:27:40.665Z",
   "hot": {
     "rule": [
       {
@@ -1422,6 +1422,14 @@
         "updatedAt": "2026-10-18"
       },
       {
+        "name": "a-create-then-write-lock-is-observable-mid-write",
+        "kind": "lesson",
+        "description": "is an exclusive CREATE followed by a WRITE, not an atomic create-with-content.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-create-then-write-lock-is-observable-mid-write.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-teststability.md",
+        "updatedAt": "2026-10-19"
+      },
+      {
         "name": "a-degradation-that-carries-no-reason-is-indistinguishable-from-a-success",
         "kind": "lesson",
         "description": "built the sub-agent prompt's codegraph block as .",
@@ -1724,6 +1732,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-success-value-can-be-the-never-did-anything-branch.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-cleanup.md",
         "updatedAt": "2026-10-18"
+      },
+      {
+        "name": "a-test-whose-verdict-depends-on-the-working-tree-is-not-a-test",
+        "kind": "lesson",
+        "description": "passed on a clean tree and failed when the tree held only : its non-empty branch asserted  even when no changed file ...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-test-whose-verdict-depends-on-the-working-tree-is-not-a-test.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-teststability.md",
+        "updatedAt": "2026-10-19"
       },
       {
         "name": "a-typed-field-from-json-is-unvalidated",

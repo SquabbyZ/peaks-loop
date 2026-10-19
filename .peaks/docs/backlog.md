@@ -3187,7 +3187,7 @@ defect above. **There was no entry to update.** §2.52 and §2.52a are left byte
 > table, its §4 cross-links and its §3 lessons — is dispositioned at **7.A**, **7.B** and **7.C**, so
 > that nothing was dropped silently.
 
-### 7.1 The full suite carries load-sensitive tests that hand you a false red — the family is SIX, not two (found 2026-10-10, corrected 2026-10-12; still open)
+### 7.1 The full suite carries load-sensitive tests that hand you a false red — the family is SIX, not two (found 2026-10-10, corrected 2026-10-12; **FIXED 2026-10-19 — rid `rid-test-stability`, commit `b6174b8c`**)
 
 - **Where**: `tests/unit/standards/esm-relative-import-extension.test.ts`,
   `tests/unit/services/web/web-daemon-race.test.ts`, `tests/unit/lint/eslint-rules-config-coverage.test.ts`,
@@ -3219,9 +3219,27 @@ defect above. **There was no entry to update.** §2.52 and §2.52a are left byte
 - **Aggravating factor, recorded against this session**: running the full suite repeatedly to "verify on the
   merged result" saturates the box and **manufactures** this red. The source says so plainly, and the
   observation is not softened here.
-- **Still open**: no item of the six is fixed; the count is a property of the suite on this box. Nothing in
-  this file claims otherwise, and the fact that the count was wrong for two days is the reason the
-  discriminator is stated as a rule rather than as a symptom list.
+- **FIXED 2026-10-19 (rid `rid-test-stability`, `b6174b8c`) — each of the six now has a targeted fix,
+  and the discriminator is still the rule.** Four timeout-prone files get a file-scoped timeout
+  (`vi.setConfig`, or the shared `SUBPROCESS_TEST_TIMEOUT_MS` constant in `slice-check-service`)
+  with headroom over their alone time; `web-daemon-race` is fixed at the source (below); the no-mcp
+  walker excludes only its own transient `tests/fixtures/bdd-reporter-tmp` tree, pinned by a
+  temp-root arm with a control file.
+  - **The daemon race was a production bug, not test noise.** `writeFileSync(..., { flag: 'wx' })`
+    creates the lock file and *then* writes its body, so a concurrent caller observed a zero-byte or
+    partial file, read `null`, and treated a live lock as stale. `acquireSpawnLock` now treats an
+    unreadable body as HELD while the file's mtime is within `SPAWN_LOCK_STALE_MS`, and reclaim is an
+    atomic quarantine rename + moved-body check + own-create identity check (3 attempts), with a
+    `COPYFILE_EXCL` restore so a fresh lock created in the window is never replaced. Release leaves a
+    young unreadable lock alone. Deterministic arms cover both directions and the interleavings; the
+    old unlink-reclaim mutation reds them (1 failed / 17 passed / 1 skipped).
+  - **Evidence:** full suite 525 files / 5741 passed / 3 skipped, three runs on the final tree (the
+    family is intermittent and did not reproduce in either pre-fix run — that is stated, not claimed
+    away); each file alone green; tier 63 / 651; `tsc` 0; all files under cap.
+  - **Residuals recorded:** the daemon lock is now a third copy of the quarantine protocol (the two
+    older copies in `ocr-18-acquire.ts` and `web-install-service.ts` still carry the zero-byte
+    window; a shared helper is the follow-up); quarantine files are inert but not GC'd after a crash;
+    the interleaving arms run in-process (the cross-process path is covered by `web-daemon-race`).
 
 ### 7.2 Neither of this repository's two red lines gates today, and the `Edit|Write|MultiEdit` entry is not installed (found 2026-10-10; open, one half by design)
 
@@ -6036,7 +6054,7 @@ Two of the four were the orchestrator's, and one of those was introduced *inside
 
 Two smaller reporting defects of the same family, both **open**: `peaks workflow verify-pipeline` reports `requestType: feature` for a request created and declared as `refactor` (harmless here only because `REFACTOR_TABLE = FEATURE_TABLE` is the same object, so the tables coincide and the misreport is silent); and AC-4's stated command cannot fail as written, because `passWithNoTests: true` makes `vitest run <deleted-file>` exit 0 — QA recorded that instead of citing it as evidence.
 
-### 11.7 `staged-size-leg.test.ts`'s integration arm passes or fails on what happens to be uncommitted, and its comment disclaims the assertion it makes (found 2026-10-15; **open**)
+### 11.7 `staged-size-leg.test.ts`'s integration arm passes or fails on what happens to be uncommitted, and its comment disclaims the assertion it makes (found 2026-10-15; **FIXED 2026-10-19 — rid `rid-test-stability`, commit `b6174b8c`**)
 
 Found by pushing, not by reading. The push gate's full-suite fallback (§10.7) reported **8** failed files where §10.1 documents **7**. The eighth was `tests/unit/lint/staged-size-leg.test.ts`, the only failure in that run that was not a web-daemon loopback failure — so the first question was whether the slice caused it. It did not, and the reason it did not is the finding.
 
@@ -6053,6 +6071,16 @@ checkedFiles = 0                            → toBeGreaterThan(0)    FAILS
 **Consequence:** the arm's verdict depends on what a developer happens to have uncommitted. A clean tree takes the early return; a tree holding only out-of-scope edits fails; a tree holding an in-scope edit passes. That is why §10.1 measured 7 failing files and this push measured 8 from the same tree state plus one uncommitted `.md`. It is a test whose result is not a property of the code, which is the §10.1 discriminator (*"does it pass alone?"*) applied to a file that is not a load flake and not the host.
 
 **Recorded, not fixed** — outside §11's slice, which touched no `tests/unit/lint/` file and no file in this arm's population. The repair is small and named: either assert the refusals only (as the comment intends) or assert `checkedFiles > 0` **only when the change set contains an in-scope path**.
+
+**FIXED 2026-10-19 (rid `rid-test-stability`, `b6174b8c`).** The second direction was
+chosen: the rule is now `judgeChangeSet`, which asserts `checkedFiles > 0` only when the change set
+contains a file the size policy measures; an all-out-of-scope set is the same legitimate answer as a
+clean tree, and the unconditional `expect(envelope.violations).toEqual([])` still fails a genuinely
+over-cap in-scope change. The arm is a property of the change set, not of the tree's cleanliness:
+measured before — HEAD's arm with only `.peaks/docs/backlog.md` modified is 1 failed / 11 passed
+(`expected 0 to be greater than 0`); after — 14/14. The rule has both a synthetic arm
+(`checkedFiles: 0`, `exemptFiles: ['.peaks/docs/backlog.md']`) and a throwing CONTROL, so reverting
+the repair reds even on a clean checkout (mutation: unconditional assertion → 1 failed / 13 passed).
 
 ### 11.A Recorded, not fixed — this slice's accepted residues
 
@@ -6343,7 +6371,7 @@ open" means a decision is pending, not that nobody looked. Each row is either a 
 | §2.53 / §7.7 tag-push gate | **DECIDED (user): keep the meta layer frozen.** | No `.husky/` change; releases push `main` and the tag together, which makes the change set non-empty. Re-evaluate only if a release is actually blocked. |
 | §3 / §7.8 / §12.4 file-size debt | **DECIDED (user): ratchet only, no bulk split.** | Splitting without compressing raised lint debt in the measured recipe; the split is itself a regression surface. Split only where a slice has a behavioural reason to touch the file. |
 | §7.6 integration config | **DECIDED (user): stays out of the default config.** | The suite is slow and needs a host surface; CI's `integration-suite` job plus the explicit local invocation is the closure. |
-| §7.1 load-sensitive family / §11.7 staged-size-leg | **IMPLEMENTED (user approved): `rid-test-stability`.** | Per-file timeouts / race fixes for the six files, and the staged-size arm no longer depends on the working tree's shape. |
+| §7.1 load-sensitive family / §11.7 staged-size-leg | **DONE 2026-10-19 (`rid-test-stability`, `b6174b8c`).** | Per-file timeouts, the daemon race fixed at its source (atomic quarantine reclaim), the walker exclusion pinned, and the staged-size rule extracted so reverting it reds on a clean checkout. |
 | §13.A coverage floor | **DECIDED (user): wait for the first fully green CI, then calibrate.** | The runner refuses a non-green suite by design; hand-lowering would fabricate evidence. |
 | §13.A README count / canonical | **DECIDED (user): Chinese is canonical; the count stays marked unverified.** | The asserted property is agreement between the two READMEs; the absolute number needs a full per-package run. |
 | §2.3 two vocabularies | **CLOSED (technical).** | Documented as intentional in `code-context-now-mapping.ts` and pinned by the reconciliation suite (one action per kind, divergence only in the auto-fire band). |
