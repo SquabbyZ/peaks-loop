@@ -303,13 +303,22 @@ decision-table half is pinned by `reviewer-dispatch-policy-decision-table.test.t
 5-way order minus the two deprecated slots equals `RD_FANOUT_REVIEWERS`. Mutation controls (fanout-swap
 3F/3P; deprecated-add 3F/3P) red the target arms. No dispatch behavior changed.
 
-### 2.3 Two vocabularies over one threshold table
+### 2.3 Two vocabularies over one threshold table (**CLOSED 2026-10-19 — the difference is intentional and test-pinned**)
 
 - **Measured**: `peaks skill presence` (`core/skill-command.ts:57`) and `peaks code context-now`
   (`code-runtime-commands.ts`) **both** call `evaluateCompactTrigger` + `resolveAutoCompactProfile`, but publish
   **different vocabularies**: the former emits `trigger.kind` verbatim (`none|soft-warn|auto-fire|pre-compact|
 red-line`), the latter maps to `action` (`ok|soft-warn|auto-compact-now|red-line`). `auto-fire` has no `action`
   equivalent. H4 aligned the two on behaviour but **did not unify the vocabularies**.
+
+**CLOSED 2026-10-19 — the gap is documented as intentional and pinned by a test.** The mapping
+`src/cli/commands/code-context-now-mapping.ts:11-22` states that `auto-fire` maps to `soft-warn` in
+both modes because that tier belongs to `peaks skill presence`, the every-turn probe; reporting it as
+`auto-compact-now` would change every non-24h session's output, which H4 forbids. The reconciliation
+suite pins the whole mapping: every `CompactTrigger` kind maps to exactly one `action` identically in
+both modes (`tests/unit/cli/commands/code-context-now-mode-reconciliation.test.ts:265-280`), and the
+divergence arm proves the two probes differ **only** inside the auto-fire band
+(`:240-256`). The vocabularies are two views of one table by design, not two tables.
 
 ### 2.4 `readReleaseState` trusts an unvalidated `currentStage` (found 2026-09-24; **FIXED 2026-10-19 — rid `rid-release-stage-validation`**)
 
@@ -1124,7 +1133,11 @@ caller / untracked-file gap above is NOT part of this fix** — it remains a sep
 
 ---
 
-## 3. File-size debt
+## 3. File-size debt (**ACCEPTED 2026-10-19 — tracked, not paid down**)
+
+> **Decision 2026-10-19 (user):** the shrink-only ratchet in §7.8 is the policy; the debt below is
+> recorded, not a worklist to burn down. A file is split when a slice has a behavioural reason to
+> touch it. Re-evaluate only if the census grows despite the ratchet.
 
 > **Corrected 2026-09-24.** This section used to be a table titled "800-line cap" whose numbers were
 > measured before `cf21d188`. Both the title's number and every row were wrong by the time you read
@@ -2907,7 +2920,7 @@ version` and does **not** read the key as an allowlist — harmless now, silentl
 reported. Whenever a finding says "tool X refuses to do Y", run X first — the four-line experiment is
 cheaper than the defect entry it prevents, and it is the only thing that separates a skip from a no-op.
 
-### 2.53 The push gate's own empty-set refusal blocks a release: once `main` is up to date, a tag cannot be pushed (hit 2026-10-03 while publishing 4.1.0)
+### 2.53 The push gate's own empty-set refusal blocks a release: once `main` is up to date, a tag cannot be pushed (hit 2026-10-03 while publishing 4.1.0; **ACCEPTED-BY-DECISION 2026-10-19 — meta layer stays frozen**)
 
 The release walked straight into it. Sequence: `chore(release)` committed → `git push origin main`
 (fast-forward, succeeded, `c2f7c635..ff536436`) → `git push origin v4.1.0` →
@@ -3320,7 +3333,7 @@ defect above. **There was no entry to update.** §2.52 and §2.52a are left byte
   was **not** wired into `gate enforce` — that is a separate decision because it changes existing Claude Code behaviour.
 - **Still open**: the cursor/codex formatting defect; wiring the ban into Claude Code; and (c)'s lease-age bound.
 
-### 7.6 `tests/integration/**` is not in the default vitest config (found 2026-10-10; open)
+### 7.6 `tests/integration/**` is not in the default vitest config (found 2026-10-10; **DECIDED 2026-10-19 — stays out of the default config**)
 
 - **Where**: `vitest.config.ts`'s exclude list (`tests/integration/**`) versus `vitest.config.integration.ts`, which
   runs it separately.
@@ -3330,7 +3343,13 @@ defect above. **There was no entry to update.** §2.52 and §2.52a are left byte
 - **Note carried verbatim**: this is **probably deliberate** (integration is slow). Do not change the config on the way
   past — first decide whether it should run locally and/or at push. The decision is the item; the config line is not.
 
-### 7.7 `git push origin <tag>` alone can never pass this repository's pre-push gate (found 2026-10-10; open)
+**DECIDED 2026-10-19 (user).** `tests/integration/**` stays out of the default vitest config. The
+reason is the one the entry measured: the suite is slow and needs a real host surface, so it does not
+belong in the every-slice tier. The closure is CI's `integration-suite` job plus the explicit local
+invocation — `npx vitest run --config vitest.config.integration.ts <file>` — which works locally; the
+residual is that a local green tier does not mean integration passed, and the release flow must say so.
+
+### 7.7 `git push origin <tag>` alone can never pass this repository's pre-push gate (found 2026-10-10; **ACCEPTED-BY-DECISION 2026-10-19 — same freeze as §2.53**)
 
 - **Where**: `.husky/pre-push` (gate machinery — a change here needs its own slice).
 - **Consequence**: **every release needs a `--no-verify`** — exactly the shape the hook's own comment warns about
@@ -3349,8 +3368,12 @@ defect above. **There was no entry to update.** §2.52 and §2.52a are left byte
   This repository's history used **one push of two refs** (`git push origin main vX.Y.Z`) so the set was non-empty.
 
 - **Not measured**: no alternative pre-push rule was prototyped.
+- **ACCEPTED-BY-DECISION 2026-10-19 (user): the meta layer stays frozen.** No `.husky/` change. The
+  release procedure keeps pushing `main` and the tag in one command, which makes the changed set
+  non-empty; a bare tag push still needs `--no-verify`, and that is recorded as the accepted cost.
+  Re-evaluate only if a release is actually blocked by it.
 
-### 7.8 File-size debt (found 2026-10-10; open)
+### 7.8 File-size debt (found 2026-10-10; **ACCEPTED 2026-10-19 — ratchet only, no bulk split**)
 
 - **Where / scale**:
 
@@ -3361,6 +3384,12 @@ defect above. **There was no entry to update.** §2.52 and §2.52a are left byte
   | `src/services/config/config-service.ts`          | over by **711**                  |
   | `src/cli/commands` remaining                     | **35 files / 8124 excess lines** |
 
+- **DECIDED 2026-10-19 (user).** Keep the shrink-only ratchet as the only policy: no file may grow,
+  and a touched over-cap file may only stay or shrink. Do **not** bulk-split the 77 src files or the
+  21935 excess lines — the measured recipe shows splitting without compressing raises lint debt, and
+  the split itself is a regression surface. The debt stays recorded; a file is split when a slice has
+  a behavioural reason to touch it, not to pay down a number. Re-evaluate if the census starts
+  growing despite the ratchet.
 - **Measured recipe** (validated over three batches): **splitting and compressing must happen in the same delivery.**
   Batch 1 split only → `eslintFindings` **+23**; batches 2 and 3 did both → **−61 / −43**. The difference is the order,
   not the care taken.
@@ -6067,7 +6096,7 @@ The artifact path keys on `(date, slug)` with the slug capped at 32 characters. 
 
 Same class as §10.8 and §11.6 — but note the direction here: the *guard* was sound and the *claim about it* was too wide. A control's documentation is part of the control.
 
-### 12.4 One slice spent the file budgets of two modules, and left one line (found 2026-10-15; **open, and the first item in this backlog that is a cost rather than a defect**)
+### 12.4 One slice spent the file budgets of two modules, and left one line (found 2026-10-15; **ACCEPTED 2026-10-19 — the cost stands under the §7.8 ratchet decision**)
 
 After three repair rounds, `best-practice-scan-lookup-results.ts` is **299 of a 300-line cap** and `best-practice-scan-command.ts` is **297**. The security auditor's own summary is the accurate phrasing: *the `firstUnknownKey` fix was about the last line-neutral fix available to that module.* The next change to either — a bug fix, a new rule, a corrected hint — must **split before it can be written**, and a ratchet that refuses at 300 will refuse the person fixing a typo in it. The slice respected the rule throughout (it split a test file into a third one rather than exceed 500, and cut a comment from five lines to two), so this is the rule working as designed. It is still a real constraint the next author inherits, and it belongs here rather than in whatever diff first hits it.
 
@@ -6158,12 +6187,12 @@ The ruling taken: **a repo-facing parity test in `tests/lint/`, not a permission
 | # | Item | Where | Disposition |
 | --- | --- | --- | --- |
 | — | **`tests/unit/standards/` is red at HEAD** — 2 tests, a stale census shadow block. A regeneration must absorb **6** tracked files, not 5: QA measured the live index at **729 vs 723** (the new staged test file *is* visible to `git ls-files`, correcting the RD's "untracked ⇒ invisible" mechanism). | `.peaks/lint/gate-baseline.json` shadow block | **CLOSED 2026-10-19** — regenerated after `64238afa` added four `src/**` files; the rows added were exactly those four, `linted` 1291→1295, no ceiling rose, `eslintFindings` 1712→1706 and `eslintErrors` 569→563. Standards 224/224 and lint 389/389 green. |
-| — | **The coverage floor's seed (47.0) is unmeasured**, and cannot be measured on this host: the runner refuses a non-green suite by design, and the suite is red for the loopback reason. The seed's basis came from a 185,914-line denominator; the gate measures 42,397. | `.peaks/lint/coverage-floor.json` | **Open, bootstrapping limit.** The first green CI run is the calibration. Deliberately **not** hand-lowered (§13.4 rule 3). |
+| — | **The coverage floor's seed (47.0) is unmeasured**, and cannot be measured on this host: the runner refuses a non-green suite by design, and the suite is red for the loopback reason. The seed's basis came from a 185,914-line denominator; the gate measures 42,397. | `.peaks/lint/coverage-floor.json` | **DECIDED 2026-10-19 (user): wait for the first fully green CI run and calibrate from it.** Do not hand-lower or hand-raise in the meantime; the seed stays as the bootstrap value and the file's `basis` field carries "unmeasured". |
 | — | **A row *count* is not a *population*** — a forged full-row report still reads HELD. Reachable only through the dev-only `--report` flag; CI's no-arg step is pinned as a whole command. | `.husky/coverage-ratchet/` | **Accepted residual.** Cheapest tightening: record the measured denominator beside `files`. |
 | — | **A *committed* floor-lowering still lands green**, because working-copy and `HEAD:` are identical bytes on a clean checkout. | `.husky/coverage-ratchet.mjs` | **Accepted residual** (LOW). |
 | — | **No job in `ci.yml` sets `timeout-minutes`**, so a hung run waits GitHub's **6-hour** default. A file-wide exposure, larger than the slice that surfaced it. | `.github/workflows/ci.yml` | **FIXED 2026-10-19** (rid `rid-ci-job-timeouts`, `ec477874`). All seven jobs now carry a job-level bound: `test` 60, `binding-store-multi-process` 25, `integration-suite` 45, `readonly-proof-sandbox` 30, `commit-message-red-line` 20, `format-check` 20, `coverage-ratchet` 40. Values come from measured runtimes or a job's structure and sit 6–18x below 360; the YAML parse confirms seven numeric values, and the job set/steps/runners/triggers/permissions are unchanged. |
-| — | **The READMEs' test-case count (`1096`) is unverified** — inherited from one file's own breakdown, with no run to confirm it. AC6 asserts *agreement only*, deliberately. | `README.md` / `README-en.md` | **Open residual** — the true value needs a full per-package run. |
-| — | **Which README is canonical is unresolved.** A repo comment calls English canonical; the content says Chinese. s6 made English track Chinese because Chinese is current and longer. | `README*.md` | **Recorded as a user decision**, not silently resolved. |
+| — | **The READMEs' test-case count (`1096`) is unverified** — inherited from one file's own breakdown, with no run to confirm it. AC6 asserts *agreement only*, deliberately. | `README.md` / `README-en.md` | **DECIDED 2026-10-19 (user): stays marked unverified.** The agreement between the two READMEs is the asserted property; the absolute number needs a full per-package run that this host cannot produce. |
+| — | **Which README is canonical is unresolved.** A repo comment calls English canonical; the content says Chinese. s6 made English track Chinese because Chinese is current and longer. | `README*.md` | **DECIDED 2026-10-19 (user): Chinese is canonical;** `README-en.md` follows it. The repo comment that called English canonical is stale and should be corrected the next time a slice touches it. |
 | — | **Eight commits sit unpushed** (`82c6f384` … `27796c88`), including two backlog commits. `.peaks/**` trips the full-suite fallback (§10.7) and this host's loopback is broken (§10.1), so the push cannot succeed from here. **S1's AC-6 remains open on it.** | local `main` | **CLOSED 2026-10-16.** Everything landed; the loopback defect was resolved on the host and the intervening sweep pushed nine commits, each through a green push gate. **`unpushed: 0` as of `7fa29669`.** |
 
 ## 14. The A–F sweep (2026-10-16/17) — six slices, and the one thing they all had in common
@@ -6302,3 +6331,32 @@ is a fallback `?? []` in the message builder; left for a separate slice because 
 transition path §2.4 was told not to change.
 
 **New finding (2026-10-19, found while closing §2.10's residual) — FIXED 2026-10-19 (rid `rid-lint-config-flag`):** `peaks lint check` and `peaks lint baseline` both registered `--config <path>`, but commander stores it as `options.config` while the action read `options.configPath`, so the flag was ignored. Both actions now read `options.config` and map it to the runner's `configPath`. Measured with a scratch config whose rule emits a marker: before, the default config ran and the marker never appeared; after, `check` and `baseline` both emit it. The injection control reds exactly the two `--config` arms. `detect-eslint` does not declare the flag and is unchanged.
+
+## Decision record — 2026-10-19 (user rulings + technical dispositions)
+
+The 24h run closed every implementable item; this record dispositions the remainder so that "still
+open" means a decision is pending, not that nobody looked. Each row is either a user ruling (marked
+**DECIDED**) or an accepted residual with its reason. Nothing here is silently changed.
+
+| Item | Disposition | Reason |
+| --- | --- | --- |
+| §2.53 / §7.7 tag-push gate | **DECIDED (user): keep the meta layer frozen.** | No `.husky/` change; releases push `main` and the tag together, which makes the change set non-empty. Re-evaluate only if a release is actually blocked. |
+| §3 / §7.8 / §12.4 file-size debt | **DECIDED (user): ratchet only, no bulk split.** | Splitting without compressing raised lint debt in the measured recipe; the split is itself a regression surface. Split only where a slice has a behavioural reason to touch the file. |
+| §7.6 integration config | **DECIDED (user): stays out of the default config.** | The suite is slow and needs a host surface; CI's `integration-suite` job plus the explicit local invocation is the closure. |
+| §7.1 load-sensitive family / §11.7 staged-size-leg | **IMPLEMENTED (user approved): `rid-test-stability`.** | Per-file timeouts / race fixes for the six files, and the staged-size arm no longer depends on the working tree's shape. |
+| §13.A coverage floor | **DECIDED (user): wait for the first fully green CI, then calibrate.** | The runner refuses a non-green suite by design; hand-lowering would fabricate evidence. |
+| §13.A README count / canonical | **DECIDED (user): Chinese is canonical; the count stays marked unverified.** | The asserted property is agreement between the two READMEs; the absolute number needs a full per-package run. |
+| §2.3 two vocabularies | **CLOSED (technical).** | Documented as intentional in `code-context-now-mapping.ts` and pinned by the reconciliation suite (one action per kind, divergence only in the auto-fire band). |
+| §2.7 / §2.8 / §2.9 / §2.14 / §2.21a | **ACCEPTED residual.** | Each is bounded and recorded with its reach measured; widening the guard would add false positives against live files (§2.14's own lesson). |
+| §7.2 two red lines | **ACCEPTED (one half by design).** | The CLI-level red line gates today; the `Edit\|Write\|MultiEdit` entry is not installed, and installing it is a meta-layer change of the same kind §2.53 freezes. |
+| §7.3 subset classification | **ACCEPTED (design tension).** | `test:changed` intentionally selects the subset; the consistency guards ride the fallback. Moving them would grow every slice's run for a guard that already runs in CI. |
+| §7.5 commit ban on Claude Code | **ACCEPTED (a) by decision; (b)/(c) recorded.** | The ban is enforced where the hook can see it; a vendor that swallows a deny is a runtime property, not a repo one. |
+| §9.5 dispatch-ledger `finalize` | **ACCEPTED as a runner obligation.** | The verb and its recovery path exist and were exercised; not calling it is contract adherence, recorded in the dispatch reference. |
+| §9.13 sha256-locked handoff | **ACCEPTED (by design).** | Immutability is what makes the handoff trustworthy; a corrected count goes in a new artifact, not a backfill. |
+| §9.15 / §9.16 / §9.20 / §9.28 / §9.32 | **ACCEPTED, recorded disciplines.** | Each names a class (repair-as-narrowing, dead-file activation, per-dispatch preamble cost, latent-gap reachability, an external gate). None has a repo-side switch. |
+| §9.40–§9.49 | **ACCEPTED, recorded disciplines.** | Heading discipline, PATH-binary drift, job/artifact-contract exclusivity, checkpoint undo, slot confusion, shadow-block triggers, the commit file-size gap, positional-class sweeps, active-session resolution. The actionable ones are pinned by memories or tests; the rest are process rules. |
+| §10.7 docs-only full suite | **ACCEPTED (by design).** | The fallback is deliberate; the cost is measured and paid knowingly. |
+| §11.5 `--rescope` waiver | **ACCEPTED (gate, frozen).** | No ceiling rose in this run; the comment-vs-code gap stays a latent item under the same meta-layer freeze as §2.53. |
+| §14.9 / §14.15 process traps | **ACCEPTED, documented.** | Quoted-glob and per-slice CI reading are already stated in the SLICE guidance and the memories; no code carrier can enforce them. |
+| §1.3 moved `test-style-contract.md` | **UNCLOSABLE from this repo.** | The consumer-visible path is `node_modules/peaks-loop/contracts/…`; downstream verification is not in this tree. |
+| §16 `transitionRelease` message on an unknown stage | **RECORDED (unreachable in-repo).** | Every caller passes `readReleaseState` output and the reader now fails closed; the fallback `?? []` is a one-line guard for a direct library caller. |
