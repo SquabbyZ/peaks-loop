@@ -19,10 +19,7 @@
 import { EventEmitter } from 'node:events';
 import type { ChildProcess } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
-import {
-  spawnContainerLease,
-  spawnWorktreeLease
-} from '~/src/services/dispatch/isolation-lease';
+import { spawnContainerLease, spawnWorktreeLease } from '~/src/services/dispatch/isolation-lease';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 
 declareDimensions(
@@ -83,9 +80,9 @@ describe('(behavior) spawnContainerLease', () => {
     const envelope = JSON.stringify({ ok: true, data: { lease: { leaseId: 'lease-42' } } });
     const { spawnImpl } = fakeSpawn({ stdout: envelope, code: 0 });
 
-    await expect(
-      spawnContainerLease(containerArgs, spawnImpl as never)
-    ).resolves.toEqual({ leaseId: 'lease-42' });
+    await expect(spawnContainerLease(containerArgs, spawnImpl as never)).resolves.toEqual({
+      leaseId: 'lease-42'
+    });
   });
 
   it('rejects a nonzero container spawn instead of succeeding empty', async () => {

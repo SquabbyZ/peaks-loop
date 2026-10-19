@@ -387,9 +387,7 @@ describe('Scenario: integration - the scan walks a real tree', () => {
       },
       (root) => {
         // when: the tests root is walked
-        const walked = sourceFilesUnder(root, ['tests']).map((file) =>
-          file.split('\\').join('/')
-        );
+        const walked = sourceFilesUnder(root, ['tests']).map((file) => file.split('\\').join('/'));
         // then: the transient file is omitted (it cannot vanish mid-walk), and
         //       the control file beside it is still included
         expect(walked.some((file) => file.includes('bdd-reporter-tmp'))).toBe(false);

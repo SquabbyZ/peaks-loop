@@ -156,20 +156,24 @@ function typecheckStageOf(stages: readonly SliceCheckStage[]): SliceCheckStage {
 }
 
 describe('Scenario: render — typecheck stage envelope', () => {
-  it('when slice check runs, should expose the pre-existing count and its baseline in structured data', async () => {
-    // given: a run against this repository, whose tests/** residue is known
-    // when: the typecheck stage is inspected
-    // then: the residue is structured data, not free text only
-    const stage = await repoTypecheckStage();
-    expect(stage.name).toBe('typecheck');
-    expect(stage.data?.wideTsconfigErrors).toBeTypeOf('number');
-    expect(stage.data?.preExistingBaseline).toBe(TYPECHECK_PREEXISTING_BASELINE);
-    expect(stage.data?.exitCode).toBe(0);
-    // The repo-backed stage type-checks this repository twice; it measured 16 s alone
-    // here and > 120 s under a loaded full-suite run (backlog §7.1), so the three
-    // callers of the memoized stage use the shared subprocess budget. The synthetic
-    // cases below keep the narrower 120 s budget they were measured under.
-  }, SUBPROCESS_TEST_TIMEOUT_MS);
+  it(
+    'when slice check runs, should expose the pre-existing count and its baseline in structured data',
+    async () => {
+      // given: a run against this repository, whose tests/** residue is known
+      // when: the typecheck stage is inspected
+      // then: the residue is structured data, not free text only
+      const stage = await repoTypecheckStage();
+      expect(stage.name).toBe('typecheck');
+      expect(stage.data?.wideTsconfigErrors).toBeTypeOf('number');
+      expect(stage.data?.preExistingBaseline).toBe(TYPECHECK_PREEXISTING_BASELINE);
+      expect(stage.data?.exitCode).toBe(0);
+      // The repo-backed stage type-checks this repository twice; it measured 16 s alone
+      // here and > 120 s under a loaded full-suite run (backlog §7.1), so the three
+      // callers of the memoized stage use the shared subprocess budget. The synthetic
+      // cases below keep the narrower 120 s budget they were measured under.
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 });
 
 describe('Scenario: behavior — typecheck stage decisions on synthetic projects', () => {
@@ -267,17 +271,21 @@ describe('Scenario: behavior — a project path containing a space', () => {
 });
 
 describe('Scenario: integration — typecheck stage against this repository', () => {
-  it('when slice check runs on this repo, should pass on the clean build tsconfig instead of being permanently red', async () => {
-    // given: this repository, whose tsconfig.build.json is clean but whose
-    //        tsconfig.json carries pre-existing tests-only errors
-    // when: the typecheck stage runs (twice, once per tsconfig)
-    // then: the stage passes — the residue is a baseline, not a blocker
-    const stage = await repoTypecheckStage();
-    expect(stage.status).toBe('pass');
-    expect(stage.data?.wideTsconfigErrors as number).toBeLessThanOrEqual(
-      TYPECHECK_PREEXISTING_BASELINE
-    );
-  }, SUBPROCESS_TEST_TIMEOUT_MS);
+  it(
+    'when slice check runs on this repo, should pass on the clean build tsconfig instead of being permanently red',
+    async () => {
+      // given: this repository, whose tsconfig.build.json is clean but whose
+      //        tsconfig.json carries pre-existing tests-only errors
+      // when: the typecheck stage runs (twice, once per tsconfig)
+      // then: the stage passes — the residue is a baseline, not a blocker
+      const stage = await repoTypecheckStage();
+      expect(stage.status).toBe('pass');
+      expect(stage.data?.wideTsconfigErrors as number).toBeLessThanOrEqual(
+        TYPECHECK_PREEXISTING_BASELINE
+      );
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 });
 
 describe('Scenario: a11y — an unresolvable CLI is named, not an ENOENT', () => {
@@ -310,15 +318,19 @@ describe('Scenario: a11y — an unresolvable CLI is named, not an ENOENT', () =>
 });
 
 describe('Scenario: a11y — the pre-existing count is surfaced, not hidden', () => {
-  it('when slice check runs, should name the pre-existing error count and its baseline in the stage detail', async () => {
-    // given: the typecheck stage output a human reads
-    // when: the detail line is inspected
-    // then: both numbers are visible, so a stale baseline is detectable
-    const stage = await repoTypecheckStage();
-    expect(stage.detail).toContain('tsconfig.json');
-    expect(stage.detail).toContain(String(stage.data?.wideTsconfigErrors));
-    expect(stage.detail).toContain('baseline');
-  }, SUBPROCESS_TEST_TIMEOUT_MS);
+  it(
+    'when slice check runs, should name the pre-existing error count and its baseline in the stage detail',
+    async () => {
+      // given: the typecheck stage output a human reads
+      // when: the detail line is inspected
+      // then: both numbers are visible, so a stale baseline is detectable
+      const stage = await repoTypecheckStage();
+      expect(stage.detail).toContain('tsconfig.json');
+      expect(stage.detail).toContain(String(stage.data?.wideTsconfigErrors));
+      expect(stage.detail).toContain('baseline');
+    },
+    SUBPROCESS_TEST_TIMEOUT_MS
+  );
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

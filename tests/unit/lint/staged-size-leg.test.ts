@@ -137,10 +137,9 @@ function judgeChangeSet(
   detail: string
 ): void {
   if (measurable.length > 0) {
-    expect(
-      envelope.checkedFiles,
-      `${detail} (change set: ${changed.join(', ')})`
-    ).toBeGreaterThan(0);
+    expect(envelope.checkedFiles, `${detail} (change set: ${changed.join(', ')})`).toBeGreaterThan(
+      0
+    );
   }
   expect(envelope.violations, detail).toEqual([]);
 }
