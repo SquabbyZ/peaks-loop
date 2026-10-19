@@ -268,8 +268,8 @@ describe('peaks reviewer run — skip is not a pass, and the producer', () => {
     const data = envelope['data'] as Record<string, unknown>;
     expect(data['written']).toBe(true);
     const rd = join(projectRoot, '.peaks', '_runtime', 's1', 'rd');
-    const markdown = readFileSync(join(rd, 'third-party-review.md'), 'utf8');
-    const json = JSON.parse(readFileSync(join(rd, 'third-party-review.json'), 'utf8')) as Record<
+    const markdown = readFileSync(join(rd, 'third-party-review-r1.md'), 'utf8');
+    const json = JSON.parse(readFileSync(join(rd, 'third-party-review-r1.json'), 'utf8')) as Record<
       string,
       unknown
     >;

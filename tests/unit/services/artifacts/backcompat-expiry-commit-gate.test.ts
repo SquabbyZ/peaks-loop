@@ -65,7 +65,10 @@ declareDimensions('tests/unit/services/artifacts/backcompat-expiry-commit-gate.t
 const SESSION_ID = 'test-session-backcompat-expiry';
 const RID = '2026-10-18-backcompat-expiry-commit-gate';
 const MUT_PATH = 'mut/mut-report.json';
-const THIRD_PARTY_PATH = 'rd/third-party-review.md';
+/** The acceptance key is the DECLARED path: one entry covers every slice. */
+const THIRD_PARTY_PATH = 'rd/third-party-review-<rid>.md';
+/** Where the artifact actually lands for this request id. */
+const THIRD_PARTY_RESOLVED = `rd/third-party-review-${RID}.md`;
 const ACCEPTANCE_RELATIVE = '.peaks/lint/backcompat-expired-acceptance.json';
 /** The release every acceptance arm is judged against. Injected so the suite
  *  does not depend on the version this checkout builds, and so the seeded
@@ -270,12 +273,54 @@ describe('Scenario: behavior — accept, refuse, expire, cap, and fail closed', 
   it('when the artifact exists at its declared path, should accept without an entry', async () => {
     const root = makeRoot();
     writeSessionArtifact(root, MUT_PATH);
-    writeSessionArtifact(root, THIRD_PARTY_PATH);
+    writeSessionArtifact(root, THIRD_PARTY_RESOLVED);
 
     const result = await gateAt(root);
 
     expect(result.violations).toEqual([]);
     expect(result.warnings).toEqual([]);
+  });
+
+  it('when an upgraded project tracks only the bare legacy entry, should accept the scoped window', async () => {
+    // given: the list a pre-scoping project already has on disk — the bare path
+    const root = makeRoot();
+    writeAcceptance(root, [
+      acceptedWindow(MUT_PATH),
+      {
+        path: 'rd/third-party-review.md',
+        until: windowUntil(THIRD_PARTY_PATH),
+        reason: 'seeded before the rid scoping',
+        reviewBy: REVIEW_BY
+      }
+    ]);
+
+    // when: the commit leg runs for the scoped prerequisite
+    const result = await gateAt(root);
+
+    // then: the tracked entry still covers the window; an upgrade must not
+    //       refuse commits until the list is edited by hand
+    expect(result.violations).toEqual([]);
+    expect(result.warnings.some((warning) => warning.includes(THIRD_PARTY_PATH))).toBe(true);
+  });
+
+  it('when the tracked entry names a DIFFERENT path, should still refuse — the alias control', async () => {
+    // given: an entry for the same window release but a different artifact,
+    //        so the alias must not act as a wildcard
+    const root = makeRoot();
+    writeAcceptance(root, [
+      acceptedWindow(MUT_PATH),
+      {
+        path: 'rd/other-review.md',
+        until: windowUntil(THIRD_PARTY_PATH),
+        reason: 'wrong artifact',
+        reviewBy: REVIEW_BY
+      }
+    ]);
+
+    const result = await gateAt(root);
+
+    expect(result.violations).toHaveLength(1);
+    expect(result.violations[0]).toContain(THIRD_PARTY_PATH);
   });
 
   it('when the acceptance list is absent, should fail closed and name the seeding path', async () => {
@@ -399,7 +444,7 @@ describe('Scenario: integration — the seed, verifyPipeline, and the soft trans
       // then: it succeeds, and both closed windows are still reported softly
       expect(result?.state).toBe('qa-handoff');
       expect(result?.prerequisiteWarnings?.map((warning) => warning.code)).toEqual([
-        'third-party-review-missing-deprecated-in-v2.15.0',
+        'third-party-review-<rid>-missing-deprecated-in-v2.15.0',
         'mut-report-missing-deprecated-in-v2.14.0'
       ]);
     } finally {

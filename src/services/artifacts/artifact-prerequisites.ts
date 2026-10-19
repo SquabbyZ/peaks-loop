@@ -280,17 +280,17 @@ const KARPATHY_REVIEW: ArtifactPrerequisite = {
 // to KARPATHY_REVIEW. The body MUST carry the literal substring
 // `third-party-review` so a stub file with an empty envelope cannot
 // pass the gate. The full envelope lives at the JSON sibling path
-// (`rd/third-party-review.json`); this MD file is the human-readable
-// companion. The body is also expected to declare a `modelFamily`
-// gate diffs `rd/third-party-review.json.modelFamily` against
-// `rd/karpathy-review.md` parsed `modelFamily`); equality fails the
-// build. When `~/.peaks/config.json` lacks a `reviewer.providers`
-// section, the prereq is auto-marked `skipped: no-reviewer-config`
-// and the transition still passes (A4.3 fallbackOnError=skip).
+// (`rd/third-party-review-<rid>.json`); this MD file is the human-readable
+// companion. The body declares a `modelFamily` that the gate diffs against
+// the karpathy review's: equality fails the build. When `~/.peaks/config.json`
+// lacks a `reviewer.providers` section, the prereq is auto-marked `skipped:
+// no-reviewer-config` and the transition still passes (A4.3 fallbackOnError=skip).
+// The bare pre-rid path is the legacy tier, so sessions already on disk pass.
 const THIRD_PARTY_REVIEW: ArtifactPrerequisite = {
-  relativePath: 'rd/third-party-review.md',
+  relativePath: 'rd/third-party-review-<rid>.md',
+  legacyRelativePath: 'rd/third-party-review.md',
   description:
-    'v2.14.0 G4 third-party reviewer (peaks-reviewer skill) — must declare a `modelFamily` distinct from the karpathy-reviewer modelFamily (AC-4.4). Skipped when `~/.peaks/config.json` lacks `reviewer.providers` (>=2 entries); the prereq then resolves to a soft warning (`no-reviewer-config`) rather than a hard failure. The JSON sibling at `rd/third-party-review.json` carries the schema-validated ReviewerEnvelope (no free-form LLM JSON). v2.14.0 ships as a soft-warning prereq (1-minor-release back-compat window); v2.15.0 will hard-fail when the file is absent AND `reviewer.providers` is configured.',
+    'v2.14.0 G4 third-party reviewer (peaks-reviewer skill) — must declare a `modelFamily` distinct from the karpathy-reviewer modelFamily (AC-4.4). Skipped when `~/.peaks/config.json` lacks `reviewer.providers` (>=2 entries); the prereq then resolves to a soft warning (`no-reviewer-config`) rather than a hard failure. The JSON sibling at `rd/third-party-review-<rid>.json` carries the schema-validated ReviewerEnvelope (no free-form LLM JSON); the rid is part of both filenames so two slices in one session do not collide, and the bare location is accepted as the legacy tier. v2.14.0 ships as a soft-warning prereq (1-minor-release back-compat window); v2.15.0 will hard-fail when the file is absent AND `reviewer.providers` is configured.',
   mustContain: ['third-party-review', 'modelFamily'],
   backCompat: true,
   backCompatUntil: 'v2.15.0'

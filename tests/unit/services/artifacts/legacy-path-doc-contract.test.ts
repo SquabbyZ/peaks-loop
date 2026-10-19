@@ -140,7 +140,7 @@ const toRepoPath = (root: string, absolute: string): string =>
 
 const REPO_ROOT = process.cwd();
 
-/** The seven names the table demotes today. */
+/** The eight names the table demotes today. */
 const DEMOTED_BARE_STEMS = [
   'audit/perf.md',
   'audit/security.md',
@@ -148,7 +148,8 @@ const DEMOTED_BARE_STEMS = [
   'rd/bug-analysis.md',
   'rd/code-review.md',
   'rd/karpathy-review.md',
-  'rd/security-review.md'
+  'rd/security-review.md',
+  'rd/third-party-review.md'
 ];
 
 const row = (

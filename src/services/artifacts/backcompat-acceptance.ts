@@ -40,7 +40,6 @@ import { isUnsafePathInput } from '../../shared/path-safety.js';
 import { compareReleaseVersions, missingPrerequisiteWarning } from './prerequisite-checks.js';
 import {
   resolvePrerequisiteAbsolutePathWithFallback,
-  resolvePrerequisitePath,
   sessionRootsFor,
   type SessionRoots
 } from './prerequisite-path-resolver.js';
@@ -93,7 +92,7 @@ export function backcompatAcceptanceSeed(installedVersion: string = CLI_VERSION)
           reviewBy
         },
         {
-          path: 'rd/third-party-review.md',
+          path: 'rd/third-party-review-<rid>.md',
           until: 'v2.15.0',
           reason:
             'No reviewer configured: peaks reviewer status reports no-reviewer-config, and the prerequisite table soft-skips this artifact in that state. Documented deviation: this commit-leg gate does not re-evaluate the reviewer.providers conditional, so the window is accepted here regardless of that config.',
@@ -168,9 +167,10 @@ export function seedBackCompatAcceptance(projectRoot: string): void {
   writeFileSync(absolute, `${backcompatAcceptanceSeed()}\n`, 'utf8');
 }
 
-/** One closed window whose artifact is absent, keyed the way the list keys an
- *  acceptance. */
-type ClosedBackCompatWindow = { path: string; until: string };
+/** One closed window whose artifact is absent. `path` is the DECLARED path
+ *  (one key per artifact class); `aliases` are pre-rid keys an upgraded project
+ *  may already track. */
+type ClosedBackCompatWindow = { path: string; until: string; aliases: (string | undefined)[] };
 
 /** Every `backCompat` requirement whose window has closed while its artifact is
  *  absent. A present artifact is excluded: its body checks belong to the
@@ -184,7 +184,8 @@ async function closedBackCompatWindows(
   const closed: ClosedBackCompatWindow[] = [];
   for (const prerequisite of requirements) {
     const until = prerequisite.backCompatUntil;
-    const relative = resolvePrerequisitePath(prerequisite, requestId);
+    const relative = prerequisite.relativePath;
+    const aliases = [prerequisite.legacyRelativePath, ...(prerequisite.legacyRelativePaths ?? [])];
     const softWarning = missingPrerequisiteWarning(prerequisite, relative, installedVersion);
     if (until === undefined || softWarning?.expiredWindow === undefined) continue;
     const absolute = await resolvePrerequisiteAbsolutePathWithFallback(
@@ -193,7 +194,7 @@ async function closedBackCompatWindows(
       prerequisite,
       requestId
     );
-    if (absolute === null) closed.push({ path: relative, until });
+    if (absolute === null) closed.push({ path: relative, until, aliases });
   }
   return closed;
 }
@@ -216,8 +217,9 @@ function judgeClosedWindow(
   window: ClosedBackCompatWindow,
   installedVersion: string
 ): { accepted: BackCompatAcceptance } | { violation: string } {
+  const paths = [window.path, ...window.aliases];
   const entry = list.accepted.find(
-    (candidate) => candidate.path === window.path && candidate.until === window.until
+    (candidate) => paths.includes(candidate.path) && candidate.until === window.until
   );
   if (entry === undefined) {
     return {

@@ -9,7 +9,7 @@
       "reviewBy": "v4.2.0"
     },
     {
-      "path": "rd/third-party-review.md",
+      "path": "rd/third-party-review-<rid>.md",
       "until": "v2.15.0",
       "reason": "No reviewer configured: peaks reviewer status reports no-reviewer-config, and the prerequisite table soft-skips this artifact in that state. Documented deviation: this commit-leg gate does not re-evaluate the reviewer.providers conditional, so the window is accepted here regardless of that config.",
       "reviewBy": "v4.2.0"

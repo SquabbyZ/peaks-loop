@@ -92,7 +92,7 @@ import { PROJECT_SCAN_RELATIVE } from './project-scan-reader.js';
  * prerequisite's path moves the declared path with it.
  *
  * `mut/mut-report.json`, `rd/karpathy-review-<rid>.md`,
- * `rd/third-party-review.md`, `qa/test-cases/<rid>.md` and the unit-test
+ * `rd/third-party-review-<rid>.md`, `qa/test-cases/<rid>.md` and the unit-test
  * marker have no key — the vocabulary is five keys, and those artifacts are
  * already enforced by the table itself, so they are deliberately not
  * declared here rather than being forced into a key that does not mean them.

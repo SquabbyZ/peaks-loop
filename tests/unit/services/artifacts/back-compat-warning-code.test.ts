@@ -80,12 +80,14 @@ declareDimensions(
 );
 
 const MUT_REPORT_BARE = 'mut/mut-report.json';
-const THIRD_PARTY_REVIEW_BARE = 'rd/third-party-review.md';
+const THIRD_PARTY_REVIEW_SCOPED = 'rd/third-party-review-<rid>.md';
+/** `checkPrerequisites` reports the rid-SUBSTITUTED path, never the placeholder. */
+const THIRD_PARTY_REVIEW_WARNING_PATH = `rd/third-party-review-${RID_A}.md`;
 /** The code CHANGELOG v2.13.3 documents for the MUT soft-block. Frozen here on
  *  purpose: this is a published code, so a change to the derivation has to
  *  fail a test and be reconciled with the docs rather than drift silently. */
 const DOCUMENTED_MUT_CODE = 'mut-report-missing-deprecated-in-v2.14.0';
-const THIRD_PARTY_REVIEW_CODE = 'third-party-review-missing-deprecated-in-v2.15.0';
+const THIRD_PARTY_REVIEW_CODE = 'third-party-review-<rid>-missing-deprecated-in-v2.15.0';
 
 /** The `rd:qa-handoff` FEATURE row, read from the shipped table rather than
  *  reconstructed — a copy would keep passing after the real table changed. */
@@ -108,7 +110,7 @@ describe('Scenario: render — each back-compat warning names its own artifact',
     // then: each names its own artifact and release — the defect was ONE code
     //       for both
     const mutCode = backCompatWarningCode(findRequirement(MUT_REPORT_BARE));
-    const thirdPartyCode = backCompatWarningCode(findRequirement(THIRD_PARTY_REVIEW_BARE));
+    const thirdPartyCode = backCompatWarningCode(findRequirement(THIRD_PARTY_REVIEW_SCOPED));
     expect(mutCode).toBe(DOCUMENTED_MUT_CODE);
     expect(thirdPartyCode).toBe(THIRD_PARTY_REVIEW_CODE);
     expect(mutCode).not.toBe(thirdPartyCode);
@@ -146,7 +148,7 @@ describe('Scenario: render — each back-compat warning names its own artifact',
     const code = backCompatWarningCode(addedLater);
     expect(code).toBe('traceability-missing-deprecated-in-v9.9.9');
     expect(code).not.toBe(DOCUMENTED_MUT_CODE);
-    expect(code).not.toBe(backCompatWarningCode(findRequirement(THIRD_PARTY_REVIEW_BARE)));
+    expect(code).not.toBe(backCompatWarningCode(findRequirement(THIRD_PARTY_REVIEW_SCOPED)));
   });
 });
 
@@ -167,7 +169,7 @@ describe('Scenario: behavior — soft is reported, hard still fails, and empty s
     });
     expect(result.ok).toBe(true);
     expect(result.warnings.map((warning) => warning.path)).toEqual([
-      THIRD_PARTY_REVIEW_BARE,
+      THIRD_PARTY_REVIEW_WARNING_PATH,
       MUT_REPORT_BARE
     ]);
     expect(result.warnings.map((warning) => warning.code)).toEqual([
@@ -198,7 +200,7 @@ describe('Scenario: behavior — soft is reported, hard still fails, and empty s
       `rd/karpathy-review-${RID_A}.md`
     );
     expect(result.warnings.map((warning) => warning.path)).toEqual([
-      THIRD_PARTY_REVIEW_BARE,
+      THIRD_PARTY_REVIEW_WARNING_PATH,
       MUT_REPORT_BARE
     ]);
   });
@@ -297,7 +299,7 @@ describe('Scenario: behavior — a declared window is compared, not merely print
     //       moved one, and a release still ahead of this build yields no expiry
     //       at all. A producer that pinned the release, or that reported the
     //       window without comparing it, fails on one of the two arms.
-    const shipped = findRequirement(THIRD_PARTY_REVIEW_BARE);
+    const shipped = findRequirement(THIRD_PARTY_REVIEW_SCOPED);
     const closedEarlier = { ...shipped, backCompatUntil: 'v1.0.0' };
     const beyondThisBuild = { ...shipped, backCompatUntil: 'v9.9.9' };
     expect(
@@ -334,7 +336,7 @@ describe('Scenario: integration — a successful transition reports its soft pas
     });
     expect(result?.state).toBe('qa-handoff');
     expect(result?.prerequisiteWarnings?.map((warning) => warning.path)).toEqual([
-      THIRD_PARTY_REVIEW_BARE,
+      THIRD_PARTY_REVIEW_WARNING_PATH,
       MUT_REPORT_BARE
     ]);
     expect(result?.prerequisiteWarnings?.map((warning) => warning.code)).toEqual([

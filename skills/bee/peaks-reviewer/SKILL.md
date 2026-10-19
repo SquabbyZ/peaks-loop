@@ -81,8 +81,8 @@ peaks reviewer status [--json]
 runs it on the user's behalf; nobody hand-authors JSON. It refuses a section
 with fewer than two dispatchable providers (`ollama` / `anthropic` / `openai`).
 
-`run --write` produces `rd/third-party-review.json` (the validated envelope)
-and the human-readable `rd/third-party-review.md` under
+`run --write` produces `rd/third-party-review-<rid>.json` (the validated envelope)
+and the human-readable `rd/third-party-review-<rid>.md` under
 `.peaks/_runtime/<sessionId>/rd/`. It writes **nothing** on a skip and
 reports why: a skip is `passed: false` + `gateAction: 'warn'`, never a pass.
 
@@ -124,7 +124,7 @@ Missing section: reviewer is skipped. The skip envelope records
 
 ## Sub-agent dispatch (when launched by peaks-code swarm)
 
-When this skill runs as a sub-agent dispatched by peaks-code, the sub-agent receives the parent session id and change-id via envelope. It MUST write its output to `.peaks/_runtime/<sessionId>/rd/third-party-review.json` + `.md` and return a compact JSON envelope.
+When this skill runs as a sub-agent dispatched by peaks-code, the sub-agent receives the parent session id and change-id via envelope. It MUST write its output to `.peaks/_runtime/<sessionId>/rd/third-party-review-<rid>.json` + `.md` and return a compact JSON envelope.
 
 ## L2 surface reference (post rid-l2-extended)
 

@@ -159,8 +159,8 @@ export function backcompatAcceptanceBody(): string {
         reviewBy
       },
       {
-        path: 'rd/third-party-review.md',
-        until: row('rd/third-party-review.md')?.backCompatUntil ?? '',
+        path: 'rd/third-party-review-<rid>.md',
+        until: row('rd/third-party-review-<rid>.md')?.backCompatUntil ?? '',
         reason: 'fixture',
         reviewBy
       }
@@ -199,6 +199,17 @@ export function perfBody(rid: string): string {
 
 export function codeReviewBody(rid: string): string {
   return `# Code review — rid \`${rid}\`\n\n## Findings\n\nCRITICAL: none.\n`;
+}
+
+/** Body satisfying THIRD_PARTY_REVIEW's `mustContain` markers
+ *  (`third-party-review`, `modelFamily`), distinguished by rid. */
+export function thirdPartyBody(rid: string): string {
+  return `# Third-party review — \`${rid}\`\n\nmodelFamily: claude-fable-5-1\nthird-party-review verdict: pass\n`;
+}
+
+/** The rid-scoped THIRD_PARTY_REVIEW path, with the rid substituted. */
+export function thirdPartyPath(rid: string): string {
+  return `rd/third-party-review-${rid}.md`;
 }
 
 export function karpathyBody(rid: string): string {

@@ -61,6 +61,8 @@ import {
   SESSION_ID,
   sessionRootOf,
   tempRoots,
+  thirdPartyBody,
+  thirdPartyPath,
   writeArtifact
 } from './_audit-artifact-rid-fixtures.js';
 
@@ -391,12 +393,11 @@ describe('(integration) two slices coexist, and the old layouts still resolve', 
 
 // AC-2 of slice 2026-09-17-4-0-51-cleanup: THIRD_PARTY_REVIEW is the
 // second backCompat=true prereq in the FEATURE table (the first is
-// MUT_REPORT). It carries `rd/third-party-review.md` and is satisfied
-// either by the bare file (when reviewer.providers is configured) or
-// by the soft-warning branch (when it is not). The MUT_REPORT case at
-// line ~408 covers the same shape; these two cases pin the
-// THIRD_PARTY_REVIEW twin so a future gate change cannot silently
-// regress one but not the other.
+// MUT_REPORT). It is satisfied either by the artifact (when
+// reviewer.providers is configured) or by the soft-warning branch (when
+// it is not). The MUT_REPORT case above covers the same shape; these two
+// cases pin the THIRD_PARTY_REVIEW twin so a future gate change cannot
+// silently regress one but not the other.
 describe('(AC-2) THIRD_PARTY_REVIEW backCompat soft-warning symmetry', () => {
   const THIRD_PARTY_REVIEW_BARE = 'rd/third-party-review.md';
 
@@ -406,11 +407,11 @@ describe('(AC-2) THIRD_PARTY_REVIEW backCompat soft-warning symmetry', () => {
     const { missing, warnings, ok } = await missingPaths(projectRoot, RID_A);
 
     // The third-party-review carries backCompat: true (mirrors the
-    // MUT_REPORT contract at line 295-301 of artifact-prerequisites.ts).
-    // A missing file therefore lands in `warnings`, not `missing`, and
-    // the gate stays open under the 1-minor-release soft-warning window.
-    expect(warnings).toContain(THIRD_PARTY_REVIEW_BARE);
-    expect(missing).not.toContain(THIRD_PARTY_REVIEW_BARE);
+    // MUT_REPORT contract in artifact-prerequisites.ts). A missing file
+    // lands in `warnings`, not `missing`, and the gate stays open under
+    // the 1-minor-release soft-warning window.
+    expect(warnings).toContain(thirdPartyPath(RID_A));
+    expect(missing).not.toContain(thirdPartyPath(RID_A));
     // Soft-warning must not flip the overall verdict to false (the
     // soft-block contract from v2.13.2; the missing-list may still
     // contain HARD prereqs from RID_SCOPED_ARTIFACTS — we only check
@@ -418,20 +419,16 @@ describe('(AC-2) THIRD_PARTY_REVIEW backCompat soft-warning symmetry', () => {
     expect(typeof ok).toBe('boolean');
   });
 
-  it('clears the soft warning when the bare third-party-review file is present with the required markers', async () => {
-    // Symmetric to the MUT_REPORT case at line 408-423: writing the
-    // file at the canonical path with the mustContain markers makes
-    // the gate satisfied outright.
+  it('clears the soft warning when the bare legacy third-party-review file is present', async () => {
+    // The bare path is the legacy tier: a session already on disk keeps
+    // passing without rewriting its evidence.
     const projectRoot = makeProjectRoot();
-    writeArtifact(
-      projectRoot,
-      THIRD_PARTY_REVIEW_BARE,
-      '# Third-party review\n\nmodelFamily: claude-fable-5-1\nthird-party-review verdict: pass\n'
-    );
+    writeArtifact(projectRoot, THIRD_PARTY_REVIEW_BARE, thirdPartyBody(RID_A));
 
     const { missing, warnings } = await missingPaths(projectRoot, RID_A);
 
-    expect(missing).not.toContain(THIRD_PARTY_REVIEW_BARE);
+    expect(missing).not.toContain(thirdPartyPath(RID_A));
+    expect(warnings).not.toContain(thirdPartyPath(RID_A));
     expect(warnings).not.toContain(THIRD_PARTY_REVIEW_BARE);
   });
 });

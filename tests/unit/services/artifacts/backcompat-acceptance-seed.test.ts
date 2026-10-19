@@ -36,7 +36,7 @@ declareDimensions('tests/unit/services/artifacts/backcompat-acceptance-seed.test
 ]);
 
 const MUT_PATH = 'mut/mut-report.json';
-const THIRD_PARTY_PATH = 'rd/third-party-review.md';
+const THIRD_PARTY_PATH = 'rd/third-party-review-<rid>.md';
 const ACCEPTANCE_RELATIVE = '.peaks/lint/backcompat-expired-acceptance.json';
 /** `initWorkspace` validates the id against `YYYY-MM-DD-<slug>`. */
 const SEED_SESSION = '2026-10-18-backcompat-seed';

@@ -165,7 +165,7 @@ function registerRunCommand(reviewer: Command, io: ProgramIO): void {
       .command('run')
       .description('Run the configured third-party reviewer on a slice.')
       .option('--rid <rid>', 'request id (slice) to review')
-      .option('--write', 'write rd/third-party-review.md + .json under the session runtime')
+      .option('--write', 'write rd/third-party-review-<rid>.md + .json under the session runtime')
       .option('--session-id <id>', 'session id for --write (defaults to the active session)')
       .option('--project <path>', 'project root for --write (defaults to cwd)')
       .option('--config <path>', 'reviewer config path (defaults to ~/.peaks/config.json)')

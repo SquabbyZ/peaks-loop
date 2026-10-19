@@ -32,27 +32,26 @@ const UNDECLARED_WINDOW = 'a-future-release';
  *
  * The stem is what makes the code name WHICH artifact is missing — the branch
  * this replaced emitted the literal `mut-report-missing-deprecated-in-v2.14.0`
- * for EVERY `backCompat` prerequisite, so the `rd/third-party-review.md`
+ * for EVERY `backCompat` prerequisite, so the `rd/third-party-review-<rid>.md`
  * warning carried the same code as the `mut/mut-report.json` one and a
  * consumer filtering on it matched both. `backCompatUntil` keeps the
  * deprecation semantics legible and is per-prerequisite, because the two live
  * windows close in different releases (v2.14.0 and v2.15.0).
  *
- * The stem is taken verbatim: both prerequisites that carry `backCompat` name
- * a fixed path, so no character is rewritten.
+ * The stem is taken verbatim from `relativePath`, so no character is rewritten
+ * — including a `<rid>` placeholder.
  *
  * TWO KNOWN LIMITS OF THE STEM, stated so neither is read as a guarantee:
  *   - a `<rid>`-templated soft prerequisite keeps the placeholder, producing
  *     the LITERAL `<rid>-missing-deprecated-in-…` — the same code for every
- *     request. The code is therefore not per-slice filterable. No live
- *     prerequisite carries `backCompat` with a `<rid>` path, so nothing
- *     filters on one today; the placeholder is the honest thing to print, and
- *     making it per-slice would mean resolving the rid into a code a consumer
- *     would have to know to match.
+ *     request. One live prerequisite now does (`rd/third-party-review-<rid>.md`):
+ *     its code is filterable by ARTIFACT CLASS but not by slice. That is the
+ *     deliberate trade — resolving the rid into the code would give every
+ *     slice a code a consumer would have to already know to match.
  *   - the stem comes from the FILENAME only, so two prerequisites sharing a
  *     stem collide (`x.md` and `x.json` both yield `x-…`). Measured 0 live
  *     collisions, and the pair that exists (`mut/mut-report.json` vs
- *     `rd/third-party-review.md`) differs by stem as well as by directory.
+ *     `rd/third-party-review-<rid>.md`) differs by stem as well as by directory.
  */
 export function backCompatWarningCode(prerequisite: ArtifactPrerequisite): string {
   const stem = basename(prerequisite.relativePath, extname(prerequisite.relativePath));

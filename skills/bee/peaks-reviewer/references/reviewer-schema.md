@@ -28,7 +28,7 @@
 
 ## Distinctness gate (AC-4.4)
 
-`third-party-review.json.modelFamily` MUST differ from `karpathy-review.json.modelFamily`. Equality fails the build. The reviewer service stamps `modelFamily` from the actual `modelId` (the LLM cannot self-report a different family).
+`third-party-review-<rid>.json.modelFamily` MUST differ from `karpathy-review.json.modelFamily`. Equality fails the build. The reviewer service stamps `modelFamily` from the actual `modelId` (the LLM cannot self-report a different family).
 
 ## Skipped envelope
 
@@ -49,6 +49,6 @@ two usable providers), the reviewer returns:
 
 A skip is not a pass: `passed` is `false` and `gateAction` is `warn`, so no
 consumer reading those two fields sees green. `peaks reviewer run --write`
-refuses to write `rd/third-party-review.md` / `.json` from a skipped
+refuses to write `rd/third-party-review-<rid>.md` / `.json` from a skipped
 envelope — the artifact exists only when a review actually ran. The
 THIRD_PARTY_REVIEW prereq records the skip in `prerequisites.warnings`.
