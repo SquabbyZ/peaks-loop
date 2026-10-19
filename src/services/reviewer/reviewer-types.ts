@@ -30,6 +30,8 @@ export type ReviewerRunInput = {
   context: string;
   /** Optional override of the reviewer section path (`~/.peaks/config.json`). */
   configPath?: string;
+  /** Project root the configured `schemaPath` resolves against (default `cwd`). */
+  projectRoot?: string;
   /** Optional override of the selection-mode state for cross-slice round-robin. */
   state?: SelectionState;
   /** Optional injected fetch (testability). */
@@ -48,6 +50,8 @@ export type ReviewerRunOutput =
     }
   | {
       ok: false;
-      reason: 'no-reviewer-config' | 'insufficient-providers';
+      reason: 'no-reviewer-config' | 'insufficient-providers' | 'schema-missing';
       envelope: ReviewerEnvelope;
+      /** The paths searched, set when `reason === 'schema-missing'`. */
+      schemaCandidates?: string[];
     };

@@ -14,7 +14,8 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export type ReviewerProviderName = 'ollama' | 'anthropic' | 'openai' | 'bedrock' | 'azure';
 
@@ -145,6 +146,47 @@ function readRequireDistinct(raw: unknown): boolean {
 
 function readSchemaPath(raw: unknown): string {
   return typeof raw === 'string' && raw.length > 0 ? raw : 'schemas/reviewer-envelope.schema.json';
+}
+
+/** Where a resolved ReviewerEnvelope schema came from. */
+export type ReviewerSchemaSource = 'absolute' | 'project' | 'package';
+
+export type ReviewerSchemaResolution =
+  { ok: true; path: string; source: ReviewerSchemaSource } | { ok: false; searched: string[] };
+
+/** `<packageRoot>` — this file's tree is `<root>/src/services/reviewer` or `<root>/dist/services/reviewer`. */
+const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+
+/**
+ * Resolve the configured ReviewerEnvelope schema: an absolute path as-is,
+ * else the project-root copy (a project may override), else the copy bundled
+ * with the peaks-loop package — a consumer project does NOT ship `schemas/`,
+ * so the packaged copy is what makes the default path work there. When
+ * nothing resolves, every candidate is returned for the refusal message.
+ */
+export function resolveReviewerSchema(
+  projectRoot: string,
+  schemaPath: string
+): ReviewerSchemaResolution {
+  if (isAbsolute(schemaPath)) {
+    return existsSync(schemaPath)
+      ? { ok: true, path: schemaPath, source: 'absolute' }
+      : { ok: false, searched: [schemaPath] };
+  }
+  const projectCandidate = resolve(projectRoot, schemaPath);
+  if (existsSync(projectCandidate)) {
+    return { ok: true, path: projectCandidate, source: 'project' };
+  }
+  const packageCandidate = resolve(PACKAGE_ROOT, schemaPath);
+  if (existsSync(packageCandidate)) {
+    return { ok: true, path: packageCandidate, source: 'package' };
+  }
+  // Dogfooding the repo itself makes both candidates the same path; name it once.
+  const searched =
+    projectCandidate === packageCandidate
+      ? [projectCandidate]
+      : [projectCandidate, packageCandidate];
+  return { ok: false, searched };
 }
 
 /**

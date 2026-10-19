@@ -2,8 +2,8 @@
  * `peaks reviewer run|status` — CLI surface for the G4 third-party reviewer.
  * `peaks reviewer config` lives in reviewer-config-commands.ts (file-size cap).
  *
- *   peaks reviewer run    --rid <rid> [--write] [--session-id <id>] [--json]
- *   peaks reviewer status [--json]
+ *   peaks reviewer run    --rid <rid> [--write] [--session-id <id>] [--project <path>] [--json]
+ *   peaks reviewer status [--project <path>] [--json]
  *
  * The CLI never silently prompts for API keys. When `~/.peaks/config.json`
  * has no usable `reviewer` section, `run` emits the skip envelope (which is
@@ -19,6 +19,7 @@ import {
   defaultReviewerConfigPath,
   loadReviewerConfig,
   MIN_REVIEWER_PROVIDERS,
+  resolveReviewerSchema,
   type ReviewerConfig,
   type ReviewerConfigStatus
 } from '../../services/reviewer/reviewer-config.js';
@@ -31,12 +32,11 @@ import { registerReviewerConfigCommand } from './reviewer-config-commands.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
-type ConfigPathOptions = { config?: string; json?: boolean };
+type ConfigPathOptions = { config?: string; json?: boolean; project?: string };
 type RunOptions = ConfigPathOptions & {
   rid?: string;
   write?: boolean;
   sessionId?: string;
-  project?: string;
 };
 
 function isJson(options: ConfigPathOptions): boolean {
@@ -60,12 +60,25 @@ async function handleRun(options: RunOptions, io: ProgramIO): Promise<void> {
     process.exitCode = 2;
     return;
   }
+  const projectRoot = resolveCanonicalProjectRoot(options.project ?? process.cwd());
   const result = await runReviewer({
     rid,
     context: `rid=${rid}`,
+    projectRoot,
     ...(options.config !== undefined ? { configPath: options.config } : {})
   });
   if (!result.ok) {
+    if (result.reason === 'schema-missing') {
+      printRunFailure(
+        io,
+        options,
+        'SCHEMA_MISSING',
+        `Reviewer schema not found; searched: ${(result.schemaCandidates ?? []).join(', ')}`,
+        ['Fix the reviewer config schemaPath or place the schema at one of the searched paths.']
+      );
+      process.exitCode = 1;
+      return;
+    }
     printConfigSkip(result, options, io);
     return;
   }
@@ -85,7 +98,7 @@ async function handleRun(options: RunOptions, io: ProgramIO): Promise<void> {
     );
     return;
   }
-  writeArtifacts(result.envelope, rid, options, io);
+  writeArtifacts(result.envelope, rid, { projectRoot, options }, io);
 }
 
 function printConfigSkip(
@@ -116,13 +129,15 @@ function printConfigSkip(
   );
 }
 
+type WriteContext = { projectRoot: string; options: RunOptions };
+
 function writeArtifacts(
   envelope: ReviewerEnvelope,
   rid: string,
-  options: RunOptions,
+  context: WriteContext,
   io: ProgramIO
 ): void {
-  const projectRoot = resolveCanonicalProjectRoot(options.project ?? process.cwd());
+  const { projectRoot, options } = context;
   const sessionId = options.sessionId ?? readActiveSid(projectRoot) ?? '';
   if (sessionId.length === 0) {
     printResult(
@@ -167,7 +182,10 @@ function registerRunCommand(reviewer: Command, io: ProgramIO): void {
       .option('--rid <rid>', 'request id (slice) to review')
       .option('--write', 'write rd/third-party-review-<rid>.md + .json under the session runtime')
       .option('--session-id <id>', 'session id for --write (defaults to the active session)')
-      .option('--project <path>', 'project root for --write (defaults to cwd)')
+      .option(
+        '--project <path>',
+        'project root for schema resolution and --write (promotes to the git root)'
+      )
       .option('--config <path>', 'reviewer config path (defaults to ~/.peaks/config.json)')
   ).action((options: RunOptions) => handleRun(options, io));
 }
@@ -197,12 +215,17 @@ function unconfiguredActions(
   return [first, `Accepted providers: ${DISPATCHABLE_PROVIDER_NAMES.join(', ')}.`];
 }
 
-function configuredData(config: ReviewerConfig, path: string): Record<string, unknown> {
+function configuredData(
+  config: ReviewerConfig,
+  path: string,
+  projectRoot: string
+): Record<string, unknown> {
   const families = config.providers.map((p) => ({
     name: p.name,
     model: p.model,
     modelFamily: deriveModelFamily(p.model).modelFamily
   }));
+  const schema = resolveReviewerSchema(projectRoot, config.schemaPath);
   return {
     configured: true,
     state: 'configured',
@@ -213,6 +236,9 @@ function configuredData(config: ReviewerConfig, path: string): Record<string, un
     requireDistinctModelFamily: config.requireDistinctModelFamily,
     fallbackOnError: config.fallbackOnError,
     schemaPath: config.schemaPath,
+    schemaPathExists: schema.ok,
+    schemaPathSource: schema.ok ? schema.source : null,
+    schemaPathResolved: schema.ok ? schema.path : null,
     rdProviderName: config.rdProviderName,
     providers: families
   };
@@ -220,6 +246,8 @@ function configuredData(config: ReviewerConfig, path: string): Record<string, un
 
 function handleStatus(options: ConfigPathOptions, io: ProgramIO): void {
   const path = options.config ?? defaultReviewerConfigPath();
+  // Same promotion as `run`: the diagnostic must agree with the run decision.
+  const projectRoot = resolveCanonicalProjectRoot(options.project ?? process.cwd());
   const status = loadReviewerConfig(options.config !== undefined ? { path } : {});
   if (!status.ok) {
     printResult(
@@ -229,7 +257,11 @@ function handleStatus(options: ConfigPathOptions, io: ProgramIO): void {
     );
     return;
   }
-  printResult(io, ok('reviewer.status', configuredData(status.config, path)), isJson(options));
+  printResult(
+    io,
+    ok('reviewer.status', configuredData(status.config, path, projectRoot)),
+    isJson(options)
+  );
 }
 
 function registerStatusCommand(reviewer: Command, io: ProgramIO): void {
@@ -240,6 +272,7 @@ function registerStatusCommand(reviewer: Command, io: ProgramIO): void {
         'Show whether the reviewer is configured and which selection mode + provider families are active.'
       )
       .option('--config <path>', 'reviewer config path (defaults to ~/.peaks/config.json)')
+      .option('--project <path>', 'project root for schema resolution (promotes to the git root)')
   ).action((options: ConfigPathOptions) => handleStatus(options, io));
 }
 

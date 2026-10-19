@@ -3,7 +3,7 @@
 // that refuses to write on a skip.
 
 import { Command } from 'commander';
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -115,6 +115,79 @@ describe('peaks reviewer status — three states', () => {
     expect(data['state']).toBe('configured');
     expect(data['providerCount']).toBe(2);
     expect((data['providers'] as Array<Record<string, unknown>>)[0]?.['modelFamily']).toBe('llama');
+  });
+
+  it('when the configured schema path resolves nowhere, should report schemaPathExists false', async () => {
+    // given: a configured reviewer whose schemaPath exists in neither the project nor the package
+    // when:  status runs
+    // then:  the dead path is visible instead of merely echoed
+    writeConfig({ schemaPath: 'schemas/absent-reviewer-envelope.schema.json' });
+    const envelope = parseJson(
+      await runCli([
+        'reviewer',
+        'status',
+        '--config',
+        configPath,
+        '--project',
+        projectRoot,
+        '--json'
+      ])
+    );
+    const data = envelope['data'] as Record<string, unknown>;
+    expect(data['schemaPath']).toBe('schemas/absent-reviewer-envelope.schema.json');
+    expect(data['schemaPathExists']).toBe(false);
+    expect(data['schemaPathSource']).toBeNull();
+    expect(data['schemaPathResolved']).toBeNull();
+  });
+
+  it('when a consumer project ships no schema, should report the packaged copy as the source', async () => {
+    // given: a project root with no schemas/ directory (the consumer shape)
+    // when:  status runs
+    // then:  the fall-through to the packaged copy is named, not hidden
+    writeConfig();
+    const envelope = parseJson(
+      await runCli([
+        'reviewer',
+        'status',
+        '--config',
+        configPath,
+        '--project',
+        projectRoot,
+        '--json'
+      ])
+    );
+    const data = envelope['data'] as Record<string, unknown>;
+    expect(data['schemaPathExists']).toBe(true);
+    expect(data['schemaPathSource']).toBe('package');
+    const resolved = String(data['schemaPathResolved']);
+    expect(resolved.endsWith(join('schemas', 'reviewer-envelope.schema.json'))).toBe(true);
+    expect(resolved.startsWith(projectRoot)).toBe(false);
+  });
+
+  it('when run from a subdirectory, should promote to the repo root like run does', async () => {
+    // given: a temp repo root carrying the schema and a nested subdirectory as cwd
+    // when:  status runs with NO --project flag
+    // then:  it resolves the project copy, agreeing with the run path's promotion
+    const repoRoot = mkdtempSync(join(tmpdir(), 'reviewer-repo-'));
+    mkdirSync(join(repoRoot, '.peaks'), { recursive: true });
+    writeFileSync(join(repoRoot, '.peaks', 'config.json'), '{}', 'utf8');
+    mkdirSync(join(repoRoot, 'schemas'), { recursive: true });
+    writeFileSync(join(repoRoot, 'schemas', 'reviewer-envelope.schema.json'), '{}', 'utf8');
+    const nested = join(repoRoot, 'nested', 'deeper');
+    mkdirSync(nested, { recursive: true });
+    const previousCwd = process.cwd();
+    process.chdir(nested);
+    try {
+      writeConfig();
+      const envelope = parseJson(
+        await runCli(['reviewer', 'status', '--config', configPath, '--json'])
+      );
+      const data = envelope['data'] as Record<string, unknown>;
+      expect(data['schemaPathExists']).toBe(true);
+      expect(data['schemaPathSource']).toBe('project');
+    } finally {
+      process.chdir(previousCwd);
+    }
   });
 });
 
@@ -277,6 +350,35 @@ describe('peaks reviewer run — skip is not a pass, and the producer', () => {
     expect(markdown).toContain('modelFamily');
     expect(json['modelFamily']).toBe('llama');
     expect(json['passed']).toBe(true);
+  });
+
+  it('when the configured schemaPath does not resolve, should refuse before the provider call', async () => {
+    // given: a configured reviewer whose schemaPath names a missing file
+    // when:  run executes
+    // then:  it fails with SCHEMA_MISSING and fetch is never called
+    writeConfig({ schemaPath: 'schemas/absent-reviewer-envelope.schema.json' });
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    const envelope = parseJson(
+      await runCli([
+        'reviewer',
+        'run',
+        '--rid',
+        'r1',
+        '--project',
+        projectRoot,
+        '--config',
+        configPath,
+        '--json'
+      ])
+    );
+    expect(envelope['code']).toBe('SCHEMA_MISSING');
+    const message = String(envelope['message']);
+    expect(message).toContain('searched:');
+    // Both candidates — project root and packaged copy — are named.
+    expect(message.split('absent-reviewer-envelope.schema.json')).toHaveLength(3);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(process.exitCode).toBe(1);
   });
 
   it('when --write is absent, should not write any artifact', async () => {

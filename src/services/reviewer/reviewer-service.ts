@@ -22,6 +22,7 @@ import { callAnthropic } from './providers/anthropic.js';
 import { callOpenAI } from './providers/openai.js';
 import {
   loadReviewerConfig,
+  resolveReviewerSchema,
   type ReviewerConfig,
   type ReviewerConfigStatus,
   type ReviewerProviderConfig
@@ -197,6 +198,21 @@ function skipReason(status: Extract<ReviewerConfigStatus, { ok: false }>): strin
     : 'skipped: no-reviewer-config (fallbackOnError=skip)';
 }
 
+/**
+ * The refusal for an unresolvable schema. Presence/configuration check only:
+ * the hand-rolled validator mirrors the schema, so this proves the deployment
+ * ships the file it mirrors. The content of the resolved file is NOT read here
+ * and does not drive validation — that stays `validateReviewerEnvelope`'s job.
+ */
+function schemaMissingOutput(searched: string[]): Extract<ReviewerRunOutput, { ok: false }> {
+  return {
+    ok: false,
+    reason: 'schema-missing',
+    schemaCandidates: searched,
+    envelope: buildSkippedEnvelope(`refused: schema-missing (searched ${searched.join(', ')})`)
+  };
+}
+
 export async function runReviewer(input: ReviewerRunInput): Promise<ReviewerRunOutput> {
   const status = loadReviewerConfig(
     input.configPath !== undefined ? { path: input.configPath } : {}
@@ -205,6 +221,9 @@ export async function runReviewer(input: ReviewerRunInput): Promise<ReviewerRunO
     return { ok: false, reason: status.reason, envelope: buildSkippedEnvelope(skipReason(status)) };
   }
   const config: ReviewerConfig = status.config;
+  const projectRoot = input.projectRoot ?? process.cwd();
+  const schema = resolveReviewerSchema(projectRoot, config.schemaPath);
+  if (!schema.ok) return schemaMissingOutput(schema.searched);
   const { result, nextState } = selectByMode(
     config.selection,
     config.providers,
@@ -246,10 +265,14 @@ export async function runReviewer(input: ReviewerRunInput): Promise<ReviewerRunO
 }
 
 /**
- * Compute the distinctness verdict: returns true when the third-party
- * mandates this is a CI gate — equality fails the build.
+ * The `requireDistinctModelFamily` verdict, over three inputs per side: a
+ * real family, an empty family, or a SKIP. Either side may be missing a
+ * family, and "not comparable" must NOT be reported as "distinct" — that
+ * would let a skip satisfy a distinctness gate. Returns true only when both
+ * families are present and differ.
  */
 export function distinctFromKarpathy(thirdPartyFamily: string, karpathyFamily: string): boolean {
-  if (thirdPartyFamily === 'skipped') return true;
+  if (thirdPartyFamily === 'skipped' || thirdPartyFamily === '') return false;
+  if (karpathyFamily === 'skipped' || karpathyFamily === '') return false;
   return thirdPartyFamily !== karpathyFamily;
 }

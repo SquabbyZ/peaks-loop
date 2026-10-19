@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
   buildSkippedEnvelope,
+  distinctFromKarpathy,
   runReviewer,
   type ReviewerEnvelope
 } from '../../../../src/services/reviewer/reviewer-service.js';
@@ -155,6 +156,90 @@ describe('runReviewer — skip paths are never a pass', () => {
     await expect(
       runReviewer({ rid: 'r1', context: 'x', configPath, fetchImpl: failingFetch() })
     ).rejects.toThrow(/peaks-reviewer/);
+  });
+});
+
+describe('schemaPath — the configured schema is load-bearing', () => {
+  it('when the configured schemaPath does not resolve, should refuse before the provider call', async () => {
+    // given: a configured reviewer whose schemaPath names a file that does not exist
+    // when:  the reviewer runs
+    // then:  it refuses with schema-missing and no provider is contacted
+    writeConfig({ schemaPath: 'schemas/absent-reviewer-envelope.schema.json' });
+    const projectRoot = mkdtempSync(join(tmpdir(), 'reviewer-project-'));
+    let providerCalls = 0;
+    const fetchImpl = (async () => {
+      providerCalls += 1;
+      return { ok: true, status: 200, json: async () => ({}) };
+    }) as unknown as typeof fetch;
+    const result = await runReviewer({
+      rid: 'r1',
+      context: 'x',
+      configPath,
+      projectRoot,
+      fetchImpl
+    });
+    expect(providerCalls).toBe(0);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('schema-missing');
+    expect(result.schemaCandidates).toHaveLength(2);
+    for (const candidate of result.schemaCandidates ?? []) {
+      expect(candidate).toContain('absent-reviewer-envelope.schema.json');
+    }
+    expect(result.envelope.passed).toBe(false);
+    expect(result.envelope.reason).toContain('absent-reviewer-envelope.schema.json');
+  });
+
+  it('when a consumer project ships no schema, should fall through to the packaged copy', async () => {
+    // given: a project root with no schemas/ directory (the consumer shape)
+    // when:  the reviewer runs with the default schemaPath
+    // then:  the schema bundled with the package resolves and the run proceeds
+    writeConfig();
+    const projectRoot = mkdtempSync(join(tmpdir(), 'reviewer-consumer-'));
+    const result = await runReviewer({
+      rid: 'r1',
+      context: 'x',
+      configPath,
+      projectRoot,
+      fetchImpl: ollamaFetch(JSON.stringify(VALID_ENVELOPE))
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.skipped).toBe(false);
+    expect(result.envelope.passed).toBe(true);
+    expect(result.envelope.modelFamily).toBe('llama');
+  });
+});
+
+describe('distinctFromKarpathy — a skip is not a distinct family', () => {
+  it('when the third-party review was skipped, should not report it as distinct', () => {
+    // given: a skip (or an empty family), which has no comparable family
+    // when:  the distinctness verdict is computed
+    // then:  "not comparable" is not reported as "distinct"
+    expect(distinctFromKarpathy('skipped', 'llama')).toBe(false);
+    expect(distinctFromKarpathy('', 'llama')).toBe(false);
+  });
+
+  it('when the RD family is missing, should not report the pair as distinct', () => {
+    // given: a real third-party family against a skip or an empty RD family
+    // when:  the distinctness verdict is computed
+    // then:  the guard is symmetric — a missing side is still not "distinct"
+    expect(distinctFromKarpathy('gpt-4o', 'skipped')).toBe(false);
+    expect(distinctFromKarpathy('gpt-4o', '')).toBe(false);
+  });
+
+  it('when the two families differ, should report distinct', () => {
+    // given: a third-party family different from the RD family
+    // when:  the distinctness verdict is computed
+    // then:  it is distinct
+    expect(distinctFromKarpathy('gpt-4o', 'llama')).toBe(true);
+  });
+
+  it('when the families are the same, should not report distinct', () => {
+    // given: the same family on both sides
+    // when:  the distinctness verdict is computed
+    // then:  it is not distinct
+    expect(distinctFromKarpathy('llama', 'llama')).toBe(false);
   });
 });
 

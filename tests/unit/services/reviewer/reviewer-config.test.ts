@@ -1,7 +1,7 @@
 // Reviewer config: three load states, and the flag-driven writer the LLM
 // uses instead of hand-authoring JSON (backlog §7.10 ①③).
 
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   loadReviewerConfig,
   MIN_REVIEWER_PROVIDERS,
+  resolveReviewerSchema,
   type ReviewerConfig
 } from '../../../../src/services/reviewer/reviewer-config.js';
 import {
@@ -105,6 +106,70 @@ describe('loadReviewerConfig — three states', () => {
     if (status.ok) return;
     expect(status.reason).toBe('insufficient-providers');
     expect(status.providerCount).toBe(1);
+  });
+});
+
+describe('resolveReviewerSchema — project, package, absolute', () => {
+  const DEFAULT_SCHEMA = 'schemas/reviewer-envelope.schema.json';
+
+  it('when a consumer project has no schema, should resolve the packaged copy', () => {
+    // given: a project root with no schemas/ directory (the consumer shape)
+    // when:  the default schemaPath is resolved
+    // then:  the packaged copy is found, which also verifies the package-root depth
+    const consumerRoot = mkdtempSync(join(tmpdir(), 'reviewer-consumer-'));
+    const resolution = resolveReviewerSchema(consumerRoot, DEFAULT_SCHEMA);
+    expect(resolution.ok).toBe(true);
+    if (!resolution.ok) return;
+    expect(resolution.source).toBe('package');
+    expect(existsSync(resolution.path)).toBe(true);
+    expect(resolution.path.startsWith(consumerRoot)).toBe(false);
+  });
+
+  it('when the project carries its own schema, should prefer the project copy', () => {
+    // given: a project root that overrides the packaged schema
+    // when:  the default schemaPath is resolved
+    // then:  the project copy wins the resolution order
+    const projectRoot = mkdtempSync(join(tmpdir(), 'reviewer-override-'));
+    mkdirSync(join(projectRoot, 'schemas'), { recursive: true });
+    writeFileSync(join(projectRoot, 'schemas', 'reviewer-envelope.schema.json'), '{}', 'utf8');
+    const resolution = resolveReviewerSchema(projectRoot, DEFAULT_SCHEMA);
+    expect(resolution.ok).toBe(true);
+    if (!resolution.ok) return;
+    expect(resolution.source).toBe('project');
+    expect(resolution.path).toBe(join(projectRoot, 'schemas', 'reviewer-envelope.schema.json'));
+  });
+
+  it('when the configured path is absolute, should use it as-is', () => {
+    // given: an absolute schema path inside the project
+    // when:  it is resolved
+    // then:  no candidate order is applied
+    const projectRoot = mkdtempSync(join(tmpdir(), 'reviewer-absolute-'));
+    const absolute = join(projectRoot, 'custom.schema.json');
+    writeFileSync(absolute, '{}', 'utf8');
+    const resolution = resolveReviewerSchema(projectRoot, absolute);
+    expect(resolution.ok).toBe(true);
+    if (!resolution.ok) return;
+    expect(resolution.source).toBe('absolute');
+    expect(resolution.path).toBe(absolute);
+  });
+
+  it('when nothing resolves, should return both searched candidates', () => {
+    // given: a schema name present in neither the project nor the package
+    // when:  it is resolved
+    // then:  the refusal names every candidate the caller may create
+    const projectRoot = mkdtempSync(join(tmpdir(), 'reviewer-missing-'));
+    const resolution = resolveReviewerSchema(
+      projectRoot,
+      'schemas/absent-reviewer-envelope.schema.json'
+    );
+    expect(resolution.ok).toBe(false);
+    if (resolution.ok) return;
+    expect(resolution.searched).toHaveLength(2);
+    expect(resolution.searched[0]).toBe(
+      join(projectRoot, 'schemas', 'absent-reviewer-envelope.schema.json')
+    );
+    expect(resolution.searched[1]).not.toBe(resolution.searched[0]);
+    expect(resolution.searched[1]).toContain('absent-reviewer-envelope.schema.json');
   });
 });
 
