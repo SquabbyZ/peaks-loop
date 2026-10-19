@@ -4,10 +4,12 @@
 // (backlog §14.6). A parenthetical type (`- type: feature (why)`) was neither
 // allowlisted nor rule-matched, so the lint passed it silently while the reader
 // fell closed to `feature`. `- state:` was blanket-allowlisted, so any value at
-// all passed.
+// all passed. An ABSENT `- state:` line was silent too (backlog §10.5): the
+// artifact passed lint, then the transition refused it with
+// `STATE_ORDER_UNREADABLE` two steps later.
 //
 // Dimensions covered:
-//   - behavior:    malformed type, malformed state, bare valid, absent
+//   - behavior:    malformed type, malformed state, bare valid, absent state
 //   - integration: real artifacts on disk, read through `showRequestArtifact`
 //   - a11y:        the reason text names the allowed set
 //
@@ -99,14 +101,29 @@ describe('Scenario: behavior — metadata spelling is validated by the reader’
     expect(report?.findings).toStrictEqual([]);
   });
 
-  it('when the artifact records no metadata lines, should not invent a finding', async () => {
-    // given: the reader’s default stays a default; absence is not a spelling error
+  it('when the artifact carries no state line, should report one error naming the role’s states', async () => {
+    // given: an artifact whose `- state:` line was never written
     writeArtifact(artifactWith([]));
 
     // when: the artifact is linted
     const report = await lint();
 
-    // then: the lint stays silent
+    // then: it is refused at author time, naming what the reader accepts
+    expect(report?.ok).toBe(false);
+    expect(report?.findings).toHaveLength(1);
+    expect(report?.findings[0]?.severity).toBe('error');
+    expect(report?.findings[0]?.reason).toContain('Missing - state: line for role rd');
+    expect(report?.findings[0]?.reason).toContain(allowedStatesForRole('rd').join(', '));
+  });
+
+  it('when the artifact records no type line but a valid state, should pass', async () => {
+    // given: type is optional metadata; only the state line is required
+    writeArtifact(artifactWith(['- state: draft']));
+
+    // when: the artifact is linted
+    const report = await lint();
+
+    // then: nothing is reported
     expect(report?.ok).toBe(true);
     expect(report?.findings).toStrictEqual([]);
   });
@@ -139,6 +156,15 @@ describe('Scenario: a11y — the reason names the allowed set', () => {
 
   it('when a malformed state is reported, should name every state allowed for the role', async () => {
     writeArtifact(artifactWith(['- type: feature', '- state: shipped']));
+    const report = await lint();
+    const reason = report?.findings[0]?.reason ?? '';
+    for (const state of allowedStatesForRole('rd')) {
+      expect(reason).toContain(state);
+    }
+  });
+
+  it('when a missing state line is reported, should name every state allowed for the role', async () => {
+    writeArtifact(artifactWith(['- type: feature']));
     const report = await lint();
     const reason = report?.findings[0]?.reason ?? '';
     for (const state of allowedStatesForRole('rd')) {

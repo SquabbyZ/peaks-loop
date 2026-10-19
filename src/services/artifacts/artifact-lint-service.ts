@@ -1,6 +1,6 @@
 import { showRequestArtifact, type RequestArtifactRole } from './request-artifact-service.js';
 import { isRequestType, VALID_REQUEST_TYPES } from './artifact-prerequisites.js';
-import { allowedStatesForRole } from './request-artifact-state-helpers.js';
+import { allowedStatesForRole, locateArtifactState } from './request-artifact-state-helpers.js';
 
 export type ArtifactLintSeverity = 'error' | 'warning';
 
@@ -130,6 +130,26 @@ function metadataFinding(
   return { line, text: rawLine.trim(), reason: metadata.reason, severity: 'error' };
 }
 
+/**
+ * The finding for an artifact with NO `- state:` line, or null when the reader
+ * can locate one. The locator is the reader's own (`locateArtifactState`), so
+ * this check agrees with the transition's fail-closed `STATE_ORDER_UNREADABLE`
+ * instead of only with the per-line spelling rule in `checkMetadataLine`.
+ */
+function missingStateFinding(
+  lines: ReadonlyArray<string>,
+  role: RequestArtifactRole
+): ArtifactLintFinding | null {
+  if (locateArtifactState(lines).stateLineIndex !== -1) return null;
+  const allowed = allowedStatesForRole(role);
+  return {
+    line: 1,
+    text: '(no - state: line)',
+    reason: `Missing - state: line for role ${role} — expected one of: ${allowed.join(', ')}`,
+    severity: 'error'
+  };
+}
+
 /** The first placeholder rule this line violates, or null when it violates none. */
 function firstRule(rawLine: string): Rule | null {
   const testLine = stripInlineCode(rawLine);
@@ -186,6 +206,8 @@ export async function lintRequestArtifact(
   }
   const lines = artifact.content.split(/\r?\n/);
   const findings = scanLines(lines, options.role);
+  const missingState = missingStateFinding(lines, options.role);
+  if (missingState !== null) findings.unshift(missingState);
   const hasError = findings.some((finding) => finding.severity === 'error');
   return {
     ok: !hasError,
