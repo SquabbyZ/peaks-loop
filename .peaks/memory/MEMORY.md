@@ -134,7 +134,7 @@
 - [widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything](widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything.md) — A2 deliberately declined to widen the citation guard to bare non-test paths, and recorded the cost as "50 findings, n...
 - [workspace-underscore-convention](workspace-underscore-convention.md) — Under , any top-level directory whose name starts with  is **ephemeral** and is automatically gitignored by the  rule...
 
-## convention (33)
+## convention (34)
 
 - [a-marker-writer-should-be-o-excl-and-shared](a-marker-writer-should-be-o-excl-and-shared.md) — The marker is created with ; an existing marker returns  and its bytes are untouched.
 - [a-safety-classifier-denial-is-not-a-missing-red-side](a-safety-classifier-denial-is-not-a-missing-red-side.md) — The RD's first red-side attempt (mutating the real source and running tests) was refused by the safety classifier.
@@ -166,6 +166,7 @@
 - [stage-new-files-before-regenerating-the-baseline](stage-new-files-before-regenerating-the-baseline.md) — The gate baseline must be regenerated AFTER -ing any new file it should count.
 - [sub-agent-scratch-belongs-under-peaks-runtime-sessionid-rd-scratch-and-the-reason-is-functional](sub-agent-scratch-belongs-under-peaks-runtime-sessionid-rd-scratch-and-the-reason-is-functional.md) — Sub-agent scratch files belong under , never at a path outside the repository.
 - [trae-install-inherits-slice-1-s-registry-driven-code-path-no-install-code-was-added](trae-install-inherits-slice-1-s-registry-driven-code-path-no-install-code-was-added.md) — Slice #2's Trae support is purely "fill the table" —  for Trae users uses the same registry-driven install path as Cl...
+- [use-the-readers-own-locator-in-the-lint](use-the-readers-own-locator-in-the-lint.md) — calls  — the same locator the transition uses — rather than a second regex over the body.
 - [validate-before-the-expensive-read](validate-before-the-expensive-read.md) — The role check runs before the DAG file is opened.
 - [validate-metadata-with-the-readers-own-rule](validate-metadata-with-the-readers-own-rule.md) — The lint's new  check uses , and its  check uses  — the same functions the readers use.
 - [when-the-file-is-at-the-cap-the-comment-is-the-code](when-the-file-is-at-the-cap-the-comment-is-the-code.md) — is capped at 300 raw lines and the new  field pushed it to 302.
@@ -178,7 +179,7 @@
 - [src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior](src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior.md) — The  module is the single source of truth for IDE-aware behavior.
 - [src-services-session-canonical-workspace-resolver](src-services-session-canonical-workspace-resolver.md) — is the canonical home for the per-session workspace.
 
-## lesson (142)
+## lesson (143)
 
 - [2026-06-26-unknown-sid-root-cause](archived/2026-06-26-unknown-sid-root-cause.md) — Root cause + remediation log for the  and  orphan session dirs.
 - [2026-07-28-rid-034-handoff-no-sediment-block](2026-07-28-rid-034-handoff-no-sediment-block.md) — rid-034 收尾遇 sediment 反向 — no peaks-memory:start/end 闭合块 **Date:** 2026-07-28 **Rid:** 2026-07-28-rid-034-v2-13-0-clea...
@@ -253,6 +254,7 @@
 - [local-only-commits-hide-ci-only-gates](local-only-commits-hide-ci-only-gates.md) — 本地独积 ⇒ CI-only 的门从未跑过 事实（2026-10-14，4.1.5 发版） 发 4.1.5 时， 落后本地 **125 个 commit**——这批工作从未推送，因此 **CI 从未见过它们**。第一次推送（，62 个...
 - [mcp-e2e-verified-by-official-schema-not-by-sdk](mcp-e2e-verified-by-official-schema-not-by-sdk.md) — MCP server 的端到端验证：用官方 schema，而不是等 SDK 背景 slice ②③ 交付了一个**手写**的 MCP stdio server（不新增依赖，自己实现 //）。 它留下的未验证项是：**"协议面到底对不对...
 - [measure-the-alternatives-before-fixing-a-wrong-target-defect](measure-the-alternatives-before-fixing-a-wrong-target-defect.md) — A probe checked for full  while  needed .
+- [missing-and-malformed-are-two-author-time-failures](missing-and-malformed-are-two-author-time-failures.md) — The lint flagged  (malformed) but passed an artifact with NO  line.
 - [monorepo-test-fix-2026-07-20](2026-07-20-monorepo-test-fix-sediment.md) — 2026-07-20 monorepo 单元测试全绿战役 **会话**: 2026-07-20-session-a8211f (rotated from 2026-07-17-session-1d5ac0) **Job**: fix-...
 - [one-point-observed-concluded-about-the-whole](one-point-observed-concluded-about-the-whole.md) — 2026-09-15 的 peaks-loop 诊断会话里，**我在一个小时内犯了三次同一类错，并把三个错误数字报给了用户**： **① 量错了 3 倍，还据此下了结论** 文件多时  会**拆成多批**，每批各打印一行 。 只拿到*...
 - [openspec-peaks-code-peaks-runtime-source-of-truth](openspec-peaks-code-peaks-runtime-source-of-truth.md) — peaks-code 与 OpenSpec 解耦(session 2026-07-08-session-17918f,2026-07-08)。 实施:删 SKILL.md Step 0.5 + references/openspec-...

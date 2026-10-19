@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-19T00:32:52.148Z",
+  "updatedAt": "2026-10-19T00:53:57.501Z",
   "hot": {
     "rule": [
       {
@@ -1202,6 +1202,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "use-the-readers-own-locator-in-the-lint",
+        "kind": "convention",
+        "description": "calls  — the same locator the transition uses — rather than a second regex over the body.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\use-the-readers-own-locator-in-the-lint.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-absentstate.md",
+        "updatedAt": "2026-10-19"
+      },
+      {
         "name": "validate-before-the-expensive-read",
         "kind": "convention",
         "description": "The role check runs before the DAG file is opened.",
@@ -1852,6 +1860,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\measure-the-alternatives-before-fixing-a-wrong-target-defect.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "missing-and-malformed-are-two-author-time-failures",
+        "kind": "lesson",
+        "description": "The lint flagged  (malformed) but passed an artifact with NO  line.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\missing-and-malformed-are-two-author-time-failures.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-absentstate.md",
+        "updatedAt": "2026-10-19"
       },
       {
         "name": "monorepo-test-fix-2026-07-20",
