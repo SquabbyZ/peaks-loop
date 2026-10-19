@@ -5894,7 +5894,7 @@ The slice removed the VM isolation surface: 8 files, 979 lines of `src/`, plus t
 
 **Heading discipline (§9.40 applies here too).** Every disposition is the one actually reached. Nothing is marked closed that was not closed.
 
-### 11.1 A hand-authored audit satisfies every content marker and still fails the gate, with an error that names a file that exists (found 2026-10-15; **open**)
+### 11.1 A hand-authored audit satisfies every content marker and still fails the gate, with an error that names a file that exists (found 2026-10-15; **CLOSED 2026-10-19 — the second remedy was chosen and is now the measured message**)
 
 The security role wrote a thorough 14.9 KB audit to `audit/security-<rid>.md` — `## Verdict` present, findings, an explicit PASS-WITH-FINDINGS. The `rd:qa-handoff` transition refused it with:
 
@@ -5903,6 +5903,20 @@ The security role wrote a thorough 14.9 KB audit to `audit/security-<rid>.md` �
 The gate does not read that Markdown as the audit. It reads a **judged declaration** that `peaks security-audit run --judged <paths…>` writes *into* the artifact, rendered from a schema-validated envelope (`isSecurityAuditEnvelope`, `src/services/audit-independent/security-audit-service.ts:94-121`). An audit authored directly has no envelope behind it and no `## Judged content` block, so it fails a gate whose message says a *file is missing* when the file is present and complete. This is §10.3's class again — an existing artifact reported as missing — one role over.
 
 Worth a ruling: either the SKILL should make the envelope the only production path (so the failure is "you skipped the pipeline", not "file missing"), or the refusal should name the unmet **declaration** rather than the absent path.
+
+**CLOSED 2026-10-19 — the second remedy is the one in force, and it is measured.** The
+`absent`/`body` discriminator added by `rid-prereq-unmet-discriminator` (`4f15ccaf`, §10.3) splits
+"the file is missing" from "the file is present but its body does not carry what the gate reads".
+The refusal for a hand-authored audit now reads:
+
+> `rd/security-review-<rid>.md` — **Judged declaration declaration-missing**: the artifact is
+> present; what is unmet is its `## Judged content` block, absent or not one this check can accept
+
+That names the unmet declaration, not a missing file. Observed live on `rid-ci-job-timeouts`, whose
+hand-authored `rd/security-review-<rid>.md` was refused exactly this way until the CLI-produced
+`audit/security-<rid>.md` supplied the declaration. The first remedy (making the envelope the only
+production path) remains a possible future tightening; the SKILL's §10.6 termination discipline now
+records that the declaration must come from `security-audit run`.
 
 ### 11.2 `peaks request init --role qa` writes a template that nothing fills, and the transition refuses on it two steps later (found 2026-10-15; **FIXED 2026-10-19 — rid `rid-qa-template-openspec`, commit `41073d7a`**)
 
