@@ -81,6 +81,7 @@ import { registerSliceReviewCommands } from './slice-review-commands.js';
 import { registerSmokeCommands } from './smoke-commands.js';
 import { registerSopCommands } from './sop-commands.js';
 import { registerStatusLineCommands } from './statusline-commands.js';
+import { registerStratTactCommands } from './strat-tact-commands.js';
 import { registerSpillDemoCommand } from './spill-demo-command.js';
 import { registerSubAgentCommands } from './sub-agent-commands.js';
 import { registerSubAgentShutdownCommands } from './sub-agent-shutdown-commands.js';
@@ -187,6 +188,7 @@ const REGISTRATIONS: readonly Registration[] = [
   ['dashboard-commands', registerDashboardCommands],
   ['best-practice-scan-command', registerBestPracticeScanCommand],
   ['mut-commands', registerMutCommands],
+  ['strat-tact-commands', registerStratTactCommands],
   ['fixture-commands', registerFixtureCommands],
   ['reviewer-commands', registerReviewerCommands],
   ['ide-commands', registerIdeCommands],

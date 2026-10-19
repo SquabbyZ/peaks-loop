@@ -129,13 +129,40 @@ All 4 guidelines injected (same as peaks-rd). The two relevant ones here:
 peaks skill runbook peaks-mut --json
 peaks skill presence:set peaks-mut --project <repo>  # show persistent skill presence every turn
 
-# 1. Get the upstream TACT.sig (the chain anchor for MUT.sig)
-peaks tact read --project <repo> --json | jq -r '.sha256'
+# 1. Produce the upstream chain (STRAT.sig → TACT.sig) if it does not exist yet.
+#    Both write commands are one-axis: --session-id is required and every
+#    --out must live under .peaks/_runtime/<sid>/.
+peaks strat write \
+  --project <repo> \
+  --session-id <sid> \
+  --out .peaks/_runtime/<sid>/rd/strategy.md \
+  --goal <text> \
+  --root-cause <text> \
+  --impact <paths...> \
+  --design <text> \
+  --json
+#    Writes strategy.md (ending with `STRAT.sig: <64-hex>`) plus its JSON
+#    sibling .peaks/_runtime/<sid>/rd/strategy.md.json.
 
-# 2. Inventory test files (peaks-context --audience peaks-mut view)
+peaks tact write \
+  --project <repo> \
+  --session-id <sid> \
+  --strategy .peaks/_runtime/<sid>/rd/strategy.md.json \
+  --out .peaks/_runtime/<sid>/rd/impl.json \
+  --changed-files <paths...> \
+  --json
+#    Verifies the strategy JSON's recomputed sha256, runs the AST gate, then
+#    writes impl.json with inputSig = STRAT.sig. An AST violation refuses and
+#    writes nothing. `--ast-context '<json>'` supplies { deps, docSummaries };
+#    omitted means the documented empty context (no API-name violations).
+
+# 2. Get the upstream TACT.sig (the chain anchor for MUT.sig)
+peaks tact read --artifact .peaks/_runtime/<sid>/rd/impl.json --project <repo> --json | jq -r '.sha256'
+
+# 3. Inventory test files (peaks-context --audience peaks-mut view)
 peaks context list-test-files --audience peaks-mut --project <repo> --json
 
-# 3. Run the full audit
+# 4. Run the full audit
 peaks mut run \
   --project <repo> \
   --test-files <files...> \
@@ -144,16 +171,16 @@ peaks mut run \
   --out .peaks/_runtime/<sid>/mut/mut-report.json \
   --json
 
-# 4. Inspect the report (optional, for human readers)
+# 5. Inspect the report (optional, for human readers)
 peaks mut report \
   --in .peaks/_runtime/<sid>/mut/mut-report.json \
   --session-id <sid>
 
-# 5. Sub-runs when the slice is small or partial (e.g. CI)
+# 6. Sub-runs when the slice is small or partial (e.g. CI)
 peaks mut mutants --project <repo> --test-files <files...> --input-sig <tact.sig> --session-id <sid> --out <path> --json
 peaks mut asserts --project <repo> --test-files <files...> --input-sig <tact.sig> --session-id <sid> --out <path> --json
 
-# 6. Clean up
+# 7. Clean up
 peaks skill presence:clear --project <repo>
 ```
 

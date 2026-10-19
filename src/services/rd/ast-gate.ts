@@ -12,18 +12,25 @@
  */
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { z } from 'zod';
 import type { AstGateResult, AstViolation, ExternalApiCall } from './types.js';
 
-export interface AstGateContext {
-  readonly deps: Readonly<
-    Record<string, { readonly version: string; readonly source: string; readonly resolved: string }>
-  >;
-  readonly docSummaries: ReadonlyArray<{
-    readonly dep: string;
-    readonly version: string;
-    readonly apis: ReadonlyArray<string>;
-  }>;
-}
+/**
+ * The locked-version context the gate compares against. The schema is the
+ * single source for both the type and the CLI's `--ast-context` validation —
+ * a malformed context is refused rather than silently read as empty.
+ */
+export const AstGateContextSchema = z.object({
+  deps: z.record(
+    z.string(),
+    z.object({ version: z.string(), source: z.string(), resolved: z.string() })
+  ),
+  docSummaries: z.array(
+    z.object({ dep: z.string(), version: z.string(), apis: z.array(z.string()) })
+  )
+});
+
+export type AstGateContext = z.infer<typeof AstGateContextSchema>;
 
 export interface RunAstGateInput {
   readonly project: string;

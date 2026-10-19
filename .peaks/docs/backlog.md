@@ -4083,6 +4083,9 @@ the blocked command — it is that a gate which refuses legitimate work is the t
   deliberately unchanged and the window is still roughly twenty minors past its stated expiry.
   **2026-10-18:** the window itself is now enforced at the commit leg (`0cfc25c0`, §16); the `mut`
   producer is still absent, while `rd/third-party-review.md` gained one via §7.10.
+  **2026-10-19 (rid `rid-mut-producer-chain`):** the `mut` producer now exists — `peaks strat write`,
+  `peaks tact write` and `peaks tact read` are registered commands; §16 records the shipped surface and
+  its end-to-end test.
 
   **The warning IS produced.** It is then **discarded by the caller**:
   `checkPrerequisites` populates a `warnings` array and `artifact-prerequisites.ts:618-628` `continue`s
@@ -6364,6 +6367,8 @@ above are recorded as accepted debt with `reviewBy: v4.2.0`; the transition stay
 the producer side, not the enforcement:** `mut/mut-report.json` still has no producer (`peaks tact read` is
 unregistered), and `rd/third-party-review.md` now has one — `peaks reviewer run --write` — when a reviewer is
 configured. §7.10 records that producer; the `mut` producer is still open.
+
+**SHIPPED 2026-10-19 (rid `rid-mut-producer-chain`): the `mut` producer is no longer absent.** `peaks strat write` (strategy.md + `<out>.json`, STRAT.sig) and `peaks tact write` (verifies the strategy JSON's recomputed sha256, runs the AST gate, writes impl.json with `inputSig` = STRAT.sig) are registered in `src/cli/commands/strat-tact-commands.ts`, alongside the previously-documented-but-missing `peaks tact read`. The chain `strat write → tact write → tact read → mut run` is covered end-to-end by `tests/integration/rd/mut-producer-chain.test.ts`, which asserts `mut-report.json#inputSig` equals TACT.sig and that thresholds can report `"passed": true`. The expired `backCompatUntil` window itself is unchanged; what changed is that the artifact can now be produced.
 
 **New finding (2026-10-18, found while closing §7.10):** `getSessionDir` / `tryGetSessionDir` state "must be a
 single path segment", but they use `isUnsafePathInput`, which admits `a/b` — that predicate is a traversal guard,

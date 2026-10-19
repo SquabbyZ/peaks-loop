@@ -5,8 +5,8 @@
  *   H8 (audit trail hashable): sig field embedded in strategy.md is the
  *       sha256 of all OTHER content (chicken-and-egg avoided).
  */
-import { createHash } from 'node:crypto';
 import { writeFile, rename, unlink } from 'node:fs/promises';
+import { canonicalSha256 } from './canonical-hash.js';
 import { StrategyOutputSchema, type StrategyOutput } from './types.js';
 
 export interface WriteStrategyInput {
@@ -16,13 +16,6 @@ export interface WriteStrategyInput {
   readonly impactSurface: string[];
   readonly designRationale: string;
   readonly askUserQuestion?: { readonly question: string; readonly options: string[] };
-}
-
-function sha256Of(content: object): string {
-  const { sha256: _omit, ...rest } = content as { sha256?: string };
-  void _omit;
-  const canonical = JSON.stringify(rest, Object.keys(rest).sort());
-  return createHash('sha256').update(canonical).digest('hex');
 }
 
 export async function writeStrategy(input: WriteStrategyInput): Promise<StrategyOutput> {
@@ -36,7 +29,7 @@ export async function writeStrategy(input: WriteStrategyInput): Promise<Strategy
     designRationale: input.designRationale,
     ...(input.askUserQuestion ? { askUserQuestion: input.askUserQuestion } : {})
   };
-  const sha256 = sha256Of(partial);
+  const sha256 = canonicalSha256(partial);
   const final: StrategyOutput = { ...partial, sha256 };
   StrategyOutputSchema.parse(final);
 

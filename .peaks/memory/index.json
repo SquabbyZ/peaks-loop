@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-19T12:25:32.409Z",
+  "updatedAt": "2026-10-19T15:45:47.606Z",
   "hot": {
     "rule": [
       {
@@ -1388,6 +1388,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\2026-08-11-dogfood-4-0-20-cli-wiring-and-vendor-detect-defects.md",
         "sourceArtifact": null,
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "a-canonical-hash-built-with-an-array-replacer-ignores-nested-keys",
+        "kind": "lesson",
+        "description": "does not mean \"sort the keys\".",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-canonical-hash-built-with-an-array-replacer-ignores-nested-keys.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-19-session-94b084/txt/handoff-mut-producer-chain.md",
+        "updatedAt": "2026-10-19"
       },
       {
         "name": "a-ceiling-row-is-born-measured-before-it-is-committed",

@@ -297,12 +297,34 @@ peaks-rd runs in two sub-stages:
 Hard constraint: TACT.sig cannot be written when the AST gate has violations.
 The LLM auto-fixes and retries (peaks-qa's 3-cycle repair cap).
 
+Registered CLI surface (one-axis: `--session-id` required, every `--out` under
+`.peaks/_runtime/<sid>/`):
+
+```bash
+peaks strat write --project <repo> --session-id <sid> \
+  --out .peaks/_runtime/<sid>/rd/strategy.md \
+  --goal <text> --root-cause <text> --impact <paths...> --design <text> --json
+# writes strategy.md + its JSON sibling (.peaks/_runtime/<sid>/rd/strategy.md.json)
+
+peaks tact write --project <repo> --session-id <sid> \
+  --strategy .peaks/_runtime/<sid>/rd/strategy.md.json \
+  --out .peaks/_runtime/<sid>/rd/impl.json \
+  --changed-files <paths...> [--ast-context '<json>'] --json
+
+peaks tact read --artifact .peaks/_runtime/<sid>/rd/impl.json --project <repo> --json
+```
+
+`tact write` never accepts a raw `--input-sig`: it re-verifies the strategy
+JSON's recomputed sha256 and refuses a tampered artifact. `tact read` does the
+same for `impl.json` and prints `{ sha256, inputSig, changedFiles, astGateResult }`.
+
 Karpathy guidelines remain injected in both sub-stages.
 
-Public entry points (from `src/services/rd/rd-service.ts`):
+Public entry points (from `src/services/rd/rd-service.ts`) are unchanged; the
+commands above are thin wrappers over them:
 
-- `runStrategic(input: RunStrategicInput): Promise<StrategyOutput>` — strategy writer
-- `runTactical(input: RunTacticalInput): Promise<ImplOutput>` — runs AST gate then writes impl.json + TACT.sig chained to inputSig
+- `runStrategic(input: RunStrategicInput): Promise<StrategyOutput>` — strategy writer (`peaks strat write`)
+- `runTactical(input: RunTacticalInput): Promise<ImplOutput>` — runs AST gate then writes impl.json + TACT.sig chained to inputSig (`peaks tact write`)
 
 ## References
 

@@ -7,8 +7,8 @@
  *   H6 (CLI裁决): refuses to write when AST gate has violations —
  *       LLM MUST auto-fix and re-run.
  */
-import { createHash } from 'node:crypto';
 import { writeFile, rename, unlink } from 'node:fs/promises';
+import { canonicalSha256 } from './canonical-hash.js';
 import {
   ImplOutputSchema,
   type AstGateResult,
@@ -22,13 +22,6 @@ export interface WriteImplInput {
   readonly changedFiles: ReadonlyArray<string>;
   readonly externalApiCalls: ReadonlyArray<ExternalApiCall>;
   readonly astGate: AstGateResult;
-}
-
-function sha256Of(content: object): string {
-  const { sha256: _omit, ...rest } = content as { sha256?: string };
-  void _omit;
-  const canonical = JSON.stringify(rest, Object.keys(rest).sort());
-  return createHash('sha256').update(canonical).digest('hex');
 }
 
 export async function writeImpl(input: WriteImplInput): Promise<ImplOutput> {
@@ -60,7 +53,7 @@ export async function writeImpl(input: WriteImplInput): Promise<ImplOutput> {
     externalApiCalls: [...input.externalApiCalls],
     astGateResult: input.astGate
   };
-  const sha256 = sha256Of(partial);
+  const sha256 = canonicalSha256(partial);
   const final: ImplOutput = { ...partial, sha256 };
   ImplOutputSchema.parse(final);
 
