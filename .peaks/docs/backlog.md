@@ -3439,6 +3439,20 @@ legacy tier.)
 admit `a/b` (see §16's new finding); `distinctFromKarpathy` still treats `skipped` as distinct; `schemaPath`
 is written but never read at runtime.
 
+**RESIDUALS CLOSED 2026-10-19.** `getSessionDir` now enforces its single-segment claim
+(`rid-session-id-single-segment`, `fbb98dc9`). `distinctFromKarpathy` guards both families: `skipped`
+or empty on either side is "no family to compare", not "distinct". `schemaPath` is load-bearing: the
+reviewer resolves it (absolute → project copy → the copy shipped with the package) and refuses with
+`SCHEMA_MISSING` before any provider call when none resolves; a consumer project with no `schemas/`
+still works through the packaged copy, `status` reports the winning path, and both reviewer commands
+promote the same canonical root so the diagnostic cannot disagree with the run. The probe is a
+presence check only — content validation stays `validateReviewerEnvelope`'s job, which the comment
+now says explicitly. Rid `rid-reviewer-envelope-residuals`, commit `e5f839cb`. **Recorded LOWs:** no
+test drives the compiled `dist/` layout (the three-level climb is structurally identical to
+`mcp-install.ts:50`); `runReviewer` keeps a raw-cwd default for a direct API caller that omits
+`projectRoot` (the CLI always passes the canonical root). `distinctFromKarpathy` still has no caller
+in `src/`, so its contract is verified at unit level only.
+
 ### 7.11 Two tool defects (small, high reuse) — one corrected and one open (found 2026-10-10)
 
 - **Where**: `peaks audit goal`'s output path (`INCOMPLETE_AUDIT`); `peaks`' `.cmd` shim.

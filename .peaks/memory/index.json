@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-19T02:55:34.281Z",
+  "updatedAt": "2026-10-19T03:42:19.940Z",
   "hot": {
     "rule": [
       {
@@ -1098,6 +1098,14 @@
         "updatedAt": "2026-10-18"
       },
       {
+        "name": "not-comparable-is-not-distinct",
+        "kind": "convention",
+        "description": "returned true for a  third-party family — and after that arm was fixed, still returned true when the KARPATHY side wa...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\not-comparable-is-not-distinct.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-residuals.md",
+        "updatedAt": "2026-10-19"
+      },
+      {
         "name": "nothing-to-clean-must-not-read-as-cleaned",
         "kind": "convention",
         "description": "An absent batch now returns , and the CLI exits 1 with , naming the ledger path.",
@@ -1572,6 +1580,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-name-keyed-sweep-cannot-see-a-class-defined-by-position.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-14-session-2f9323/txt/handoff.md",
         "updatedAt": "2026-10-14"
+      },
+      {
+        "name": "a-packaged-asset-is-not-at-the-consumer-project-root",
+        "kind": "lesson",
+        "description": "Making the reviewer's  load-bearing first resolved it against the consumer project root, which broke every consumer: ...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-packaged-asset-is-not-at-the-consumer-project-root.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-residuals.md",
+        "updatedAt": "2026-10-19"
       },
       {
         "name": "a-producer-must-not-emit-a-section-the-consumer-cannot-fill",
