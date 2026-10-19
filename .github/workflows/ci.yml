@@ -10,6 +10,7 @@ jobs:
   test:
     name: vitest + build
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -229,6 +230,7 @@ jobs:
     # small (windows-latest x 2 node versions x 2 OSes = 4 cells).
     name: binding-store multi-process integration (ubuntu-only)
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
@@ -307,6 +309,7 @@ jobs:
   integration-suite:
     name: 'integration suite (tests/integration, ubuntu-only)'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -435,6 +438,7 @@ jobs:
   readonly-proof-sandbox:
     name: 'readonly proof layer C (no-network + unwritable, ubuntu-only)'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -580,6 +584,7 @@ jobs:
   commit-message-red-line:
     name: 'commit-message red line (no AI co-author trailer, full history)'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -673,6 +678,7 @@ jobs:
   format-check:
     name: 'format set ratchet (baseline containment; src, tests, packages, scripts)'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -744,6 +750,7 @@ jobs:
   coverage-ratchet:
     name: 'coverage floor (src/** line ratchet, monotonic)'
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
         with:
