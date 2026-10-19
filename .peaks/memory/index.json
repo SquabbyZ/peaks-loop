@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-19T01:11:57.557Z",
+  "updatedAt": "2026-10-19T02:03:52.131Z",
   "hot": {
     "rule": [
       {
@@ -1210,6 +1210,14 @@
         "updatedAt": "2026-10-10"
       },
       {
+        "name": "the-scope-scanner-reads-backticked-paths-outside-the-in-scope-list",
+        "kind": "convention",
+        "description": "parses  for backticked paths.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-scope-scanner-reads-backticked-paths-outside-the-in-scope-list.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-qatemplate.md",
+        "updatedAt": "2026-10-19"
+      },
+      {
         "name": "trae-install-inherits-slice-1-s-registry-driven-code-path-no-install-code-was-added",
         "kind": "convention",
         "description": "Slice #2's Trae support is purely \"fill the table\" —  for Trae users uses the same registry-driven install path as Cl...",
@@ -1548,6 +1556,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-name-keyed-sweep-cannot-see-a-class-defined-by-position.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-14-session-2f9323/txt/handoff.md",
         "updatedAt": "2026-10-14"
+      },
+      {
+        "name": "a-producer-must-not-emit-a-section-the-consumer-cannot-fill",
+        "kind": "lesson",
+        "description": "rendered an OpenSpec exit gate carrying  placeholders, then the  transition refused the pristine template with .",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-producer-must-not-emit-a-section-the-consumer-cannot-fill.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-qatemplate.md",
+        "updatedAt": "2026-10-19"
       },
       {
         "name": "a-prose-claim-about-what-a-timeout-does-while-holding-evidence-only-of-what-it-is",
