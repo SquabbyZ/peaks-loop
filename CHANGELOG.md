@@ -1,5 +1,52 @@
 # Changelog
 
+## 4.1.8 — 2026-10-19（24h backlog 清扫：25 个切片，棱镜与证据链收紧，测试判定重新成为代码属性）
+
+**版本级别**: 未发布区间 `v4.1.7..HEAD` 共 **57 个 commit**（**5 feat / 14 fix / 2 refactor / 3 test / 1 ci / 31 docs / 1 memory**）。取 **patch**，依维护者 2026-07-22 的常设规则"默认版本新增采用最小的版本位"。本版**无破坏性 CLI 变更**；有两处刻意的行为收紧（`config` 请求的 security review 现在按 rid 分文件；reviewer 的 `schemaPath` 缺失会在 provider 调用前拒绝），升级路径均已覆盖。
+
+### 1. 证据链与前置条件（`4f15ccaf`、`3ad4aef4`、`bd559bc4`、`2468133e`、`fbb98dc9`）
+
+- **缺失与存在但不合法被区分**：前置条件检查现在返回 `absent` / `body` 两种 kind，`LINT_GATE_FAILED` 点名具体 artifact 与行号，不再让"文件不存在"和"文件在但内容不合规"共用一句报错。
+- **`- type:` / `- state:` 在作者时校验**：角色感知的取值校验，缺失 `- state:` 行也会被 lint 抓住；`request init` 写出裸 token，`feature (…)` 这类括注不再能通过。
+- **`getSessionDir` 真正执行单段契约**：`a/b` 不再被当作合法 session id，34 个调用点不受影响。
+- **`rd/security-review.md` / `rd/third-party-review.md` 按 rid 分文件**：两个切片在同一次会话中不再互相覆盖；裸路径保留为 back-compat legacy 层。
+
+### 2. Third-party reviewer（`64238afa`、`bedfb7af`、`e5f839cb`）
+
+- `skip` 不再伪装成 `passed: true`；`peaks reviewer config` 有完整的 flag 驱动面，`status` 区分未配置 / provider 不足 / 已配置。
+- `THIRD_PARTY_REVIEW` 解析 `rd/third-party-review-<rid>.md`；producer 在第一次 `mkdir` 前用 `REQUEST_ID_PATTERN` 校验 rid；commit-leg 接受清单按 declared 路径键控，并接受该行自己的 legacy 层作为同 `until` 的别名——v4.1.7 播种的旧清单不会被升级打断。
+- `distinctFromKarpathy` 两侧都把 `skipped`/空视为"无可比 family"；`schemaPath` 变为真正读取项：绝对路径 → 项目副本 → 包内副本，全部缺失时在调用 provider 前以 `SCHEMA_MISSING` 拒绝并列出所有候选，`status` 报告获胜路径与来源。
+
+### 3. Lint 与策略（`f4809134`、`6b733390`、`cd3f5637`）
+
+- eslint 的 dot-directory 不再静默跳过；`peaks lint --config` 与 `lint baseline --baseline-file` 的读/写路径一致；空作用域有显式 `EMPTY_SCOPE` 而非静默零。baseline 只减不增的棘轮保持，三个切片期间曾两次拒绝上涨。
+
+### 4. Dispatch / job（`8fec96be`、`ad3a72a2`、`aee3532d`）
+
+- `--isolation container` 恢复真实退出码与 JSON envelope（`child.unref()` 推迟到 `close`）。
+- `job subagent-cleanup` 只在真正收尾了 ledger 行时报告 `cleaned:true`。
+- `--from-dag` 校验每个节点的 role。
+
+### 5. Release 与模板（`59867889`、`41073d7a`）
+
+- `readReleaseState` 对未知 stage 失败关闭。
+- QA 模板在 `openspec/changes/` 缺失时渲染 `- N/A — …`，不再把无法填写的 `<id>` 段交给 QA 再因未填而拒绝；目录存在时保持原文。
+
+### 6. 测试判定成为代码属性（`b6174b8c`）
+
+- **daemon spawn lock 的真实 bug**：`writeFileSync({flag:'wx'})` 是先建后写，并发读者把零字节 body 当 stale，删除活锁后各自起一个 daemon。现在"年轻且不可读"视为持有，回收是原子 quarantine rename + moved-body + own-create 校验，还原用 `COPYFILE_EXCL`，release 不删不属于自己的年轻锁。
+- 六个负载敏感测试：四个按文件超时、walker 只排除自己的临时 fixture 树、`staged-size-leg` 的判定改为 `judgeChangeSet`（非空但全在策略外的变更集与干净树同义），并带 synthetic 输入与 throwing control——回退修复在干净 checkout 上也会变红。
+
+### 7. CI（`ec477874`）
+
+- `ci.yml` 的七个 job 全部设置 `timeout-minutes`（20–60），不再继承 GitHub 的 360 分钟默认。
+
+### 8. 文档与记忆（`df379817`、`83373f67`、`15ba24bd`、`92b17867`、`664de2b5`）
+
+- `docs/superpowers/**` 的历史计划文档显式豁免引用完整性；`.peaks/memory/` 的 36 个指针类 / 47 处机械修复（skill 迁移、mut 包抽取、`integration/` 缩写）。
+- security-audit SKILL 写明 `--judged` 循环的终止条件（先冻结 `src/`、审计最后、修复后只重跑一次、其余记为 accepted residual）。
+- backlog 增加 `## Decision record — 2026-10-19`：meta 层保持冻结、体积债只维持 ratchet、integration 不进入默认配置、覆盖率地板等首个全绿 CI、中文 README 为权威；其余残余逐条写明接受理由。
+
 ## 4.1.7 — 2026-10-18（提交腿硬门、契约表派生、过期债棘轮，以及 canonical store 与 IDE skill 树的漂移检查）
 
 **版本级别**: 未发布区间 `v4.1.6..HEAD` 共 **5 个 commit**（**1 feat / 2 refactor / 1 chore / 1 docs**）。取 **patch**，依维护者 2026-07-22 的常设规则"默认版本新增采用最小的版本位"。
