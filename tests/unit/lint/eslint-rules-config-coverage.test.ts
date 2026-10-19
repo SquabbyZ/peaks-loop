@@ -41,7 +41,7 @@ import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
@@ -72,6 +72,13 @@ const CONFIG_REL = 'config/eslint/.peaks-rules.cjs';
 const LINT_TSCONFIG_REL = 'config/eslint/tsconfig.lint.json';
 const ESLINT_BIN = 'node_modules/eslint/bin/eslint.js';
 const PLUGIN_PREFIX = '@typescript-eslint/';
+
+// The whole file is load-sensitive: it requires the ESLint config and the plugin's
+// rule table, and the ignore arms construct a real ESLint instance. Several arms
+// already carry SUBPROCESS_TEST_TIMEOUT_MS; the two without it were the measured
+// 30 s timeouts (backlog §7.1), so the budget is scoped to the file rather than
+// repeated on each arm.
+vi.setConfig({ testTimeout: SUBPROCESS_TEST_TIMEOUT_MS });
 
 /**
  * "This file belongs to no project" — the exact regex

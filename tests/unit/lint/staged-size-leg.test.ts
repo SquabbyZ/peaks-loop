@@ -34,7 +34,7 @@
 // and is removed in `afterAll`.
 
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 
@@ -42,7 +42,8 @@ import { declareDimensions } from '../_setup/4dim-template.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 import {
   FILE_SIZE_CAP_DEFAULT,
-  FILE_SIZE_CAP_TESTS
+  FILE_SIZE_CAP_TESTS,
+  isPolicyMeasuredFile
 } from '../../../src/services/scan/file-size-policy.js';
 import { scanFileSize } from '../../../src/services/scan/file-size-scan.js';
 import { REPO_ROOT, gateModuleText } from '../standards/_file-size-cap-scan.js';
@@ -120,6 +121,28 @@ function rewriteSubject(lines: number): void {
 /** What the ONE rule says about the subject right now, in this same fixture repo. */
 function sharedVerdict(): ReturnType<typeof scanFileSize> {
   return scanFileSize({ projectRoot: fixture().root, files: [SUBJECT] });
+}
+
+/**
+ * The real-tree arm's verdict rule, extracted so a synthetic change set can drive
+ * it. `checkedFiles > 0` is asserted only when the change set holds a path the
+ * policy measures: a non-empty, entirely out-of-scope set is a legitimate answer
+ * (backlog §11.7), while an in-scope path with zero measured files is still a lie.
+ * The synthetic and CONTROL arms below are what fail if this rule is reverted.
+ */
+function judgeChangeSet(
+  changed: readonly string[],
+  measurable: readonly string[],
+  envelope: { checkedFiles: number; violations: readonly unknown[] },
+  detail: string
+): void {
+  if (measurable.length > 0) {
+    expect(
+      envelope.checkedFiles,
+      `${detail} (change set: ${changed.join(', ')})`
+    ).toBeGreaterThan(0);
+  }
+  expect(envelope.violations, detail).toEqual([]);
 }
 
 afterAll(() => {
@@ -313,8 +336,16 @@ describe('Scenario: integration — the leg is inert over this repository', () =
       // under the leg, and the whole point of the accept direction is that touching a file
       // is not the same as growing it. An empty change set is a legitimate answer here (a
       // clean tree passes the gate too), so the arm asserts the number of refusals rather
-      // than the number of files.
+      // than the number of files — and it asserts a measured file only when the change set
+      // holds one the policy measures. A non-empty set made only of out-of-scope paths
+      // (`.peaks/docs/backlog.md`) is the same legitimate answer, not a failure (backlog
+      // §11.7 measured the arm failing on exactly that working tree).
       const changed = changedPathsInRepo();
+      // `scanFileSize` drops a deleted path before it counts anything, so an in-scope path
+      // that no longer exists on disk cannot make `checkedFiles` positive either.
+      const measurable = changed.filter(
+        (file) => isPolicyMeasuredFile(file) && existsSync(join(REPO_ROOT, file))
+      );
       const spawned = spawnSync(
         process.execPath,
         ['node_modules/tsx/dist/cli.mjs', DELTA_TOOL_REL, '--json', ...changed],
@@ -332,10 +363,39 @@ describe('Scenario: integration — the leg is inert over this repository', () =
         scope: { countedFiles: number };
       };
       expect(envelope.scope.countedFiles).toBe(changed.length);
-      expect(envelope.checkedFiles).toBeGreaterThan(0);
-      expect(envelope.violations, spawned.stdout).toEqual([]);
+      judgeChangeSet(changed, measurable, envelope, spawned.stdout);
     }
   );
+
+  it('when the change set is non-empty and entirely out of scope, should measure no file and refuse nothing', () => {
+    // The shape backlog §11.7 measured on a real push: one uncommitted `.md`, no in-scope
+    // path. The envelope is the real scan's, handed the change set directly, and it is
+    // driven through the SAME verdict rule the real-tree arm uses — so reverting that rule
+    // to an unconditional `checkedFiles > 0` turns this arm red on a clean checkout, where
+    // the real change set is empty and takes the early return.
+    const outOfScope = '.peaks/docs/backlog.md';
+    const result = scanFileSize({
+      projectRoot: REPO_ROOT,
+      changedFiles: { paths: [outOfScope], baselinePathFor: (file) => file }
+    });
+    expect(result.checkedFiles).toBe(0);
+    // `.peaks/**` is exempt tool output AND outside the policy's four directories.
+    // The exemption is checked first, so the path lands in `exemptFiles`; either way
+    // it is a path the scan saw and did not measure, which is the shape that failed.
+    expect(result.exemptFiles).toEqual([outOfScope]);
+    expect(result.outOfScopeFiles).toEqual([]);
+    judgeChangeSet([outOfScope], [], result, JSON.stringify(result));
+    expect(result.ok).toBe(true);
+  });
+
+  it('CONTROL: an in-scope path with zero measured files is still refused', () => {
+    // Anti-fake-green: the extracted rule must still be able to fail, or the arm above
+    // only proves that an always-passing function passes.
+    const inScope = 'tests/unit/lint/staged-size-leg.test.ts';
+    expect(() =>
+      judgeChangeSet([inScope], [inScope], { checkedFiles: 0, violations: [] }, 'control')
+    ).toThrow(/expected 0 to be greater than 0/);
+  });
 });
 
 describe('Scenario: a11y — a tool that cannot run is a failure, never a zero', () => {

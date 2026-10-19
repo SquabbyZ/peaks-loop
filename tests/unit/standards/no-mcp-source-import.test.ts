@@ -375,6 +375,28 @@ describe('Scenario: integration - the scan walks a real tree', () => {
     ).toBe(false);
     expect(files.length).toBeGreaterThan(100);
   });
+
+  it('when the transient bdd-reporter fixture tree is present, should omit it and keep its sibling', () => {
+    // given: a tree holding the transient, gitignored directory a concurrent
+    //        reporter test creates and deletes mid-walk, plus a control file
+    withFixtureTree(
+      {
+        'tests/fixtures/bdd-reporter-tmp/case-1/happy-path.test.ts':
+          "import { it } from 'vitest';\n",
+        'tests/unit/keepers.test.ts': "import { it } from 'vitest';\n"
+      },
+      (root) => {
+        // when: the tests root is walked
+        const walked = sourceFilesUnder(root, ['tests']).map((file) =>
+          file.split('\\').join('/')
+        );
+        // then: the transient file is omitted (it cannot vanish mid-walk), and
+        //       the control file beside it is still included
+        expect(walked.some((file) => file.includes('bdd-reporter-tmp'))).toBe(false);
+        expect(walked.some((file) => file.endsWith('tests/unit/keepers.test.ts'))).toBe(true);
+      }
+    );
+  });
 });
 
 // AC-8 clause 2 - "delete the MCP module and the tests stay green" - in a

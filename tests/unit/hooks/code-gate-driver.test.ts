@@ -22,7 +22,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { setPresenceLease } from '~/src/services/skills/presence-lease-service';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
@@ -31,6 +31,13 @@ const ROOT = resolve(__dirname, '..', '..', '..');
 const SESSION = '2026-10-10-session-racecode';
 const BLOCKED = 'src/services/foo.ts';
 const UNGATED = 'notes.txt';
+
+// Every case spawns the real CLI (`node --import tsx src/cli/index.ts`, ~2.5 s per
+// call alone on this host, and the exit-channel cases spawn twice). The global 30 s
+// budget is a HANG detector, not a load budget — this file was measured timing out
+// at it under a full-suite run (backlog §7.1). The shared subprocess budget is the
+// measured class budget, so it is scoped to the file instead of repeated per case.
+vi.setConfig({ testTimeout: SUBPROCESS_TEST_TIMEOUT_MS });
 
 const tmpRoots: string[] = [];
 

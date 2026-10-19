@@ -5,10 +5,15 @@
  * artifact escaping `<root>/.peaks/_runtime/<sid>/web/` (AC1).
  */
 import {
+  constants,
+  copyFileSync,
   existsSync,
   mkdirSync,
   readFileSync,
   realpathSync,
+  renameSync,
+  rmSync,
+  statSync,
   unlinkSync,
   writeFileSync
 } from 'node:fs';
@@ -138,38 +143,116 @@ export function isProcessAlive(pid: number): boolean {
   }
 }
 
+const SPAWN_LOCK_ATTEMPTS = 3;
+
 /**
- * Take the cold-start lock (O_EXCL create). Returns `false` when another
- * process holds a live lock, and reclaims a STALE one — owner pid dead, or
- * older than `SPAWN_LOCK_STALE_MS` — before retrying once (tech-doc §1.4).
+ * Take the cold-start lock. Returns `false` when another process holds a live
+ * lock; reclaims a STALE one by renaming it to a per-call quarantine. Unlink-
+ * then-create is not atomic (two callers could both return true), so the
+ * replacement is created and identity-verified, and a moved fresh lock is
+ * restored rather than replaced.
  */
 export function acquireSpawnLock(projectRoot: string, sessionId: string): boolean {
   const target = webSpawnLockPath(projectRoot, sessionId);
   assertUnder(target, webDaemonDir(projectRoot, sessionId));
   mkdirSync(dirname(target), { recursive: true, mode: DAEMON_DIR_MODE });
-  if (tryCreateSpawnLock(target)) {
-    return true;
+  let mine: SpawnLockBody | null = null;
+  for (let attempt = 0; attempt < SPAWN_LOCK_ATTEMPTS; attempt += 1) {
+    const created = tryCreateSpawnLock(target);
+    if (created !== null) {
+      mine = created;
+      if (ownsLockFile(target, created)) return true;
+      continue;
+    }
+    const existing = readSpawnLock(target);
+    if (isOwnLock(existing, mine)) return true;
+    if (isSpawnLockHeld(target, existing)) return false;
+    return reclaimSpawnLock(target, existing);
   }
-  const existing = readSpawnLock(target);
-  const ageMs = existing === null ? Number.NaN : Date.now() - Date.parse(existing.startedAt);
-  if (existing !== null && isProcessAlive(existing.pid) && ageMs <= SPAWN_LOCK_STALE_MS) {
-    return false;
-  }
-  try {
-    unlinkSync(target);
-  } catch {
-    // Racers: whoever wins the unlink still has to win the O_EXCL create below.
-  }
-  return tryCreateSpawnLock(target);
+  return false;
 }
 
-/** Release the spawn lock, but only when this process is its owner. */
+function isOwnLock(existing: SpawnLockBody | null, mine: SpawnLockBody | null): boolean {
+  return (
+    existing !== null &&
+    mine !== null &&
+    existing.pid === mine.pid &&
+    existing.startedAt === mine.startedAt
+  );
+}
+
+/** Unreadable is held while young; readable is held while its owner is alive and young. */
+function isSpawnLockHeld(target: string, existing: SpawnLockBody | null): boolean {
+  if (existing === null) {
+    return lockFileAgeMs(target) <= SPAWN_LOCK_STALE_MS;
+  }
+  return (
+    isProcessAlive(existing.pid) &&
+    Date.now() - Date.parse(existing.startedAt) <= SPAWN_LOCK_STALE_MS
+  );
+}
+
+/** True only when `target` still holds the exact body this call created. */
+function ownsLockFile(target: string, created: SpawnLockBody): boolean {
+  const now = readSpawnLock(target);
+  return now !== null && now.pid === created.pid && now.startedAt === created.startedAt;
+}
+
+let reclaimSerial = 0; // one quarantine per call, so reclaimers never share a path
+
+/**
+ * Take a stale lock by renaming it to this call's quarantine; true only when
+ * the verified replacement was created.
+ */
+function reclaimSpawnLock(target: string, existing: SpawnLockBody | null): boolean {
+  reclaimSerial += 1;
+  const quarantine = `${target}.reclaim-${String(process.pid)}-${String(reclaimSerial)}`;
+  try {
+    renameSync(target, quarantine);
+  } catch {
+    return false;
+  }
+  const moved = readSpawnLock(quarantine);
+  const movedIsStale =
+    existing === null
+      ? moved === null && lockFileAgeMs(quarantine) > SPAWN_LOCK_STALE_MS
+      : moved !== null && moved.pid === existing.pid && moved.startedAt === existing.startedAt;
+  if (!movedIsStale) {
+    restoreQuarantinedLock(quarantine, target);
+    return false;
+  }
+  rmSync(quarantine, { force: true });
+  const created = tryCreateSpawnLock(target);
+  return created !== null && ownsLockFile(target, created);
+}
+
+/** Put a freshly-moved lock back without ever replacing a lock that now owns the path. */
+function restoreQuarantinedLock(quarantine: string, target: string): void {
+  try {
+    copyFileSync(quarantine, target, constants.COPYFILE_EXCL);
+    rmSync(quarantine, { force: true });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+    rmSync(quarantine, { force: true });
+  }
+}
+
+/** File age, used only when the body cannot be read; `Infinity` when it vanished. */
+function lockFileAgeMs(target: string): number {
+  try {
+    return Date.now() - statSync(target).mtimeMs;
+  } catch {
+    return Number.POSITIVE_INFINITY;
+  }
+}
+
+/** Release the spawn lock, but only when this process provably owns it. */
 export function releaseSpawnLock(projectRoot: string, sessionId: string): void {
   const target = webSpawnLockPath(projectRoot, sessionId);
   const existing = readSpawnLock(target);
-  if (existing !== null && existing.pid !== process.pid) {
-    return;
-  }
+  if (existing !== null && existing.pid !== process.pid) return;
+  // A young unreadable body may be a live creator mid-write; do not unlink it.
+  if (existing === null && lockFileAgeMs(target) <= SPAWN_LOCK_STALE_MS) return;
   try {
     unlinkSync(target);
   } catch {
@@ -188,16 +271,18 @@ export function listSessionDaemons(projectRoot: string, sessionId: string): WebD
   return info === null ? [] : [info];
 }
 
-function tryCreateSpawnLock(target: string): boolean {
+function tryCreateSpawnLock(target: string): SpawnLockBody | null {
   const body: SpawnLockBody = { pid: process.pid, startedAt: new Date().toISOString() };
+  let created: boolean;
   try {
     writeFileSync(target, JSON.stringify(body), { flag: 'wx', encoding: 'utf8' });
-    return true;
+    created = true;
   } catch {
     // `EEXIST` (held) and any other write failure both mean "not acquired".
     // The caller either waits for the holder or surfaces a readiness timeout.
-    return false;
+    created = false;
   }
+  return created ? body : null;
 }
 
 function readSpawnLock(target: string): SpawnLockBody | null {

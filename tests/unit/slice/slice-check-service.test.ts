@@ -32,6 +32,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 import {
   cleanupTmpWorkspace,
   useTmpWorkspace,
@@ -164,7 +165,11 @@ describe('Scenario: render — typecheck stage envelope', () => {
     expect(stage.data?.wideTsconfigErrors).toBeTypeOf('number');
     expect(stage.data?.preExistingBaseline).toBe(TYPECHECK_PREEXISTING_BASELINE);
     expect(stage.data?.exitCode).toBe(0);
-  }, 120_000);
+    // The repo-backed stage type-checks this repository twice; it measured 16 s alone
+    // here and > 120 s under a loaded full-suite run (backlog §7.1), so the three
+    // callers of the memoized stage use the shared subprocess budget. The synthetic
+    // cases below keep the narrower 120 s budget they were measured under.
+  }, SUBPROCESS_TEST_TIMEOUT_MS);
 });
 
 describe('Scenario: behavior — typecheck stage decisions on synthetic projects', () => {
@@ -272,7 +277,7 @@ describe('Scenario: integration — typecheck stage against this repository', ()
     expect(stage.data?.wideTsconfigErrors as number).toBeLessThanOrEqual(
       TYPECHECK_PREEXISTING_BASELINE
     );
-  }, 120_000);
+  }, SUBPROCESS_TEST_TIMEOUT_MS);
 });
 
 describe('Scenario: a11y — an unresolvable CLI is named, not an ENOENT', () => {
@@ -313,7 +318,7 @@ describe('Scenario: a11y — the pre-existing count is surfaced, not hidden', ()
     expect(stage.detail).toContain('tsconfig.json');
     expect(stage.detail).toContain(String(stage.data?.wideTsconfigErrors));
     expect(stage.detail).toContain('baseline');
-  }, 120_000);
+  }, SUBPROCESS_TEST_TIMEOUT_MS);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

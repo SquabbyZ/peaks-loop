@@ -13,12 +13,56 @@
 //   - render:      not applicable (returns objects/booleans, no text surface)
 //   - a11y:        not applicable (no user-visible text or exit code)
 
-import { mkdirSync, statSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  utimesSync,
+  writeFileSync
+} from 'node:fs';
 import { dirname } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { declareDimensions } from '../../_setup/4dim-template.js';
 import { withTmpWorkspacePerTest } from '../../_setup/tmp-workspace.js';
+
+// The deterministic interleaving below runs a second acquirer at the exact
+// moment the first one reaches its reclaim primitive. The wrappers delegate to
+// the real fs, so every other arm in this file is unaffected.
+const lockRace = vi.hoisted(() => {
+  const state: { hook: null | (() => void) } = { hook: null };
+  return {
+    state,
+    run(): void {
+      const hook = state.hook;
+      if (hook !== null) {
+        state.hook = null;
+        hook();
+      }
+    }
+  };
+});
+
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>();
+  return {
+    ...actual,
+    renameSync: (...args: Parameters<typeof actual.renameSync>) => {
+      lockRace.run();
+      return actual.renameSync(...args);
+    },
+    unlinkSync: (...args: Parameters<typeof actual.unlinkSync>) => {
+      lockRace.run();
+      return actual.unlinkSync(...args);
+    },
+    copyFileSync: (...args: Parameters<typeof actual.copyFileSync>) => {
+      lockRace.run();
+      return actual.copyFileSync(...args);
+    }
+  };
+});
 
 declareDimensions(
   'tests/unit/services/web/daemon-registry.test.ts',
@@ -71,6 +115,7 @@ function writeRawDaemonInfo(root: string, body: Record<string, unknown>): void {
 }
 
 afterEach(() => {
+  lockRace.state.hook = null;
   vi.restoreAllMocks();
 });
 
@@ -206,6 +251,107 @@ describe('integration — the cold-start lock against a real file', () => {
     expect(acquireSpawnLock(root, SESSION_ID)).toBe(true);
     releaseSpawnLock(root, SESSION_ID);
     expect(acquireSpawnLock(root, SESSION_ID)).toBe(true);
+  });
+
+  it('when a lock body is unreadable but young, should treat it as held rather than reclaim it', () => {
+    // given: the state a concurrent creator exposes between O_EXCL create and write
+    // when:  a second caller attempts to acquire the lock
+    // then:  it refuses — reclaiming this window is how two callers each spawn a daemon
+    const root = ws().path;
+    const lock = webSpawnLockPath(root, SESSION_ID);
+    mkdirSync(dirname(lock), { recursive: true });
+    writeFileSync(lock, '', 'utf8');
+    expect(acquireSpawnLock(root, SESSION_ID)).toBe(false);
+  });
+
+  it('when an unreadable lock is older than the stale budget, should reclaim it', () => {
+    // given: a zero-byte lock left by a writer that crashed mid-write, past the budget
+    // when:  a caller attempts to acquire the lock
+    // then:  it is reclaimed, so an abandoned lock cannot wedge cold starts forever
+    const root = ws().path;
+    const lock = webSpawnLockPath(root, SESSION_ID);
+    mkdirSync(dirname(lock), { recursive: true });
+    writeFileSync(lock, '', 'utf8');
+    const old = new Date(Date.now() - 3 * 60_000);
+    utimesSync(lock, old, old);
+    expect(acquireSpawnLock(root, SESSION_ID)).toBe(true);
+  });
+
+  it('when two callers both judged the same lock stale, should let exactly one acquire it', () => {
+    // given: a stale lock (dead owner, past the budget) that BOTH callers read
+    //        before either reclaims — the interleaving that used to return true twice
+    const root = ws().path;
+    const lock = webSpawnLockPath(root, SESSION_ID);
+    mkdirSync(dirname(lock), { recursive: true });
+    writeFileSync(
+      lock,
+      JSON.stringify({ pid: 999_999_999, startedAt: new Date(Date.now() - 180_000).toISOString() }),
+      'utf8'
+    );
+    let innerAcquired: boolean | undefined;
+    // when: the outer caller reaches its reclaim primitive, the hook runs a
+    //       complete second acquire first (the outer has already judged stale)
+    lockRace.state.hook = () => {
+      innerAcquired = acquireSpawnLock(root, SESSION_ID);
+    };
+    const outerAcquired = acquireSpawnLock(root, SESSION_ID);
+    // then: only the caller that created the surviving lock proceeds; the other
+    //       restored it instead of stealing it
+    expect(innerAcquired).toBe(true);
+    expect(outerAcquired).toBe(false);
+    expect(existsSync(lock)).toBe(true);
+    expect(acquireSpawnLock(root, SESSION_ID)).toBe(false);
+  });
+
+  it('when a fresh lock is created before the restore, should discard the stale copy and not replace it', () => {
+    // given: a stale lock and an outer caller that will move a FRESH lock to its
+    //        quarantine, because an inner acquire reclaimed the stale one first
+    const root = ws().path;
+    const lock = webSpawnLockPath(root, SESSION_ID);
+    mkdirSync(dirname(lock), { recursive: true });
+    writeFileSync(
+      lock,
+      JSON.stringify({ pid: 999_999_999, startedAt: new Date(Date.now() - 180_000).toISOString() }),
+      'utf8'
+    );
+    const fresh = { pid: process.pid, startedAt: new Date().toISOString() };
+    lockRace.state.hook = () => {
+      expect(acquireSpawnLock(root, SESSION_ID)).toBe(true);
+      // when: another caller creates a fresh lock at the target before the restore
+      lockRace.state.hook = () => {
+        writeFileSync(lock, JSON.stringify(fresh), 'utf8');
+      };
+    };
+    // then: the outer backs off, the fresh body survives, and the quarantine is gone
+    expect(acquireSpawnLock(root, SESSION_ID)).toBe(false);
+    expect(JSON.parse(readFileSync(lock, 'utf8'))).toEqual(fresh);
+    expect(readdirSync(dirname(lock)).some((name) => name.includes('.reclaim-'))).toBe(false);
+  });
+
+  it('when the lock body is unreadable and young, should not release it', () => {
+    // given: the state a live creator exposes between create and body write
+    const root = ws().path;
+    const lock = webSpawnLockPath(root, SESSION_ID);
+    mkdirSync(dirname(lock), { recursive: true });
+    writeFileSync(lock, '', 'utf8');
+    // when: a caller that does not own it releases
+    releaseSpawnLock(root, SESSION_ID);
+    // then: it is not provably ours, so it is left for its creator
+    expect(existsSync(lock)).toBe(true);
+  });
+
+  it('when an unreadable lock is past the stale budget, should release it', () => {
+    // given: a zero-byte lock abandoned past the budget
+    const root = ws().path;
+    const lock = webSpawnLockPath(root, SESSION_ID);
+    mkdirSync(dirname(lock), { recursive: true });
+    writeFileSync(lock, '', 'utf8');
+    const old = new Date(Date.now() - 3 * 60_000);
+    utimesSync(lock, old, old);
+    // when: release runs
+    releaseSpawnLock(root, SESSION_ID);
+    // then: the abandoned lock is removed
+    expect(existsSync(lock)).toBe(false);
   });
 });
 

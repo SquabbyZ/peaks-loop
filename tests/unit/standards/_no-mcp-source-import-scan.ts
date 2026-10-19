@@ -123,6 +123,24 @@ function isMcpModuleTest(relativePath: string): boolean {
 const SOURCE_EXTENSIONS = ['.ts', '.mts', '.cts', '.mjs', '.cjs', '.js'];
 const SKIPPED_DIRS = new Set(['node_modules', 'dist', 'coverage', '.git', '.husky']);
 
+/**
+ * Directories skipped by REPO-RELATIVE path, not by leaf name.
+ *
+ * `tests/fixtures/bdd-reporter-tmp` is transient fixture data: its only writer is
+ * `tests/unit/reporters/bdd-reporter.test.ts`, which `mkdtemp`s a `case-*`
+ * directory there per case and removes it in `afterEach`. It is gitignored, so it
+ * is not part of the tracked source population, and a concurrent walk can
+ * enumerate a file that is gone by the time it is read — the measured ENOENT of
+ * backlog §7.1. The ESM guard excludes the same tree for the same reason
+ * (`_esm-relative-import-scan.ts`), so this is one policy, not a second one.
+ */
+const SKIPPED_RELATIVE_DIRS: readonly string[] = ['tests/fixtures/bdd-reporter-tmp'];
+
+function isSkippedRelative(root: string, absolute: string): boolean {
+  const rel = toPosix(relative(root, absolute));
+  return SKIPPED_RELATIVE_DIRS.some((dir) => rel === dir || rel.startsWith(`${dir}/`));
+}
+
 export type ForbiddenRule = 'mcp-source-import' | 'whitelist-artifact-import';
 
 export interface ForbiddenImportFinding {
@@ -148,14 +166,16 @@ export function sourceFilesUnder(root: string, dirs: readonly string[] = SCAN_RO
       return;
     }
     for (const entry of entries) {
+      const full = join(absolute, entry.name);
+      if (isSkippedRelative(root, full)) continue;
       if (entry.isDirectory()) {
         if (SKIPPED_DIRS.has(entry.name)) continue;
-        walk(join(absolute, entry.name));
+        walk(full);
         continue;
       }
       if (!entry.isFile()) continue;
       if (!SOURCE_EXTENSIONS.some((extension) => entry.name.endsWith(extension))) continue;
-      found.push(join(absolute, entry.name));
+      found.push(full);
     }
   };
   for (const dir of dirs) {

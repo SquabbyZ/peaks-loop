@@ -106,7 +106,7 @@
 import { dirname, relative as relativePath, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
 import {
@@ -121,6 +121,15 @@ import {
 } from './_esm-relative-import-scan.js';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+
+// The injection arms each re-walk the real src/ + tests/ tree; the slowest measured
+// 1.2 s alone on this host. The global 30 s budget is a HANG detector, not a load
+// budget — this file was measured timing out at it under a full-suite run (backlog
+// §7.1). 120 s is 4x the budget the file was measured exceeding and ~100x the worst
+// alone case: the over-generous side of `_setup/subprocess-timeouts.ts`'s method,
+// where a wide budget costs speed of signal and a tight one costs a false red.
+const TREE_WALK_TEST_TIMEOUT_MS = 120_000;
+vi.setConfig({ testTimeout: TREE_WALK_TEST_TIMEOUT_MS });
 
 declareDimensions(
   'tests/unit/standards/esm-relative-import-extension.test.ts',
