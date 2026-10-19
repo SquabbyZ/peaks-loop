@@ -100,11 +100,22 @@ const CORRECT_BRIEF =
 
 describe('render — what the check hands back', () => {
   it('should carry a verdict from the closed set, and never a bare pass/fail', () => {
-    // given: one finding per invocation
-    const findings = checkPromptCliInvocations('`peaks test` and `peaks tact read`', cli);
+    // given: one finding per invocation — `tact read` is registered as of
+    // rid-mut-producer-chain, so the unknown arm names a genuinely unregistered
+    // VERB. A shape like `peaks tact not-a-command` is not enough: `tact` is a
+    // registered parent, so the checker resolves that to an undeclared-flag
+    // verdict on the group rather than unknown-command.
+    const findings = checkPromptCliInvocations(
+      '`peaks test` and `peaks tact read` and `peaks definitely-not-a-command`',
+      cli
+    );
 
     // then: each carries the state that decided it
-    expect(findings.map((finding) => finding.verdict.kind)).toEqual(['clean', 'unknown-command']);
+    expect(findings.map((finding) => finding.verdict.kind)).toEqual([
+      'clean',
+      'clean',
+      'unknown-command'
+    ]);
   });
 
   it('should quote the run back as the prompt spelled it', () => {
@@ -230,18 +241,30 @@ describe('behavior — the states the check can be in', () => {
   });
 
   it('should report an unresolvable command as its own state, not as clean', () => {
-    // given: a brief naming a command this CLI does not register — the real
-    // `peaks tact read` from a dispatch record
-    const findings = checkPromptCliInvocations('Run `peaks tact read --json` first.', cli);
+    // given: `peaks tact read` is registered, so it resolves cleanly...
+    expect(checkPromptCliInvocations('`peaks tact read --json`', cli)[0]?.verdict).toEqual({
+      kind: 'clean',
+      command: 'tact read'
+    });
+
+    // ...while a verb this CLI does not register must not be folded into that
+    // clean verdict.
+    const findings = checkPromptCliInvocations(
+      'Run `peaks definitely-not-a-command --json` first.',
+      cli
+    );
 
     // then: a distinct state that names what could not be resolved, so a check
     // that resolved nothing can never read as a pass
     expect(findings).toEqual([
-      { text: 'peaks tact read --json', verdict: { kind: 'unknown-command', attempted: 'tact' } }
+      {
+        text: 'peaks definitely-not-a-command --json',
+        verdict: { kind: 'unknown-command', attempted: 'definitely-not-a-command' }
+      }
     ]);
-    expect(cliInvocationWarnings('Run `peaks tact read --json` first.', cli)).toEqual([
-      expect.stringContaining('PROMPT_CLI_COMMAND_NOT_FOUND')
-    ]);
+    expect(
+      cliInvocationWarnings('Run `peaks definitely-not-a-command --json` first.', cli)
+    ).toEqual([expect.stringContaining('PROMPT_CLI_COMMAND_NOT_FOUND')]);
   });
 
   it('should not report a flag the ROOT program declares, used on a nested command', () => {

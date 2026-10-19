@@ -9,6 +9,7 @@
 import { readFile } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { fail } from 'peaks-loop-shared/result';
+import { isUnsafePathInput } from '../../shared/path-safety.js';
 import type { ProgramIO } from '../cli-helpers.js';
 import { AstGateContextSchema, type AstGateContext } from '../../services/rd/ast-gate.js';
 import { canonicalSha256 } from '../../services/rd/canonical-hash.js';
@@ -78,7 +79,10 @@ export async function guarded(
 
 /** Resolve `--out` and enforce the one-axis layout. */
 export function requireSessionAxis(project: string, sessionId: string, out: string): string {
-  if (!SESSION_ID_RE.test(sessionId)) {
+  // The canonical traversal guard PLUS the stricter single-segment regex: the
+  // former is what the runtime-id scanner recognises, the latter also rejects
+  // backslashes and a leading dot that the traversal guard alone would admit.
+  if (isUnsafePathInput(sessionId) || !SESSION_ID_RE.test(sessionId)) {
     throw new CommandRefusal(
       'INVALID_SESSION_ID',
       'Use the session id that names .peaks/_runtime/<sid>/ (letters, digits, dot, dash, underscore).',
