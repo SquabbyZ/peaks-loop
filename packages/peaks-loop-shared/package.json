@@ -1,6 +1,6 @@
 {
   "name": "peaks-loop-shared",
-  "version": "0.0.98",
+  "version": "0.0.99",
   "description": "Shared pure-function utils for peaks-loop workspace packages (fs / paths / result / version). Slice 3a.",
   "keywords": [
     "peaks-loop",

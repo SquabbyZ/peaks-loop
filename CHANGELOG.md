@@ -1,5 +1,34 @@
 # Changelog
 
+## 4.1.10 — 2026-10-20（STRAT→TACT→MUT 生产者链，canonical digest 递归修复）
+
+**版本级别**: 未发布区间 `v4.1.9..HEAD` 共 **3 个 commit**（**1 feat / 1 fix / 1 docs**）。取 **patch**，依维护者 2026-07-22 的常设规则"默认版本新增采用最小的版本位"。CLI 新增 `peaks strat` / `peaks tact` 两个动词组，均为既有 service 的薄包装；无破坏性变更（canonical digest 的值变了，但只影响修复前产生的临时 artifact）。
+
+### 1. STRAT → TACT → MUT 生产者链（`45b378e9`，backlog §16 / §9.2）
+
+- `peaks strat write`：写 strategy.md + `<out>.json`，生成 STRAT.sig。
+- `peaks tact write`：校验 strategy JSON 的递归 sha256 与 markdown 的 `STRAT.sig:` 行，注册 STRAT.sig，跑 AST gate，写 impl.json（`inputSig` = STRAT.sig）。
+- `peaks tact read`：重新校验 impl.json 并输出 `{ sha256, inputSig, changedFiles, astGateResult }`——文档里长期缺失的命令现在真实存在。
+- 单轴写入守卫（`--session-id` 必填、`--out` 必须在 `.peaks/_runtime/<sid>/` 下）、`--changed-files` 项目内包含校验、AST 违规/篡改 artifact 的命名 refusal。
+- 端到端测试：`strat write → tact write → tact read → mut`，`mut-report.json#inputSig` 等于 TACT.sig，并覆盖 passing-threshold 分支。
+
+### 2. Canonical digest 递归修复（`45b378e9`）
+
+- 旧实现 `JSON.stringify(rest, Object.keys(rest).sort())` 是数组 replacer，会在每一层过滤 key，导致嵌套对象（`astGateResult` 等）被哈希成 `{}`；伪造嵌套 verdict 仍能通过验证。
+- 现在逐层排序 key，verifier 对**解析前原始 JSON**求哈希，`StrategyOutput` / `ImplOutput` 及嵌套 schema 均为 `.strict()`。嵌套字段、数组项、未知字段的篡改全部拒绝。
+- 注：digest 是 checksum 不是 MAC；同时改内容并重算签名的 artifact 仍会通过（H8 固有）。
+
+### 3. Backlog 与测试稳定性（`442c0e96`、`77a38b82`）
+
+- §2.38 关闭：`peaks job add-slice` 已存在并追加 ledger。
+- §9.50 关闭：AC-6 的 macOS gate 已在 CI 中通过。
+- 全量 pre-push 暴露并修复：`tact read` 注册后的 invocation-check 夹具，以及 rule-D 对 `requireSessionAxis` 守卫的识别（补 `isUnsafePathInput`）。
+
+### 4. 证据
+
+- 531 files / 5798 tests 在 pre-push 全量套件中通过；`tsc --noEmit`、`pnpm build`、repo/staged gate 全绿。
+- code review（两轮，HIGH 已修）PASS-WITH-FINDINGS；Karpathy pass；security `warn`（1 LOW，词法单轴 symlink）；perf `warn`（1 LOW，AST gate 双跑）；QA PASS（AC1–AC9）；`verify-pipeline complete: true`。
+
 ## 4.1.9 — 2026-10-19（Step 0.8 gate：remedy 豁免、provisional 决策与 exit code 可见性）
 
 **版本级别**: 未发布区间 `v4.1.8..HEAD` 共 **6 个 commit**（**2 fix / 1 style / 3 docs**）。取 **patch**，依维护者 2026-07-22 的常设规则"默认版本新增采用最小的版本位"。无破坏性 CLI 变更。
