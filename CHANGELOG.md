@@ -1,5 +1,30 @@
 # Changelog
 
+## 4.1.9 — 2026-10-19（Step 0.8 gate：remedy 豁免、provisional 决策与 exit code 可见性）
+
+**版本级别**: 未发布区间 `v4.1.8..HEAD` 共 **6 个 commit**（**2 fix / 1 style / 3 docs**）。取 **patch**，依维护者 2026-07-22 的常设规则"默认版本新增采用最小的版本位"。无破坏性 CLI 变更。
+
+### 1. Step 0.8 gate 不再阻塞自己的 remedy（`ec106774`，backlog §17.1 (1)+(2)）
+
+- `peaks code gate-step-08` 在 `--prompt` 缺省时读取 PreToolUse hook 的 stdin JSON，识别真实的 `peaks code detect-job` 调用并以 `allow-remedy-command` 放行。解析刻意收窄：分隔符、引号/注释/heredoc 提及、反引号与 `$(` 仍然关闭；豁免不写 `job-shape.json`。
+- `peaks code detect-job --is-job false` 的 `--suggested-job-id` 变为可选，默认 `single-task`；`--is-job true` 仍必填，显式 id 仍优先。
+
+### 2. Ledger 必有决策，gate 必报 exit code（`d08cf12f`，backlog §17.1 (3)+(4)）
+
+- `peaks job init` 创建 ledger 后，若 session 没有 `job-shape.json`，写入一条 provisional 决策（`isJob: true`、job id、请求的 strategy、`confidence: medium`，rationale 标注 provisional）。已有决策只读不覆盖；不可读文件以 `invalid-existing` 上报并给出带 `--force` 的 remedy；写失败同样显式上报。
+- 打印的 provisional remedy 被集成测试逐字执行，保证它不是一条会失败的命令。
+- `gate-step-08` 的两条 block 路径现在在 JSON envelope 中携带 `exitCode: 2`，并在 stderr 中明确写出 `exit 2`。
+
+### 3. 证据与测试
+
+- 两个切片合计：单测 38 项、集成 38 项；`tsc --noEmit`、`pnpm build`、repo/staged gate 全绿。
+- code review 对第二个切片曾给出 BLOCK（`runJobInit` 超 50 行），修复后 PASS-WITH-FINDINGS；Karpathy review 两个切片均为 pass（各经过一轮修复：`$(`/反引号与 `--force` remedy）；security audit `warn`（仅 LOW，均是已知的 §16 单段路径缺口与非逃逸面）；perf audit pass。
+- CI run `39253585358`（`c7947285`）全绿后才发版。
+
+### 4. 残留（非阻塞，已记录）
+
+- 窄解析的 fail-closed 情形、2s stdin timeout 无自动化测试、schema 不接受的 job id、跨 job 的 `suggestedJobId` 保留、`isJob:false` + 新 ledger 不拒绝、并发 `JOB_SHAPE_ALREADY_DECIDED` 分支未测、PowerShell native exit 2→1 映射。
+
 ## 4.1.8 — 2026-10-19（24h backlog 清扫：25 个切片，棱镜与证据链收紧，测试判定重新成为代码属性）
 
 **版本级别**: 未发布区间 `v4.1.7..HEAD` 共 **57 个 commit**（**5 feat / 14 fix / 2 refactor / 3 test / 1 ci / 31 docs / 1 memory**）。取 **patch**，依维护者 2026-07-22 的常设规则"默认版本新增采用最小的版本位"。本版**无破坏性 CLI 变更**；有两处刻意的行为收紧（`config` 请求的 security review 现在按 rid 分文件；reviewer 的 `schemaPath` 缺失会在 provider 调用前拒绝），升级路径均已覆盖。
