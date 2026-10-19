@@ -5826,7 +5826,7 @@ Worth a ruling: either the SKILL should make the envelope the only production pa
 
 `request init` produces a template containing `<id>` placeholders. §10.4 established that the QA role has no in-order way to create `qa/.initiated` once its artifact exists, so this session ran `request init --role qa` to get the carrier. That created `qa/requests/<rid>.md` **as an unfilled template**, and `qa:running` then refused with `LINT_GATE_FAILED` on two `<id>` tokens in the OpenSpec section — a section that cannot be filled at all, because this repository's `openspec/` holds only `baselines/` and no `changes/`. The producer is handed a template whose sections are unfillable and then blocked for not filling them.
 
-### 11.3 A date-shaped request id collides with the numeric filename prefix, and it **blocks the commit** (found 2026-10-15; **open, with a measured consequence**)
+### 11.3 A date-shaped request id collides with the numeric filename prefix, and it **blocks the commit** (found 2026-10-15; **CLOSED 2026-10-19 — already fixed by the `NUMBERED_PREFIX_RE` family; re-verified**)
 
 `getNextNumber` (`src/shared/incrementing-number.ts:17-31`) scans a directory for `/^(\d+)-/` and returns `max + 1`. Every rid in this repository begins with a date, so a request whose file carries no prefix contributes its **year** to that scan: `2026-10-15-macos-ledger-reaper.md` reads as file number **2026**, and the next request in that directory is stamped **`2027-…`**.
 
@@ -5835,6 +5835,13 @@ It was first called cosmetic on the strength of this module's own comment (`:42-
 > `peaks-gate-pipeline: <rid> (type refactor) fails the artifact contract: RD evidence missing …`
 
 The unblock used here was to **rename the two affected request artifacts** to their bare-rid form. That is a workaround, not a repair: any fresh request directory whose first file lacks a prefix reproduces it. Worth a ruling: `requestIdFromFileName` should strip any leading digit run that cannot be part of a date-shaped rid, or `getNextNumber` should not read a leading year as a sequence number.
+
+**CLOSED 2026-10-19 — the fix is already in the tree.** `getNextNumber` counts only the
+`NUMBERED_PREFIX_RE = /^(\d{3})-/` family, so a bare date-shaped name contributes nothing and the
+answer is 1, not 2027; `requestIdFromFileName` strips the same family, so `001-<date-shaped-rid>.md`
+reads back as the rid. `tests/unit/shared/incrementing-number-prefix-family.test.ts` pins both
+(`getNextNumber` on date-shaped names, the `001-` round trip, and the four-digit year not being
+stripped) and passes 12/12. **No code change was made by the 2026-10-19 run.**
 
 ### 11.4 `dispatch --isolation container` exits **0** having dispatched nothing (found 2026-10-15; **FIXED 2026-10-19 — rid `rid-container-lease-envelope`, uncommitted at the time of writing**)
 
