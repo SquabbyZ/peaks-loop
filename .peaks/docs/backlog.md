@@ -6159,6 +6159,15 @@ not a single-segment guard. The reviewer producer now refuses `/` and `\` locall
 still does not. Impact is bounded to nesting under `.peaks/_runtime/` (no `..` escape), but the contract and the
 predicate disagree. A dedicated single-segment predicate, used by both entries, is the fix.
 
+**FIXED 2026-10-19 (rid `rid-session-id-single-segment`):** both entries now use
+`isSinglePathSegment` — the traversal guard plus a `/`/`\` check — so `a/b` is refused with the existing
+`Invalid session id: … (must be a single path segment)` message. `isUnsafePathInput` is unchanged (it is
+used for artifact paths where separators are legitimate). Measured: `a/b` was admitted by both entries
+and is now refused; `a\b`, `..`, `.` and absolute paths were and remain refused; a valid id returns the
+canonical path. The injection control reds only the `a/b` arm. 34 call sites across 24 modules pass
+plain identifiers, so no caller behavior changes beyond the rejection. The NUL axis and hand-rolled
+`join` callers remain the helper's recorded limits, not new gaps.
+
 **New finding (2026-10-19, found while closing §2.4):** `transitionRelease`'s refusal path builds its
 message with `VALID_TRANSITIONS[from].join(…)`; when `from` is an unknown stage the property is
 `undefined` and the call throws `TypeError: Cannot read properties of undefined (reading 'join')`

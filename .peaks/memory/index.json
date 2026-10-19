@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-19T00:53:57.501Z",
+  "updatedAt": "2026-10-19T01:11:57.557Z",
   "hot": {
     "rule": [
       {
@@ -494,6 +494,14 @@
         "updatedAt": "2026-10-18"
       },
       {
+        "name": "fix-the-canonical-helper-not-only-the-newest-consumer",
+        "kind": "decision",
+        "description": "The reviewer producer had already grown its own / check; the canonical  had not.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\fix-the-canonical-helper-not-only-the-newest-consumer.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-sessid.md",
+        "updatedAt": "2026-10-19"
+      },
+      {
         "name": "ide-adapter-resource-profile-framework",
         "kind": "decision",
         "description": "IdeAdapter resource-profile framework (slice #011) Decision (2026-06-07, slice #011, peaks-code full-auto) The  shape...",
@@ -984,6 +992,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-slice-that-adds-src-files-owes-a-baseline-regen.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-parity.md",
         "updatedAt": "2026-10-18"
+      },
+      {
+        "name": "add-the-separator-axis-to-a-segment-contract",
+        "kind": "convention",
+        "description": "is a traversal guard: it rejects , absolute paths, backslashes and empty segments, but admits .",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\add-the-separator-axis-to-a-segment-contract.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-sessid.md",
+        "updatedAt": "2026-10-19"
       },
       {
         "name": "an-ignored-message-is-a-skip-not-a-finding",

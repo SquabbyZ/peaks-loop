@@ -51,13 +51,14 @@
 - [windows-shell-quoting-divergence](windows-shell-quoting-divergence.md) — <!-- peaks-feedback-promoted: layer=A --> On Windows, when testing  or similar nested-quote patterns, the test outcom...
 - [writing-a-value-then-reading-it-back-locks-the-first-guess](writing-a-value-then-reading-it-back-locks-the-first-guess.md) — <!-- peaks-feedback-promoted: layer=A --> **一个组件若把"自己派生的值"写进某处、又在后续运行里把该值读回来当作自己的输入，它就把自己锁在了首次猜测上。** 2026-09-13 实测（pe...
 
-## decision (21)
+## decision (22)
 
 - [a-spawned-child-unref-must-wait-for-close](a-spawned-child-unref-must-wait-for-close.md) — Both isolation-lease spawners must resolve the envelope and then defer  with  inside the  handler.
 - [add-the-verb-do-not-weaken-the-init-refusal](add-the-verb-do-not-weaken-the-init-refusal.md) — The fix adds ; it does not make  accept an existing artifact.
 - [backlog-14-7-closed-by-a-parity-arm-not-a-shared-import](backlog-14-7-closed-by-a-parity-arm-not-a-shared-import.md) — §14.7's two type derivations were closed by a parity arm, not by deriving one from the other.
 - [comments-after-executable-code-are-not-contract-bound](comments-after-executable-code-are-not-contract-bound.md) — The "exactly three leading comments" rule is enforced only BEFORE the first executable line.
 - [do-not-wire-an-implicit-root-build-to-fix-a-message](do-not-wire-an-implicit-root-build-to-fix-a-message.md) — §2.13 had two ways out: accept the ≈9–14 s implicit root build, or give the misleading test a stated prerequisite.
+- [fix-the-canonical-helper-not-only-the-newest-consumer](fix-the-canonical-helper-not-only-the-newest-consumer.md) — The reviewer producer had already grown its own / check; the canonical  had not.
 - [ide-adapter-resource-profile-framework](ide-adapter-resource-profile-framework.md) — IdeAdapter resource-profile framework (slice #011) Decision (2026-06-07, slice #011, peaks-code full-auto) The  shape...
 - [map-the-cli-name-at-the-action-boundary](map-the-cli-name-at-the-action-boundary.md) — Commander stores  as ; the runner's option is .
 - [memory-search-y2-rerank-2026-06-19-decision](memory-search-y2-rerank-2026-06-19-decision.md) — Slice Z-A — LLM Rerank Spike Decision **Date:** 2026-06-19 **Verdict:** ❌ **NO-GO** **Decision owner:** peaks-code (i...
@@ -134,11 +135,12 @@
 - [widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything](widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything.md) — A2 deliberately declined to widen the citation guard to bare non-test paths, and recorded the cost as "50 findings, n...
 - [workspace-underscore-convention](workspace-underscore-convention.md) — Under , any top-level directory whose name starts with  is **ephemeral** and is automatically gitignored by the  rule...
 
-## convention (34)
+## convention (35)
 
 - [a-marker-writer-should-be-o-excl-and-shared](a-marker-writer-should-be-o-excl-and-shared.md) — The marker is created with ; an existing marker returns  and its bytes are untouched.
 - [a-safety-classifier-denial-is-not-a-missing-red-side](a-safety-classifier-denial-is-not-a-missing-red-side.md) — The RD's first red-side attempt (mutating the real source and running tests) was refused by the safety classifier.
 - [a-slice-that-adds-src-files-owes-a-baseline-regen](a-slice-that-adds-src-files-owes-a-baseline-regen.md) — A commit that adds  files must regenerate  before the next tier run, or  and  go red for a reason unrelated to the cu...
+- [add-the-separator-axis-to-a-segment-contract](add-the-separator-axis-to-a-segment-contract.md) — is a traversal guard: it rejects , absolute paths, backslashes and empty segments, but admits .
 - [an-ignored-message-is-a-skip-not-a-finding](an-ignored-message-is-a-skip-not-a-finding.md) — The report parser counts a  message as an , not a finding.
 - [audit-artifact-convention](audit-artifact-convention.md) — Audit artifact writer generalization (Slice 2026-06-26-audit-artifact-writer-generalization).
 - [audit-decision-record-convention](audit-decision-record-convention.md) — Red-line audit snapshots produced by  are persisted as project-memory decisions at .
