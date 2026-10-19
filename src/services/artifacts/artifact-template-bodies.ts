@@ -104,7 +104,14 @@ export const RD_TEMPLATE_BODY = `## Red-line scope
 
 `;
 
-export const QA_TEMPLATE_BODY = `## Red-line boundary check
+/**
+ * QA body. The OpenSpec exit gate is conditional: when the target repository
+ * has no `openspec/changes/`, the prompt form's `<id>` tokens are unfillable
+ * and a pristine artifact fails lint before QA can start. The N/A form records
+ * the same fact without a placeholder. Every other section is unconditional.
+ */
+export function renderQaTemplateBody(hasOpenspecChanges: boolean): string {
+  return `## Red-line boundary check
 
 - in-scope changes seen in the diff (match PRD + RD scope)
 - out-of-scope changes flagged (any extra file, route, mock, fixture, behavior)
@@ -112,10 +119,15 @@ export const QA_TEMPLATE_BODY = `## Red-line boundary check
 
 ## OpenSpec exit gate (when openspec/ exists)
 
-- change-id: <id>
+${
+  hasOpenspecChanges
+    ? `- change-id: <id>
 - peaks openspec validate <id> data.valid: true | false
 - issues: ...
-
+`
+    : `- N/A — openspec/changes/ is absent; no validate run
+`
+}
 ## Acceptance checks
 
 - per-criterion: check method, result (pass | fail | blocked), evidence path
@@ -144,6 +156,7 @@ export const QA_TEMPLATE_BODY = `## Red-line boundary check
 - overall: pass | return-to-rd | blocked
 
 `;
+}
 
 export const SC_TEMPLATE_BODY = `## Change impact
 

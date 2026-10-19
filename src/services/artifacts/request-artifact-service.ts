@@ -247,7 +247,7 @@ export async function createRequestArtifact(
     timestamp,
     // `null`, not the default: an untyped request records no type, so the
     // reader's substitution stays visible as a substitution.
-    options.requestType ?? null
+    { requestType: options.requestType ?? null, projectRoot: options.projectRoot }
   );
 
   if (options.apply !== true) {

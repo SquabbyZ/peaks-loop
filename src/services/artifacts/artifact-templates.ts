@@ -1,9 +1,12 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+
 import type { RequestType } from './artifact-prerequisites.js';
 import {
   PRD_TEMPLATE_BODY,
   UI_TEMPLATE_BODY,
   RD_TEMPLATE_BODY,
-  QA_TEMPLATE_BODY,
+  renderQaTemplateBody,
   SC_TEMPLATE_BODY
 } from './artifact-template-bodies.js';
 
@@ -14,6 +17,12 @@ import {
  * back-compat with external callers.
  */
 export type RequestArtifactRole = 'prd' | 'ui' | 'rd' | 'qa' | 'sc';
+
+/** What every role's render needs beyond the request's own identity. */
+export type RenderTemplateContext = {
+  requestType: RequestType | null;
+  projectRoot: string;
+};
 
 /**
  * Handoff path helpers.
@@ -155,7 +164,8 @@ function renderQaTemplate(
   _sessionId: string,
   sessionId: string,
   timestamp: string,
-  requestType: RequestType | null
+  requestType: RequestType | null,
+  hasOpenspecChanges: boolean
 ): string {
   return (
     `# QA Request ${requestId}
@@ -166,7 +176,7 @@ function renderQaTemplate(
 - linked-ui:  ${formatHandoffPath(sessionId, 'ui', requestId)}  (when UI involved)
 ${renderTypeLine(requestType)}
 ` +
-    QA_TEMPLATE_BODY +
+    renderQaTemplateBody(hasOpenspecChanges) +
     `## Status
 
 - created: ${timestamp}
@@ -222,8 +232,9 @@ export function renderTemplate(
   sessionId: string,
   changeSlug: string,
   timestamp: string,
-  requestType: RequestType | null
+  context: RenderTemplateContext
 ): string {
+  const { requestType } = context;
   switch (role) {
     case 'prd':
       return renderPrdTemplate(requestId, sessionId, changeSlug, timestamp, requestType);
@@ -232,7 +243,14 @@ export function renderTemplate(
     case 'rd':
       return renderRdTemplate(requestId, sessionId, changeSlug, timestamp, requestType);
     case 'qa':
-      return renderQaTemplate(requestId, sessionId, changeSlug, timestamp, requestType);
+      return renderQaTemplate(
+        requestId,
+        sessionId,
+        changeSlug,
+        timestamp,
+        requestType,
+        existsSync(join(context.projectRoot, 'openspec', 'changes'))
+      );
     case 'sc':
       return renderScTemplate(requestId, sessionId, changeSlug, timestamp, requestType);
   }
