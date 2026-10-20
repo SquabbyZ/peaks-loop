@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-20T11:37:10.714Z",
+  "updatedAt": "2026-10-20T15:28:34.538Z",
   "hot": {
     "rule": [
       {
@@ -3354,6 +3354,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "项目整体功能总览文档落在-peaks-docs-capability-overview-md-v4-1-12-基线",
+        "kind": "project",
+        "description": "**位置**：（项目级、git 跟踪，与  同级）。 **基线数字**（v4.1.12，2026-10-20 实测，后续版本改文档前先复算）： | 项 | 值 | 复算命令 | |---|---|---| | 顶层 CLI 命令 | ...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\项目整体功能总览文档落在-peaks-docs-capability-overview-md-v4-1-12-基线.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-20-session-f7f45b/txt/handoff.md",
+        "updatedAt": "2026-10-20"
+      },
+      {
         "name": "a-gate-that-verifies-the-label-instead-of-the-thing",
         "kind": "project",
         "description": "** 的 Gate H 检查的是\"记忆带没带  标记\"，而那个标记由它让你跑的那条命令自己写。它读的一切，都来自它让你跑的东西 —— 自我认证。** 实测（2026-09-14） 在临时项目跑真 CLI： 只改变了三样东西 —— 1.",
@@ -3480,6 +3488,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\count-ceilings-cannot-force-action-finding.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-12-session-74bd69/txt/handoff.md",
         "updatedAt": "2026-10-12"
+      },
+      {
+        "name": "counting-a-part-and-calling-it-the-total-三处数字错误全是同一个形状",
+        "kind": "project",
+        "description": "**三处错误，同一形状**： | 初稿 | 实测 | 我数的其实是 | |---|---|---| | 13 个 IDE 适配器 | **9** |  的**文件数**（23）—— 适配器和周边工具混在一起数了 | | 404 个 C...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\counting-a-part-and-calling-it-the-total-三处数字错误全是同一个形状.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-20-session-f7f45b/txt/handoff.md",
+        "updatedAt": "2026-10-20"
       },
       {
         "name": "custom-sop-and-gate-metering",
