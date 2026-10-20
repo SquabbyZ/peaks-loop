@@ -174,7 +174,8 @@ section.
 
 ## What this lane does not write
 
-No sub-agent dispatches. No Gate A–G file chain. No `peaks request transition` state machine.
+No sub-agent dispatches — the read-only diagnosis fan-out of batch mode below is the one
+exception. No Gate A–G file chain. No `peaks request transition` state machine.
 No planning or review documents — no tech doc, bug analysis, review envelope, audit envelope,
 QA report or verdict. No job shape, no slice DAG, no swarm fan-out, no PRD phase, no
 orchestrator-to-implementer handoff.
@@ -183,3 +184,41 @@ Keep the parts that cost no wall-clock, because they are habits rather than cere
 file before editing it, the TDD micro-cycle, the four Karpathy guidelines, one codegraph
 query for the affected surface, one sentence before you start on what you will change and
 why, and nothing dropped in the project root.
+
+## Batch mode (批量模式)
+
+**When it engages.** The user gives you **two or more mutually independent** bugs or small
+requirements in one go. That is the whole trigger — nothing to configure, no threshold to
+clear. **One item is not a batch:** a single task takes exactly the path it takes today —
+no diagnosis fan-out, no rule pre-read, no topology step — and none of the machinery below
+applies to it. Batch mode is an addition to this lane, never a substitute for it.
+
+**The four phases.**
+
+1. **Parallel read-only diagnosis.** One reader per item, each reporting the root cause,
+   the files it expects to touch, and whether it hit a risk surface.
+2. **Topology.** The measured file sets decide what may run together: items whose file
+   sets are disjoint may proceed together, and an item that collides with another is
+   deferred behind it.
+3. **Fix.** Each item is fixed from its own diagnosis rather than from a fresh one, and
+   every item runs its scoped test as soon as it is fixed.
+4. **One unified verification.** The whole batch goes through the acceptance gate
+   **once** — the gate that §1 of `../peaks-code/references/fast-lane-norm.md` names, the
+   same one a single task runs. Only the count changes; the strictness does not. A red
+   unified verification points at the integration between items rather than at one item:
+   an item's own breakage is caught by its own scoped test.
+
+**The diagnosis phase is read-only.** A diagnostician reads and reports; it does not edit.
+`Edit`, `Write` and `MultiEdit` are forbidden there, and the reason is mechanical rather
+than stylistic: the file set it reports is the only input the topology step has, so a
+diagnostician that also wrote files would be reporting a guess.
+
+**Risk surfaces are judged per item, not per batch.** An item that touches any of the risk
+surfaces in §2 of `../peaks-code/references/fast-lane-norm.md` is pulled out of the batch
+and takes the single-task path on its own. That list lives in the norm and is not restated
+here; read it, judge each item against it, and pull the ones that hit it. A batch is not a
+way to carry a task that does not belong in this lane.
+
+**Where this lane leaves the window.** Batch mode is the only place it does, and only for
+the read-only diagnosis phase: the diagnosis fan-out writes nothing, and every write stays
+in this window.
