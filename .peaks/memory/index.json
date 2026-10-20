@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-20T07:00:25.317Z",
+  "updatedAt": "2026-10-20T11:37:10.714Z",
   "hot": {
     "rule": [
       {
@@ -308,6 +308,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "peaks-workspace-clean-archives-by-age-not-by-validity",
+        "kind": "rule",
+        "description": "prunes session directories older than  (default 168 h plus a 24 h grace) and leaves *fresh* invalid directories untou...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\peaks-workspace-clean-archives-by-age-not-by-validity.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-20-session-c620de/txt/handoff.md",
+        "updatedAt": "2026-10-20"
+      },
+      {
         "name": "removing-a-tool-removes-the-guarantees-it-made-implicitly",
         "kind": "rule",
         "description": "launched the daemon via , which did two jobs: it launched the process **and it pinned the Playwright version by const...",
@@ -386,6 +394,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\test-a-concurrency-fix-against-every-distinct-trigger-class-not-one.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "the-qa-test-cases-artifact-is-read-by-two-gates-with-different-headings",
+        "kind": "rule",
+        "description": "'s artifact contract requires the literal section , while  parses  headings plus  fields.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-qa-test-cases-artifact-is-read-by-two-gates-with-different-headings.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-20-session-c620de/txt/handoff.md",
+        "updatedAt": "2026-10-20"
       },
       {
         "name": "transpilemodule-silently-ignores-removecomments-at-the-top-level-of-its-options-argument",
