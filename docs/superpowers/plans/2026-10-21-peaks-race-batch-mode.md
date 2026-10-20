@@ -19,6 +19,34 @@
 - **Probe B = B-2（探针有盲区，且比预期严重）**：production CLI 恒传 `graphs: []` ⇒ `probeInFlightBatch` 恒返回 false ⇒ **D6.e 的 deferral 在 production 是死代码**。⇒ **Task 6 是硬前置**（`progress.json` 的 `phase` 是唯一能表达"有批次在飞"的信号），且压缩点**必须**是阶段边界。
 - **本仓库没装 `peaks code-gate`**（只装了 `gate-step-08` / `gate enforce` / `auto-compact`）⇒ A-1 测的是身份解析，**不是**装好的拒绝。Task 3 验收须在**装了 code-gate 的项目**里复跑一次。
 
+### Task 4 的机制已端到端验证（2026-10-21）
+
+在派 Task 4 之前实测了它依赖的那条链，**确认它可行**（不是纸面推断）：
+
+```bash
+$ npx --package @alibaba-group/open-code-review@1.13.1 -- \
+    ocr delegate rule "src/services/hooks/pre-tool-code-gate.ts" --format json
+{
+  "schema_version": "1",
+  "groups": [{
+    "group_id": 1,
+    "source": "system",
+    "pattern": "**/*.{ts,js,tsx,jsx,mjs,cjs}",
+    "files": ["src/services/hooks/pre-tool-code-gate.ts"],
+    "rule": "#### Obvious Typos or Spelling Errors\n- ...\n#### Dead Code\n- ...\n#### Code Quality Checks\n- **Duplicate Code**: ...\n..."
+  }]
+}
+```
+
+⇒ **路径列表单独使用即可，不需要 git range**；返回的是**按 pattern 分组的规则文本**，无 key、无 LLM 调用。
+⇒ `buildDelegateRuleArgs(paths, {})` 产出的 argv 是
+`["--package","@alibaba-group/open-code-review@1.13.1","--","ocr","delegate","rule","<path>","--format","json"]`
+（实测，不是读代码推的）。
+
+⚠️ **注意规则文本的长度** —— 上面这一条 TS 规则就有 ~2 KB。**注入 prompt 时要按文件集聚合**（同一个 pattern 的规则只写一次），否则 N 个文件 × 2 KB 会把修复 prompt 撑爆。⇒ Task 4 的实现必须**按 pattern 分组去重**。
+
+---
+
 ## Global Constraints
 
 - **提交信息不得含任何 AI 署名 trailer**（`Co-Authored-By: Claude` / `Anthropic` / `MiniMax` 全部禁止）。SquabbyZ（`601709253@qq.com`）是唯一作者。机械支撑：`tests/unit/standards/no-ai-co-author-trailer.test.ts`（**detect-not-prevent**，补救是改历史）。
