@@ -29,6 +29,18 @@ const execFileAsync = promisify(execFile);
 const DEFAULT_PEAKS_BIN = 'peaks';
 
 /**
+ * Budget for the Q2 sub-agent probe. macOS CI runs this whole suite in parallel;
+ * there the old 5 s budget killed the probe at 5035 ms while the 10 s Q4 probe
+ * passed in the same run, so "slow" was reported as "unavailable". A healthy CLI
+ * answers in well under a second — this ceiling only bounds a hung one, so it is
+ * the worst case, not the expected cost.
+ */
+export const SUB_AGENT_PROBE_TIMEOUT_MS = 15_000;
+
+/** Budget for the Q4 context probe. Unchanged; Q2 must stay at least this large. */
+export const CONTEXT_RATIO_PROBE_TIMEOUT_MS = 10_000;
+
+/**
  * Spawn argv for the peaks CLI. An explicitly injected `peaksBin` (the
  * `--peaks-bin` test seam) is spawned verbatim; the default sentinel resolves
  * to this tree's own CLI entry, interpreted by the running Node.
@@ -60,7 +72,7 @@ export async function probeSubAgentAvailable(
     const { command, args } = peaksSpawn(peaksBin);
     await execFileAsync(command, [...args, 'sub-agent', 'dispatch', '--role', 'rd', '--help'], {
       cwd: projectRoot,
-      timeout: 5000,
+      timeout: SUB_AGENT_PROBE_TIMEOUT_MS,
       windowsHide: true
     });
     return true;
@@ -85,7 +97,7 @@ export async function probeContextRatio(
       [...args, 'code', 'context-now', '--project', projectRoot, '--json'],
       {
         cwd: projectRoot,
-        timeout: 10000,
+        timeout: CONTEXT_RATIO_PROBE_TIMEOUT_MS,
         windowsHide: true
       }
     );
