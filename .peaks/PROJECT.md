@@ -2,7 +2,7 @@
 
 > Auto-generated project memory. Peaks reads this at the start of each session to understand
 > the project's history, tech stack, conventions, and past decisions.
-> Last updated: 2026-09-12T03:32:17.888Z
+> Last updated: 2026-10-20T12:44:43.681Z
 
 ## Project: peaks-loop
 
@@ -45,24 +45,24 @@
 
 <!-- peaks-managed:session-history-start -->
 
-## Timeline (32 sessions, showing last 15)
+## Timeline (19 sessions, showing last 15)
 
 | Date | Directory | Title | What |
 |------|-----------|-------|------|
-| 2026-09-12 | `2026-09-12-session-ded54d` | Untitled | - |
-| 2026-09-12 | `2026-09-12-session-2a1800` | Untitled | - |
-| 2026-09-12 | `2026-09-12-session-30287d` | Untitled | - |
-| 2026-09-12 | `2026-09-12-session-87d906` | Untitled | - |
-| 2026-09-12 | `2026-09-12-session-fe2f86` | Untitled | - |
-| 2026-09-11 | `2026-09-12-session-86f23b` | Untitled | Session: 2026-09-12-session-86f23b. Verdict: **NOT SHIPPABLE — 3 BLOCK |
-| 2026-09-11 | `2026-09-12-session-aaae4f` | Untitled | - |
-| 2026-09-11 | `2026-09-11-session-6cd43c` | Untitled | - |
-| 2026-09-11 | `2026-09-11-session-e40557` | Untitled | - |
-| 2026-09-11 | `2026-09-11-session-107b80` | Untitled | - |
-| 2026-09-11 | `2026-09-11-session-209390` | Untitled | - |
-| 2026-09-11 | `2026-09-11-session-d43a67` | Untitled | - |
-| 2026-09-10 | `2026-09-10-session-7aa6ec` | Untitled | - |
-| 2026-09-10 | `2026-09-10-session-195a7b` | Untitled | - |
-| 2026-09-10 | `2026-09-10-session-8ee8c6` | Untitled | - |
+| 2026-10-20 | `2026-10-20-session-c620de` | 修 macOS CI 探针超时 | | 检查 | 命令 | 结果 | |
+| 2026-10-20 | `2026-10-20-session-a545d0` | 生产依赖升版与适配 | peaks-code |
+| 2026-10-19 | `2026-10-19-session-94b084` | Step 0.8 gate remedy exemption | peaks-code |
+| 2026-10-18 | `2026-10-18-session-dedff6` | 硬化 backCompatUntil 过期窗口 | Started 2026-10-19 after the user asked for 24h mode and full backlog  |
+| 2026-10-18 | `2026-10-18-session-0e1a6c` | 项目功能整体评测 | > 评测对象：`D:\projects\peaks-loop` @ `0b30c497`（v4.1.6） |
+| 2026-10-15 | `2026-10-15-session-172124` | Untitled | Role: peaks-perf-audit (independent). HEAD `dd697a08`, change staged + |
+| 2026-10-14 | `2026-10-15-session-060d3b` | Untitled | - |
+| 2026-10-14 | `2026-10-14-session-cff56d` | Untitled | peaks-code |
+| 2026-10-14 | `2026-10-14-session-3cb9bc` | Untitled | You are the **first independent reader** of this slice. Everything the |
+| 2026-10-14 | `2026-10-14-session-7bcea9` | Untitled | - |
+| 2026-10-14 | `2026-10-14-session-6ebd77` | Untitled | - |
+| 2026-10-13 | `2026-10-14-session-2f9323` | Untitled | peaks-code |
+| 2026-10-12 | `2026-10-12-session-74bd69` | race-code 门 2 阈值与评估器 | peaks-code |
+| 2026-10-11 | `2026-10-11-session-5ac396` | dashboard 埋点契约 | **Session:** 2026-10-11-session-5ac396 · **Role:** prd → rd · **state: |
+| 2026-10-10 | `2026-10-10-session-9e5bf4` | Untitled | - |
 
 <!-- peaks-managed:session-history-end -->
