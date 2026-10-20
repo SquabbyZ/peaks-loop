@@ -889,6 +889,75 @@ git commit -m "feat(rd): add a lint leg to the micro-cycle so a violation is fix
 
 ---
 
+## Task 7: 批量模式的 skill 表面（用户唯一看得见的入口）
+
+> **为什么必须有这个 task**：前六个 task 全在造机制，但**没有一个碰 `skills/peaks-race-code/SKILL.md`** —— 而那才是用户 `/peaks-race-code` 时真正读到的东西。没有它，批量模式**没有任何用户可见的入口**，而 lane 的「什么算批量 / 什么时候走批量 / 风险面怎么判」仍然只存在于本计划里。
+> **缺陷来源**：初稿把「机制」和「表面」当成了同一件事。机制是 `src/services/batch/**`，表面是 SKILL.md —— 两者都要。
+
+**Files:**
+- Modify: `skills/peaks-race-code/SKILL.md`
+- Test: `tests/unit/skills/race-batch-mode-surface.test.ts`
+
+**Interfaces:**
+- Consumes: `decideBatchMode`（Task 1）；`planBatchTopology`（Task 1）；`BATCH_ACCEPTANCE_GATE`（Task 2）
+- Produces: `skills/peaks-race-code/SKILL.md` 里的一节「批量模式」，含 loop-hygiene 块（**必须逐字节相同**）
+
+- [ ] **Step 1: 写失败测试 —— SKILL.md 必须声明批量模式的触发与边界**
+
+```ts
+// tests/unit/skills/race-batch-mode-surface.test.ts
+describe('race-code SKILL.md declares the batch mode', () => {
+  it('states when batch mode engages', () => {
+    const text = readFileSync('skills/peaks-race-code/SKILL.md', 'utf8');
+    expect(text).toContain('批量');
+  });
+
+  it('states that the single-task path is unchanged', () => {
+    const text = readFileSync('skills/peaks-race-code/SKILL.md', 'utf8');
+    expect(text).toMatch(/单个|单任务|N=1/);
+  });
+
+  it('keeps the loop-hygiene block byte-identical', () => {
+    // 复用既有守卫的读法：loop-hygiene-block.test.ts 已遍历全树比对，
+    // 这里只断言本文件含该块的标题，且 tests/unit/skills/ 全绿即成立
+    const text = readFileSync('skills/peaks-race-code/SKILL.md', 'utf8');
+    expect(text).toContain('Peaks-Loop Skill:');
+  });
+});
+```
+
+- [ ] **Step 2: 跑测试确认它失败**
+
+Run: `npx vitest run tests/unit/services/../skills/race-batch-mode-surface.test.ts`
+Expected: FAIL —— SKILL.md 里还没有「批量」这一节
+
+- [ ] **Step 3: 在 `skills/peaks-race-code/SKILL.md` 里加「批量模式」一节**
+
+必须写清四件事（**每一条都有机制支撑，不写没有实现支撑的话**）：
+
+1. **什么时候进批量**：用户一次给出 ≥2 个互相独立的 bug 或小需求。N=1 时**完全走今天这条路**（不诊断、不预读、不定档）。
+2. **四个阶段**：并行只读诊断 → 定档 → 修复 → 一次统一验证。
+3. **诊断阶段严格只读**：禁止 Edit / Write / MultiEdit。
+4. **风险面仍然逐项判**：命中 7 条风险面里任何一条的项**踢出批量**，走单任务流程（`fast-lane-norm.md` §2 是权威清单，不要复述它 —— 指向它）。
+
+⚠️ **不要在 SKILL.md 里复述 `fast-lane-norm.md` 的风险面清单** —— 那是 `fast-lane-norm-single-source.test.ts` 守卫的**单源**约束。指向它，不要复制。
+
+⚠️ **不要改 loop-hygiene 块**（22 份逐字节相同 + 一个测试钉住）。本节写在它**之后**。
+
+- [ ] **Step 4: 跑测试确认它通过**
+
+Run: `npx vitest run tests/unit/skills/`
+Expected: PASS（含 loop-hygiene 全树守卫 —— 改了 SKILL.md 就必须跑整个目录）
+
+- [ ] **Step 5: 提交**
+
+```bash
+git add skills/peaks-race-code/SKILL.md tests/unit/skills/race-batch-mode-surface.test.ts
+git commit -m "feat(race): declare the batch mode on the lane's user-facing surface"
+```
+
+---
+
 ## Self-Review
 
 **1. Spec coverage** —— 逐节对：
@@ -904,6 +973,7 @@ git commit -m "feat(rd): add a lint leg to the micro-cycle so a violation is fix
 | §3.3 阶段③修复 | Task 3 |
 | §3.4 阶段④统一验证 | Task 2 |
 | §4 Slice 1/2/3/4/5/6 | Task 1 / 2 / 3 / 4 / 5 / 6 |
+| **用户可见入口**（用户 `/peaks-race-code` 读到的） | **Task 7**（`skills/peaks-race-code/SKILL.md`）—— 初稿漏了，机制做完了但用户看不见 |
 | §4.1 driver probe | Task 0 Step 3 |
 | §5 规范预读（三层） | Task 4 |
 | §5.4 micro-cycle lint 腿 | Task 5 |
@@ -920,6 +990,8 @@ git commit -m "feat(rd): add a lint leg to the micro-cycle so a violation is fix
 | §8 U-j（提醒措辞守卫） | Task 2 Step 8 |
 
 **缺口**：§7.2 的 token 前后计量对比（U-e）**没有独立 task**。⇒ 它是 **Task 1 的验收项**（不是新 task）：Slice 1 交付后跑一次前后 `cache_read_input_tokens` 对比，写进 Task 1 的交付记录。
+
+**另一个缺口（本轮自审发现）**：**初稿没有任何 task 改 `skills/peaks-race-code/SKILL.md`** —— 那是用户 `/peaks-race-code` 时唯一读到的文件。机制做完而表面没做，等于批量模式没有用户可见的入口。⇒ 已补 **Task 7**（自审时补的，不是原计划的）。
 
 **2. Step scan** —— 每一步都只让实现者写**一件**可判定的事。没有 "TBD"、没有 "加适当的校验"、没有签名与测试已经决定的函数体。Task 0 的 Step 3 / 6 是**实测步骤**，产出是一份文档而不是代码 —— 这是有意的（设计文档 §U-a / §U-h 明确要求实测而非推理）。
 
@@ -945,13 +1017,14 @@ git commit -m "feat(rd): add a lint leg to the micro-cycle so a violation is fix
 ## Execution Order
 
 ```
-Task 0 (两个 probe)
+Task 0 (两个 probe)  ✅ 已完成
   └─> Task 6 (进度落盘)        ← 必须在 Task 1 之前
         └─> Task 1 (骨架+诊断并行)
               ├─> Task 2 (统一验证)
-              ├─> Task 3 (修复阶段)   ← 分支 A-1 还需 Task 4
-              └─> Task 4 (规范预读)
-                    └─> Task 5 (micro-cycle lint 腿)
+              ├─> Task 4 (规范预读)
+              │     └─> Task 3 (修复阶段)
+              ├─> Task 7 (SKILL.md 用户表面)
+              └─> Task 5 (micro-cycle lint 腿)  ← 独立
 ```
 
 **Task 0 的结论会改变 Task 3 的写法**（不是内容）。Task 0 不做完后不要开 Task 3。
