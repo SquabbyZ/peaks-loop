@@ -1,5 +1,40 @@
 # Changelog
 
+## 4.1.12 — 2026-10-20（macOS CI 红灯、frontend-only 正面证据制，与 Node 门槛声明修正）
+
+**版本级别**: 未发布区间 `v4.1.11..HEAD` 共 **5 个 commit**（**3 fix / 1 docs / 1 chore**）。取 **patch**，依维护者 2026-07-22 的常设规则"默认版本新增采用最小的版本位"。`ProjectArchetype` 新增 `cli` 取值、`ArchetypeReport.detected` 新增 `hasBin` 与 `frontendEvidence` 两个字段，均为**追加**；既有 archetype 取值、`frontendOnly` 的布尔语义与全部 CLI 参数不变，无破坏性变更。
+
+### 1. macOS CI 的唯一红灯来自 Q2 探针预算（`8e7a1cac`）
+
+- 4.1.11 的 CI 在 `macos-latest` 上只有一条失败：`orchestrator-can-do.test.ts` 的 Q2 探针。用例耗时 **5035 ms**，而探针的 `execFile` 预算是 **5000 ms**——超时被 `catch` 统一读成 `false`，于是"慢"变成了"sub-agent dispatch 不可用"。
+- 同一次 CI 里，Q4 探针用 10000 ms 预算并通过；这就是对照证据。本次把 Q2 预算提为具名常量 `SUB_AGENT_PROBE_TIMEOUT_MS = 15_000`，Q4 也改为具名 `CONTEXT_RATIO_PROBE_TIMEOUT_MS = 10_000`（值未动）。
+- 新增回归断言：**Q2 预算不得低于 Q4 预算**，失败信息点名被改小的常量。负向对照（把 Q2 改回 `5_000`）确实变红，断言不是同义反复。
+- 断言放在新文件 `orchestrator-can-do-probe-budgets.test.ts`：`orchestrator-can-do.test.ts` 在 HEAD 已 564 行、超过 tests 的 500 行上限，staged size ratchet 拒绝增长。
+
+### 2. frontend-only 不再等于"没有后端"（`20062aa3`）
+
+- `decideFrontendOnly` 此前只有一条判据：`arctype === frontend-monorepo` 或 `!hasBackend && !hasSwaggerOrProto`。一个没有任何前端产物的 TypeScript CLI 因此被报成 `frontend-monorepo` + `frontendOnly: true`，并写进 project-scan 供 PRD/RD 读取。
+- 现在要求**正面证据**（任一）：前端框架/运行时依赖；CSS 相关依赖；或 `src|app|pages|components|public` 下存在 `css|scss|sass|less|styl|html|htm|vue|svelte` 文件。目录遍历跳过 `node_modules|dist|build|out|coverage` 与点目录，并且**只认应用根**——本仓库 `examples/**` 与 `skills/**` 里的样式不计入。
+- 新增 `cli` archetype：`bin` 非空 + 无后端 + 无前端证据。本仓库自扫现在是 `cli` / `false` / `archetype=cli`，monorepo 分支不再把它吞掉。
+- 探测放在新模块 `src/services/scan/frontend-evidence.ts`：`archetype-detection.ts` 已 363 行、超过 src 的 300 行上限，闸门拒绝增长。
+- 测试 fixture 里原本断言 `frontendOnly: true` 的用例都补上了真实证据；旧的 `no-backend-no-swagger` 期望被替换，而不是作为期望值保留。
+
+### 3. 证据标签与 bin 探针分支（`4c338be4`）
+
+- 文件证据的 reason 从 `css-under-<root>` 改为 `asset-under-<root>`：HTML 与 `.vue`/`.svelte` 此前被标成 CSS。
+- 新增 `readRootBin` 的直接单测：manifest 缺失 / 非法 JSON / `bin: {}` → false；字符串 `bin` 与非空对象 → true。
+
+### 4. README 的 Node 门槛（`a6233fc4`）
+
+- 两个 README 的徽章从 `node ≥20` 改为 `≥24`。真实门槛由 `bin/node-floor.mjs` 的 `MIN_NODE_MAJOR = 24` 决定，`package.json#engines` 也已是 `>=24`；旧徽章会让 Node 20–23 的用户按错误的前提安装。
+
+### 5. 证据
+
+- 全量 `pnpm test:unit`：**540 files / 5980 passed / 3 skipped**，exit 0（3 个 skip 为既有 `@slow` / `@replay` 标记）。首轮曾因新测试文件未进体积基线而红了两条 standards 测试（census 784 vs `shadow.measuredFiles` 783），重生成基线后转绿；`shadow` 783→784，17 个 ceiling 逐一比对未动。
+- `tsc --noEmit` 0 error；`pnpm build` 成功且 `dist` 携带 4.1.12；`node .husky/peaks-gate.mjs repo` 全部 ceiling 持平；`peaks changeset check` 通过；`no-ai-co-author-trailer` 红线测试通过。
+- 三个代码切片均走 PRD → RD → QA：security / perf 审计由 CLI 出件（全部 `pass`，0 violations），karpathy 复核 4 项全部 pass，`peaks workflow verify-pipeline` 三份均 `gateC=pass / gateH=pass`、0 violations。
+- OCR 1.x 补充评审：直接调用在 60 s 预算处超时；改走无凭据的 delegation 路径（出包 → 宿主模型按包内规则审 → `ocr-delegate-record` 回录），抓到一条 LOW——正是第 3 节修掉的 `css-under-` 标签。ESLint 仍是主闸，全程 0 findings。
+
 ## 4.1.11 — 2026-10-20（生产依赖升版、OCR 全语言路由，与 delegation 双阶段评审路径）
 
 **版本级别**: 未发布区间 `v4.1.10..HEAD` 共 **3 个 commit**（**2 feat / 1 refactor**）。取 **patch**，依维护者 2026-07-22 的常设规则"默认版本新增采用最小的版本位"。`peaks code-review run-ocr-18` 新增 `--languages auto|<csv>` 与 `--delegate` 两条路径、新增 `peaks code-review ocr-delegate-record` 一个动词，均是在既有 service 之上的新入口；既有的 `--language <lang>` 单语言路径与 API 路径行为不变，无破坏性变更。
