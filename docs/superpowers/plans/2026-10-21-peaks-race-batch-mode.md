@@ -47,6 +47,36 @@ $ npx --package @alibaba-group/open-code-review@1.13.1 -- \
 
 ---
 
+### 派发给子代理的提示词形状（Task 6 实测得出，后续 task 照此写）
+
+Task 6 的第一版提示词把「门禁契约」整段放在最前面，附 7 个产物路径和各自的 marker 清单。
+**子代理把契约当成了任务主体** —— 前 70 分钟它在读 `judged-declaration.ts`、
+`artifact-contract-block.ts`、`security-audit detect`，**四个实现文件一个没写**。
+
+⇒ **给子代理的提示词必须遵守三条**：
+
+1. **产物清单压到一行**，并且明确标注「**最后做**」；否则子代理会先去满足清单。
+2. **写清楚工作目录**（worktree 的绝对路径）；Task 6 的子代理在主树与 worktree 之间来回跑，
+   因为提示词只说「用 worktree」没说「在哪」。
+3. **把已知的门禁陷阱写成禁令**，而不是让子代理自己撞出来。Task 6 撞了两次：
+   - 空 `catch {}` → `silentWarningEmptyCatch` 60→61，基线棘轮**拒绝写入**（这是对的）
+   - prettier 未格式化 → `prettierUnformatted` 0→1，同样被棘轮拒绝
+
+   ⇒ 提示词里直接写「**不要空 catch 块**」+「**提交前跑 prettier**」，
+   比让它自己撞一次再修快得多。
+
+**已验证有效的形状**：先说「读计划的 Task N 节 → 只实现 Task N」，再给「Task 6 已经合进 main，
+你消费这些文件」清单，再给「怎么工作」（先写失败测试 / scoped 测试 / 不要空 catch / 800 行 / prettier），
+最后才是「产物最后做，有时间才做」和「报告 ≤40 行」。
+
+### 派发时省上下文的做法
+
+`peaks sub-agent dispatch` 的 envelope **含完整 prompt（约 20 KB）**，直接打印会灌满编排器窗口。
+⇒ 用 `.tmp/dispatch.mjs` 派发：envelope 落盘到文件，只回 `batchId` / `promptSize` /
+`dispatchRecordPath` / `prompt` 前 300 字符。**后续 task 全部走这条路。**
+
+---
+
 ## Global Constraints
 
 - **提交信息不得含任何 AI 署名 trailer**（`Co-Authored-By: Claude` / `Anthropic` / `MiniMax` 全部禁止）。SquabbyZ（`601709253@qq.com`）是唯一作者。机械支撑：`tests/unit/standards/no-ai-co-author-trailer.test.ts`（**detect-not-prevent**，补救是改历史）。
