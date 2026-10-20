@@ -1076,13 +1076,16 @@ git commit -m "feat(race): declare the batch mode on the lane's user-facing surf
 
 ```
 Task 0 (两个 probe)  ✅ 已完成
-  └─> Task 6 (进度落盘)        ← 必须在 Task 1 之前
-        └─> Task 1 (骨架+诊断并行)
+  └─> Task 6 (进度落盘)        ✅ 已完成
+        └─> Task 1 (骨架+诊断并行)      🔄 在飞
               ├─> Task 2 (统一验证)
-              ├─> Task 4 (规范预读)
+              ├─> Task 4 (规范预读)      ✅ 已完成
               │     └─> Task 3 (修复阶段)
-              ├─> Task 7 (SKILL.md 用户表面)
-              └─> Task 5 (micro-cycle lint 腿)  ← 独立
+              ├─> Task 7 (SKILL.md 用户表面) ✅ 已完成
+              ├─> Task 5 (micro-cycle lint 腿) ✅ 已完成
+              └─> Task 8 (上下文监控)     ← 用户 2026-10-21 追加，见 spec §7A.8
 ```
 
 **Task 0 的结论会改变 Task 3 的写法**（不是内容）。Task 0 不做完后不要开 Task 3。
+
+**Task 8 与批量机制正交**（改的是编排器的报告消费方式 + 压缩时机/文案），且**对 peaks-code 本身也有价值** —— 任何多子代理场景都少占编排器窗口。
