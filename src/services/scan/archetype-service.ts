@@ -24,6 +24,7 @@ import {
   LOCKFILE_STALE_DAYS,
   readPackageJsonDeps
 } from './archetype-detection.js';
+import { detectFrontendEvidence, frontendSignals, readRootBin } from './frontend-evidence.js';
 
 export type ArchetypeScanOptions = {
   projectRoot: string;
@@ -130,8 +131,17 @@ function decideArchetype(detected: ArchetypeReport['detected']): {
     detail: detected.lockfileAgeDays === null ? 'no lockfile' : `${detected.lockfileAgeDays} days`
   });
 
+  signals.push(...frontendSignals(detected.hasBin, detected.frontendEvidence));
+
   if (!detected.hasPackageJson) {
     return { archetype: 'unknown', confidence: 'low', signals };
+  }
+
+  // A published CLI is not a frontend. `bin` + no backend + no frontend
+  // evidence used to fall through to `frontend-monorepo` (monorepo config) or
+  // `legacy-frontend`, and `decideFrontendOnly` then called it frontend-only.
+  if (detected.hasBin && !hasBackend && detected.frontendEvidence === null) {
+    return { archetype: 'cli', confidence: 'high', signals };
   }
 
   // Monorepo detection runs BEFORE the backend check: a monorepo with
@@ -200,17 +210,21 @@ function decideFrontendOnly(report: ArchetypeFacts): {
   frontendOnly: boolean;
   reason: string;
 } {
-  if (report.archetype === 'legacy-frontend' || report.archetype === 'frontend-monorepo') {
-    return { frontendOnly: true, reason: `archetype=${report.archetype}` };
+  if (report.archetype === 'cli') {
+    return { frontendOnly: false, reason: 'archetype=cli' };
   }
   const noBackend = !hasBackendEvidence(report.detected);
-  if (noBackend && !report.detected.hasSwaggerOrProto) {
-    return { frontendOnly: true, reason: 'no-backend-no-swagger' };
-  }
-  if (noBackend) {
+  if (noBackend && report.detected.hasSwaggerOrProto) {
     return { frontendOnly: false, reason: 'swagger-or-proto-present' };
   }
-  return { frontendOnly: false, reason: 'backend-detected' };
+  if (!noBackend) {
+    return { frontendOnly: false, reason: 'backend-detected' };
+  }
+  const evidence = report.detected.frontendEvidence;
+  if (evidence === null) {
+    return { frontendOnly: false, reason: 'no-frontend-evidence' };
+  }
+  return { frontendOnly: true, reason: `frontend-evidence=${evidence}` };
 }
 
 /**
@@ -236,7 +250,9 @@ function decideIntegrationMode(report: ArchetypeFacts): {
 export async function scanArchetype(options: ArchetypeScanOptions): Promise<ArchetypeReport> {
   const { projectRoot } = options;
   const { exists: hasPackageJson, deps } = await readPackageJsonDeps(projectRoot);
+  const hasBin = await readRootBin(projectRoot);
   const backendFrameworks = await detectBackendFrameworks(deps);
+  const frontendEvidence = await detectFrontendEvidence(projectRoot, deps);
   const hasNext = Object.prototype.hasOwnProperty.call(deps, 'next');
   const hasNextApiRoutes = await detectNextApiRoutes(projectRoot, hasNext);
   const backendDirsPresent = await detectBackendDirs(projectRoot);
@@ -260,7 +276,9 @@ export async function scanArchetype(options: ArchetypeScanOptions): Promise<Arch
     hasNextApiRoutes,
     srcFileCount,
     backendDirsPresent,
-    lockfileAgeDays: ageDays
+    lockfileAgeDays: ageDays,
+    hasBin,
+    frontendEvidence
   };
 
   const { archetype, confidence, signals } = decideArchetype(detected);

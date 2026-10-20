@@ -1,6 +1,6 @@
 ---
 schemaVersion: 1
-capturedAt: 2026-10-20T02:10:15.413Z
+capturedAt: 2026-10-20T11:40:00.000Z
 techStack:
   language: typescript
   packageManager: pnpm
@@ -68,7 +68,7 @@ karpathySelfCheck:
 
 | Field | Value |
 |---|---|
-| Type | `frontend-monorepo` |
+| Type | `cli` |
 | Confidence | `high` |
 
 ## Project mode
@@ -77,8 +77,8 @@ karpathySelfCheck:
 |---|---|
 | Integration mode | prd-only |
 | Integration mode reason | no-backend-no-interface-doc |
-| Frontend-only | `true` |
-| Reason | archetype=frontend-monorepo |
+| Frontend-only | `false` |
+| Reason | archetype=cli |
 
 ## Tech stack
 

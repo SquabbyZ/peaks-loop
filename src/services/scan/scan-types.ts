@@ -4,6 +4,7 @@ export type ProjectArchetype =
   | 'legacy-fullstack'
   | 'frontend-monorepo'
   | 'fullstack-monorepo'
+  | 'cli'
   | 'unknown';
 
 export type ArchetypeSignal = {
@@ -48,6 +49,13 @@ export type ArchetypeReport = {
     srcFileCount: number;
     backendDirsPresent: string[];
     lockfileAgeDays: number | null;
+    /** The root `package.json` declares a non-empty `bin` entry. */
+    hasBin: boolean;
+    /** The strongest positive frontend signal observed, or `null` when none
+     *  was. A frontend framework dep, a CSS-adjacent dep, or a css/html-family
+     *  asset under an application root. `frontendOnly` is derived from this,
+     *  never from "the repository is not a backend". */
+    frontendEvidence: string | null;
   };
 };
 
