@@ -1,5 +1,5 @@
 /**
- * OCR 1.8.x acquisition — the ONE step that is allowed to install the reviewer.
+ * OCR 1.x acquisition — the ONE step that is allowed to install the reviewer.
  *
  * ## Why this exists as its own module
  *
@@ -378,7 +378,7 @@ export async function acquireOcr18(options: AcquireOcr18Options = {}): Promise<A
     if (!locked) {
       return failure(
         'OCR18_ACQUIRE_BUSY',
-        'another OCR 1.8.x acquisition is already running on this machine; ' +
+        'another OCR 1.x acquisition is already running on this machine; ' +
           `the lock (${ocrAcquireLockPath()}) prevents a second download — retry once it finishes`,
         shell,
         startedAt

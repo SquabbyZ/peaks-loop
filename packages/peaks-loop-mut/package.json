@@ -33,7 +33,7 @@
   },
   "dependencies": {
     "ecc-universal": "^2.2.3",
-    "zod": "^4.4.3"
+    "zod": "^4.6.7"
   },
   "publishConfig": {
     "access": "public"

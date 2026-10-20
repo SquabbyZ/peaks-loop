@@ -1,18 +1,19 @@
 ---
 schemaVersion: 1
-capturedAt: 2026-09-12T03:32:58.000Z
+capturedAt: 2026-10-20T02:10:15.413Z
 techStack:
   language: typescript
   packageManager: pnpm
-  runtime: "node>=20.0.0 (active v22.22.1)"
+  runtime: "node>=24.0.0 (active v24.12.0)"
   buildTool: tsc -p tsconfig.json
   testRunner: vitest
   mutationRunner: "@stryker-mutator/core ^8.7.1"
 libraryVersions:
   commander: "^12.1.0"
-  yaml: "^2.9.0"
-  zod: "^4.4.3"
+  yaml: "^2.9.1"
+  zod: "^4.6.7"
   fzf: "^0.5.2"
+  picomatch: "4.0.7"
   vitest: "^4.1.10"
   "@vitest/coverage-v8": "^4.1.10"
   "@vitest/coverage-istanbul": "^4.1.10"
@@ -20,12 +21,11 @@ libraryVersions:
   vite: "^6.0.0"
   typescript: "^5.7.2"
   tsx: "^4.19.2"
-  better-sqlite3: "^12.11.1"
-  headroom-ai: "0.22.4"
   "@stryker-mutator/core": "^8.7.1"
   "@stryker-mutator/vitest-runner": "^9.6.1"
-  "@colbymchenry/codegraph": "0.7.10"
-  "@alibaba-group/open-code-review": "^1.8.9 (required dep, see slice PRD-002 sediment)"
+  "@colbymchenry/codegraph": "1.6.2"
+  "@upstash/context7-mcp": "^4.4.4"
+  "@alibaba-group/open-code-review": "^1.13.1 (required dep, see slice PRD-002 sediment)"
 architecture: |
   peaks-loop is a TypeScript Node CLI for AI-coding workflow orchestration.
   Architecture:
@@ -57,6 +57,12 @@ karpathySelfCheck:
 > `peaks project context` preserves existing files, and this one carries
 > hand-authored reasoning (the vitest pin, the c8-over-built-in-coverage note)
 > that a regeneration would have destroyed.
+>
+> 2026-10-20: refreshed in place again after the production-dependency bump
+> (`@alibaba-group/open-code-review` 1.13.1, `@upstash/context7-mcp` 4.4.4,
+> `picomatch` 4.0.7, `yaml` 2.9.1, `zod` 4.6.7). Stale rows for removed
+> `better-sqlite3` / `headroom-ai` dropped, `codegraph` corrected to 1.6.2,
+> `engines.node` corrected to `>=24.0.0`.
 
 ## Archetype
 
@@ -80,7 +86,7 @@ karpathySelfCheck:
 |---|---|
 | Language | TypeScript (`^5.7.2`) |
 | Package manager | pnpm (`10.11.0`) |
-| Node runtime | `>= 20.0.0` (active: v22.22.1) |
+| Node runtime | `>= 24.0.0` (active: v24.12.0) |
 | Build | `tsc -p tsconfig.json` (root) + per-package `tsc -p tsconfig.json` |
 | Tests | vitest (`^4.1.10` — **pinned, do NOT bump to 5.x**) |
 | Coverage | vitest's built-in coverage, driven by `.husky/coverage-ratchet.mjs` against the floor in `.peaks/lint/coverage-floor.json` (`c8` `^10.1.3` remains a devDependency); the c8 100% gate (`scripts/coverage-c8.mjs`) was removed 2026-10-17 (backlog §13.4 rule 2) |
@@ -91,22 +97,22 @@ karpathySelfCheck:
 
 | Package | Pinned range | Notes |
 |---|---|---|
-| `commander` | `^12.1.0` | CLI subcommand tree |
-| `yaml` | `^2.9.0` | frontmatter serialize/parse (handoff-service) |
-| `zod` | `^4.4.3` | schema validation across services |
+| `commander` | `^12.1.0` | CLI subcommand tree (newest 12.x) |
+| `yaml` | `^2.9.1` | frontmatter serialize/parse (handoff-service) |
+| `zod` | `^4.6.7` | schema validation across services |
 | `fzf` | `^0.5.2` | fuzzy selector (sub-agent dispatch) |
+| `picomatch` | `4.0.7` | extended-glob matching (codegraph-exclude-reconciler); exact pin preserved |
 | `vitest` | `^4.1.10` | unit + integration tests (LOCKED 2026-07-25) |
 | `@vitest/coverage-v8` | `^4.1.10` | the provider `.husky/coverage-ratchet.mjs` measures through |
 | `@vitest/coverage-istanbul` | `^4.1.10` | bundled but unused |
 | `c8` | `^10.1.3` | kept as a devDependency; the `--100` gate that used it was removed 2026-10-17 |
 | `vite` | `^6.0.0` | vitest peer (no runtime use) |
 | `tsx` | `^4.19.2` | `peaks dev` runtime |
-| `better-sqlite3` | `^12.11.1` | native binding for retrospective state |
-| `headroom-ai` | `0.22.4` | sub-agent context compression (optional) |
 | `@stryker-mutator/core` | `^8.7.1` | mutation testing (slice-only) |
 | `@stryker-mutator/vitest-runner` | `^9.6.1` | stryker↔vitest bridge |
-| `@colbymchenry/codegraph` | `0.7.10` | optional project analysis (untrusted, supporting evidence only) |
-| `@alibaba-group/open-code-review` | `^1.8.9` | required runtime dep; 1.8.x per-platform optionalDependencies replaces 2.0.3 HTTPS postinstall |
+| `@colbymchenry/codegraph` | `1.6.2` | optional project analysis (untrusted, supporting evidence only) |
+| `@upstash/context7-mcp` | `^4.4.4` | declared but not yet imported (`scan-orchestrator.ts` TODO) |
+| `@alibaba-group/open-code-review` | `^1.13.1` | required runtime dep; 1.13.x per-platform optionalDependencies replaces 2.0.3 HTTPS postinstall |
 
 ## Architecture (one-paragraph)
 

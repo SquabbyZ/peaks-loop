@@ -1,5 +1,5 @@
 /**
- * peaks code-review * CLI surface — ECC bridge + OCR 1.8.x.
+ * peaks code-review * CLI surface — ECC bridge + OCR 1.x.
  */
 import type { Command } from 'commander';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
@@ -37,14 +37,14 @@ export function registerCodeReviewCommands(program: Command, io: ProgramIO): voi
   const codeReview = program
     .command('code-review', { hidden: true })
     .description(
-      'Code-review primitives for peaks-rd Gate B3. ECC bridge (JS/TS) + OCR 1.8.x multi-language.'
+      'Code-review primitives for peaks-rd Gate B3. ECC bridge (JS/TS) + OCR 1.x multi-language.'
     );
 
   addJsonOption(
     codeReview
       .command('detect-ocr-18')
       .description(
-        'Read-only probe: returns the 5-state OCR 1.8.x runtime envelope (ready / ocr18-missing / binary-missing / llm-config-missing / detection-failed).'
+        'Read-only probe: returns the 5-state OCR 1.x runtime envelope (ready / ocr18-missing / binary-missing / llm-config-missing / detection-failed).'
       )
   ).action((options: DetectOptions) => {
     try {
@@ -55,7 +55,7 @@ export function registerCodeReviewCommands(program: Command, io: ProgramIO): voi
           : fail(
               'code-review.detect-ocr-18',
               result.state.toUpperCase().replace(/-/g, '_'),
-              `ocr 1.8.x is not ready: ${result.state}`,
+              `ocr 1.x is not ready: ${result.state}`,
               result,
               [...result.nextActions]
             );
@@ -80,7 +80,7 @@ export function registerCodeReviewCommands(program: Command, io: ProgramIO): voi
     codeReview
       .command('acquire-ocr-18')
       .description(
-        'Acquire the OCR 1.8.x reviewer: runs the pinned npx package VISIBLY (npm progress on the ' +
+        'Acquire the OCR 1.x reviewer: runs the pinned npx package VISIBLY (npm progress on the ' +
           'terminal) and installs it once when it is not already cached. The companion to the read-only ' +
           '`detect-ocr-18` probe, which never installs.'
       )
@@ -182,7 +182,7 @@ export function registerCodeReviewCommands(program: Command, io: ProgramIO): voi
     codeReview
       .command('run-ocr-18')
       .description(
-        'Invoke `ocr review --filter-language <lang>` (or `ocr delegate preview` when --delegate) for one of 8 supported languages.'
+        'Invoke `ocr review` over the requested git range (or `ocr delegate preview` when --delegate); findings are scoped to the language after the review.'
       )
       .option('--language <lang>', `target language: ${OCR_18_LANGUAGES.join(' | ')}`)
       .option('--from <ref>', 'git ref to diff from (e.g. main)')
@@ -219,7 +219,7 @@ export function registerCodeReviewCommands(program: Command, io: ProgramIO): voi
         : fail(
             'code-review.run-ocr-18',
             result.state.toUpperCase().replace(/-/g, '_'),
-            `ocr 1.8.x state: ${result.state}`,
+            `ocr 1.x state: ${result.state}`,
             result,
             ['Re-run `peaks code-review detect-ocr-18 --json` to refresh.']
           );
@@ -238,7 +238,7 @@ export function registerCodeReviewCommands(program: Command, io: ProgramIO): voi
         : fail(
             'code-review.ocr-18-delegate-preview',
             result.state.toUpperCase().replace(/-/g, '_'),
-            `ocr 1.8.x state: ${result.state}`,
+            `ocr 1.x state: ${result.state}`,
             result,
             ['Re-run `peaks code-review detect-ocr-18 --json` to refresh.']
           );

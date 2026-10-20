@@ -1,5 +1,5 @@
 /**
- * 5-state OCR 1.8.x detect. Mirrors the ECC detect shape.
+ * 5-state OCR 1.x detect. Mirrors the ECC detect shape.
  */
 import { spawnSync } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-19T15:45:47.606Z",
+  "updatedAt": "2026-10-20T02:49:32.491Z",
   "hot": {
     "rule": [
       {
@@ -1590,6 +1590,14 @@
         "updatedAt": "2026-10-18"
       },
       {
+        "name": "a-mocked-external-cli-is-not-evidence-of-its-contract",
+        "kind": "lesson",
+        "description": "passed  to  and parsed  with .",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-mocked-external-cli-is-not-evidence-of-its-contract.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-20-session-a545d0/txt/handoff.md",
+        "updatedAt": "2026-10-20"
+      },
+      {
         "name": "a-multi-slice-job-that-shares-one-rid-reopens-the-evidence-collision-hole-rid-scoping-was-built-to-close",
         "kind": "lesson",
         "description": "Gate C's evidence paths are rid-scoped (, , …) so two slices cannot occupy one slot.",
@@ -2492,6 +2500,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\trae-adapter-values-verified-against-1x.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/qa/dogfood-trae-1x-2026-06-07.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "upgrade-every-dependency-is-a-measurement-task-not-an-edit-task",
+        "kind": "lesson",
+        "description": "The instruction was to move every non-internal production dependency to the newest release in its current major.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\upgrade-every-dependency-is-a-measurement-task-not-an-edit-task.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-20-session-a545d0/txt/handoff.md",
+        "updatedAt": "2026-10-20"
       },
       {
         "name": "vendor-neutrality-adapter-vendor",

@@ -68,9 +68,9 @@ vi.mock('../../../../src/services/lint/detect-ocr-18.js', () => ({
     return {
       state,
       npxAvailable: true,
-      package: '@alibaba-group/open-code-review@1.8.9',
+      package: '@alibaba-group/open-code-review@1.13.1',
       warnings:
-        state === 'ready' ? [] : ['could not resolve @alibaba-group/open-code-review@1.8.9'],
+        state === 'ready' ? [] : ['could not resolve @alibaba-group/open-code-review@1.13.1'],
       nextActions:
         state === 'ready' ? [] : ['Run `peaks code-review acquire-ocr-18` to fetch the reviewer.']
     };
