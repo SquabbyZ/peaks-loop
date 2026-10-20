@@ -83,6 +83,41 @@ vi.mock('../../../../src/services/lint/detect-ocr-18.js', () => ({
   }
 }));
 
+/**
+ * The delegation seams. Phase 1 is its own module (covered by
+ * `code-review-ocr-delegate.test.ts`); here the point is which seam a flag
+ * combination reaches. The preview verb reads the payload module, so both are
+ * replaced rather than allowed to spawn.
+ */
+const delegation = vi.hoisted(
+  (): { packets: Array<Record<string, unknown>>; preview: unknown } => ({
+    packets: [],
+    preview: null
+  })
+);
+
+vi.mock('../../../../src/cli/commands/code-review-ocr-delegate.js', async () => {
+  const actual = await vi.importActual<Record<string, unknown>>(
+    '../../../../src/cli/commands/code-review-ocr-delegate.js'
+  );
+  return {
+    ...actual,
+    runDelegatePacket: (_io: unknown, options: Record<string, unknown>) => {
+      delegation.packets.push(options);
+    }
+  };
+});
+
+vi.mock('../../../../src/services/lint/ocr-18-delegate-payload.js', async () => {
+  const actual = await vi.importActual<Record<string, unknown>>(
+    '../../../../src/services/lint/ocr-18-delegate-payload.js'
+  );
+  return {
+    ...actual,
+    runDelegatePreview: () => delegation.preview
+  };
+});
+
 import { registerCodeReviewCommands } from '../../../../src/cli/commands/code-review-commands.js';
 
 interface Envelope {
@@ -137,6 +172,22 @@ beforeEach(() => {
     rawOutput: '{"comments":[]}'
   };
   seams.multiImpl = () => multiResult();
+  delegation.packets.length = 0;
+  delegation.preview = {
+    ok: true,
+    preview: {
+      schema_version: '1',
+      mode: 'range',
+      repository: 'repo',
+      total_files: 3,
+      reviewable_count: 1,
+      excluded_count: 2,
+      total_insertions: 9,
+      total_deletions: 1,
+      reviewable_files: [{ path: 'src/a.ts', status: 'modified', insertions: 9, deletions: 1 }],
+      excluded_files: []
+    }
+  };
   detector.states.length = 0;
   detector.calls = 0;
   process.exitCode = 0;
@@ -188,14 +239,16 @@ describe('behavior — flag precedence', () => {
     expect(seams.multi).toEqual([]);
   });
 
-  it('should refuse --languages together with --delegate, which is not language-scoped', async () => {
-    // given: delegation mode cannot express a language set
+  it('should route --delegate --languages auto to the packet phase, not the review path', async () => {
+    // given: the documented packet invocation
     // when: the verb runs
-    const captured = await run(['run-ocr-18', '--languages', 'auto', '--delegate', '--json']);
+    await run(['run-ocr-18', '--delegate', '--languages', 'auto', '--json']);
 
-    // then: it is refused rather than returning a zero nothing could be read from
-    expect(envelope(captured).code).toBe('LANGUAGE_FLAGS_CONFLICT');
+    // then: delegation owns the run — neither review seam is reached
+    expect(delegation.packets).toHaveLength(1);
+    expect(delegation.packets[0]).toMatchObject({ languages: 'auto', delegate: true });
     expect(seams.multi).toEqual([]);
+    expect(seams.single).toEqual([]);
   });
 
   it('should refuse an unknown language token, naming it', async () => {
@@ -305,16 +358,35 @@ describe('render — the multi-language envelopes', () => {
   });
 });
 
-describe('behavior — delegation preview carries no language', () => {
-  it('should call runOcr18 without a language, because delegate mode takes none', async () => {
-    // given: the delegation-preview verb
-    // when: it runs
-    await run(['ocr-18-delegate-preview', '--json']);
+describe('behavior — the delegation preview is a selection preview', () => {
+  it('should print the parsed selection and never reach the review seam', async () => {
+    // given: a delegation preview
+    // when: the preview verb runs
+    const captured = await run(['ocr-18-delegate-preview', '--json']);
 
-    // then: the seam receives delegate mode and no language claim at all
-    expect(seams.single).toHaveLength(1);
-    expect(seams.single[0]).toMatchObject({ delegate: true });
-    expect(seams.single[0]).not.toHaveProperty('language');
-    expect(typeof seams.single[0]?.['cwd']).toBe('string');
+    // then: the review seam is not reached, and the selection is on the envelope
+    expect(seams.single).toEqual([]);
+    const body = envelope(captured);
+    expect(body.ok).toBe(true);
+    expect(body.data['reviewable_count']).toBe(1);
+    expect(body.nextActions.join(' ')).toContain('no review ran');
+  });
+
+  it('should report a non-preview payload as a failure, not as a clean zero', async () => {
+    // given: the CLI emitted something that is not a delegation spec
+    delegation.preview = {
+      ok: false,
+      state: 'execution-failed',
+      rawOutput: 'no reviewable_files[]'
+    };
+
+    // when: the preview verb runs
+    const captured = await run(['ocr-18-delegate-preview', '--json']);
+
+    // then: it is a failure naming the state, with the raw reason kept
+    const body = envelope(captured);
+    expect(body.ok).toBe(false);
+    expect(body.code).toBe('EXECUTION_FAILED');
+    expect(body.data['rawOutput']).toContain('reviewable_files');
   });
 });

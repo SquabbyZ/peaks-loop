@@ -6,8 +6,10 @@ import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../
 import { fail, ok } from 'peaks-loop-shared/result';
 import { detectOcr18 } from '../../services/lint/detect-ocr-18.js';
 import { acquireOcr18 } from '../../services/lint/ocr-18-acquire.js';
-import { OCR_18_PACKAGE, runOcr18 } from '../../services/lint/ocr-multilang-adapter.js';
+import { OCR_18_PACKAGE } from '../../services/lint/ocr-multilang-adapter.js';
+import { runDelegatePreview } from '../../services/lint/ocr-18-delegate-payload.js';
 import { registerRunOcr18Command } from './code-review-run-ocr-18.js';
+import { registerOcrDelegateRecordCommand } from './code-review-ocr-delegate-record.js';
 
 type DetectOptions = { json?: boolean };
 
@@ -169,21 +171,43 @@ export function registerCodeReviewCommands(program: Command, io: ProgramIO): voi
   addJsonOption(
     codeReview
       .command('ocr-18-delegate-preview')
-      .description('Print the Delegation Mode spec for the host agent (no LLM key required).')
+      .description(
+        'Print the file selection `ocr delegate preview` returns (no LLM key required). A ' +
+          'SELECTION preview, not a review: use `run-ocr-18 --delegate --rid <rid>` for the ' +
+          'packet the host agent reviews, then `ocr-delegate-record`.'
+      )
   ).action((options: DelegateOptions) => {
     // No language: `ocr delegate preview` takes none, and the language used to
     // be passed here as a value delegate mode discarded.
-    const result = runOcr18({ cwd: process.cwd(), delegate: true });
-    const envelope =
-      result.state === 'ok'
-        ? ok('code-review.ocr-18-delegate-preview', result, [], [])
-        : fail(
-            'code-review.ocr-18-delegate-preview',
-            result.state.toUpperCase().replace(/-/g, '_'),
-            `ocr 1.x state: ${result.state}`,
-            result,
-            ['Re-run `peaks code-review detect-ocr-18 --json` to refresh.']
-          );
-    printResult(io, envelope, options.json);
+    const result = runDelegatePreview(process.cwd());
+    if (!result.ok) {
+      printResult(
+        io,
+        fail(
+          'code-review.ocr-18-delegate-preview',
+          result.state.toUpperCase().replace(/-/g, '_'),
+          `ocr 1.x state: ${result.state}`,
+          { state: result.state, rawOutput: result.rawOutput },
+          ['Re-run `peaks code-review detect-ocr-18 --json` to refresh.']
+        ),
+        options.json
+      );
+      return;
+    }
+    printResult(
+      io,
+      ok(
+        'code-review.ocr-18-delegate-preview',
+        result.preview,
+        [],
+        [
+          'This is a selection preview — no review ran.',
+          'For a review: `peaks code-review run-ocr-18 --delegate --rid <rid> --json`, then record the findings.'
+        ]
+      ),
+      options.json
+    );
   });
+
+  registerOcrDelegateRecordCommand(codeReview, io);
 }

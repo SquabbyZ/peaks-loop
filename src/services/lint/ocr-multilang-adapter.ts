@@ -64,8 +64,12 @@ export type Ocr18RunOptions = Ocr18Range & {
   readonly timeoutMs?: number;
 };
 
-/** The one severity map for OCR comments — used only by `parseComments` below. */
-function severityFor(value: unknown): 'error' | 'warn' | 'info' {
+/**
+ * The one severity map: OCR comments (`parseComments`) and the delegated
+ * envelope (`ocr-18-delegate-record`) both map through it, so the two cannot
+ * disagree about what `high` means.
+ */
+export function severityFor(value: unknown): 'error' | 'warn' | 'info' {
   if (value === 'error' || value === 'critical' || value === 'high' || value === 2) return 'error';
   if (value === 'warn' || value === 'warning' || value === 'medium' || value === 1) return 'warn';
   return 'info';
@@ -79,7 +83,7 @@ export function emptyByLanguage(): Readonly<Record<Ocr18Language, number>> {
   return out;
 }
 
-function rangeArgs(range: Ocr18Range): string[] {
+export function rangeArgs(range: Ocr18Range): string[] {
   const args: string[] = [];
   if (range.from !== undefined) args.push('--from', range.from);
   if (range.to !== undefined) args.push('--to', range.to);

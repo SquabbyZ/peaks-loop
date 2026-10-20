@@ -20,7 +20,8 @@ Pinned runtime: `@alibaba-group/open-code-review@1.13.1` (`OCR_18_PACKAGE` in
 ```
 ocr review [--from <ref>] [--to <ref>] [--commit <sha>] [--format json]
 ocr review --preview          # lists which files WOULD be reviewed, no LLM call
-ocr delegate preview          # delegation spec, no LLM key
+ocr delegate preview [--format json]   # delegation: selection only, no LLM key
+ocr delegate rule <path...> [--format json]  # delegation: resolved rules, no key
 ```
 
 There is **no language flag**. The 1.8-era `--filter-language` was removed from
@@ -182,20 +183,153 @@ When OCR cannot run, the code-review step records **`OCR unavailable`** plus the
 detector state. It is never recorded as a clean review, and it never blocks the
 rest of code review: the ESLint track and the rest of Gate B3 proceed.
 
-## 10. Delegation mode
+## 10. Delegation mode — the no-credential review path
 
-`peaks code-review ocr-18-delegate-preview` runs `ocr delegate preview`. It takes
-**no language** — the parameter used to be passed as `'python'`, a value the
-mode discarded; the code now carries no language at all. Delegation mode returns
-a spec for the host agent's own LLM, and its envelope has no per-language
-findings.
+OCR has two review paths. They share the file selection and the rules; they differ
+in who runs the model.
+
+| Path | Command | Needs a provider key |
+|---|---|---|
+| API | `peaks code-review run-ocr-18 --languages auto …` | **yes** (OCR's own config) |
+| Delegated | `peaks code-review run-ocr-18 --delegate --rid <rid> …` | **no** |
+
+Prefer the delegated path whenever no provider is configured — it is the default
+there, and it is the only path that works on a session authenticated through
+`ANTHROPIC_AUTH_TOKEN` or a non-Anthropic endpoint, because OCR reads neither.
+Prefer the API path when a provider **is** configured and you want OCR's own agent
+and prompts.
+
+Delegation is two phases. Neither phase calls an LLM from the CLI.
+
+### 10.1 Phase 1 — the packet
+
+```
+peaks code-review run-ocr-18 --delegate --rid <rid> --from <base> --to HEAD --json
+```
+
+- `--languages auto` is accepted (detection, not scope). An explicit list and
+  `--language` are refused: `ocr delegate preview` takes no language.
+- `--rid` is required. The packet is named after it.
+- No routed language skips both OCR invocations, exactly like the API path.
+
+Written to `.peaks/_runtime/<sid>/rd/ocr-delegate/<rid>-packet.json` and returned in
+the envelope (with `packetPath`). Contents:
+
+```json
+{
+  "schema_version": "1", "mode": "delegate", "state": "awaiting-envelope",
+  "findings": null, "rid": "…", "session": "…",
+  "git": { "from": "main", "to": "HEAD", "commit": null },
+  "detection": { "languages": ["typescript"], "changed_file_count": 2, "unsupported_files": ["README.md"] },
+  "cost": { "total_files": 2, "reviewable_count": 1, "excluded_count": 1,
+            "total_insertions": 30, "total_deletions": 5 },
+  "selected_files": [ { "path": "src/a.ts", "status": "modified", "insertions": 30,
+                        "deletions": 5, "language": "typescript", "pattern": "**/*.{ts,js}" } ],
+  "excluded_files": [ { "path": "README.md", "status": "modified", "insertions": 2,
+                        "deletions": 0, "exclude_reason": "unsupported_ext" } ],
+  "rules": [ { "group_id": 1, "source": "system", "pattern": "**/*.{ts,js}",
+               "files": ["src/a.ts"], "rule": "…resolved rule text…" } ],
+  "warnings": [], "raw_output": null
+}
+```
+
+- `selected_files[].pattern` is the `pattern` of the `rules[]` group that claimed
+  the file — the join the agent needs to apply the right rule. A file no group
+  claimed carries `pattern: null` and a `warnings[]` entry; the CLI never invents a
+  pattern.
+- `excluded_files` is OCR's own exclusion list with its `exclude_reason`.
+- `cost` is the number to read before reviewing: a large change set is expensive in
+  the session's remaining context, not in a billing account.
+- `findings` is **always `null`** here.
+
+Packet states, all with `findings: null`:
+
+| State | Meaning |
+|---|---|
+| `no-routed-language` | zero changed files in the range |
+| `unsupported-files-only` | files changed, none routed |
+| `ocr-unavailable` | the CLI failed or did not return a delegation payload |
+| `awaiting-envelope` | packet written, host review not recorded yet |
+
+### 10.2 Phase 2 — the envelope and the record verb
+
+The host agent reviews `selected_files` against `rules[].rule` (and the diff) and
+writes an envelope **file** (the verb takes its path, not inline JSON). The envelope
+mirrors OCR's own `LlmComment`, so the mapping is shared:
+
+```json
+{ "schema_version": "1",
+  "packet": ".peaks/_runtime/<sid>/rd/ocr-delegate/<rid>-packet.json",
+  "findings": [ { "path": "src/a.ts", "content": "why it is a defect",
+                  "start_line": 12, "end_line": 12,
+                  "severity": "high", "category": "bug" } ] }
+```
+
+- `packet` is required and must name the packet the findings belong to.
+- `findings` must be an array. An empty array is a **clean review**; a missing array
+  is malformed, because the CLI will not guess which one you meant.
+- `severity` must be one of `error|critical|high|warn|warning|medium|info|low`.
+  Unknown values are refused rather than mapped to `info`.
+- `category` is optional; it becomes `ruleId`.
+
+```
+peaks code-review ocr-delegate-record --packet <packet-path> --envelope <envelope-path> --json
+```
+
+The verb refuses (non-zero exit) rather than coercing:
+
+- a malformed envelope, naming the offending entry (`findings[2].start_line must be a
+  positive integer`);
+- an envelope whose `packet` names a different file than `--packet`;
+- a packet that does not exist, is not a delegation packet, lies outside the project
+  root, or is not in state `awaiting-envelope` (a `no-routed-language` packet has no
+  review to record).
+
+On success it writes `<rid>-packet.findings.json` beside the packet and returns
+`state: "recorded"`, `findingsPath`, the findings and a summary. Recording does not
+advance the packet — the findings document is the record — so recording again
+replaces the earlier findings file and reports `replaced: true`.
+
+### 10.3 Not executed is not clean
+
+| Situation | Shape |
+|---|---|
+| packet written, no envelope recorded | packet `state: "awaiting-envelope"`, `findings: null` |
+| review ran, zero findings | document `state: "recorded"`, `findings: []`, `summary.total: 0` |
+| review ran, findings | document `state: "recorded"`, `findings: [...]` |
+
+The record verb is the only producer of the second and third shapes, so a packet
+cannot be turned into a clean review without an envelope. A count-only summary
+cannot express "the agent never ran"; the `null` versus `[]` distinction is what
+does.
+
+Every recorded finding carries `attribution: "ocr-delegate"`, and so does the
+document. A host-model finding is not an OCR finding: the selection and the rules
+are OCR's, the review is this model's, and the artifact must not let it inherit
+OCR's benchmark numbers.
+
+### 10.4 The selection preview verb is not a review
+
+`peaks code-review ocr-18-delegate-preview --json` prints what
+`ocr delegate preview --format json` returns: the reviewable and excluded files and
+the cost, and nothing else. It is a **selection preview**. It no longer feeds that
+payload through the `comments[]` review parser — doing so is what kept delegation
+from ever producing a finding.
 
 ## Cross-references
 
-- Runner: `src/services/lint/ocr-multilang-adapter.ts`
+- Runner (API path): `src/services/lint/ocr-multilang-adapter.ts`
+- Delegation payload parsers: `src/services/lint/ocr-18-delegate-payload.ts`
+- Packet builder and states: `src/services/lint/ocr-18-delegate-packet.ts`
+- Envelope validation and recording: `src/services/lint/ocr-18-delegate-record.ts`
 - Allowlist snapshot: `src/services/lint/ocr-18-allowlist.ts`
 - Detect / acquire: `src/services/lint/detect-ocr-18.ts`, `src/services/lint/ocr-18-acquire.ts`
-- CLI: `src/cli/commands/code-review-commands.ts`
+- CLI: `src/cli/commands/code-review-commands.ts`, `src/cli/commands/code-review-run-ocr-18.ts`,
+  `src/cli/commands/code-review-ocr-delegate.ts`
 - Tests: `tests/unit/services/lint/ocr-multilang-adapter.test.ts`,
-  `tests/unit/cli/commands/code-review-run-ocr-18.test.ts`
+  `tests/unit/services/lint/ocr-18-delegate-payload.test.ts`,
+  `tests/unit/services/lint/ocr-18-delegate-packet.test.ts`,
+  `tests/unit/services/lint/ocr-18-delegate-record.test.ts`,
+  `tests/unit/cli/commands/code-review-run-ocr-18.test.ts`,
+  `tests/unit/cli/commands/code-review-ocr-delegate.test.ts`
 - ECC bridge (the production JS/TS ESLint path): `src/services/code-review/ecc-bridge.ts`

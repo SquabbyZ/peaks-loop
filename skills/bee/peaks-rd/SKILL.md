@@ -189,7 +189,26 @@ Full dispatch contract (when-to-fan-out rules, dispatch template, prereq gates) 
 
 ### Gate B3 — OCR 1.x supplementary pass (wired 2026-10-20)
 
-When the diff touches any language the OCR bridge routes, run it as part of code review and record the outcome in the RD code-review artifact:
+When the diff touches any language the OCR bridge routes, run it as part of code review and record the outcome in the RD code-review artifact. There are **two paths**, and delegation is the default one when no provider is configured.
+
+**Delegated path — no API key, no provider config.** The packet → host review → record cycle:
+
+```
+peaks code-review run-ocr-18 --delegate --rid <rid> --from <base> --to HEAD --json
+```
+
+writes `.peaks/_runtime/<sid>/rd/ocr-delegate/<rid>-packet.json` and returns it. The packet carries OCR's deterministic selection (each file with the pattern that selected it), the excluded files, the resolved rule text per group, the git range and the cost surface — nothing is LLM-generated. **You** then review the selected files against those rules with the model you are already running on, write a findings envelope to a file, and record it:
+
+```
+peaks code-review ocr-delegate-record --packet <packet-path> --envelope <path> --json
+```
+
+- Recorded findings keep the `Ocr18Finding` shape and carry `attribution: ocr-delegate`, so a host-model finding is never read as an OCR finding.
+- A packet with no recorded envelope is **not executed** — never clean. The packet's `findings` is `null`; a recorded clean review has `findings: []`.
+- The record verb refuses a malformed envelope (missing `path`/`content`, non-numeric line, unknown severity) and an envelope naming a different packet. Do not hand-edit its output.
+- This path consumes your own context, not an API budget. Use the packet's cost surface to decide one pass or several.
+
+**API path — a provider is configured.** Reviews once over the range with OCR's own agent:
 
 ```
 peaks code-review run-ocr-18 --languages auto --from <base> --to HEAD --json
@@ -198,7 +217,7 @@ peaks code-review run-ocr-18 --languages auto --from <base> --to HEAD --json
 - `--languages auto` detects from the range and reviews **once**. A range with no routed language skips the invocation and says so — do not spawn OCR to discover there is nothing to review.
 - Record four outcomes separately in `rd/code-review-<rid>.md`: languages with findings; languages detected with **zero** findings; files whose format is not reviewed as a routed language; and `OCR unavailable` with the `detect-ocr-18` state when it could not run. A missing run must never read as a clean review.
 - TypeScript/JavaScript are **dual-track**: ESLint (`peaks lint check`, Gate B5) stays the primary gate, the OCR pass is supplementary. Attribute every finding to the tool that produced it, so a defect flagged twice is not counted twice.
-- Real CLI surface, post-review scoping model, auto-detection and the four outcomes: `references/ocr-multilang-1.8.md` (rewritten for OCR 1.x; the old 1.8 content was wrong about `--filter-language`).
+- Real CLI surface, post-review scoping model, auto-detection, the four outcomes, both paths and the envelope: `references/ocr-multilang-1.8.md` §10 (rewritten for OCR 1.x; the old 1.8 content was wrong about `--filter-language`).
 
 ## Reviewer fan-out detached mode (Phase C, slice 2026-08-10)
 

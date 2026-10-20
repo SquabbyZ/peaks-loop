@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-20T04:43:16.197Z",
+  "updatedAt": "2026-10-20T07:00:25.317Z",
   "hot": {
     "rule": [
       {
@@ -1630,6 +1630,14 @@
         "updatedAt": "2026-10-20"
       },
       {
+        "name": "a-new-cli-flag-is-described-in-four-places-and-only-one-of-them-is-tested",
+        "kind": "lesson",
+        "description": "Three times in one session, a document claimed something the code did not do.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-new-cli-flag-is-described-in-four-places-and-only-one-of-them-is-tested.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-20-session-a545d0/txt/handoff-003.md",
+        "updatedAt": "2026-10-20"
+      },
+      {
         "name": "a-packaged-asset-is-not-at-the-consumer-project-root",
         "kind": "lesson",
         "description": "Making the reviewer's  load-bearing first resolved it against the consumer project root, which broke every consumer: ...",
@@ -1804,6 +1812,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\ac-pass-list-is-not-a-completion-bar.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-12-session-e37ef0/txt/handoff.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "an-absence-and-a-zero-must-be-different-documents-not-different-names",
+        "kind": "lesson",
+        "description": "A review that found nothing and a review that never ran both look like \"no findings\" if you only carry a count.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\an-absence-and-a-zero-must-be-different-documents-not-different-names.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-20-session-a545d0/txt/handoff-003.md",
+        "updatedAt": "2026-10-20"
       },
       {
         "name": "an-allowlist-that-matches-any-value-cannot-fail",

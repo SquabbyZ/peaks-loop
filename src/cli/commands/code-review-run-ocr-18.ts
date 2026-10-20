@@ -16,6 +16,7 @@ import {
   OCR_18_LANGUAGES,
   parseLanguageSelection
 } from '../../services/lint/ocr-18-language-routing.js';
+import { runDelegatePacket } from './code-review-ocr-delegate.js';
 
 const COMMAND = 'code-review.run-ocr-18';
 
@@ -34,6 +35,8 @@ type RunOcr18Options = {
   to?: string;
   commit?: string;
   delegate?: boolean;
+  rid?: string;
+  sessionId?: string;
   json?: boolean;
 };
 
@@ -73,8 +76,7 @@ function runSingle(io: ProgramIO, options: RunOcr18Options): void {
   const result = runOcr18({
     cwd: process.cwd(),
     language,
-    ...rangeOf(options),
-    ...(options.delegate === true ? { delegate: true } : {})
+    ...rangeOf(options)
   });
   const envelope =
     result.state === 'ok'
@@ -190,14 +192,6 @@ function printMultiResult(
 }
 
 function runMulti(io: ProgramIO, selector: string, options: RunOcr18Options): void {
-  if (options.delegate === true) {
-    printLanguageRefusal(
-      io,
-      options,
-      '`--delegate` is not language-scoped — `ocr delegate preview` ignores `--languages`. Pass `--delegate --language <lang>` or `--languages` alone.'
-    );
-    return;
-  }
   const selection = selectionFor(io, options, selector);
   if (selection === null) return;
   const result = multiFor(io, options, selection);
@@ -209,7 +203,7 @@ export function registerRunOcr18Command(codeReview: Command, io: ProgramIO): voi
     codeReview
       .command('run-ocr-18')
       .description(
-        'Invoke `ocr review` once over the requested git range (or `ocr delegate preview` when --delegate); findings are attributed to a language by file extension after the review.'
+        'Invoke `ocr review` once over the requested git range (or, with --delegate, write a delegation packet the host agent reviews without a key); findings are attributed to a language by file extension after the review.'
       )
       .option('--language <lang>', 'single target language, e.g. python | go | typescript | java')
       .option(
@@ -219,10 +213,16 @@ export function registerRunOcr18Command(codeReview: Command, io: ProgramIO): voi
       .option('--from <ref>', 'git ref to diff from (e.g. main)')
       .option('--to <ref>', 'git ref to diff to (e.g. HEAD)')
       .option('--commit <sha>', 'specific commit SHA to review')
-      .option('--delegate', 'use Delegation Mode (no LLM key required)')
+      .option('--delegate', 'write a delegation packet for the host agent (no LLM key required)')
+      .option('--rid <rid>', 'request id; names the delegation packet (required with --delegate)')
+      .option('--session-id <sid>', 'session id for the packet path (default: the bound session)')
   ).action((options: RunOcr18Options) => {
     if (options.language !== undefined && options.languages !== undefined) {
       printLanguageRefusal(io, options, BOTH_LANGUAGE_FLAGS);
+      return;
+    }
+    if (options.delegate === true) {
+      runDelegatePacket(io, options);
       return;
     }
     if (options.languages !== undefined) {
