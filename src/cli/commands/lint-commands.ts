@@ -34,6 +34,7 @@ import {
   type EslintRunResult
 } from '../../services/lint/eslint-runner.js';
 import { emitBaseline } from './lint-baseline-command.js';
+import { emitRules, type RulesOptions } from './lint-rules-command.js';
 
 type LintOptions = {
   scope?: string;
@@ -238,5 +239,17 @@ export function registerLintCommands(program: Command, io: ProgramIO): void {
       return;
     }
     emitBaseline(io, options, timeoutMs);
+  });
+
+  addJsonOption(
+    lint
+      .command('rules')
+      .description(
+        "Read the rules in force for a file set: the project's own lint tooling, the language rule channel, and the curated rule sets."
+      )
+      .option('--files <files...>', 'the files to read the rules for')
+      .option('--project <repo>', 'the project root (default: the current directory)')
+  ).action((options: RulesOptions) => {
+    emitRules(io, options);
   });
 }
