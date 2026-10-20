@@ -197,9 +197,19 @@ export function detectProjectLintTools(projectRoot: string): ProjectLintToolDete
  * The tool the command RUNS wins when that tool is a lint tool. Otherwise the
  * declaration's own name is used — a script called `lint` that wraps a
  * wrapper is still a lint step, and the reader deserves to see it.
+ *
+ * The NAME's own namespace decides, not the whole name: `lint:silent-warning`
+ * is a lint step, `test:lint` is a test that happens to run a lint config.
+ * A namespace's first segment says what the step IS; a later segment only
+ * says which variant it is.
  */
 function declaredToolName(declared: DeclaredCommand, scripts: ReadonlyMap<string, string>): string {
   const resolved = toolNameFromCommand(declared.command, scripts);
   if (resolved !== null && isLintToolName(resolved)) return resolved;
-  return isLintToolName(declared.label) ? declared.label : '';
+  return isLintToolName(labelRoot(declared.label)) ? declared.label : '';
+}
+
+/** A declaration name's own namespace: `lint:silent-warning` → `lint`. */
+function labelRoot(label: string): string {
+  return label.split(/[:/]/)[0] ?? label;
 }

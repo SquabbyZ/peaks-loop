@@ -176,6 +176,33 @@ describe("Scenario: behavior — the project's own lint tooling is discovered", 
     expect(detection.tools.map((tool) => tool.name)).toContain('lint');
     expect(detection.tools[0]?.command).toBe('node ./scripts/lint/run-lint.mjs');
   });
+
+  it('when a namespaced script is a TEST of a lint config, should not report it as a lint step', () => {
+    // given: a script named `test:lint` — the namespace says what it is
+    const root = makeProject({
+      'package.json': JSON.stringify({
+        scripts: { 'test:lint': 'vitest run --config vitest.config.lint.ts' }
+      })
+    });
+    // when: the project is asked
+    const detection = detectProjectLintTools(root);
+    // then: it is not a lint step, and the reason says so
+    expect(detection.tools).toEqual([]);
+    expect(detection.reason).toBe('no lint tool declared by this project');
+  });
+
+  it('when a namespaced script IS a lint step, should still report it under its full name', () => {
+    // given: a script named `lint:silent-warning`
+    const root = makeProject({
+      'package.json': JSON.stringify({
+        scripts: { 'lint:silent-warning': 'node ./scripts/lint/silent-warning-detector.mjs' }
+      })
+    });
+    // when: the project is asked
+    const detection = detectProjectLintTools(root);
+    // then: the full name is reported
+    expect(detection.tools.map((tool) => tool.name)).toContain('lint:silent-warning');
+  });
 });
 
 describe('Scenario: behavior — one file is one string', () => {
