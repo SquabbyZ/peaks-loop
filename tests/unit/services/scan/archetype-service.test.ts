@@ -13,14 +13,17 @@ const ws = withTmpWorkspacePerTest('peaks-archetype-');
  * Nothing else — no lockfile — so every input below is reproducible
  * byte-for-byte.
  */
-function seedProject(args: {
-  deps: Record<string, string>;
-  interfaceDoc?: string;
-  apiRoutes?: boolean;
-  bin?: Record<string, string>;
-  files?: Record<string, string>;
-}): string {
-  const root = ws().path;
+function seedProject(
+  args: {
+    deps: Record<string, string>;
+    interfaceDoc?: string;
+    apiRoutes?: boolean;
+    bin?: Record<string, string>;
+    files?: Record<string, string>;
+  },
+  root = ws().path
+): string {
+  mkdirSync(root, { recursive: true });
   writeFileSync(
     join(root, 'package.json'),
     JSON.stringify({
@@ -163,7 +166,25 @@ describe('scanArchetype positive frontend evidence', () => {
     const report = await scanArchetype({ projectRoot });
     // then: the file is positive evidence, and the reason names it
     expect(report.frontendOnly).toBe(true);
-    expect(report.frontendOnlyReason).toBe('frontend-evidence=css-under-src');
+    expect(report.frontendOnlyReason).toBe('frontend-evidence=asset-under-src');
+  });
+
+  it('when only an HTML or only a .vue asset sits under src/, should name both asset-under-src', async () => {
+    // given: two fixtures — one whose only asset is src/index.html, one .vue
+    const htmlRoot = seedProject(
+      { deps: { typescript: '^5.0.0' }, files: { 'src/index.html': '<p>hi</p>\n' } },
+      join(ws().path, 'html-only')
+    );
+    const vueRoot = seedProject(
+      { deps: { typescript: '^5.0.0' }, files: { 'src/App.vue': '<template></template>\n' } },
+      join(ws().path, 'vue-only')
+    );
+    // when: each project is scanned on its own
+    const html = await scanArchetype({ projectRoot: htmlRoot });
+    const vue = await scanArchetype({ projectRoot: vueRoot });
+    // then: the class names the asset family, so both inputs agree
+    expect(html.frontendOnlyReason).toBe('frontend-evidence=asset-under-src');
+    expect(vue.frontendOnlyReason).toBe('frontend-evidence=asset-under-src');
   });
 
   it('when a CSS-adjacent dependency is declared, should report frontendOnly with the dependency name', async () => {

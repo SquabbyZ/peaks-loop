@@ -115,11 +115,13 @@ async function assetUnderRoot(rootDir: string): Promise<boolean> {
   return false;
 }
 
+/** The class names the whole asset family, not the extension that matched:
+ *  a css, html, vue, or svelte file under `<root>` is `asset-under-<root>`. */
 async function assetUnderApplicationRoots(projectRoot: string): Promise<string | null> {
   for (const root of FRONTEND_APPLICATION_ROOTS) {
     const rootDir = join(projectRoot, root);
     if (!(await isDirectory(rootDir))) continue;
-    if (await assetUnderRoot(rootDir)) return `css-under-${root}`;
+    if (await assetUnderRoot(rootDir)) return `asset-under-${root}`;
   }
   return null;
 }
