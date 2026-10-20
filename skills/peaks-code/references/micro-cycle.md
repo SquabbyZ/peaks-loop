@@ -60,7 +60,19 @@ npx vitest run tests/unit/<file>.test.ts --no-coverage
 
 目的：防"改一处坏一处"。比全 suite 快 10-50×。
 
-### 6. 写一个 commit message（先不 commit）
+### 6. lint 腿 —— 写完立刻查，不要等提交时
+
+```bash
+peaks lint check --scope <刚改的文件> --json
+```
+
+只查刚改的那个文件，不扫全项目（扫全项目跟跑全 suite 一样慢，就白搭了 micro-cycle 的意义）。
+`peaks lint check` 是只读 ESLint 校验器，不会写任何文件。
+
+**红了就在同一个上下文里改**（同一轮 micro-cycle 内，改完重跑本腿），不要留到 pre-commit / pre-push ——
+那时上下文已经换了，返工成本是这里的十倍以上。
+
+### 7. 写一个 commit message（先不 commit）
 
 ```bash
 git add -p
