@@ -1,132 +1,201 @@
 ---
-title: OCR 1.8.x Multi-language Reviewer Adapter
-rid: 2026-08-06-ocr-multilang-1-8
-session: 2026-08-06-session-cacde8
-status: shipped-4.0.16
+title: OCR 1.x Multi-language Reviewer Adapter
+rid: ocr-language-integration
+session: 2026-10-20-session-a545d0
+status: implemented (4.1.10 tree, unreleased)
 ---
 
-# OCR 1.8.x Multi-language Reviewer Adapter
+# OCR 1.x Multi-language Reviewer Adapter
 
-## Section 1 — per-platform optionalDependencies (1.8.x postinstall fix)
+Supersedes the 1.8-era reference of the same path. The 1.8 content described a
+`--filter-language` flag and a `findings[]` envelope. Neither exists: the real
+binary rejects the flag with `Error: unknown flag`, and `ocr review --format json`
+returns `comments[]`. Read this file, not the old one, before touching the bridge.
 
-`@alibaba-group/open-code-review@1.8.9` replaces the 2.0.3-era
-GitHub Releases HTTPS download with per-platform `optionalDependencies`
-(`@alibaba-group/ocr-{darwin,linux,win32}-{arm64,x64}`). `npm install`
-hits the registry only; postinstall runs the Node installer the package
-itself ships and resolves the platform binary locally.
+Pinned runtime: `@alibaba-group/open-code-review@1.13.1` (`OCR_18_PACKAGE` in
+`src/services/lint/ocr-multilang-adapter.ts`).
 
-Sandbox evidence (2026-08-06, `npm@10.9.4`):
+## 1. The real CLI surface
 
 ```
-npm install @alibaba-group/open-code-review@1.8.9
-added 2 packages in 5s
-npm info run @alibaba-group/open-code-review@1.8.9 postinstall { code: 0, signal: null }
+ocr review [--from <ref>] [--to <ref>] [--commit <sha>] [--format json]
+ocr review --preview          # lists which files WOULD be reviewed, no LLM call
+ocr delegate preview          # delegation spec, no LLM key
 ```
 
-No HTTPS to `github.com` is required. The 2.0.3 install pain (which
-drove the 2.8.2 peerDep downgrade) no longer applies.
+There is **no language flag**. The 1.8-era `--filter-language` was removed from
+the adapter in `194eccf5` after the real binary was consulted; every non-delegate
+run failed with `Error: unknown flag: --filter-language` before that.
 
-## Section 2 — 8-language routing
+Not adopted by this bridge, deliberately: `--format sarif`, `-o/--output`,
+`--effort`, `--max-tokens-budget`, `ocr scan`. They are new capability, not
+integration; adding them is its own slice.
 
-| `--language` | file extension filter (ocr 1.8.9) |
+## 2. Post-review scoping — where language routing actually happens
+
+`ocr review` reviews the whole diff. The bridge attributes each returned comment
+to a language **after** the review, by the extension of `comment.path`:
+
+```
+comments[] (path, content, start_line, end_line, severity, category)
+        │
+        ├─ extension → LANGUAGE_EXTENSIONS → language
+        └─ severityFor(severity) → error | warn | info
+```
+
+Consequences, stated plainly:
+
+- A comment on a format the caller did not route is still REPORTED — it lands in
+  `unroutedFindings` rather than being dropped.
+- Scoping is what gets reported, not what the LLM was asked to look at. The
+  review is over the whole range either way.
+- Extension matching is case-insensitive.
+
+## 3. Language coverage and its source of truth
+
+`LANGUAGE_EXTENSIONS` (57 languages, 97 extensions) is the single source of
+truth. `OCR_18_LANGUAGES`, the extension lookup and `--languages` token
+resolution are all derived from it, so a language cannot be routed without an
+extension entry.
+
+The table is a **snapshot** of the pinned runtime's own allowlist:
+`internal/config/allowlist/supported_file_types.json` at tag `v1.13.1`
+(115 entries), vendored in `src/services/lint/ocr-18-allowlist.ts`. The rest of
+the allowlist is listed in `OCR_18_EXCLUDED_EXTENSIONS` with a reason (CSS,
+HTML, XML, YAML/JSON/TOML/INI, `.po`/`.pot`, `.ipynb`) — markup, stylesheets,
+data/config and notebook containers are reviewed by the CLI but carry no source
+semantics to route per language.
+
+Tests that keep it honest
+(`tests/unit/services/lint/ocr-multilang-adapter.test.ts`):
+
+- every language has at least one extension;
+- no extension routes to two languages;
+- every routed extension is in the vendored allowlist;
+- routed ∪ excluded covers the allowlist exactly — an upstream addition reddens
+  here instead of vanishing.
+
+Three documented divergences, each deliberate:
+
+- **`.mts` / `.cts`** are TypeScript to the PRD, but the 1.13.1 allowlist omits
+  both and `ocr review --preview` classifies them `unsupported_ext`. They are NOT
+  routed: routing them would report "typescript: 0 findings" for files the CLI
+  never read. They surface in `unsupportedFiles` instead.
+- **`.m`** is claimed by both Objective-C and MATLAB upstream and cannot be told
+  apart by extension. It routes to Objective-C.
+- **`.h`** is ambiguous between C and C++ and stays under `cpp`, because that is
+  the surface inherited from `194eccf5`: `--language cpp` matched `.h` before this
+  slice, and the preserved-behaviour clause forbids silently changing it. It is
+  absent from `c` — `--language c` does not match a header. It is deliberately not
+  assigned to both: one file maps to one language, or the same comment would be
+  counted twice in `byLanguage`. Moving it is a breaking change needing its own
+  decision; a test pins the current assignment.
+
+Empirical control used to settle the allowlist (2026-10-20, win32-x64): a scratch
+repository holding one file per extension was run through `ocr review --preview`.
+Every routed extension appeared under "Will review"; `.mts`, `.cts` and `.glsl`
+appeared under `Excluded from review (unsupported_ext)`. `.glsl` is in HEAD's
+allowlist but not in v1.13.1 — which is why the tag, not HEAD, is the snapshot.
+
+When the pin moves, update `OCR_18_PACKAGE`, re-vendor the allowlist at the new
+tag, and let the partition test tell you what changed.
+
+## 4. Auto-detection
+
+`detectLanguages(cwd, range)` derives the changed files from the same git range
+the review will use:
+
+| Selector | git command |
 |---|---|
-| `python` | `*.py` |
-| `go` | `*.go` |
-| `java` | `*.java` |
-| `rust` | `*.rs` |
-| `cpp` | `*.cc` / `*.cpp` / `*.h` / `*.hpp` |
-| `csharp` | `*.cs` |
-| `ruby` | `*.rb` |
-| `php` | `*.php` |
+| `--commit <sha>` | `git show --pretty=format: --name-only --diff-filter=ACMR <sha>` |
+| `--from` / `--to` | `git diff --name-only --diff-filter=ACMR <from> <to> --` |
+| none (workspace) | `git diff … HEAD --` **plus** `git ls-files --others --exclude-standard` |
 
-`--language java` maps to Java review. The wrapper rejects any other
-language with `state: 'language-unsupported'` and a supported list in
-`nextActions`.
+The workspace case reads untracked files too: `ocr review` reviews them, so a
+brand-new source file must not be able to skip the language detection that
+decides whether the review runs at all.
 
-## Section 3 — 5-state detect table
+`detectLanguages` **throws** when git cannot answer. The CLI turns that into
+`OCR18_DETECT_FAILED`. "Could not detect" must never be reported as "nothing to
+review".
 
-`detect-ocr-18` returns one of:
+## 5. One invocation, many languages
 
-| State | Meaning | Behavior |
+`runOcr18Multi` runs `ocr review` **once** for the whole change set and groups
+the returned comments by language. A Python+Go change costs one review, not two;
+the unit suite asserts the spawn count rather than observing it manually.
+
+A range with no routed language SKIPS the invocation entirely and returns
+`state: 'no-routed-language'`. Spawning OCR to discover there is nothing to
+review is exactly the cost this guard exists to avoid.
+
+## 6. The four outcomes
+
+| # | Outcome | Where it is expressed |
 |---|---|---|
-| `ready` | npx + ocr 1.8.9 both resolve | run review |
-| `ocr18-missing` | npx or ocr package cannot resolve | warn |
-| `binary-missing` | platform binary optionalDep missing | warn |
-| `llm-config-missing` | Delegation Mode not requested and no key | warn |
-| `detection-failed` | unexpected detection exception | warn |
+| 1 | language detected, findings returned | `languages[].count > 0` |
+| 2 | language detected, zero findings | `languages[].count === 0` with `state: 'ok'` |
+| 3 | file present, format not reviewed as a routed language | `unsupportedFiles[]` (and `state: 'no-routed-language'` when that is all the range holds) |
+| 4 | OCR could not run | `state` in `ocr18-missing` / `execution-failed`, **`languages: []`**, `summary: null` |
 
-The runtime wrapper returns `language-unsupported` as a 6th state
-when the caller supplies a non-mapped language.
+No two of these collapse. A zero is only ever reported with `state: 'ok'`, so a
+zero cannot be confused with "never ran"; a failure carries no language reports
+at all. When the CLI reports outcome 4 it also runs `detect-ocr-18` and puts the
+detector's own state (`binary-missing`, `llm-config-missing`, …) in
+`data.detector`.
 
-## Section 4 — Delegation Mode
+## 7. Invocation
 
-`peaks code-review ocr-18-delegate-preview` runs `ocr delegate preview`
-with no LLM key. The wrapper returns the spec the host agent must
-fill in (file list + rule references); the host agent's own LLM
-performs the analysis. This is the fallback path when the user does
-not have an Anthropic/OpenAI key configured.
+Single language (unchanged, still supported):
 
-## Section 5 — soft-fail policy
+```
+peaks code-review run-ocr-18 --language python --from main --to HEAD --json
+```
 
-`run-ocr-18` never blocks a slice. When ocr 1.8.x is not ready, the
-wrapper returns `state: 'ocr18-missing'` (or appropriate) and
-peaks-rd records a TXT note `code-review-ocr18-degraded-to-inline`.
+Multi-language, the code-review step's form:
 
-## Section 6 — Gate B3 routing
+```
+peaks code-review run-ocr-18 --languages auto --from <base> --to HEAD --json
+peaks code-review run-ocr-18 --languages ts,js,go --from <base> --to HEAD --json
+```
 
-- JS/TS / TSX / JSX: `peaks lint` + ECC bridge.
-- Python / Go / Java / Rust / C++ / C# / Ruby / PHP:
-  `peaks code-review run-ocr-18 --language <lang>`.
-- Mixed monorepo: per-language routing, findings merged.
+- `auto` detects from the range.
+- A csv resolves through the routing table: language names (`python`) and
+  extensions (`ts`, `.py`) both work, because both are the same table.
+- `--language` and `--languages` together are refused with a message naming both.
+- `--delegate` is not language-scoped (`ocr delegate preview` ignores a language)
+  and is refused alongside `--languages`.
 
-## Section 7 — Why per-language routing matters
+## 8. Gate B3 — dual-track for TypeScript/JavaScript
 
-OCR 1.8.x is the multi-language reviewer in the peaks-rd Gate B3
-router; ECC bridge stays the JS/TS path. The split is intentional and
-informed by AACR-bench (Alibaba's multi-language review benchmark):
+ESLint stays the PRIMARY gate for `.ts/.tsx/.js/.jsx/.mjs/.cjs`. The OCR pass is
+a SUPPLEMENTARY semantic review of the same change set. This is a user decision,
+not an accident: neither tool silently replaces the other.
 
-- **Precision vs. recall trade-off.** ECC bridge is tuned for JS/TS
-  idioms and ships tighter precision for that surface; on Python or
-  Java codebases it under-recalls (false-negative on async/lifetime
-  bugs). OCR 1.8.x is the inverse: broad language coverage with
-  per-language rule packs.
-- **Enterprise-class checks per language.** OCR 1.8.x's Java pack
-  reports NPE / SQL injection / XSS / thread-safety patterns that
-  have no analogue in the JS/TS ECC skill set. Routing a Java
-  project through ECC would silently drop these findings.
-- **Layered output normalization.** Each language's OCR output is
-  flattened into the peaks-loop `Ocr18Finding` envelope (filePath,
-  line, ruleId, severity, message) so downstream Gate B3 merge
-  works uniformly across all 8 languages.
-- **Failure isolation.** When OCR 1.8.x is missing for one language
-  on a given host, only that language degrades to inline review;
-  other languages still get the full Gate B3 path.
+The RD code-review artifact records the two outcomes separately, each finding
+attributed to the tool that produced it, so a defect flagged by both is not
+counted twice.
 
-A Python project therefore routes to OCR 1.8.x (not ECC) because
-(a) the Python rule pack has the broadest coverage in 1.8.9, and
-(b) routing it through ECC would mask Python-specific findings.
+## 9. Degradation
 
-For monorepos, the router scans the changed file extensions to pick
-a per-language reviewer. A commit that touches `.py` and `.ts`
-sources gets a parallel ECC + OCR-1.8 invocation; the resulting
-finding arrays are merged at Gate B3 with severity sort and
-duplicate suppression (same `filePath:line:ruleId` collapses to a
-single entry).
+When OCR cannot run, the code-review step records **`OCR unavailable`** plus the
+detector state. It is never recorded as a clean review, and it never blocks the
+rest of code review: the ESLint track and the rest of Gate B3 proceed.
 
-When Delegation Mode is enabled, the host agent receives a JSON
-spec listing files and candidate rules, applies the user's own LLM
-key, and returns structured findings that the wrapper normalises
-back into the same `Ocr18Finding` envelope — so downstream Gate B3
-merge code does not need a separate code path for the delegation
-flow.
+## 10. Delegation mode
+
+`peaks code-review ocr-18-delegate-preview` runs `ocr delegate preview`. It takes
+**no language** — the parameter used to be passed as `'python'`, a value the
+mode discarded; the code now carries no language at all. Delegation mode returns
+a spec for the host agent's own LLM, and its envelope has no per-language
+findings.
 
 ## Cross-references
 
-- PRD: `.peaks/_runtime/2026-08-06-session-cacde8/prd/requests/002-2026-08-06-eslint-jsts-gate-and-ocr-multilang-rebuild.md`
-- Sediment: `.peaks/memory/2026-08-06-eslint-jsts-gate-and-ocr-multilang-rebuild-sediment.md`
-- Skills: `skills/bee/peaks-rd/SKILL.md` Gate B3 paragraph
-- Skills: `skills/peaks-code/SKILL.md` Quality-gate commands cheat sheet
 - Runner: `src/services/lint/ocr-multilang-adapter.ts`
-- Detect: `src/services/lint/detect-ocr-18.ts`
+- Allowlist snapshot: `src/services/lint/ocr-18-allowlist.ts`
+- Detect / acquire: `src/services/lint/detect-ocr-18.ts`, `src/services/lint/ocr-18-acquire.ts`
 - CLI: `src/cli/commands/code-review-commands.ts`
-- ECC bridge (production JS/TS path): `src/services/code-review/ecc-bridge.ts`
+- Tests: `tests/unit/services/lint/ocr-multilang-adapter.test.ts`,
+  `tests/unit/cli/commands/code-review-run-ocr-18.test.ts`
+- ECC bridge (the production JS/TS ESLint path): `src/services/code-review/ecc-bridge.ts`

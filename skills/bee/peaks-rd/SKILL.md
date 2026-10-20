@@ -187,6 +187,19 @@ Both audit skills consume the immutable peaks-prd handoff (`prd/handoff.md`) and
 
 Full dispatch contract (when-to-fan-out rules, dispatch template, prereq gates) lives in **`references/parallel-review-fanout.md`**. Read that file before issuing any 3-way fan-out.
 
+### Gate B3 — OCR 1.x supplementary pass (wired 2026-10-20)
+
+When the diff touches any language the OCR bridge routes, run it as part of code review and record the outcome in the RD code-review artifact:
+
+```
+peaks code-review run-ocr-18 --languages auto --from <base> --to HEAD --json
+```
+
+- `--languages auto` detects from the range and reviews **once**. A range with no routed language skips the invocation and says so — do not spawn OCR to discover there is nothing to review.
+- Record four outcomes separately in `rd/code-review-<rid>.md`: languages with findings; languages detected with **zero** findings; files whose format is not reviewed as a routed language; and `OCR unavailable` with the `detect-ocr-18` state when it could not run. A missing run must never read as a clean review.
+- TypeScript/JavaScript are **dual-track**: ESLint (`peaks lint check`, Gate B5) stays the primary gate, the OCR pass is supplementary. Attribute every finding to the tool that produced it, so a defect flagged twice is not counted twice.
+- Real CLI surface, post-review scoping model, auto-detection and the four outcomes: `references/ocr-multilang-1.8.md` (rewritten for OCR 1.x; the old 1.8 content was wrong about `--filter-language`).
+
 ## Reviewer fan-out detached mode (Phase C, slice 2026-08-10)
 
 Reviewer fan-out may run in detached mode for any of the 3-way fan-out roles (`code-reviewer`, `qa-test-cases-writer`, `karpathy-reviewer`). Detached mode spawns a real OS process via `peaks sub-agent dispatch --mode detached --vendor <vendor>`, isolated from the orchestrator session. Use detached mode when the reviewer's expected runtime exceeds 60s OR processes ≥ 20 source files. Pass `--mode detached` explicitly per reviewer role; the default remains `in-process` (backward compat). The karpathy-reviewer's `<peaks-auto-compact>` marker is honored automatically when `--mode detached` is used. Note what that marker does and does not do (corrected 2026-09-13, rid `2026-09-13-defects-e`): it asks the child to persist durable state to `.peaks/_runtime/<sid>/detached/<rid>/compact/<n>.json` before its own harness compacts the session — the child cannot compact itself, and nothing is spliced back into its prompt. See `../../peaks-code/references/sub-agent-dispatch.md` §"Detached Mode" for the full contract.

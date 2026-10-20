@@ -6,13 +6,8 @@ import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../
 import { fail, ok } from 'peaks-loop-shared/result';
 import { detectOcr18 } from '../../services/lint/detect-ocr-18.js';
 import { acquireOcr18 } from '../../services/lint/ocr-18-acquire.js';
-import {
-  OCR_18_LANGUAGES,
-  OCR_18_PACKAGE,
-  runOcr18
-} from '../../services/lint/ocr-multilang-adapter.js';
-
-const SUPPORTED_LANGUAGES_SET = new Set<string>(OCR_18_LANGUAGES);
+import { OCR_18_PACKAGE, runOcr18 } from '../../services/lint/ocr-multilang-adapter.js';
+import { registerRunOcr18Command } from './code-review-run-ocr-18.js';
 
 type DetectOptions = { json?: boolean };
 
@@ -22,15 +17,6 @@ type AcquireOptions = { json?: boolean };
 const ACQUIRE_RETRY_ACTION =
   'Re-run `peaks code-review acquire-ocr-18` once the network is available.';
 
-type RunOcr18Options = {
-  language?: string;
-  from?: string;
-  to?: string;
-  commit?: string;
-  delegate?: boolean;
-  json?: boolean;
-};
-
 type DelegateOptions = { json?: boolean };
 
 export function registerCodeReviewCommands(program: Command, io: ProgramIO): void {
@@ -39,6 +25,8 @@ export function registerCodeReviewCommands(program: Command, io: ProgramIO): voi
     .description(
       'Code-review primitives for peaks-rd Gate B3. ECC bridge (JS/TS) + OCR 1.x multi-language.'
     );
+
+  registerRunOcr18Command(codeReview, io);
 
   addJsonOption(
     codeReview
@@ -180,58 +168,12 @@ export function registerCodeReviewCommands(program: Command, io: ProgramIO): voi
 
   addJsonOption(
     codeReview
-      .command('run-ocr-18')
-      .description(
-        'Invoke `ocr review` over the requested git range (or `ocr delegate preview` when --delegate); findings are scoped to the language after the review.'
-      )
-      .option('--language <lang>', `target language: ${OCR_18_LANGUAGES.join(' | ')}`)
-      .option('--from <ref>', 'git ref to diff from (e.g. main)')
-      .option('--to <ref>', 'git ref to diff to (e.g. HEAD)')
-      .option('--commit <sha>', 'specific commit SHA to review')
-      .option('--delegate', 'use Delegation Mode (no LLM key required)')
-  ).action((options: RunOcr18Options) => {
-    const language = options.language;
-    if (language === undefined || !SUPPORTED_LANGUAGES_SET.has(language)) {
-      printResult(
-        io,
-        fail(
-          'code-review.run-ocr-18',
-          'LANGUAGE_UNSUPPORTED',
-          `unsupported language: ${language ?? '<missing>'}`,
-          { state: 'language-unsupported', supported: OCR_18_LANGUAGES },
-          [`Pick one of: ${OCR_18_LANGUAGES.join(', ')}`]
-        ),
-        options.json
-      );
-      return;
-    }
-    const result = runOcr18({
-      cwd: process.cwd(),
-      language: language,
-      ...(options.from !== undefined ? { from: options.from } : {}),
-      ...(options.to !== undefined ? { to: options.to } : {}),
-      ...(options.commit !== undefined ? { commit: options.commit } : {}),
-      ...(options.delegate === true ? { delegate: true } : {})
-    });
-    const envelope =
-      result.state === 'ok'
-        ? ok('code-review.run-ocr-18', result, [], [])
-        : fail(
-            'code-review.run-ocr-18',
-            result.state.toUpperCase().replace(/-/g, '_'),
-            `ocr 1.x state: ${result.state}`,
-            result,
-            ['Re-run `peaks code-review detect-ocr-18 --json` to refresh.']
-          );
-    printResult(io, envelope, options.json);
-  });
-
-  addJsonOption(
-    codeReview
       .command('ocr-18-delegate-preview')
       .description('Print the Delegation Mode spec for the host agent (no LLM key required).')
   ).action((options: DelegateOptions) => {
-    const result = runOcr18({ cwd: process.cwd(), language: 'python', delegate: true });
+    // No language: `ocr delegate preview` takes none, and the language used to
+    // be passed here as a value delegate mode discarded.
+    const result = runOcr18({ cwd: process.cwd(), delegate: true });
     const envelope =
       result.state === 'ok'
         ? ok('code-review.ocr-18-delegate-preview', result, [], [])

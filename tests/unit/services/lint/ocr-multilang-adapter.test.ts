@@ -1,8 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildOcr18Args,
-  LANGUAGE_EXTENSIONS,
-  OCR_18_LANGUAGES,
   OCR_18_PACKAGE,
   runOcr18
 } from '../../../../src/services/lint/ocr-multilang-adapter.js';
@@ -311,89 +309,6 @@ describe('runOcr18', () => {
   });
 });
 
-describe('OCR_18_LANGUAGES', () => {
-  it('when enumerated, should expose all 8 supported languages', () => {
-    // given: the supported language list
-    // when: its length is computed
-    // then: it must cover the 8 PRD-mandated languages
-    expect(OCR_18_LANGUAGES.length).toBe(8);
-    expect(OCR_18_LANGUAGES).toEqual(
-      expect.arrayContaining(['python', 'go', 'java', 'rust', 'cpp', 'csharp', 'ruby', 'php'])
-    );
-  });
-});
-
-describe('language routing table', () => {
-  it('when OCR_18_LANGUAGES and LANGUAGE_EXTENSIONS are compared, should cover exactly the same set', () => {
-    // given: the supported language list and the exported routing table
-    const supported = [...OCR_18_LANGUAGES].sort();
-    const routed = (
-      Object.keys(LANGUAGE_EXTENSIONS) as Array<keyof typeof LANGUAGE_EXTENSIONS>
-    ).sort();
-    const entryCounts = supported.map((language) => LANGUAGE_EXTENSIONS[language].length);
-
-    // when: both key sets and the entry counts are inspected
-
-    // then: a language cannot be added without an extension entry, and the
-    // table cannot carry a key OCR_18_LANGUAGES does not know
-    expect(routed).toEqual(supported);
-    expect(entryCounts.every((count) => count > 0)).toBe(true);
-  });
-
-  it.each(OCR_18_LANGUAGES)(
-    'when language=%s, should keep every own extension and drop a foreign file',
-    (language) => {
-      // given: one comment per extension of this language, one upper-case path,
-      // and one comment on another language's file
-      const extensions = LANGUAGE_EXTENSIONS[language];
-      const foreignLanguage =
-        OCR_18_LANGUAGES.find((candidate) => candidate !== language) ?? 'python';
-      const foreignExtension = LANGUAGE_EXTENSIONS[foreignLanguage][0] ?? '.zzz';
-      const ownPaths = extensions.map((extension, index) => `src/own-${String(index)}${extension}`);
-      const firstExtension = extensions[0] ?? '.missing';
-      const upperPath = `src/Upper${firstExtension.toUpperCase()}`;
-      const foreignPath = `src/foreign${foreignExtension}`;
-      const comments = [
-        ...ownPaths.map((path) => ({
-          path,
-          content: `issue in ${path}`,
-          start_line: 1,
-          end_line: 1,
-          severity: 'low',
-          category: 'style'
-        })),
-        {
-          path: upperPath,
-          content: 'upper-case extension',
-          start_line: 2,
-          end_line: 2,
-          severity: 'low',
-          category: 'style'
-        },
-        {
-          path: foreignPath,
-          content: 'foreign language file',
-          start_line: 3,
-          end_line: 3,
-          severity: 'critical',
-          category: 'bug'
-        }
-      ];
-      queueSpawnSequence([{ status: 0, stdout: JSON.stringify({ status: 'success', comments }) }]);
-
-      // when: runOcr18 routes the payload to this language
-      const result = runOcr18({ cwd: process.cwd(), language });
-
-      // then: every own extension (and the upper-case one) is kept, the foreign
-      // file is dropped, and the count belongs to the requested language
-      expect(result.state).toBe('ok');
-      expect(result.findings.map((finding) => finding.filePath)).toEqual([...ownPaths, upperPath]);
-      expect(result.findings.map((finding) => finding.filePath)).not.toContain(foreignPath);
-      expect(result.summary?.byLanguage[language]).toBe(ownPaths.length + 1);
-    }
-  );
-});
-
 describe('buildOcr18Args', () => {
   it('when language is unsupported, should throw with code LANGUAGE_UNSUPPORTED', () => {
     // given: an unsupported language
@@ -402,5 +317,48 @@ describe('buildOcr18Args', () => {
     expect(() => buildOcr18Args({ cwd: process.cwd(), language: 'cobol' })).toThrow(
       /unsupported language/
     );
+  });
+
+  it('when delegate mode is requested, should build delegate preview args without a language', () => {
+    // given: delegation mode, which takes no language at all
+    // when: the argv is built
+    const args = buildOcr18Args({ cwd: process.cwd(), delegate: true });
+
+    // then: the spec command is named, and no language-dependent review flag is
+    expect(args).toEqual(expect.arrayContaining(['ocr', 'delegate', 'preview']));
+    expect(args).not.toContain('review');
+  });
+
+  it('when delegate mode carries an unrouted language, should not refuse it', () => {
+    // given: `ocr delegate preview` ignores the language, so requiring a routed
+    // one would be a value the code carries but does not mean
+    // when: an unsupported language is passed alongside delegate
+    // then: nothing is refused
+    expect(() =>
+      buildOcr18Args({ cwd: process.cwd(), language: 'cobol', delegate: true })
+    ).not.toThrow();
+  });
+});
+
+describe('runOcr18 delegation mode', () => {
+  beforeEach(() => {
+    childMock.spawnSync.mockReset();
+  });
+
+  afterEach(() => {
+    childMock.spawnSync.mockReset();
+  });
+
+  it('when no language is given, should run the delegate preview and report ok', () => {
+    // given: a successful delegate-preview call returning no comments
+    queueSpawnSequence([{ status: 0, stdout: '{}' }]);
+
+    // when: runOcr18 is invoked in delegation mode with no language
+    const result = runOcr18({ cwd: process.cwd(), delegate: true });
+
+    // then: it is a review-shaped success with nothing to attribute
+    expect(result.state).toBe('ok');
+    expect(result.findings).toEqual([]);
+    expect(result.summary?.total).toBe(0);
   });
 });

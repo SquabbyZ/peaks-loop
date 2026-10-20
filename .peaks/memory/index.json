@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-20T02:49:32.491Z",
+  "updatedAt": "2026-10-20T04:43:16.197Z",
   "hot": {
     "rule": [
       {
@@ -1430,6 +1430,14 @@
         "updatedAt": "2026-10-18"
       },
       {
+        "name": "a-count-cannot-distinguish-zero-findings-from-never-ran",
+        "kind": "lesson",
+        "description": "The OCR bridge originally returned .",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-count-cannot-distinguish-zero-findings-from-never-ran.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-20-session-a545d0/txt/handoff-002.md",
+        "updatedAt": "2026-10-20"
+      },
+      {
         "name": "a-create-then-write-lock-is-observable-mid-write",
         "kind": "lesson",
         "description": "is an exclusive CREATE followed by a WRITE, not an atomic create-with-content.",
@@ -1612,6 +1620,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-name-keyed-sweep-cannot-see-a-class-defined-by-position.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-14-session-2f9323/txt/handoff.md",
         "updatedAt": "2026-10-14"
+      },
+      {
+        "name": "a-new-category-that-claims-an-existing-extension-silently-changes-the-old-category",
+        "kind": "lesson",
+        "description": "Adding  to the OCR routing table with  also **removed  from **, because the table is a total mapping and the last wri...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-new-category-that-claims-an-existing-extension-silently-changes-the-old-category.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-20-session-a545d0/txt/handoff-002.md",
+        "updatedAt": "2026-10-20"
       },
       {
         "name": "a-packaged-asset-is-not-at-the-consumer-project-root",
