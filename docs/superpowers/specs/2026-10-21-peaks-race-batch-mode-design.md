@@ -1,7 +1,7 @@
 # peaks-race-code 批量模式 —— 设计
 
 - **日期**：2026-10-21
-- **状态**：设计已定，**未经用户逐节 review**。历经：brainstorming 4 轮 + 3 次用户裁决 + 1 次用户中途修正（诊断/修复分相）+ 2 次仓库实证核对 → 本文档
+- **状态**：设计已定，**未经用户逐节 review**。历经：brainstorming 4 轮 + 3 次用户裁决 + 1 次用户中途修正（诊断/修复分相）+ 2 次仓库实证核对 → 本文档；**§7A 为用户追加的上下文监控要求**（2026-10-21），基于对 `auto-compact-*` / `compact-*` / `compact-statusline` 的实地核对
 - **会话**：`2026-10-20-session-f7f45b`
 - **上游**：用户直接提出（非审计产物）
 - **关系**：本设计是 [`2026-10-10-peaks-race-code-design.md`](./2026-10-10-peaks-race-code-design.md) 的**后续**，不改它已交付的 S0/S1/S2/S3 任一件
@@ -95,6 +95,13 @@
 | **dispatch prompt 组装** | `src/services/context/build-dispatch-system-prompt.ts` | §7。**已经是共享件**；稳定前缀在前、变量在后，为缓存优化 |
 | **工作树隔离租约** | `peaks worktree spawn` / `--isolation worktree` | Slice 3。⚠️ 分支名由 rid 派生 ⇒ **并发 agent 必须各自不同的 rid** |
 | **micro-cycle（共享文件）** | `skills/peaks-code/references/micro-cycle.md` | §5。**已是共享件**，两条 lane 都读它 |
+| **每轮上下文探针** | `peaks skill presence` → `context.ratioPct` / `context.action` | §7A。**每轮都跑**，是唯一不漏的探针 |
+| **压缩区间判定** | `src/services/code/auto-compact-decision.ts` `evaluateCompactTrigger` | §7A。0.80 / 0.85 / 0.95 三档 |
+| **压缩 + 恢复** | `peaks code auto-compact` → `writePreCompactCheckpoint` → `peaks code post-compact-detect` | §7A |
+| **最佳时机建议** | `peaks compact recommend --from --to` | §7A。阶段转换表，**纯函数**，`research→planning` 与 `implementation→testing` 都是 `severity: 'yes'` |
+| **什么能活过压缩** | `peaks compact survival` | §7A |
+| **上下文账单** | `peaks code context-audit` | §7A。按 tool/key 拆解占用 |
+| **压缩状态条** | `compact-statusline` | §7A。8 格进度条 |
 
 ### 2.2 **不**存在的件（本设计必须自己造）
 
@@ -211,6 +218,13 @@ test pass + tsc pass + lint pass = GO
 - **收益**：返工 ↓（修改从提交时提前到 10 秒时）
 - **依赖**：无
 - **共享性**：**这是 peaks-rd 的改进，两条 lane 同时受益**（§6）
+
+### Slice 6 —— 批量进度落盘（上下文监控的地基）
+
+- **内容**：`batch/<batchId>/progress.json`（逐项追加，不是最后一次性写）；压缩后从它恢复；阶段边界的压缩提示接线（§7A.4 设计 B/C）。
+- **收益**：压缩后**不丢批量进度**；且用户知道最佳 compact 时机
+- **依赖**：Slice 1
+- **为什么必须是独立 slice**：它是**唯一**一个新造件（§7A.5），其余两块是接线。且它**独立可交付** —— 就算 Slice 3 永远不做，落盘本身也让批量模式在崩溃/压缩后能恢复
 
 ---
 
@@ -354,6 +368,191 @@ NEW   → 跑 scoped lint（peaks lint check --scope <file>）
 
 ---
 
+## 7A. 上下文监控 —— 防止 100% 会话直接挂掉
+
+> 用户追加要求：「把上下文监控加上吧，就怕上下文 100% 会话直接挂掉，适度地提醒用户上下文的使用情况，合理的提出告知用户什么时候是最佳的 compact 时机，可以先 compact 再继续」。
+
+### 7A.1 为什么批量模式比单任务模式**更需要**这一节
+
+单任务模式下上下文涨得慢。批量模式下有三处叠加：
+
+1. **N 个诊断 agent 的报告同时回来** —— 一次几十 KB 到上百 KB 灌进编排器窗口。
+2. **仓库里已有实测**：20 份子代理最终报告 ≈ 60 KB ≈ **15K token**，占编排器窗口的显著比例（`build-dispatch-system-prompt.ts` 的 `REPORT_CAP_BLOCK` 注释记录了这个测量）。
+3. **压缩在批量模式下会被推迟**（§7A.3）—— 恰恰是最需要它的时候。
+
+⇒ **批量模式是「上下文爆掉」这个故障最可能发生的地方。**
+
+### 7A.2 现状（核对过，不是推测）
+
+**已有的三块，**全部**在跑：
+
+| 件 | 位置 | 做什么 |
+|---|---|---|
+| **每轮探针** | `peaks skill presence` → `context.ratioPct` / `context.action` | 每轮报上下文占用率与所在区间。**这是唯一每轮都跑的探针** |
+| **区间判定** | `src/services/code/auto-compact-decision.ts` `evaluateCompactTrigger` | 0.80 / 0.85 / 0.95 三档 |
+| **自动压缩** | `peaks code auto-compact` | ≥0.80 自己跑，不问用户 |
+| **压缩点** | `writePreCompactCheckpoint` | 写 checkpoint（形状对齐 `peaks session checkpoint`） |
+| **恢复** | `peaks code post-compact-detect` | 压缩后找回最深完成的门 |
+| **用户可见的状态条** | `compact-statusline` | 8 格进度条（queued→preparing→compacting→verifying→completed / failed / stalled） |
+| **最佳时机建议** | `peaks compact recommend --from --to` | 阶段转换表（research→planning→implementation→testing→debugging），纯函数 |
+| **什么能活过压缩** | `peaks compact survival` | 静态表 |
+| **上下文账单** | `peaks code context-audit` | 按 tool / key 拆解占用，给出 top consumer |
+
+**所以「提醒用户占用率」和「告知最佳 compact 时机」这两件事，能力上已经存在。** 缺的**不是**新机制，是**批量模式怎么用它们**。
+
+### 7A.3 两个真缺口
+
+#### 缺口 1：压缩在批量模式下会被推迟，而推迟的判定会误判批量
+
+`evaluateAutoCompactDecision` 有一条 `in-flight-batch` 分支：
+
+```
+0.85 ≤ ratio < 0.95 且 hasInFlightBatch ⇒ shouldCompact: false, reason: 'in-flight-batch'
+```
+
+**D6.e 的原意是好的**：有子代理正在跑，此时压缩会把它们打断。
+
+**但在批量模式下，"有子代理在跑"是常态而不是例外** —— 阶段①就是 N 个诊断 agent 在并行。于是：
+
+> 批量模式下的编排器窗口，**在最需要压缩的时候系统性推迟压缩**。
+
+而且 `hasInFlightBatch` 由**图探针**给出（`auto-compact-orchestrator.ts:207` 注释明写 production MUST come from the graph probe）。批量模式的诊断 fan-out **不是**工作流图节点 ⇒ **探针看不见它** ⇒ 判定会走"无在飞批次"分支 ⇒ **压缩照常触发**，但此时 N 个诊断 agent 正拿着共享仓库在工作。
+
+⇒ **两种结果都不对**：一种压早了打断 agent，一种压晚了让窗口爆掉。
+
+**这一条必须实测，不能推理**（与 §4.1 同类问题）。
+
+#### 缺口 2：压缩之后，批量进度会丢
+
+`writePreCompactCheckpoint` 写的 checkpoint 内容是：
+
+```json
+{ "mode": "full-auto", "currentPlan": "...", "openQuestions": [],
+  "recentDecisions": [], "recentArtifactPaths": [], "todoState": [], ... }
+```
+
+**`openQuestions` / `recentDecisions` / `recentArtifactPaths` / `todoState` 全部是空数组** —— 注释明说「We seed empty arrays; the post-compact LLM rehydrates from the auto-decisions log + open question list」。
+
+对单任务模式这没问题（状态在编排器脑子里，压缩后从产物重建）。
+
+**对批量模式是致命的**：压缩发生在阶段①与阶段③之间时，**编排器窗口里那些"哪几项已诊断、哪几项待修、各项的文件集"全部消失**。而这些**不在任何落盘产物里** —— 阶段①的诊断产物是逐项写的，但**"哪些项还没诊断完"这个状态**只存在于编排器的上下文里。
+
+⇒ 压缩一次，批量模式的进度就退回到"重新诊断"。
+
+### 7A.4 设计：三条
+
+#### 设计 A —— 批量进度落盘（**这是解缺口 2 的**）
+
+**新增一个批量进度产物**，与阶段①的诊断产物同目录：
+
+```
+.peaks/_runtime/<sid>/batch/<batchId>/progress.json
+```
+
+内容（**形状对齐 `peaks job` 的 `progress.json`**，让既有的 resume 机制能读）：
+
+| 字段 | 内容 |
+|---|---|
+| `batchId` | 批量 id |
+| `phase` | `diagnosis` / `topology` / `fix` / `verify` / `done` |
+| `items` | `[{ id, label, status: pending\|diagnosed\|fixed\|verified, files[], riskSurface }]` |
+| `diagnosedAt` / `fixedAt` | 时间戳 |
+| `topology` | 阶段②的波次计划（可重放） |
+
+**写点**：
+- 阶段①每完成一项诊断 ⇒ 追加一条（**不是最后一次性写** —— 那样压缩正好会丢）
+- 阶段②定档后 ⇒ 写一次（拓扑）
+- 阶段③每完成一项修复 ⇒ 追加一条
+- 阶段④后 ⇒ 标记 `done`
+
+**压缩后怎么用**：`peaks code post-compact-detect` 已经有 `shouldAutoResume` 机制。批量模式在它之外**多读一个 `batch/<batchId>/progress.json`** ⇒ 恢复时直接知道"哪几项诊断完了、哪几项没完、文件集是什么" ⇒ **从断点续跑，而不是重跑**。
+
+> 这是把"批次进度"从**上下文里**搬到**盘上**。与本仓已有的一致做法同源：`peaks job` 的 `progress.json` 就是为了让 `gate-step-08` 能报 `Next: slice #N of M`。
+
+#### 设计 B —— 压缩时机：三个信号，不是单一 ratio（解缺口 1 的一半）
+
+**现状**：只看 ratio。**批量模式下不够**，因为 ratio 只说"窗口有多满"，不说"现在压会不会打断正在跑的活"。
+
+**提议**：批量模式的压缩判定用**两个信号**：
+
+| 信号 | 含义 | 处置 |
+|---|---|---|
+| `ratio` | 窗口占用率 | 沿用 0.80 / 0.85 / 0.95 三档，**不改** |
+| `batchPhase` | 当前在哪个阶段 | **阶段边界是最佳压缩点**（见下） |
+
+**最佳压缩点 = 阶段边界**，理由是结构性的：
+
+```
+阶段①诊断(N 个 agent)→ 阶段②定档 → 阶段③修复 → 阶段④验证
+        ↑                                                ↑
+    此刻压缩：N 份报告刚落盘，尚未开始写代码            此刻压缩：修复已完成，验证还没跑
+    —— 恢复成本最低（只需重读进度文件）
+```
+
+这正好对应用户说的「**合理的告知什么时候是最佳的 compact 时机**」。
+
+**而 `peaks compact recommend` 已经有阶段转换表**（research→planning→implementation→testing→debugging），`peaks compact survival` 已经有"什么能活过压缩"的表。⇒ **批量模式把四个阶段映射到那套既有词汇即可**，不另造一套：
+
+| 批量阶段 | 映射到 `recommend` 的 phase |
+|---|---|
+| 阶段①诊断 | `research` |
+| 阶段②定档 | `planning` |
+| 阶段③修复 | `implementation` |
+| 阶段④验证 | `testing` |
+
+**压缩时选 `research → planning` 或 `implementation → testing`** —— 这两条在既有表里都是 `severity: 'yes'`（"Research context is bulky; plan is the distilled output" / "Plan is in TodoWrite or a file; free up context for code"）。**既有表已经给了答案，批量模式只是把它接上。**
+
+#### 设计 C —— 提醒用户：适度、不吵、且不违反零停顿契约
+
+⚠️ **这里有一条必须遵守的既有红线**（`skills/peaks-code/SKILL.md` Step N+2）：
+
+> 任何"请用户自己去运行 `/compact`"的文案都是**回归**。压缩是**系统责任**，不是用户动作。
+
+**这条有机器守卫**：`tests/unit/cli/skill-presence-loop-hygiene.test.ts` 断言 `buildContextVerdict` 的 `nextActions` 在 0.82 / 0.9 / 0.96 三个比率下**都不含** `ask the user to compact` / `prompt the user to run` / `user should run`。⇒ **任何新的提醒文案都要走同一个 `buildContextVerdict` 通道**，否则既绕过守卫又破坏契约。
+
+所以提醒的形状**不是**"你该压缩了"，而是**告知已经发生的事**：
+
+| 什么时候 | 说什么 |
+|---|---|
+| 平时（< 0.80） | **不说**。ratio 已在 `presence` 的 `context` 块里每轮可见，用户想看就看 |
+| 进入 0.80–0.85 | 一行：`上下文 82%，已进入自动压缩区` —— 陈述**已经发生的事**，不要求动作 |
+| 阶段边界 | 一行：`诊断完成（N/M 项）；正在压缩 —— 这是恢复成本最低的时点，进度已落盘` —— **陈述系统正在做**，不是建议用户做 |
+| ≥ 0.95 | `已请求 harness 压缩，等待中；派发未阻塞`（`compactNextActions` 现成文案） |
+
+**关键**：`auto-compact` **照旧自己跑**，用户不需要做任何事。提醒只是让他知道**发生了什么** + **什么时候最划算**。
+
+⚠️ **注意阶段边界那条的措辞**：它必须是「**正在压缩**」而不是「**建议现在压缩**」。前者是系统陈述，后者就是被守卫禁止的"把压缩甩给用户"。这三个比率下的文案都要走 `buildContextVerdict` 同一个通道（§7A.4 的守卫）。
+
+⇒ 用户那句「**可以先 compact 再继续**」在这套设计里成立：压缩在阶段边界自动发生，**批量进度从盘上恢复**，工作继续。
+
+### 7A.5 与既有机制的关系（不重造）
+
+| 用户诉求 | 已有件 | 缺什么 |
+|---|---|---|
+| 提醒上下文占用率 | `presence.context.ratioPct` 每轮可见 + `context-now` | 批量模式下**阶段边界**的提示（设计 C） |
+| 告知最佳 compact 时机 | `peaks compact recommend` 阶段转换表 | **批量四阶段 → 既有 phase 词汇的映射**（设计 B） |
+| 先 compact 再继续 | `auto-compact` + `post-compact-detect` | **批量进度不落盘 ⇒ 压缩后丢进度**（缺口 2 ⇒ 设计 A） |
+
+**⇒ 三个设计里只有设计 A 是造新件。** B 是接线，C 是接线 + 文案。
+
+### 7A.6 新增 slice
+
+| # | 内容 | 依赖 |
+|---|---|---|
+| **Slice 6** | **批量进度落盘**（设计 A）：`batch/<batchId>/progress.json` + 压缩后从它恢复 | Slice 1 |
+
+**并入 Slice 2 的验收**：阶段边界的压缩提示（设计 B 的映射 + 设计 C 的文案）。
+
+### 7A.7 未决
+
+| # | 项 | 处理 |
+|---|---|---|
+| U-h | **压缩在批量模式下到底会不会打断诊断 agent** —— `hasInFlightBatch` 的图探针看不见诊断 fan-out（§7A.3 缺口 1） | **必须实测**。与 §4.1 的 driver probe 同类，但**更早**：它影响 Slice 2 的验收（压缩发生在阶段边界时，不能打断任何东西） |
+| U-i | 压缩 checkpoint 的 `openQuestions` / `recentDecisions` / `todoState` 全空 —— 单任务模式靠"压缩后从产物重建"，批量模式靠设计 A | 设计 A 落地后，批量恢复**不依赖**这些空字段 |
+| U-j | 「适度提醒」的频率 —— 每轮说会吵 | 设计 C 默认**只在 0.80+ 与阶段边界说**，平时不说。具体措辞随实现期定，但**必须过 `peaks audit red-lines`**（§7A.4 的红线） |
+
+---
+
 ## 8. 未决与风险
 
 | # | 项 | 处理 |
@@ -365,6 +564,9 @@ NEW   → 跑 scoped lint（peaks lint check --scope <file>）
 | U-e | **token 净变化未实测** | Slice 1 验收含前后计量对比 |
 | U-f | 项目 lint 工具的**探测规则**（读什么文件判断"项目声明了什么"）未定 | Slice 4 实现期定。约束：不做语言分叉 |
 | U-g | ECC / OCR 在**下游项目**里是否可用（它们是 peaks-loop 的依赖，不是项目自己的） | ECC 是 peaks-loop 的 npm 依赖 ⇒ 随 peaks-loop 装 ⇒ 对下游**可用**。但**项目的 L1 规则**仍要项目自己声明 |
+| U-h | **压缩在批量模式下会不会打断诊断 agent** —— `hasInFlightBatch` 的图探针看不见诊断 fan-out（§7A.3 缺口 1） | **必须实测**。比 §4.1 的 driver probe 更早影响：它决定 Slice 2 的验收标准 |
+| U-i | 压缩 checkpoint 的 `openQuestions`/`recentDecisions`/`todoState` 全空 | 单任务靠"压缩后从产物重建"；批量靠 Slice 6 的 `progress.json` |
+| U-j | 「适度提醒」的频率与措辞 | 默认只在 0.80+ 与阶段边界说；**必须过 `tests/unit/cli/skill-presence-loop-hygiene.test.ts`**（§7A.4 的零停顿红线 —— 那个测试才是真正的守卫，`peaks audit red-lines` 只扫描 MANDATORY/BLOCKING 标记，不查这条） |
 
 ---
 
@@ -378,9 +580,13 @@ NEW   → 跑 scoped lint（peaks lint check --scope <file>）
 - ❌ **不抽"lane 框架"**（§6.1 反向警告）
 - ❌ 不降低统一验证的严格度（U4）
 - ❌ 不在 Slice 1/2 里动修复拓扑（U5）
+- ❌ **不改**压缩的 0.80 / 0.85 / 0.95 三档阈值 —— 批量模式只**接线**，不动机制（§7A.4 设计 B）
+- ❌ **不写"请用户自己运行 `/compact`"的文案** —— 压缩是系统责任（§7A.4 设计 C 的红线）
 
 ---
 
 ## 10. 一句话
 
 > 把「N 个独立 bug」从 **N 次门禁墙钟** 变成 **1 次**，把「写完才知道规矩」变成 **动手前就知道规矩**，并且**只靠强化 peaks-rd 一件事**就让两条泳道同时受益。
+>
+> 上下文爆掉不是批量模式的受害者，是它的**头号故障模式** —— 所以批量进度必须落盘，压缩点必须选在阶段边界，而提醒只陈述事实、不把压缩变成用户的事。
