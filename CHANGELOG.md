@@ -1,5 +1,48 @@
 # Changelog
 
+## 4.1.11 — 2026-10-20（生产依赖升版、OCR 全语言路由，与 delegation 双阶段评审路径）
+
+**版本级别**: 未发布区间 `v4.1.10..HEAD` 共 **3 个 commit**（**2 feat / 1 refactor**）。取 **patch**，依维护者 2026-07-22 的常设规则"默认版本新增采用最小的版本位"。`peaks code-review run-ocr-18` 新增 `--languages auto|<csv>` 与 `--delegate` 两条路径、新增 `peaks code-review ocr-delegate-record` 一个动词，均是在既有 service 之上的新入口；既有的 `--language <lang>` 单语言路径与 API 路径行为不变，无破坏性变更。
+
+### 1. 五个生产依赖升到各自大版本内最新（`194eccf5`）
+
+- `@alibaba-group/open-code-review` `^1.8.9` → `^1.13.1`；`@upstash/context7-mcp` `^4.0.2` → `^4.4.4`；`picomatch` `4.0.4` → `4.0.7`（保留精确 pin）；`yaml` `^2.9.0` → `^2.9.1`；`zod` `^4.4.3` → `^4.6.7`（根包与 `peaks-loop-mut` 同步）。
+- `commander ^12.1.0`、`fzf ^0.5.2`、`@colbymchenry/codegraph 1.6.2` **经实测已是各自大版本内最新**，未改版本号——先量后改，而不是把所有条目都动一遍。
+- `devDependencies` 全程未动，含被锁定的 `vitest 4.1.10`。锁文件里仍会解析出 `picomatch@4.0.4`，那是 vitest 自身钉死的传递依赖，不是漏升。
+
+### 2. OCR 桥的既有缺陷（`194eccf5`）
+
+升级过程中量出该桥**从未真正工作过**：它把 `--filter-language` 传给一个在 1.8.9 与 1.13.1 中都不存在的参数，并按 `findings[]` 解析一个真实信封里没有的字段（真实为 `comments[]`，字段是 `path` / `content` / `start_line` / `end_line` / `severity` / `category`）。测试一直是绿的，因为测试 mock 了子进程、喂的是适配器自己编造的 payload。
+
+- `OCR_18_PACKAGE` 同步到 `1.13.1`——只改 `package.json` 不会改变运行时，npx 取的是这个常量。
+- argv 去掉不存在的参数，保留 `--format json` 与 git 范围参数；解析改为读真实 `comments[]`，severity 映射扩展到 `critical/high/medium/low`。
+- 语言路由改为**评审后按扩展名过滤**，并在代码里写明：评审仍覆盖整个 diff，被限定的是上报结果，而不是 LLM 被要求查看的范围。
+
+### 3. 全语言覆盖与自动识别（`e905f8eb`）
+
+- 语言表**以上游自身的 `supported_file_types.json` 与 `rule_docs` 为准**内置，57 语言 / 97 扩展名；有漂移测试盯着内置副本与路由表，语言缺路由会直接红。
+- `--languages auto` 从 git 范围识别语言，**一次 OCR 调用**产出按语言分组的 findings——Python+Go 的改动此前要跑两次同样的全量评审。范围里没有可路由语言时**完全不启动**（实测 128ms、零 spawn），而不是花一次调用去发现无事可做。
+- 四种结果保持可区分：有发现 / 零发现 / 格式不受支持（`unsupportedFiles`）/ OCR 不可用（`state`）；测试断言的是"干净但空"与"没跑成"**不相等**，不是两个不同的名字。
+- `.mts` / `.cts` 不路由：上游 1.13.1 的白名单确实没有它们，`--preview` 报 `unsupported_ext`——已实测量并记录，不是遗漏。
+- peaks-rd Gate B3 在 diff 命中任一语言时调用该步骤；TS/JS 双轨，ESLint 仍为主闸、OCR 为辅，每条 finding 标注来源工具。调用方传入的 ref 若以 `-` 开头在边界处即被拒，避免选项注入。
+
+### 4. Delegation 成为真正的评审路径（`7dc79de1`）
+
+- 此前 `ocr-18-delegate-preview` 拿**评审解析器**去解析一个**文件清单**，从未产出过 finding。现在拆成两阶段：CLI 产出评审包（选中的文件与其 pattern、被排除的文件、按组解析后的规则文本、git 范围、成本面），宿主 agent 用自己的模型审，再由 `ocr-delegate-record` 校验并记录。
+- **不需要任何 API key，不写 `~/.opencodereview`**。评审发生在会话本身的模型上。
+- 记录下来的 finding 带 `attribution: ocr-delegate`，宿主模型的结论不会继承 OCR 的 benchmark 背书。
+- **"没跑"与"干净"是两个文件而非两个名字**：包是 `state: awaiting-envelope` + `findings: null`，完成的评审是另一份带 `findings: []` 的文档；不存在任何一份文档能同时读成两者。
+- 信封按不可信输入处理：逐字段类型校验，未知 severity 拒绝而非降级为 `info`，格式错误指名条目下标而非跳过；包路径限制在项目根内。
+- 该路径在实现过程中被**真实跑通并用于审查自身**：出包 → 宿主模型按包内规则审 → 回录，抓到一个真实缺陷（`findings !== null` 的判断与自身报错语义相反），修复后重跑一致。
+
+### 5. 证据
+
+- 全量 `pnpm test:unit`：**538 files / 5967 passed / 3 skipped**，exit 0（3 个 skip 为既有 `@slow` / `@replay` 标记）。
+- 作用域运行：`tests/unit/services/lint/` + `tests/unit/cli/commands/` 58 files / 597 passed；树型层（`standards` + `lint` + 根）60 files / 616 passed。
+- `tsc --noEmit`、`pnpm build`、`node .husky/peaks-gate.mjs repo` 全绿；构建后工作树保持干净（已提交的生成物与源码一致）；`peaks changeset check` 通过；`no-ai-co-author-trailer` 7/7。
+- 三个 slice 均 `verify-pipeline complete: true`、0 个失败 gate；security / perf 审计各自出件（delegation slice 两门均为 `pass`）；karpathy 复核共 7 条发现全部关闭。
+- 未执行且如实记录：OCR 自身的付费 `ocr review` 路径从未真正跑过——delegation 落地后它不再是必需路径。
+
 ## 4.1.10 — 2026-10-20（STRAT→TACT→MUT 生产者链，canonical digest 递归修复）
 
 **版本级别**: 未发布区间 `v4.1.9..HEAD` 共 **3 个 commit**（**1 feat / 1 fix / 1 docs**）。取 **patch**，依维护者 2026-07-22 的常设规则"默认版本新增采用最小的版本位"。CLI 新增 `peaks strat` / `peaks tact` 两个动词组，均为既有 service 的薄包装；无破坏性变更（canonical digest 的值变了，但只影响修复前产生的临时 artifact）。
