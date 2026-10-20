@@ -14,6 +14,11 @@
 
 **Plan:** `docs/superpowers/plans/2026-10-21-peaks-race-batch-mode.md`
 
+**✅ Probe results (2026-10-21, already measured):** `docs/superpowers/plans/2026-10-21-race-batch-probe-results.md`
+- **Probe A = A-1（放行）**：Task 子代理**继承父会话的 `CLAUDE_CODE_SESSION_ID`**，与租约 owner 相同 ⇒ 身份解析成立 ⇒ `peaks-race-code` 租约下 `src/` 放行。**Task 3 只走分支 A-1。**
+- **Probe B = B-2（探针有盲区，且比预期严重）**：production CLI 恒传 `graphs: []` ⇒ `probeInFlightBatch` 恒返回 false ⇒ **D6.e 的 deferral 在 production 是死代码**。⇒ **Task 6 是硬前置**（`progress.json` 的 `phase` 是唯一能表达"有批次在飞"的信号），且压缩点**必须**是阶段边界。
+- **本仓库没装 `peaks code-gate`**（只装了 `gate-step-08` / `gate enforce` / `auto-compact`）⇒ A-1 测的是身份解析，**不是**装好的拒绝。Task 3 验收须在**装了 code-gate 的项目**里复跑一次。
+
 ## Global Constraints
 
 - **提交信息不得含任何 AI 署名 trailer**（`Co-Authored-By: Claude` / `Anthropic` / `MiniMax` 全部禁止）。SquabbyZ（`601709253@qq.com`）是唯一作者。机械支撑：`tests/unit/standards/no-ai-co-author-trailer.test.ts`（**detect-not-prevent**，补救是改历史）。
@@ -44,13 +49,15 @@
 
 ## Task 0: 两个 probe —— 先测，再定后面的形状
 
-> **为什么在最前面**：两个 probe 的结果会改变 Task 3 的**写法**，而不是只改变它的**内容**。先测能把"设计被现实推翻"的风险放在最便宜的位置。
-> **产出**：两个实测结论 + 一份 probe 记录，落盘在 `.peaks/_runtime/2026-10-20-session-f7f45b/rd/probe/`。
+> ✅ **已完成（2026-10-21）。** 结论：**A-1（放行）** + **B-2（探针有盲区，D6.e 在 production 是死代码）**。
+> 完整记录：`docs/superpowers/plans/2026-10-21-race-batch-probe-results.md`
+> **本 task 保留在计划里作为存档与回归锚点** —— 下面的测试仍然要写（它们把结论钉成可执行断言），但**不再阻塞**后续 task。
+> **Task 3 只走分支 A-1**（Step 5 分支被删，Step 6 升为唯一路径）。
 
 **Files:**
 - Create: `tests/unit/services/batch/probe-driver-resolution.test.ts`
 - Create: `tests/unit/services/batch/probe-compact-interrupt.test.ts`
-- Create: `docs/superpowers/plans/2026-10-21-race-batch-probe-results.md`
+- Create: `docs/superpowers/plans/2026-10-21-race-batch-probe-results.md` ✅ **已创建**
 
 **Interfaces:**
 - Consumes: `decideGateAction(tool, input, driver)`（`src/services/hooks/pre-tool-code-gate.ts:97`）；`resolveActiveSkillForCaller(projectRoot, {callerId})`（`src/services/audit/enforcers/active-skill-resolver.ts:68`）；`hasLeaseForCaller(projectRoot, callerId)`（同文件 `:234`）
@@ -573,6 +580,24 @@ export const BATCH_ACCEPTANCE_GATE = ['test', 'tsc', 'lint'] as const;
 
 > **归因的前提**：阶段③每个 bug 修完立刻跑 scoped test（`references/micro-cycle.md`）。**没有那一步，统一验证红了就分不清是单项坏了还是整合坏了。** ⇒ Task 3 必须保证 scoped test 在位。
 
+- [ ] **Step 3b: 验收 —— 阶段①中途压缩，断言诊断 agent 未被打断**
+
+**为什么这是必须的**：Probe B = B-2 证明 **production 的 deferral 是死代码**（`code-auto-compact-command.ts:84` 恒传 `graphs: []`）⇒ **压缩不会因为「有批次在飞」而自动推迟**。
+
+⇒ 压缩点**必须**是阶段边界（①→② / ③→④），不能是阶段中途。
+
+**验收方法**：在阶段①进行中（诊断 agent 在跑）手动触发一次压缩，断言
+1. 诊断 agent **未被打断**（其产物仍完整）
+2. 批量进度**从 `progress.json` 恢复**，不退回"重新诊断"
+
+> ⚠️ 这条必须**在 24h 模式下测** —— 24h/partial 的 auto-fire 阈值是 **0.70**，比标准模式的 0.80 更早触发；用标准模式测的是更宽松的阈值。
+
+- [ ] **Step 3c: 记录 D6.e 失效这条缺陷（不在本 slice 修）**
+
+`code-auto-compact-command.ts:84` 的 `graphs: []` 使 D6.e deferral 在 production 整体失效。**修它需要 production 调用点真正加载工作流图** —— 那是独立缺陷，**不在本 spec 范围**。
+
+**处置**：记入 `.peaks/docs/backlog.md`（一个条目，带实测证据），**不在本 slice 顺手修** —— 顺手修会扩大 scope，且它影响的是既有 peaks-code 路径的行为。
+
 - [ ] **Step 4: 跑测试确认它通过**
 
 Run: `npx vitest run tests/unit/services/batch/batch-verify.test.ts`
@@ -659,33 +684,32 @@ Expected: FAIL
 Run: `npx vitest run tests/unit/services/batch/batch-fix-scoped-test.test.ts`
 Expected: PASS
 
-- [ ] **Step 5:【分支 A-2 / A-3】修复留在主窗口**
+- [ ] **Step 5: 修复派子代理**（Probe A = A-1，这是唯一分支）
 
-Probe A 结论为"不放行"或"身份不可解析"时：**不派子代理**。本窗口按拓扑顺序逐项修复，每项走 Step 3 的 scoped-test 门。
-
-```ts
-// src/services/batch/batch-fix.ts
-export function fixItemsInMainWindow(items: readonly BatchItem[]): readonly BatchItem[] {
-  // 按 topology 的波次顺序串行；每项 scoped test 绿才推进
-}
-```
-
-**并在 probe 结果文档里记一句**：并行化推迟到 Probe A 有答案之后另立 slice。
-
-- [ ] **Step 6:【分支 A-1】修复派子代理**
-
-Probe A 结论为"放行"时：按波次排 N' 个 peaks-rd 子代理，每个带**①的诊断结果**（不重读仓库）。
+按波次排 N' 个 peaks-rd 子代理，每个带**①的诊断结果**（不重读仓库）。
 
 **硬约束**：
 - **每个子代理必须拿到自己那一项的诊断**，不是整批的
-- **必须带规范清单**（Task 4 产出；若 Task 4 未先做，此分支**必须等 Task 4**）
+- **必须带规范清单**（Task 4 产出 ⇒ **Task 3 依赖 Task 4**）
 - **并发 agent 必须各自不同的 rid** —— 工作树分支名由 rid 派生，重名会 `git worktree add -b` 失败
 - **工作树隔离**：每个 agent 一个 `peaks worktree spawn --rid <rid> --role rd --purpose <text>`，合并由**父会话**做（子代理不得自己 merge —— `LIFECYCLE_RULES` 明令禁止）
+- **前置条件**：批量模式开始前，presence 租约的 skill 必须是 `peaks-race-code`（否则 driver 解析出 `peaks-code` ⇒ `src/` 被 deny）
+  ```bash
+  peaks skill presence:set peaks-race-code --project . --mode <mode> --gate <gate>
+  ```
 
-- [ ] **Step 7: 跑测试确认它通过**
+- [ ] **Step 6: 跑测试确认它通过**
 
 Run: `npx vitest run tests/unit/services/batch/batch-fix.test.ts`
 Expected: PASS
+
+- [ ] **Step 7: 验收 —— 在装了 code-gate 的项目里复跑 A-1**
+
+本仓库**没有装** `peaks code-gate`（只装了 `gate-step-08` / `gate enforce` / `auto-compact`），所以 A-1 在这里测的是**身份解析**，不是**装好的拒绝**。
+
+**验收要求**：在一个装了 `peaks hooks install`（因而带 `code-gate` entry）的项目里复跑一次 —— 派一个 Task 子代理改一个 `src/` 文件，断言**没被 deny**。
+
+若此处被 deny ⇒ 回到 probe 结论 A-2（修复留主窗口），并把新证据补进 `2026-10-21-race-batch-probe-results.md`。
 
 - [ ] **Step 8: 提交**
 

@@ -6529,3 +6529,50 @@ id; a second `job init` for a different job keeps the first `suggestedJobId` unt
 non-goal); the ledger-arm reason text still says the decision step was skipped, which since this fix
 can also mean a provisional write failed; the concurrent `JOB_SHAPE_ALREADY_DECIDED` branch is
 untested.
+
+---
+
+## §20 — D6.e 的 deferral 在 production 是死代码（2026-10-21 实测）
+
+**在哪**：`src/cli/commands/code-auto-compact-command.ts:84`，唯一给 `runAutoCompact` 传
+`probeInflightBatch` 的 production 调用点。
+
+**测到的**：
+
+```ts
+probeInflightBatch: () => {
+  // ... The empty `graphs` array is the production CLI default ...
+  const out = probeInFlightBatch({ now: new Date().toISOString(), graphs: [] });
+  return out.inFlightBatch === true;
+}
+```
+
+`probeInFlightBatch`（`src/services/workflow/workflow-inflight-probe.ts:79`）只遍历传入的图；
+`graphs: []` ? 循环体一次都不执行 ? `inFlightBatch` **恒为 false**。
+`evaluateAutoCompactDecision` 的 deferral 分支要求 `probe?.hasInFlightBatch === true`
+（`src/services/code/auto-compact-decision.ts:156`）? **该分支在 production 不可达**。
+
+**为什么没被早发现**：D6.e 只在**测试 seam**（`PEAKS_TEST_SEAM === '1'` + `--in-flight-batch`）
+下可达；production 走另一条路，而那条路恒为 false。测试覆盖的是 seam，不是 production 路径。
+
+**后果**：`peaks code auto-compact` **永远不会因为「有子代理在飞」而推迟压缩**。而它的 hook
+matcher 是 `Bash|Task` ? **每次 Task 派发都跑一次探针**。在 24h/partial 模式下 auto-fire
+阈值是 0.70（比标准模式的 0.80 更早），在长跑里更容易在 fan-out 中途触发压缩。
+
+**证据来源**：race 批量模式设计的 Probe B（`docs/superpowers/plans/2026-10-21-race-batch-probe-results.md`），
+2026-10-21，会话 `2026-10-20-session-f7f45b`。
+
+**为什么不在那个 slice 里顺手修**：修它需要 production 调用点真正加载工作流图
+（`graphs/<wid>.json`），那会改变**既有 peaks-code 路径**的行为 —— 属于独立决策，不该挂在一个
+新功能的 slice 上。
+
+**可能的修法（待裁决）**：
+① production 调用点真的读 `graphs/` 目录并把图喂给探针；
+② 把 `inFlightBatch` 换成读 dispatch ledger（`.peaks/_sub_agents/<sid>/active-dispatches.json`）
+—— 它记的是**真正在跑的派发**，而不是图节点；
+③ 承认 D6.e 已废弃，删掉 deferral 分支与它的测试 seam，并改文档。
+
+② 看起来最贴近语义（「有派发在飞」而不是「有图节点在跑」），但它要动 dispatch ledger 的读法，
+同样影响既有路径。
+
+**注意**：本条目**没有**实测过①②③中的任何一个 —— 上面只是列出候选，不是结论。

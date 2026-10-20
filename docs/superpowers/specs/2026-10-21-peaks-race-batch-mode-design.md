@@ -252,6 +252,11 @@ test pass + tsc pass + lint pass = GO
 
 仓库自己也知道这块没定：`.peaks/docs/backlog.md` §7.4 与 race 设计文档 §12 U4 都把「gate 读不到 session」记为未决。
 
+> **✅ Probe A 已实测（2026-10-21）—— 结论 A-1：放行。**
+> Task 子代理**继承父会话的 `CLAUDE_CODE_SESSION_ID`**（实测 `1e867f27-…`），与租约 `callerId` **完全相同** ⇒ `hasLeaseForCaller` 为 true ⇒ driver 解析出**租约里的 skill** ⇒ 若租约是 `peaks-race-code`，`src/` 放行。
+> **我先前推理错在假设子代理有独立 session id。** 完整记录见 `docs/superpowers/plans/2026-10-21-race-batch-probe-results.md`。
+> ⚠️ **但本仓库没装 `peaks code-gate`**（只装了 `gate-step-08` / `gate enforce` / `auto-compact`）⇒ A-1 测的是**身份解析**，不是**装好的拒绝**。在装了 `peaks hooks install` 的项目里仍需复跑一次（Task 3 验收项）。
+
 **Slice 3 的第一步就是一个 probe**，按结果选分支：
 
 | probe 结果 | Slice 3 走哪条 |
@@ -427,6 +432,13 @@ NEW   → 跑 scoped lint（peaks lint check --scope <file>）
 
 **这一条必须实测，不能推理**（与 §4.1 同类问题）。
 
+> **✅ Probe B 已实测（2026-10-21），结论比这段推理更严重**：**D6.e 在 production 是死代码。**
+> `code-auto-compact-command.ts:84` 恒传 `graphs: []` ⇒ `probeInFlightBatch` 恒返回 `inFlightBatch: false` ⇒ **deferral 分支在 production 不可达**。
+> ⇒ 不是"探针的盲区"，是**推迟机制整体不生效**。任何压缩都不会因为"有子代理在飞"而推迟。
+> ⇒ 叠加 `auto-compact` 的 hook matcher 是 **`Bash|Task`** ⇒ **每次 Task 派发都跑一次探针**；24h/partial 的 auto-fire 阈值 **0.70** 比标准模式更早触发。
+> ⇒ **压缩点必须是阶段边界**（①→② / ③→④），不能是阶段中途。完整记录见 `docs/superpowers/plans/2026-10-21-race-batch-probe-results.md`。
+> ⇒ 修 `graphs: []` 是**独立缺陷**，不在本 spec 范围（会影响既有 peaks-code 路径的行为）⇒ 记 backlog。
+
 #### 缺口 2：压缩之后，批量进度会丢
 
 `writePreCompactCheckpoint` 写的 checkpoint 内容是：
@@ -566,9 +578,10 @@ NEW   → 跑 scoped lint（peaks lint check --scope <file>）
 
 | # | 项 | 处理 |
 |---|---|---|
-| U-h | **压缩在批量模式下到底会不会打断诊断 agent** —— `hasInFlightBatch` 的图探针看不见诊断 fan-out（§7A.3 缺口 1） | **必须实测**。与 §4.1 的 driver probe 同类，但**更早**：它影响 Slice 2 的验收（压缩发生在阶段边界时，不能打断任何东西） |
+| U-h | **压缩在批量模式下到底会不会打断诊断 agent** | ✅ **已实测 = B-2**，且比预期严重：**D6.e deferral 在 production 是死代码**（`code-auto-compact-command.ts:84` 恒传 `graphs: []`）。⇒ 压缩点**必须**是阶段边界；设计 A 的 `progress.json` 是**唯一**能表达"有批次在飞"的信号 ⇒ **Slice 6 是硬前置** |
 | U-i | 压缩 checkpoint 的 `openQuestions` / `recentDecisions` / `todoState` 全空 —— 单任务模式靠"压缩后从产物重建"，批量模式靠设计 A | 设计 A 落地后，批量恢复**不依赖**这些空字段 |
-| U-j | 「适度提醒」的频率 —— 每轮说会吵 | 设计 C 默认**只在 0.80+ 与阶段边界说**，平时不说。具体措辞随实现期定，但**必须过 `peaks audit red-lines`**（§7A.4 的红线） |
+| U-j | 「适度提醒」的频率 —— 每轮说会吵 | 设计 C 默认**只在 0.80+ 与阶段边界说**，平时不说。具体措辞随实现期定，但**必须过 `tests/unit/cli/skill-presence-loop-hygiene.test.ts`**（§7A.4 的红线 —— 那个测试才是真正的守卫；`peaks audit red-lines` 只扫描 MANDATORY/BLOCKING 标记，不查这条） |
+| U-k | **`code-auto-compact-command.ts:84` 的 `graphs: []` 使 D6.e 整体失效** | **独立缺陷**，不在本 spec 范围（修它影响既有 peaks-code 路径的行为）。⇒ 记 backlog，**不顺手修** |
 
 ---
 
@@ -576,16 +589,17 @@ NEW   → 跑 scoped lint（peaks lint check --scope <file>）
 
 | # | 项 | 处理 |
 |---|---|---|
-| U-a | **race presence 下 Task 子代理能否改 `src/`** —— §4.1 的 probe | **Slice 3 第一件事**。Slice 1/2/4/5 不依赖 |
+| U-a | **race presence 下 Task 子代理能否改 `src/`** —— §4.1 的 probe | ✅ **已实测 = A-1（放行）**。Task 子代理**继承父会话 session id** ⇒ 身份解析成立。**但本仓库没装 code-gate** ⇒ Slice 3 验收须在装了它的项目里复跑 |
 | U-b | 诊断的**预计文件集可能不准** | Slice 1/2 无害；Slice 3 靠工作树物理隔离兜底 |
 | U-c | **波次规划器不做路径规范化** —— `src\a.ts` 与 `src/a.ts` 被当作不同文件 | 诊断产出的文件集必须规范化后再喂入。**Windows 上不做这一步 = 整个冲突检测失效** |
 | U-d | 统一验证红了如何归因 | 阶段③的 scoped test 已把单 bug 拦在当场；阶段④只负责集成层。验收里要证明这一点 |
 | U-e | **token 净变化未实测** | Slice 1 验收含前后计量对比 |
 | U-f | 项目 lint 工具的**探测规则**（读什么文件判断"项目声明了什么"）未定 | Slice 4 实现期定。约束：不做语言分叉 |
 | U-g | ECC / OCR 在**下游项目**里是否可用（它们是 peaks-loop 的依赖，不是项目自己的） | ECC 是 peaks-loop 的 npm 依赖 ⇒ 随 peaks-loop 装 ⇒ 对下游**可用**。但**项目的 L1 规则**仍要项目自己声明 |
-| U-h | **压缩在批量模式下会不会打断诊断 agent** —— `hasInFlightBatch` 的图探针看不见诊断 fan-out（§7A.3 缺口 1） | **必须实测**。比 §4.1 的 driver probe 更早影响：它决定 Slice 2 的验收标准 |
+| U-h | **压缩在批量模式下会不会打断诊断 agent** | ✅ **已实测 = B-2**，且比预期严重：**D6.e deferral 在 production 是死代码**。⇒ 压缩点**必须**是阶段边界；Slice 6 的 `progress.json` 是**唯一**能表达"有批次在飞"的信号 ⇒ **Slice 6 是硬前置** |
 | U-i | 压缩 checkpoint 的 `openQuestions`/`recentDecisions`/`todoState` 全空 | 单任务靠"压缩后从产物重建"；批量靠 Slice 6 的 `progress.json` |
 | U-j | 「适度提醒」的频率与措辞 | 默认只在 0.80+ 与阶段边界说；**必须过 `tests/unit/cli/skill-presence-loop-hygiene.test.ts`**（§7A.4 的零停顿红线 —— 那个测试才是真正的守卫，`peaks audit red-lines` 只扫描 MANDATORY/BLOCKING 标记，不查这条） |
+| U-k | **`code-auto-compact-command.ts:84` 的 `graphs: []` 使 D6.e 整体失效** | **独立缺陷**，不在本 spec 范围（修它影响既有 peaks-code 路径的行为）。⇒ 记 backlog，**不顺手修** |
 
 ---
 
