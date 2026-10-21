@@ -170,7 +170,18 @@ describe('peaks code-gate — a project nested inside a git repository', () => {
       // The precondition, asserted: the canonical root IS the git root, one
       // level above the project the caller names. Without this the arm would
       // pass for a reason that has nothing to do with the fix.
-      expect(realpathSync(resolveCanonicalProjectRoot(projectDir))).toBe(realpathSync(repo.path));
+      //
+      // BOTH SIDES GO THROUGH `realpathSync.native`. The plain `realpathSync`
+      // does NOT expand an 8.3 short name on Windows, so on the Windows CI
+      // runner (where the temp dir is `C:\Users\RUNNER~1\...`) one side came
+      // back short and the other long — the same directory, two spellings, and
+      // the assertion failed for a reason that had nothing to do with the fix.
+      // `native` resolves through the OS handle and returns one canonical
+      // spelling for both. Compare the two through the SAME function; do not
+      // "simplify" one side back to the plain form.
+      expect(realpathSync.native(resolveCanonicalProjectRoot(projectDir))).toBe(
+        realpathSync.native(repo.path)
+      );
 
       const relative = runCodeGate(projectDir, payload('src/services/foo.ts'));
       const absoluteNative = runCodeGate(
