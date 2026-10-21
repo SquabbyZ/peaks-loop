@@ -41,7 +41,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   BATCH_ACCEPTANCE_GATE,
+  BATCH_GATE_BUILD_COMMAND,
   buildPhaseBoundaryNotice,
+  detectArtifactFailure,
   runBatchVerification,
   type BatchCheckRunner
 } from '../../../../src/services/batch/batch-verify.js';
@@ -82,14 +84,33 @@ function progress(overrides: Partial<BatchProgress> = {}): BatchProgress {
 
 /** A runner whose every leg is green. */
 function green(): BatchCheckRunner {
-  return () => ({ ok: true, detail: 'passed' });
+  return () => ({ ok: true, output: 'passed' });
 }
 
-/** A runner whose `tsc` leg is red and whose other legs are green. */
-function redOn(check: string): BatchCheckRunner {
-  return (name) =>
-    name === check ? { ok: false, detail: '1 error found' } : { ok: true, detail: 'passed' };
+/** A runner whose named leg is red and whose other legs are green. */
+function redOn(check: string, output = '1 error found'): BatchCheckRunner {
+  return (name) => (name === check ? { ok: false, output } : { ok: true, output: 'passed' });
 }
+
+/**
+ * What `tsc` prints when the workspace build output is missing or stale: every
+ * error is a module-resolution failure naming an internal package.
+ */
+const MISSING_DIST_OUTPUT = [
+  "src/services/batch/batch-verify.ts(1,1): error TS2307: Cannot find module 'peaks-loop-shared/version' or its corresponding type declarations.",
+  "src/services/batch/batch-diagnosis.ts(2,1): error TS7016: Could not find a declaration file for module 'peaks-loop-shared/channel'."
+].join('\n');
+
+/** What `tsc` prints when the source itself is wrong. */
+const TYPE_ERROR_OUTPUT =
+  "src/services/batch/batch-verify.ts(120,5): error TS2322: Type 'string' is not assignable to type 'number'.";
+
+/** What the suite prints when the workspace build is stale. */
+const STALE_BUILD_OUTPUT = [
+  'Error: Test suite refused to start: 2 workspace package(s) have a dist/ that was not built from their current src/.',
+  '  stale:',
+  '    packages/peaks-loop-shared/dist'
+].join('\n');
 
 afterEach(() => {
   while (roots.length > 0) {
@@ -118,7 +139,7 @@ describe('Scenario: behavior — the gate is the single-task gate, run once', ()
     runBatchVerification(root, SESSION_ID, BATCH_ID, {
       runCheck: (check) => {
         runs.push(check);
-        return { ok: true, detail: 'passed' };
+        return { ok: true, output: 'passed' };
       }
     });
     // then: each leg ran once — the count changed, the gate did not
@@ -185,13 +206,73 @@ describe('Scenario: behavior — the gate is the single-task gate, run once', ()
     const root = makeRoot();
     const runCheck: BatchCheckRunner = (check) => {
       if (check === 'tsc') throw new Error('tsc could not be launched');
-      return { ok: true, detail: 'passed' };
+      return { ok: true, output: 'passed' };
     };
     // when: the batch is verified
     const result = runBatchVerification(root, SESSION_ID, BATCH_ID, { runCheck });
     // then: the gate is blocked, and nothing is attributed
     expect(result.gate).toBe('blocked');
     expect(result.attribution).toBe('unknown');
+  });
+
+  it('when a leg fails with only module-resolution errors, should block the gate and blame no item', () => {
+    // given: a batch with one item that never reached a green scoped test, and
+    // a `tsc` leg whose every error is a missing workspace module
+    const root = makeRoot();
+    writeBatchProgress(
+      root,
+      SESSION_ID,
+      progress({ items: [item({ id: 'i2', label: 'bug B', status: 'diagnosed' })] })
+    );
+    // when: the batch is verified
+    const result = runBatchVerification(root, SESSION_ID, BATCH_ID, {
+      runCheck: redOn('tsc', MISSING_DIST_OUTPUT)
+    });
+    // then: the failure is an artifact problem, so nothing is known and
+    // nothing is blamed — a missing build is not a bug in item i2
+    expect(result.gate).toBe('blocked');
+    expect(result.attribution).toBe('unknown');
+    const details = result.checks.map((check) => check.detail).join('\n');
+    expect(details).not.toContain('i2');
+    expect(details).not.toContain('bug B');
+  });
+
+  it('when a leg fails with a genuine type error, should still fail the gate and name the item', () => {
+    // given: the same batch, and a `tsc` leg whose error is a source problem
+    const root = makeRoot();
+    writeBatchProgress(
+      root,
+      SESSION_ID,
+      progress({ items: [item({ id: 'i2', label: 'bug B', status: 'diagnosed' })] })
+    );
+    // when: the batch is verified
+    const result = runBatchVerification(root, SESSION_ID, BATCH_ID, {
+      runCheck: redOn('tsc', TYPE_ERROR_OUTPUT)
+    });
+    // then: it is a red gate, and the item is named
+    expect(result.gate).toBe('fail');
+    expect(result.attribution).toBe('single-item');
+    expect(result.checks.map((check) => check.detail).join('\n')).toContain('i2');
+  });
+
+  it('when the suite refuses to start because the build is stale, should block the gate', () => {
+    // given: a batch with a green record, and a test leg the suite refused
+    const root = makeRoot();
+    writeBatchProgress(root, SESSION_ID, progress({ items: [item()] }));
+    // when: the batch is verified
+    const result = runBatchVerification(root, SESSION_ID, BATCH_ID, {
+      runCheck: redOn('test', STALE_BUILD_OUTPUT)
+    });
+    // then: the gate is blocked — the run produced no verdict of its own
+    expect(result.gate).toBe('blocked');
+    expect(result.attribution).toBe('unknown');
+  });
+
+  it('when a leg output carries only module-resolution errors, should classify it as an artifact problem', () => {
+    // then: the shape is recognised, and a source error is not
+    expect(detectArtifactFailure(MISSING_DIST_OUTPUT)).toBe('missing-workspace-dist');
+    expect(detectArtifactFailure(STALE_BUILD_OUTPUT)).toBe('build-prerequisite-refused');
+    expect(detectArtifactFailure(TYPE_ERROR_OUTPUT)).toBeNull();
   });
 });
 
@@ -259,5 +340,20 @@ describe('Scenario: a11y — the reports say what happened and ask for nothing',
     // a second hand-rolled reading of the ratio
     expect(text).toContain('80.0%');
     expect(text).toContain('2/5');
+  });
+
+  it('when a leg is blocked by a missing build artifact, should name the build command as the remedy', () => {
+    // given: a batch whose tsc leg failed on a missing workspace module
+    const root = makeRoot();
+    writeBatchProgress(root, SESSION_ID, progress({ items: [item()] }));
+    // when: the batch is verified
+    const result = runBatchVerification(root, SESSION_ID, BATCH_ID, {
+      runCheck: redOn('tsc', MISSING_DIST_OUTPUT)
+    });
+    // then: the blocked leg says what to run, and blames nobody
+    const blocked = result.checks.filter((check) => !check.ok);
+    expect(blocked).toHaveLength(1);
+    expect(blocked[0]?.detail).toContain(BATCH_GATE_BUILD_COMMAND);
+    expect(blocked[0]?.detail).not.toContain('i1');
   });
 });
