@@ -186,11 +186,13 @@ function coerceProgress(raw: unknown, path: string): BatchProgress {
   const items = rawItems.map((entry, index) => coerceItem(entry, path, index));
   const topology = record['topology'];
   const updatedAt = record['updatedAt'];
+  const boundaryNotice = record['boundaryNotice'];
   return {
     batchId,
     phase,
     items,
     ...(topology === undefined ? {} : { topology }),
+    ...(typeof boundaryNotice === 'string' ? { boundaryNotice } : {}),
     ...(typeof updatedAt === 'string' ? { updatedAt } : {})
   };
 }
