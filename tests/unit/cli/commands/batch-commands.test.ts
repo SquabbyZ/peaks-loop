@@ -45,7 +45,6 @@ declareDimensions('tests/unit/cli/commands/batch-commands.test.ts', [
 
 import { createProgram } from '../../../../src/cli/program.js';
 import { registerBatchCommands } from '../../../../src/cli/commands/batch-commands.js';
-import type { ProgramIO } from '../../../../src/cli/cli-helpers.js';
 
 const SESSION_ID = '2026-10-21-session-bbbbbb';
 const RID = 'batch-rid-1';
@@ -100,19 +99,27 @@ function itemsJson(
   });
 }
 
-/** Run the command and hand back the parsed JSON envelope. */
-function runBatchDiagnose(
+/**
+ * Run the command and hand back the parsed JSON envelope.
+ *
+ * The parse is AWAITED, not fired and forgotten. It happens to be
+ * synchronous today, so an unawaited call still populated the capture
+ * before the assertions read it — which is exactly what makes it a trap: the
+ * day the action goes async, an unawaited parse leaves the envelope EMPTY
+ * and the assertions either fail confusingly or pass vacuously.
+ */
+async function runBatchDiagnose(
   root: string,
   extraArgs: readonly string[]
-): { readonly envelope: Record<string, unknown>; readonly stderr: string } {
+): Promise<{ readonly envelope: Record<string, unknown>; readonly stderr: string }> {
   const { io, captured } = makeCapturedIo();
-  const program = createProgram(io as ProgramIO);
+  const program = createProgram(io);
   program.exitOverride();
   const batch = program.commands.find((command) => command.name() === 'batch');
   if (batch === undefined) throw new Error('the batch command is not registered');
   const diagnose = batch.commands.find((command) => command.name() === 'diagnose');
   if (diagnose === undefined) throw new Error('the batch diagnose command is not registered');
-  diagnose.parseAsync(
+  await diagnose.parseAsync(
     ['node', 'peaks', 'batch', 'diagnose', '--project', root, '--json', ...extraArgs],
     { from: 'user' }
   );
@@ -146,7 +153,7 @@ describe('Scenario: render — the batch command is registered', () => {
   it('when the program is built, should expose `batch diagnose`', () => {
     // given: the program the CLI actually registers
     const { io } = makeCapturedIo();
-    const program = createProgram(io as ProgramIO);
+    const program = createProgram(io);
     // when: the command tree is walked
     const batch = program.commands.find((command) => command.name() === 'batch');
     const diagnose = batch?.commands.find((command) => command.name() === 'diagnose');
@@ -158,7 +165,7 @@ describe('Scenario: render — the batch command is registered', () => {
   it('when the diagnose action is registered, should carry the options the caller needs', () => {
     // given: the registered diagnose action
     const { io } = makeCapturedIo();
-    const program = createProgram(io as ProgramIO);
+    const program = createProgram(io);
     const batch = program.commands.find((command) => command.name() === 'batch');
     const diagnose = batch?.commands.find((command) => command.name() === 'diagnose');
     const options = (diagnose?.options ?? []).map((option) => option.long);
@@ -171,11 +178,11 @@ describe('Scenario: render — the batch command is registered', () => {
 });
 
 describe('Scenario: behavior — the dispatched prompt carries the caller symptom', () => {
-  it('when a batch is diagnosed, should dispatch one read-only diagnosis per pending item', () => {
+  it('when a batch is diagnosed, should dispatch one read-only diagnosis per pending item', async () => {
     // given: a batch of two pending items
     const root = makeRoot();
     // when: the diagnose command runs
-    const { envelope } = runBatchDiagnose(root, ['--rid', RID, '--items-json', itemsJson()]);
+    const { envelope } = await runBatchDiagnose(root, ['--rid', RID, '--items-json', itemsJson()]);
     // then: one toolCall per item, each carrying a diagnosis prompt
     const prompts = dispatchedPrompts(envelope);
     expect(prompts).toHaveLength(2);
@@ -184,11 +191,11 @@ describe('Scenario: behavior — the dispatched prompt carries the caller sympto
     );
   });
 
-  it('when a batch is diagnosed, should carry the reported symptom into the prompt', () => {
+  it('when a batch is diagnosed, should carry the reported symptom into the prompt', async () => {
     // given: a batch whose first item reports a symptom
     const root = makeRoot();
     // when: the diagnose command runs
-    const { envelope } = runBatchDiagnose(root, ['--rid', RID, '--items-json', itemsJson()]);
+    const { envelope } = await runBatchDiagnose(root, ['--rid', RID, '--items-json', itemsJson()]);
     // then: the prompt the diagnostician receives carries the SYMPTOM, not the label
     const prompts = dispatchedPrompts(envelope);
     const first = prompts.find((prompt) => prompt.includes('i1'));
@@ -197,11 +204,11 @@ describe('Scenario: behavior — the dispatched prompt carries the caller sympto
     expect(first).not.toContain(`Reported symptom**: ${LABEL}`);
   });
 
-  it('when a batch is diagnosed, should record the batch and its items', () => {
+  it('when a batch is diagnosed, should record the batch and its items', async () => {
     // given: a batch of two pending items
     const root = makeRoot();
     // when: the diagnose command runs
-    runBatchDiagnose(root, ['--rid', RID, '--items-json', itemsJson()]);
+    await runBatchDiagnose(root, ['--rid', RID, '--items-json', itemsJson()]);
     // then: the record holds both items, still pending
     const path = join(root, '.peaks', '_runtime', SESSION_ID, 'batch', RID, 'progress.json');
     const record = JSON.parse(readFileSync(path, 'utf8')) as {
@@ -212,10 +219,10 @@ describe('Scenario: behavior — the dispatched prompt carries the caller sympto
     expect(record.items[0]?.symptom).toBe(SYMPTOM);
   });
 
-  it('when a diagnosed batch is re-run with measured file sets, should plan the waves from them', () => {
+  it('when a diagnosed batch is re-run with measured file sets, should plan the waves from them', async () => {
     // given: a first run that dispatches the diagnoses
     const root = makeRoot();
-    runBatchDiagnose(root, ['--rid', RID, '--items-json', itemsJson()]);
+    await runBatchDiagnose(root, ['--rid', RID, '--items-json', itemsJson()]);
     // and: the same batch re-run with the file sets the diagnosticians measured
     const measured = JSON.stringify({
       items: [
@@ -229,7 +236,7 @@ describe('Scenario: behavior — the dispatched prompt carries the caller sympto
         }
       ]
     });
-    const { envelope } = runBatchDiagnose(root, ['--rid', RID, '--items-json', measured]);
+    const { envelope } = await runBatchDiagnose(root, ['--rid', RID, '--items-json', measured]);
     // then: no diagnosis is dispatched, and the two disjoint items share a wave
     expect(dispatchedPrompts(envelope)).toHaveLength(0);
     const data = envelope['data'] as {
@@ -238,7 +245,7 @@ describe('Scenario: behavior — the dispatched prompt carries the caller sympto
     expect(data.topology?.waves?.[0]?.slices).toEqual(['i1', 'i2']);
   });
 
-  it('when two items collide on a file, should defer the second behind the first', () => {
+  it('when two items collide on a file, should defer the second behind the first', async () => {
     // given: a batch whose two items touch the same file
     const root = makeRoot();
     const colliding = JSON.stringify({
@@ -254,7 +261,7 @@ describe('Scenario: behavior — the dispatched prompt carries the caller sympto
       ]
     });
     // when: the diagnose command runs with the measured file sets
-    const { envelope } = runBatchDiagnose(root, ['--rid', RID, '--items-json', colliding]);
+    const { envelope } = await runBatchDiagnose(root, ['--rid', RID, '--items-json', colliding]);
     // then: the second item is deferred, and the colliding file is named
     const data = envelope['data'] as {
       readonly topology?: {
@@ -270,45 +277,45 @@ describe('Scenario: behavior — the dispatched prompt carries the caller sympto
 });
 
 describe('Scenario: a11y — the refusals say why', () => {
-  it('when one item is diagnosed, should refuse to run the batch machinery', () => {
+  it('when one item is diagnosed, should refuse to run the batch machinery', async () => {
     // given: ONE item, which is not a batch
     const root = makeRoot();
     const single = JSON.stringify({
       items: [{ id: 'i1', label: LABEL, symptom: SYMPTOM, status: 'pending' }]
     });
     // when: the diagnose command runs
-    const { envelope } = runBatchDiagnose(root, ['--rid', RID, '--items-json', single]);
+    const { envelope } = await runBatchDiagnose(root, ['--rid', RID, '--items-json', single]);
     // then: it refuses, and says the single-task path is the one to take
     expect(envelope['ok']).toBe(false);
     expect(envelope['code']).toBe('BATCH_MODE_NOT_APPLICABLE');
     expect(JSON.stringify(envelope['nextActions'])).toContain('single-task path');
   });
 
-  it('when no rid is supplied, should refuse and ask for one', () => {
+  it('when no rid is supplied, should refuse and ask for one', async () => {
     // given: a batch with no request to belong to
     const root = makeRoot();
     // when: the diagnose command runs without --rid
-    const { envelope } = runBatchDiagnose(root, ['--items-json', itemsJson()]);
+    const { envelope } = await runBatchDiagnose(root, ['--items-json', itemsJson()]);
     // then: it refuses, and names what is missing
     expect(envelope['ok']).toBe(false);
     expect(envelope['code']).toBe('MISSING_RID');
   });
 
-  it('when the items are unreadable, should refuse and say what was wrong', () => {
+  it('when the items are unreadable, should refuse and say what was wrong', async () => {
     // given: items that are not the expected shape
     const root = makeRoot();
     // when: the diagnose command runs
-    const { envelope } = runBatchDiagnose(root, ['--rid', RID, '--items-json', '{"nope":1}']);
+    const { envelope } = await runBatchDiagnose(root, ['--rid', RID, '--items-json', '{"nope":1}']);
     // then: it refuses, and says the items did not match the shape
     expect(envelope['ok']).toBe(false);
     expect(envelope['code']).toBe('INVALID_ITEMS');
   });
 
-  it('when no session is bound, should refuse rather than write the batch nowhere', () => {
+  it('when no session is bound, should refuse rather than write the batch nowhere', async () => {
     // given: a project with no session bound
     const root = makeRootWithoutSession();
     // when: the diagnose command runs
-    const { envelope } = runBatchDiagnose(root, ['--rid', RID, '--items-json', itemsJson()]);
+    const { envelope } = await runBatchDiagnose(root, ['--rid', RID, '--items-json', itemsJson()]);
     // then: it refuses, and says the batch cannot be recorded
     expect(envelope['ok']).toBe(false);
     expect(envelope['code']).toBe('NO_SESSION');
@@ -319,7 +326,7 @@ describe('Scenario: integration — the option surface keeps its fallbacks reach
   it('when the diagnose action is registered, should give `--project` no commander default', () => {
     // given: the registered diagnose action
     const { io } = makeCapturedIo();
-    const program = createProgram(io as ProgramIO);
+    const program = createProgram(io);
     const batch = program.commands.find((command) => command.name() === 'batch');
     const diagnose = batch?.commands.find((command) => command.name() === 'diagnose');
     const project = diagnose?.options.find((option) => option.long === '--project');
@@ -332,7 +339,7 @@ describe('Scenario: integration — the option surface keeps its fallbacks reach
     const program = new Command();
     const { io } = makeCapturedIo();
     // when: the registrar runs
-    registerBatchCommands(program, io as ProgramIO);
+    registerBatchCommands(program, io);
     // then: the group and its action are on the tree
     const batch = program.commands.find((command) => command.name() === 'batch');
     expect(batch?.commands.some((command) => command.name() === 'diagnose')).toBe(true);
