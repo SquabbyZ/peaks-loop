@@ -36,17 +36,14 @@
 // Without it a compaction mid-batch loses the measured file sets, and the
 // topology step has nothing to plan from.
 
-import { fail, ok } from 'peaks-loop-shared/result';
+import { fail } from 'peaks-loop-shared/result';
 
 import { printResult, type ProgramIO } from '../cli-helpers.js';
+import { recordBatch, readContextRatio } from './batch-diagnose-record.js';
+import { printDiagnoseResult } from './batch-diagnose-envelope.js';
 import { decideBatchMode } from '../../services/batch/batch-entry.js';
-import { buildDiagnosisPrompt, planBatchTopology } from '../../services/batch/batch-diagnosis.js';
-import {
-  appendBatchItem,
-  readBatchProgress,
-  writeBatchProgress
-} from '../../services/batch/batch-progress-store.js';
-import type { BatchItem, BatchProgress } from '../../services/batch/batch-progress-types.js';
+import { buildDiagnosisPrompt } from '../../services/batch/batch-diagnosis.js';
+import type { BatchItem } from '../../services/batch/batch-progress-types.js';
 import { REQUEST_ID_PATTERN } from '../../services/artifacts/request-artifact-service.js';
 import type { SubAgentToolCall } from '../../services/dispatch/sub-agent-dispatcher.js';
 import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
@@ -55,44 +52,13 @@ import { getAdapter } from '../../services/ide/ide-registry.js';
 import {
   hasSymptom,
   readItems,
-  toBatchItem,
   type BatchDiagnoseOptions,
   type BatchItemInput
 } from './batch-item-input.js';
+import { resolveAutoCompactProfile } from '../../services/mode/mode-status-service.js';
 
 /** The role the diagnosticians are dispatched as: the lane's own RD role. */
 const DIAGNOSIS_ROLE = 'rd';
-
-/**
- * Record every item, then read the record back and stamp it with the batch's
- * stage and the wave plan.
- *
- * The per-item append is what makes a partial run recoverable: each item
- * lands on disk as it is measured, so a compaction between two items loses
- * neither. The final write carries the two facts that are only knowable once
- * every item is in: the stage, and the plan the measured file sets produce.
- */
-function recordBatch(
-  projectRoot: string,
-  sessionId: string,
-  batchId: string,
-  items: readonly BatchItemInput[]
-): BatchProgress {
-  for (const input of items) {
-    appendBatchItem(projectRoot, sessionId, batchId, toBatchItem(input));
-  }
-  const current = readBatchProgress(projectRoot, sessionId, batchId);
-  const recorded: readonly BatchItem[] = current?.items ?? [];
-  const diagnosed = recorded.filter((item) => item.status !== 'pending');
-  const next: BatchProgress = {
-    batchId,
-    phase: diagnosed.length === recorded.length ? 'topology' : 'diagnosis',
-    items: recorded,
-    topology: planBatchTopology(diagnosed)
-  };
-  writeBatchProgress(projectRoot, sessionId, next);
-  return next;
-}
 
 /**
  * A refusal: the batch did not run, and why.
@@ -256,7 +222,16 @@ export function runBatchDiagnose(options: BatchDiagnoseOptions, io: ProgramIO): 
     return;
   }
   const { projectRoot, rid, sessionId, items, mode } = resolved;
-  const progress = recordBatch(projectRoot, sessionId, rid, items);
+  const compactMode = resolveAutoCompactProfile(projectRoot);
+  const ratio = readContextRatio(projectRoot, sessionId);
+  const { progress, compaction } = recordBatch({
+    projectRoot,
+    sessionId,
+    batchId: rid,
+    items,
+    ratio,
+    mode: compactMode
+  });
   const pending = progress.items.filter((item) => item.status === 'pending');
   const { toolCalls, undiagnosable } = buildDiagnosisToolCalls(
     projectRoot,
@@ -264,29 +239,16 @@ export function runBatchDiagnose(options: BatchDiagnoseOptions, io: ProgramIO): 
     sessionId,
     pending
   );
-  printResult(
+  printDiagnoseResult({
     io,
-    ok(
-      'batch.diagnose',
-      {
-        envelopeVersion: '2.1.0',
-        mode,
-        rid,
-        sessionId,
-        itemCount: progress.items.length,
-        pendingCount: pending.length,
-        toolCalls,
-        topology: progress.topology
-      },
-      undiagnosable.map(
-        (id) =>
-          `item ${id} is pending but carries no symptom, so no diagnosis was dispatched for it`
-      ),
-      [
-        'Execute each toolCall; each diagnostician reads and reports, and changes nothing.',
-        'Re-run this command with the measured file sets to record them and plan the waves.'
-      ]
-    ),
-    asJson
-  );
+    asJson,
+    mode,
+    rid,
+    sessionId,
+    progress,
+    pendingCount: pending.length,
+    toolCalls,
+    undiagnosable,
+    compaction
+  });
 }

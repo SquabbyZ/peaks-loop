@@ -119,6 +119,23 @@ export function evaluateAutoCompactDecision(input: {
   bypassRedLine?: boolean | undefined;
   mode?: AutoCompactMode | undefined;
   /**
+   * Whether the batch in flight has crossed a COMPACTION BOUNDARY — the
+   * ①→② or ③→④ transition of the batch's four stages.
+   *
+   * Why this exists. The in-flight-batch branch below DEFERS a compaction
+   * while a batch is running, because compacting in the middle of a fan-out
+   * interrupts the agents. But a batch is "in flight" for its whole life,
+   * so the deferral postpones the compaction for the whole batch — and the
+   * window is at its worst exactly then, because N reports arrive
+   * together. At a boundary that is false: the stage's agents are done, its
+   * results are on disk, and the recovery cost is the lowest it will be.
+   * So at a boundary the compaction happens NOW instead of being deferred.
+   *
+   * Absent (the default), the behaviour is EXACTLY what it was: a batch in
+   * flight defers, and nothing else changes.
+   */
+  atPhaseBoundary?: boolean | undefined;
+  /**
    * Source tag from `readContextPercent.source`. Optional — when absent, the
    * function behaves exactly as pre-rid (ratio-only). Slice 2026-07-31-rid-
    * mac-transcript-estimate-trigger uses this to carry forward an explicit
@@ -154,6 +171,12 @@ export function evaluateAutoCompactDecision(input: {
   }
   // pre-compact zone (0.85 ≤ ratio < 0.95): honor D6.e in-flight deferral.
   if (probe?.hasInFlightBatch === true) {
+    // A phase boundary is the batch's BEST compaction point, not a reason to
+    // wait: the stage's agents are done, its results are on disk, and the
+    // window is heaviest right there. So the deferral does not apply.
+    if (input.atPhaseBoundary === true) {
+      return { shouldCompact: true, reason: 'pre-compact', trigger, action: 'auto-compact-now' };
+    }
     return { shouldCompact: false, reason: 'in-flight-batch', trigger, action: 'defer' };
   }
   if (input.force) {

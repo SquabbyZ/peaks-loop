@@ -85,3 +85,33 @@ export function findActiveBatch(projectRoot: string, sessionId: string): ActiveB
   });
   return candidates[0] as ActiveBatch;
 }
+
+/**
+ * Whether a batch record is at a COMPACTION BOUNDARY.
+ *
+ * The batch's phase machine is linear — diagnosis → topology → fix → verify
+ * → done — so the phase alone says whether a boundary has been crossed: a
+ * batch in `topology` has just crossed ①→②, and a batch in `verify` has
+ * just crossed ③→④. In both cases the stage that just finished has its
+ * results on disk and its agents are done, which is exactly the moment
+ * compaction is cheapest: the recovery cost is the lowest it will be, and
+ * the window is at its heaviest.
+ *
+ * A batch in `diagnosis` or `fix` is mid-stage, with agents in flight: that
+ * is the case the existing in-flight deferral is for.
+ */
+export function isBatchAtCompactionBoundary(progress: BatchProgress): boolean {
+  return progress.phase === 'topology' || progress.phase === 'verify';
+}
+
+/**
+ * Whether a batch in this project is at a compaction boundary.
+ *
+ * Fail-safe: `false` when there is no batch in flight, when its record
+ * cannot be read, and when the batch is mid-stage. A false answer leaves
+ * the existing behaviour exactly as it was.
+ */
+export function resolveBatchCompactionBoundary(projectRoot: string, sessionId: string): boolean {
+  const active = findActiveBatch(projectRoot, sessionId);
+  return active !== null && isBatchAtCompactionBoundary(active.progress);
+}

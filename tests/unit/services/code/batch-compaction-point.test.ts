@@ -29,6 +29,7 @@ import {
   decideBatchCompactionPoint,
   isBatchPhaseBoundary
 } from '../../../../src/services/code/batch-compaction-point.js';
+import { evaluateAutoCompactDecision } from '../../../../src/services/code/auto-compact-decision.js';
 
 describe('Scenario: behavior — below the auto-fire line the batch says and does nothing', () => {
   it('when the ratio is below the auto-fire threshold, should not compact', () => {
@@ -131,5 +132,51 @@ describe('Scenario: a11y — the boundary predicate names the two boundaries it 
     expect(isBatchPhaseBoundary('diagnosis', 'fix')).toBe(false);
     expect(isBatchPhaseBoundary('topology', 'fix')).toBe(false);
     expect(isBatchPhaseBoundary('verify', 'done')).toBe(false);
+  });
+});
+
+describe('Scenario: behavior — the existing compaction decision is untouched without a batch', () => {
+  it('when no batch is in flight, should decide exactly as it did before', () => {
+    // given: the decision the shared path makes today
+    const before = evaluateAutoCompactDecision({ ratio: 0.9, inFlightBatch: false });
+    // when: the same decision is made with the boundary signal present
+    const after = evaluateAutoCompactDecision({
+      ratio: 0.9,
+      inFlightBatch: false,
+      atPhaseBoundary: true
+    });
+    // then: nothing changed
+    expect(after).toEqual(before);
+  });
+
+  it('when a batch is in flight away from a boundary, should still defer', () => {
+    // given: a batch in flight, mid-stage
+    const decision = evaluateAutoCompactDecision({ ratio: 0.9, inFlightBatch: true });
+    // then: the existing deferral stands
+    expect(decision.action).toBe('defer');
+    expect(decision.shouldCompact).toBe(false);
+  });
+
+  it('when a batch is in flight at a phase boundary, should compact now instead of deferring', () => {
+    // given: a batch in flight that has just crossed a boundary
+    const decision = evaluateAutoCompactDecision({
+      ratio: 0.9,
+      inFlightBatch: true,
+      atPhaseBoundary: true
+    });
+    // then: the compaction happens — this is the best point
+    expect(decision.shouldCompact).toBe(true);
+    expect(decision.action).toBe('auto-compact-now');
+  });
+
+  it('when the ratio is at the red line, should be the red line whatever the batch does', () => {
+    // given: a batch in flight at a boundary, at the red line
+    const decision = evaluateAutoCompactDecision({
+      ratio: 0.96,
+      inFlightBatch: true,
+      atPhaseBoundary: true
+    });
+    // then: the red line is unchanged
+    expect(decision.action).toBe('red-line');
   });
 });

@@ -28,7 +28,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   findActiveBatch,
-  listBatchIds
+  isBatchAtCompactionBoundary,
+  listBatchIds,
+  resolveBatchCompactionBoundary
 } from '../../../../src/services/batch/batch-active-batch.js';
 import { writeBatchProgress } from '../../../../src/services/batch/batch-progress-store.js';
 import type { BatchPhase } from '../../../../src/services/batch/batch-progress-types.js';
@@ -122,5 +124,43 @@ describe('Scenario: a11y — the batch ids the session holds are nameable', () =
     const ids = listBatchIds(root, SESSION_ID);
     // then: both are named
     expect([...ids].sort()).toEqual(['b1', 'b2']);
+  });
+});
+
+describe('Scenario: behavior — the batch at a compaction boundary is the one that crossed one', () => {
+  it('when the batch has just crossed into the topology stage, should be at a boundary', () => {
+    // given: a batch in the stage that follows the diagnosis
+    const root = makeRoot();
+    writeBatch(root, 'b1', 'topology');
+    // when: the boundary signal is read
+    // then: the batch is at a boundary
+    expect(resolveBatchCompactionBoundary(root, SESSION_ID)).toBe(true);
+  });
+
+  it('when the batch is mid-stage, should not be at a boundary', () => {
+    // given: a batch still in diagnosis
+    const root = makeRoot();
+    writeBatch(root, 'b1', 'diagnosis');
+    // when: the boundary signal is read
+    // then: the batch is mid-stage
+    expect(resolveBatchCompactionBoundary(root, SESSION_ID)).toBe(false);
+  });
+
+  it('when no batch is in flight, should not be at a boundary', () => {
+    // given: a session with no batch
+    const root = makeRoot();
+    // when: the boundary signal is read
+    // then: there is nothing to compact for
+    expect(resolveBatchCompactionBoundary(root, SESSION_ID)).toBe(false);
+  });
+
+  it('when the record is read directly, should answer the same question', () => {
+    // given: a record in the stage that follows the fix
+    const root = makeRoot();
+    writeBatch(root, 'b1', 'verify');
+    const active = findActiveBatch(root, SESSION_ID);
+    // when: the record is asked
+    // then: it is at a boundary
+    expect(active !== null && isBatchAtCompactionBoundary(active.progress)).toBe(true);
   });
 });
