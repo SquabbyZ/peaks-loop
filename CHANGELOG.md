@@ -1,5 +1,58 @@
 # Changelog
 
+## 4.1.13 — 2026-10-21（peaks-race-code 批量模式：一次门禁归因、scoped test 前置的修复阶段、上下文监控）
+
+**版本级别**: 未发布区间 `v4.1.12..HEAD` 共 **32 个 commit**（**10 feat / 11 fix / 11 docs**）。取 **patch**，依维护者 2026-07-22 的常设规则"默认版本新增采用最小的版本位"。本次是**纯追加**：新的 `peaks batch` 命令组、新的 `src/services/batch/**` 与 `src/services/lint/**` 模块；既有 CLI 参数、peaks-code 的 11 步工序、Gate A–G 与 transition 状态机**一字不改**。唯一触及既有共享路径的两处 —— `auto-compact-decision.ts` 的可选 `atPhaseBoundary`、`skill-context-verdict.ts` 的可选 `batch` 参数 —— **缺省时行为逐字不变**，对非批量用户无影响。
+
+### 1. 批量模式骨架与只读诊断（`d860b4cc`）
+
+- `decideBatchMode(itemCount)`：**一项 ⇒ 走今天的路**。批量机制（诊断 fan-out、规则预读、定档）存在的意义是把准备成本摊到多项上；用在一项上，它花掉的和省下的一样多，还改动了单任务路径的行为 —— 而那正是批量模式被禁止做的事。所以**一项读作 `single`**。
+- 拓扑由**实测文件集**决定：波次规划器按**字符串全等**匹配文件，Windows 上 `src\a.ts` 与 `src/a.ts` 是两个不同文件 ⇒ 碰同一个文件的两项会看起来不相干、落进同一波、两个 agent 同时改一个文件。归一化在**喂进去之前**做（`normalizeFileSet`），规划器只做它那一件事。
+- 诊断 prompt **复用共享的 dispatch 前缀**而不是手搓一份会漂移的副本，并且**禁止 Edit / Write / MultiEdit** —— 诊断 agent 报告的文件集是定档唯一的输入，一个边写边报的 agent 报的是猜测。
+
+### 2. 统一验证：门禁一次跑完，而且能归因（`7a495a3c` / `60a4f147`）
+
+- 门禁就是单任务 lane 跑的那一个，逐字相同：`['test','tsc','lint']`。批量模式把它**跑一次**而不是每项一次 ⇒ **严格程度一点没降**，变的只是次数。
+- 红灯要能说清是哪一类坏：每项 scoped test 都绿 ⇒ `integration`（问题在项与项之间）；有项没绿 ⇒ `single-item`，并在 detail 里**点名是哪一项**。
+- ⚠️ **构建产物缺失不是红灯**。`tsc -p tsconfig.json` 把子路径导出解析进未跟踪的 `packages/*/dist`，而 `pnpm test` **不会**触发 `pretest`（pnpm 10 默认不跑 pre/post 脚本）⇒ dist 缺失时 tsc 全是 TS2307/TS7016。这种形状现在是 **`blocked`**、归因 `unknown`、**不点名** —— 否则一个构建产物问题会被**伪造成某个无辜项的失败**。仓库自己的门禁早就这么处理（`.husky/gate/repo.mjs`）。
+
+### 3. 修复阶段：scoped test 是状态翻转的前置条件（`05d8077f`）
+
+- 修完一项 → **立刻**跑该项的 scoped test → 绿了才 `appendBatchItem(status:'fixed')`；红则状态留在 `diagnosed`，失败信息随结果回传。
+- 这一步是第 2 节归因的**前提**：统一门禁只有知道每项自己那次的结果，才分得清"一项坏了"和"合在一起坏了"。**scoped test 不能攒到最后一起跑。**
+- 测试用**变异**证明这个顺序是承重的：把状态翻转移到 scoped test 之前 ⇒ 3 个测试变红（含专门盯顺序的那个）。
+
+### 4. 上下文监控（`c29bf911` / `6f9e4cdd` / `d00bd364`）
+
+- **报告落盘，窗口里只留 ≤2 KB 摘要**（结论 + 文件集 + 一行草图）。批量模式下 N 份报告一次性涌入是真实风险（实测 20 份 ≈ 60 KB ≈ 15K token），完整报告留在盘上，编排器按需再读。
+- **阶段边界是最佳压缩点，不是推迟的理由**。既有的 in-flight 推迟会把压缩推到整个批次之后 —— 而那正是窗口最胀的时候（该推的先被推了）。到边界时（①→② / ③→④）压缩**现在就发生**。缺省 `atPhaseBoundary` 时行为逐字不变。
+- **提醒只陈述事实，绝不把压缩甩给用户**：≤0.80 完全不说；≥0.80 之后**每个阶段边界说一次**，不是每轮说。
+- 阶段推进只有**一个主人**（`batch-phase-advance.ts`），所以两个边界不可能各自漂移；边界那句话的措辞仍然只有**一个来源**（第 2 节的 `buildPhaseBoundaryNotice`）。
+
+### 5. 规范预读与 micro-cycle 的 lint 腿（`249cdf5c` / `1a259471`）
+
+- 生效规则有**三个来源**，缺一不可：项目自己的规则、OCR delegate 的规则、ECC 的规则。预读是**项目无关、语言无关**的 —— 识别 eslint / stylelint / golangci-lint / ruff / flake8 / gofmt / swiftlint，**没有语言分叉**；项目没声明 lint 工具时返回**显式理由**而不是假装有。
+- 命名空间决定身份：`lint:silent-warning` 是 lint 步，`test:lint` 是测试（它跑的是 lint 配置的测试）。按**第一段命名空间**判断，才不会把"恰好碰到 lint 的测试"算成 lint 步。
+
+### 6. 进度落盘与用户可见表面（`7f2690b7` / `8240e6b6`）
+
+- 批量的阶段、条目、实测文件集落盘 ⇒ **一次压缩丢不掉它**，定档才有输入。
+- `skills/peaks-race-code/SKILL.md` 加一节"批量模式"：什么时候进（≥2 项互不依赖）、四个阶段、诊断阶段**只读**、风险面**逐项**判定（命中就退出批量走单任务路）。风险面清单**不复制** —— 单一真源在 fast-lane norm。
+
+### 7. 两个只在共享路径上才暴露的缺陷（`60a4f147` / `ee5e48c2`）
+
+- 批量查询**曾经**把 `getSessionDir` 放在 `try` 之外 ⇒ session id 不是单段时抛出去，而它在**每一次** auto-compact 都会经过 ⇒ 压缩路径被批量代码搞崩。抓住它的是一个**本次功能之前就存在**的测试。
+- 现在：不可用的 session id ⇒ "没有批次可列"（只读方不写，所以拒绝**查找**就是全部答案）；`resolveBatchCompactionBoundary` **永不抛** ⇒ 判断不出边界就当"不在边界"，压缩路径照旧。
+- 教训进了项目记忆：**改了共享路径，就要去跑那条路径上既有的测试**；只跑"我改的那个目录"的 scoped 测试不够。
+
+### 8. 证据
+
+- 全量 `pnpm test:unit`：**562 files / 6181 passed / 3 skipped**，exit 0。
+- `tsc --noEmit` 0 error；`node .husky/peaks-gate.mjs repo` **exit 0，全部 ceiling 持平**（逐个比对未动，17 个上限一个没涨）；`peaks workflow verify-pipeline` `complete: true`；`no-ai-co-author-trailer` 红线测试通过。
+- 其余 CI 各腿本地实测：silent-warning 门、workspace packages、vitest lint 配置、format / coverage ratchet、e2e、capability-guard 全绿。
+- 十个切片都走 PRD → RD → QA；security / perf 审计由 CLI 出件，karpathy 复核 4 项全 pass。
+- 棘轮基线刷新 7 次，每次都只刷新**因新增 in-scope 文件而陈旧**的普查记录，**没有一次抬高上限**。
+
 ## 4.1.12 — 2026-10-20（macOS CI 红灯、frontend-only 正面证据制，与 Node 门槛声明修正）
 
 **版本级别**: 未发布区间 `v4.1.11..HEAD` 共 **5 个 commit**（**3 fix / 1 docs / 1 chore**）。取 **patch**，依维护者 2026-07-22 的常设规则"默认版本新增采用最小的版本位"。`ProjectArchetype` 新增 `cli` 取值、`ArchetypeReport.detected` 新增 `hasBin` 与 `frontendEvidence` 两个字段，均为**追加**；既有 archetype 取值、`frontendOnly` 的布尔语义与全部 CLI 参数不变，无破坏性变更。

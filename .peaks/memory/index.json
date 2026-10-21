@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-21T06:51:10.536Z",
+  "updatedAt": "2026-10-21T08:16:54.040Z",
   "hot": {
     "rule": [
       {
@@ -4114,12 +4114,28 @@
         "updatedAt": "2026-10-12"
       },
       {
+        "name": "the-code-gate-matches-raw-path-prefixes",
+        "kind": "project",
+        "description": "() matches the payload's path with  = **** (, , …), on the **raw** string that  returned.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-code-gate-matches-raw-path-prefixes.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-10-21"
+      },
+      {
         "name": "the-prd-handoff-capsule-is-a-single-slot-per-session",
         "kind": "project",
         "description": "** 没有 rid，是每个 session 一个槽。而  每次调用都会把它覆盖 —— 于是同一个 session 里的多个切片共用一份胶囊，而它只写着其中一个 rid。** 实测（2026-09-14） 一个四切片 job 里，逐片探...",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-prd-handoff-capsule-is-a-single-slot-per-session.md",
         "sourceArtifact": null,
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "the-published-package-only-boots-with-nested-subpackages",
+        "kind": "project",
+        "description": "publishes ** only** — no .",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-published-package-only-boots-with-nested-subpackages.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-10-21"
       },
       {
         "name": "token-encrypted-storage-decision",
