@@ -39,7 +39,7 @@
 import { fail } from 'peaks-loop-shared/result';
 
 import { printResult, type ProgramIO } from '../cli-helpers.js';
-import { recordBatch, readContextRatio } from './batch-diagnose-record.js';
+import { recordBatch } from './batch-diagnose-record.js';
 import { printDiagnoseResult } from './batch-diagnose-envelope.js';
 import { decideBatchMode } from '../../services/batch/batch-entry.js';
 import { buildDiagnosisPrompt } from '../../services/batch/batch-diagnosis.js';
@@ -55,7 +55,6 @@ import {
   type BatchDiagnoseOptions,
   type BatchItemInput
 } from './batch-item-input.js';
-import { resolveAutoCompactProfile } from '../../services/mode/mode-status-service.js';
 
 /** The role the diagnosticians are dispatched as: the lane's own RD role. */
 const DIAGNOSIS_ROLE = 'rd';
@@ -222,15 +221,11 @@ export function runBatchDiagnose(options: BatchDiagnoseOptions, io: ProgramIO): 
     return;
   }
   const { projectRoot, rid, sessionId, items, mode } = resolved;
-  const compactMode = resolveAutoCompactProfile(projectRoot);
-  const ratio = readContextRatio(projectRoot, sessionId);
   const { progress, compaction } = recordBatch({
     projectRoot,
     sessionId,
     batchId: rid,
-    items,
-    ratio,
-    mode: compactMode
+    items
   });
   const pending = progress.items.filter((item) => item.status === 'pending');
   const { toolCalls, undiagnosable } = buildDiagnosisToolCalls(

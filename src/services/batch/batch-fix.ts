@@ -26,7 +26,8 @@
 // steps, and the one rule that decides a status.
 
 import { planBatchTopology } from './batch-diagnosis.js';
-import { appendBatchItem, readBatchProgress, writeBatchProgress } from './batch-progress-store.js';
+import { appendBatchItem, readBatchProgress } from './batch-progress-store.js';
+import { advanceBatchPhase } from './batch-phase-advance.js';
 import type { BatchItem } from './batch-progress-types.js';
 import type { FileOverlapWavePlan } from '../dispatch/file-overlap-wave-planner.js';
 import {
@@ -96,6 +97,16 @@ export async function runBatchFix(
       results.push(result);
     }
   }
+  // The ③→④ boundary: the fix stage is over, whether its scoped tests
+  // were green or not. A red test is the UNIFIED GATE's to attribute, and
+  // the attribution needs the batch to be in verification — so the advance
+  // happens either way, and it is the cheapest moment to compact.
+  advanceBatchPhase({
+    projectRoot: options.projectRoot,
+    sessionId: options.sessionId,
+    batchId: options.batchId,
+    toPhase: 'verify'
+  });
   return { results, undiagnosable };
 }
 
@@ -264,9 +275,11 @@ function stampFixPhase(
   for (const item of items) {
     if (!recorded.some((candidate) => candidate.id === item.id)) recorded.push(item);
   }
-  writeBatchProgress(context.projectRoot, context.sessionId, {
+  advanceBatchPhase({
+    projectRoot: context.projectRoot,
+    sessionId: context.sessionId,
     batchId: context.batchId,
-    phase: 'fix',
+    toPhase: 'fix',
     items: recorded,
     topology
   });

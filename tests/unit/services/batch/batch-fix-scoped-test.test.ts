@@ -94,18 +94,22 @@ function scopedTestSeam(
 ): {
   readonly seen: string[];
   readonly asked: string[];
+  readonly phases: string[];
   readonly deps: BatchFixDependencies;
 } {
   const seen: string[] = [];
   const asked: string[] = [];
+  const phases: string[] = [];
   return {
     seen,
     asked,
+    phases,
     deps: {
       dispatchFixAgent: () => ({ ok: true, summary: 'fixed the item' }),
       runScopedTest: ({ item: tested }) => {
         asked.push(tested.id);
         seen.push(statusOnDisk(root, tested.id) ?? 'absent');
+        phases.push(readBatchProgress(root, SESSION_ID, BATCH_ID)?.phase ?? 'absent');
         return verdict;
       }
     }
@@ -278,7 +282,7 @@ describe('Scenario: integration — the scoped test runs before the status flips
     expect(statusOnDisk(root, 'i1')).toBe('fixed');
   });
 
-  it('when the fix phase starts, should stamp the record with the fix phase', async () => {
+  it('when the fix phase starts, should stamp the record with the fix phase, and end it in verify', async () => {
     // given: a record that the diagnosis phase left in the topology stage
     const root = makeRoot();
     const items = [item()];
@@ -297,9 +301,12 @@ describe('Scenario: integration — the scoped test runs before the status flips
       },
       seam.deps
     );
-    // then: the record says the batch is in its fix phase
+    // then: WHILE the fix phase ran, the record said the batch was in it
+    expect(seam.phases).toEqual(['fix']);
+    // and: when it ended, the batch moved on to verification — the ③→④
+    // boundary, which is the second place a compaction is cheapest
     const record = readBatchProgress(root, SESSION_ID, BATCH_ID);
-    expect(record?.phase).toBe('fix');
+    expect(record?.phase).toBe('verify');
   });
 
   it('when the record already holds an item this call does not know, should keep it', async () => {
