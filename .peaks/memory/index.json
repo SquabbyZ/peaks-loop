@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-21T08:16:54.040Z",
+  "updatedAt": "2026-10-21T08:53:50.937Z",
   "hot": {
     "rule": [
       {
@@ -4128,6 +4128,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-prd-handoff-capsule-is-a-single-slot-per-session.md",
         "sourceArtifact": null,
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "the-pre-push-gate-refuses-a-tag-push-until-the-base-is-named",
+        "kind": "project",
+        "description": "runs three legs unconditionally, with no awareness of **what** is being pushed:  →  → .",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-pre-push-gate-refuses-a-tag-push-until-the-base-is-named.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-10-21"
       },
       {
         "name": "the-published-package-only-boots-with-nested-subpackages",
