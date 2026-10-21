@@ -14,21 +14,10 @@
 // is the cheapest moment to compact, so the stage that crosses the boundary
 // is the stage that says so.
 
-import { readContextPercent } from '../../services/context/auto-compact-reader.js';
-import { resolveOuterSessionId } from '../../services/session/binding-status-service.js';
-import type { AutoCompactMode } from '../../services/code/auto-compact-modes.js';
-import {
-  decideBatchCompactionPoint,
-  isBatchPhaseBoundary,
-  type BatchCompactionPoint
-} from '../../services/code/batch-compaction-point.js';
+import type { BatchCompactionPoint } from '../../services/code/batch-compaction-point.js';
 import { planBatchTopology } from '../../services/batch/batch-diagnosis.js';
-import { buildPhaseBoundaryNotice } from '../../services/batch/batch-verify.js';
-import {
-  appendBatchItem,
-  readBatchProgress,
-  writeBatchProgress
-} from '../../services/batch/batch-progress-store.js';
+import { advanceBatchPhase } from '../../services/batch/batch-phase-advance.js';
+import { appendBatchItem, readBatchProgress } from '../../services/batch/batch-progress-store.js';
 import type {
   BatchItem,
   BatchPhase,
@@ -50,50 +39,26 @@ export function recordBatch(input: {
   sessionId: string;
   batchId: string;
   items: readonly BatchItemInput[];
-  ratio: number;
-  mode: AutoCompactMode;
 }): { progress: BatchProgress; compaction: BatchCompactionPoint } {
-  const { projectRoot, sessionId, batchId, items, ratio, mode } = input;
-  for (const input of items) {
-    appendBatchItem(projectRoot, sessionId, batchId, toBatchItem(input));
+  const { projectRoot, sessionId, batchId, items } = input;
+  for (const item of items) {
+    appendBatchItem(projectRoot, sessionId, batchId, toBatchItem(item));
   }
   const current = readBatchProgress(projectRoot, sessionId, batchId);
   const recorded: readonly BatchItem[] = current?.items ?? [];
   const diagnosed = recorded.filter((item) => item.status !== 'pending');
   const phase: BatchPhase = diagnosed.length === recorded.length ? 'topology' : 'diagnosis';
-  const fromPhase = current?.phase ?? 'diagnosis';
-  // The ①→② boundary: the diagnosis stage is over, its results are on
-  // disk, and this is the cheapest moment to compact. The notice is the
-  // verification stage's wording — this command only records it, and the
-  // presence read carries it out.
-  const crossed = fromPhase !== phase;
-  const compaction = decideBatchCompactionPoint({ ratio, fromPhase, toPhase: phase, mode });
-  // The notice is written only when a compaction actually happens: it
-  // SAYS that a compaction is running, so writing it while the window is
-  // still at 40% would be a false fact.
-  const boundaryNotice =
-    crossed && isBatchPhaseBoundary(fromPhase, phase) && compaction.shouldCompact
-      ? buildPhaseBoundaryNotice({ done: diagnosed.length, total: recorded.length, ratio, mode })
-      : current?.boundaryNotice;
-  const next: BatchProgress = {
+  // The ①→② boundary is crossed here: the diagnosis stage is over, its
+  // results are on disk, and this is the cheapest moment to compact. The
+  // advance owns the rule — the notice, the compaction point and the
+  // write — so the fix phase's boundary cannot drift from this one.
+  const advanced = advanceBatchPhase({
+    projectRoot,
+    sessionId,
     batchId,
-    phase,
+    toPhase: phase,
     items: recorded,
-    topology: planBatchTopology(diagnosed),
-    ...(boundaryNotice === undefined ? {} : { boundaryNotice })
-  };
-  writeBatchProgress(projectRoot, sessionId, next);
-  return { progress: next, compaction };
-}
-
-/**
- * The context ratio the compaction point is judged against.
- *
- * The probe is the same one every other context read uses; when it cannot
- * measure, it answers zero, which reads as "there is room" — the same
- * answer today's conservative fallback gives.
- */
-export function readContextRatio(projectRoot: string, sessionId: string): number {
-  const outerSessionId = resolveOuterSessionId(projectRoot, sessionId, process.env);
-  return readContextPercent({ projectRoot, sessionId, outerSessionId, env: process.env }).ratio;
+    topology: planBatchTopology(diagnosed)
+  });
+  return { progress: advanced.progress, compaction: advanced.compaction };
 }
