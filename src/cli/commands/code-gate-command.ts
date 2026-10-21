@@ -136,11 +136,13 @@ export function registerCodeGateCommand(program: Command, io: ProgramIO): void {
 
     const tool = readToolName(parsed);
     const input = readToolInput(parsed);
-    const verdict = decideGateAction(
-      tool,
-      input,
-      resolveDriver(resolveCanonicalProjectRoot(opts.project ?? process.cwd()), parsed)
-    );
+    // The project root is what the deny families are relative to, so it is
+    // resolved ONCE and used twice: to place the caller, and to relate an
+    // absolute target path to the project. A path spelled absolutely is the
+    // same file as the same path spelled relatively, and both must be judged
+    // the same way.
+    const projectRoot = resolveCanonicalProjectRoot(opts.project ?? process.cwd());
+    const verdict = decideGateAction(tool, input, resolveDriver(projectRoot, parsed), projectRoot);
     if (opts.dryRun === true) {
       if (verdict.action === 'allow') {
         printResult(
