@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-21T08:53:50.937Z",
+  "updatedAt": "2026-10-21T10:20:36.160Z",
   "hot": {
     "rule": [
       {
@@ -3608,6 +3608,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\execsync-goes-through-cmd-on-windows.md",
         "sourceArtifact": null,
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "feed-the-code-gate-payload-by-file-redirection",
+        "kind": "project",
+        "description": "reads the hook payload from **stdin**.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\feed-the-code-gate-payload-by-file-redirection.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-10-21"
       },
       {
         "name": "gate-enforcement-hook",

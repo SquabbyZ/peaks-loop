@@ -1,22 +1,7 @@
-import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-function findRepoRoot(startPath: string): string {
-  let currentPath = startPath;
-
-  while (currentPath !== dirname(currentPath)) {
-    if (
-      existsSync(resolve(currentPath, 'package.json')) &&
-      existsSync(resolve(currentPath, 'skills'))
-    ) {
-      return currentPath;
-    }
-    currentPath = dirname(currentPath);
-  }
-
-  throw new Error(`Unable to locate Peaks repository root from ${startPath}`);
-}
+import { findRepoRoot } from './paths-resolve.js';
 
 const currentFile = fileURLToPath(import.meta.url);
 export const repoRoot = findRepoRoot(dirname(currentFile));

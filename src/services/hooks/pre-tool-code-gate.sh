@@ -120,20 +120,37 @@ if [[ -z "${FILE_PATH}" ]]; then
   exit 0
 fi
 
-# --- 5. Allow-list check (.peaks/, .peaks/_runtime/, skills/) ---------------
+# --- 5. Normalize the SPELLING of the path ----------------------------------
+# The deny families are project-relative prefixes, so how the path is
+# spelled must not decide the verdict: `./src/x.ts` is the file `src/x.ts`.
+# Two normalizations only, and both are spelling-level:
+#   - backslashes fold to `/` (a Windows payload spells the separator that way)
+#   - leading `./` segments are dropped
+# An ABSOLUTE path is NOT relativized here: that needs the project root,
+# which this script has no way to know (it takes no env vars and no
+# arguments), and a guess would be a false-positive block. The Node command
+# (`peaks code-gate`) is the gate that knows the project root, and it judges
+# the absolute spelling of the same file. The raw path is kept for the
+# deny message, which names the file the tool asked for.
+MATCH_PATH="${FILE_PATH//\\//}"
+while [[ "${MATCH_PATH}" == ./* ]]; do
+  MATCH_PATH="${MATCH_PATH#./}"
+done
+
+# --- 6. Allow-list check (.peaks/, .peaks/_runtime/, skills/) ---------------
 # Allow-listed paths are NEVER blocked. The orchestrator may freely
 # Edit/Write these — they are not application source code.
-case "${FILE_PATH}" in
+case "${MATCH_PATH}" in
   .peaks/*|.peaks_*|skills/*|docs/*|CHANGELOG.md|README.md|*.md)
     exit 0 ;;
 esac
 
-# --- 6. Hard-blocked path family scan ---------------------------------------
+# --- 7. Hard-blocked path family scan ---------------------------------------
 # Match against the 6 deny families. Order matters only for the stderr
 # message; the deny rule is symmetric across all 6 families.
 BLOCKED=0
 BLOCKED_REASON=""
-case "${FILE_PATH}" in
+case "${MATCH_PATH}" in
   src/*)
     BLOCKED=1
     BLOCKED_REASON="src/ (application source code)" ;;
@@ -158,7 +175,7 @@ if [[ "${BLOCKED}" != "1" ]]; then
   exit 0
 fi
 
-# --- 7. Emit deny signal ---------------------------------------------------
+# --- 8. Emit deny signal ---------------------------------------------------
 # Exit 2 = the standard PreToolUse hook deny code. Stderr carries the
 # structured reason string the LLM reads on its next turn; stdout is
 # empty (this hook does not need a hookSpecificOutput envelope — it is

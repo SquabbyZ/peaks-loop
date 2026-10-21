@@ -19,6 +19,10 @@
  * hard-blocked + allow-listed path families.
  */
 
+import { isAbsolute, relative, resolve } from 'node:path';
+
+import { normalizePath } from '../../shared/path-utils.js';
+
 export type GateToolName = 'Edit' | 'Write' | 'MultiEdit' | string;
 
 export type GatePathKey = 'file_path' | 'path' | 'notebook_path';
@@ -57,6 +61,14 @@ export const ALLOW_LISTED_PATH_PATTERNS = [
  */
 const FAST_LANE_DRIVER = 'peaks-race-code';
 
+/** The tool names this gate judges. A call under any other name is allowed. */
+export const GATED_TOOL_NAMES = ['Edit', 'Write', 'MultiEdit'] as const;
+
+/** Is this tool one the gate judges at all? */
+export function isGatedTool(tool: GateToolName): boolean {
+  return (GATED_TOOL_NAMES as readonly string[]).includes(tool);
+}
+
 export type GateVerdict =
   | { readonly action: 'allow' }
   | {
@@ -84,6 +96,49 @@ function matchesAny(path: string, families: readonly string[]): string | null {
   return null;
 }
 
+/** Drop every leading `./` segment: `./src/x.ts` and `src/x.ts` are one path. */
+function stripLeadingDotSegments(path: string): string {
+  let out = path;
+  while (out.startsWith('./')) out = out.slice(2);
+  return out;
+}
+
+/**
+ * The ONE spelling-independent form of a target path.
+ *
+ * The deny families are project-relative prefixes (`src/`, `tests/unit/`, …),
+ * so how the incoming path happens to be SPELLED must not decide the verdict:
+ * `src/x.ts`, `./src/x.ts` and the absolute spelling of that same file are one
+ * file and must get one verdict. Without this, the same edit is denied in one
+ * spelling and allowed in another — and the allow is the one that happens.
+ *
+ *   - separators fold to `/` (a Windows payload spells `src\x.ts`)
+ *   - a leading `./` is dropped
+ *   - an ABSOLUTE path inside `projectRoot` becomes project-relative
+ *   - an absolute path OUTSIDE `projectRoot` stays absolute: the families name
+ *     THIS project's directories, and a path in another repository is another
+ *     project's business. That is also what the gate already did with every
+ *     absolute path, so it is not a widening.
+ *   - with no `projectRoot` an absolute path cannot be made relative and is
+ *     left as it is
+ *
+ * A `..` segment is deliberately NOT resolved: a relative path is relative to
+ * the tool call's own working directory, which this module does not know, and
+ * resolving it against the project root would be a guess.
+ */
+export function normalizeGatePath(filePath: string, projectRoot?: string | null): string {
+  if (filePath.length === 0) return '';
+  const slashed = normalizePath(filePath);
+  if (!isAbsolute(slashed)) return stripLeadingDotSegments(slashed);
+  if (typeof projectRoot === 'string' && projectRoot.length > 0) {
+    const relativePath = normalizePath(relative(resolve(projectRoot), resolve(slashed)));
+    if (relativePath.length > 0 && !relativePath.startsWith('..') && !isAbsolute(relativePath)) {
+      return stripLeadingDotSegments(relativePath);
+    }
+  }
+  return slashed;
+}
+
 /**
  * Pure decision function. Given the tool name + input object, return
  * the gate verdict. Tolerates malformed payloads (allow).
@@ -93,24 +148,35 @@ function matchesAny(path: string, families: readonly string[]): string | null {
  * `null` are the same verdict as before this parameter existed: the
  * hard-blocked families deny. Resolution is the caller's job, so this
  * module keeps no session, lease or filesystem state.
+ *
+ * `projectRoot` is the root the deny families are relative to. It is what
+ * lets an ABSOLUTE path be judged like its relative spelling; without it an
+ * absolute path cannot be related to the project and is left alone.
  */
 export function decideGateAction(
   tool: GateToolName,
   input: Readonly<Record<string, unknown>>,
-  driver?: string | null
+  driver?: string | null,
+  projectRoot?: string | null
 ): GateVerdict {
   // Only gate Edit / Write / MultiEdit.
-  if (tool !== 'Edit' && tool !== 'Write' && tool !== 'MultiEdit') {
+  if (!isGatedTool(tool)) {
     return { action: 'allow' };
   }
 
-  const filePath = extractFilePath(input);
-  if (filePath.length === 0) {
+  const requestedPath = extractFilePath(input);
+  if (requestedPath.length === 0) {
     // No path → cannot decide; fail-open (allow). The probe side
     // (`orchestrator-can-do`) handles slice-spec content; this hook
     // handles file paths only.
     return { action: 'allow' };
   }
+
+  // The verdict is about the FILE, not about the spelling of the path that
+  // names it, so the path is reduced to the project-relative form the
+  // families are written in before anything is matched. The verdict still
+  // echoes the path the tool actually asked for.
+  const filePath = normalizeGatePath(requestedPath, projectRoot);
 
   // Allow-list check first — short-circuits any deny, for every driver.
   const allowMatch = matchesAny(filePath, ALLOW_LISTED_PATH_PATTERNS);
@@ -129,9 +195,9 @@ export function decideGateAction(
     }
     const reason = `${denyMatch} (orchestrator's hard-blocked path family)`;
     const message =
-      `PEAKS_CODE_PROHIBITED_DIRECT_EDIT: ${filePath} matches hard-blocked path family ${reason}; ` +
+      `PEAKS_CODE_PROHIBITED_DIRECT_EDIT: ${requestedPath} matches hard-blocked path family ${reason}; ` +
       `orchestrator MUST NOT Edit/Write these directly. Use: peaks sub-agent dispatch rd --prompt '<your task>' --request-id <rid> --project . --batch-id <uuid>`;
-    return { action: 'deny', filePath, reason, message };
+    return { action: 'deny', filePath: requestedPath, reason, message };
   }
 
   // Anything not in the deny list → allow (e.g. CHANGELOG, README, top-level files).
