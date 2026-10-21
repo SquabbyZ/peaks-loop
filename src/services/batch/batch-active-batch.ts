@@ -40,11 +40,17 @@ export interface ActiveBatch {
 /**
  * The ids of the batches this session holds a record for.
  *
+ * This function only READS a directory, so it does not throw. A session id
+ * that is not one safe path segment is refused by `getSessionDir` — and
+ * refusing to LOOK is the whole answer here: there are no batches to list.
+ * The refusal still stands for everything that WRITES under the session
+ * directory; this is a reader.
+ *
  * @returns The ids, or an empty list when the session has no batches.
  */
 export function listBatchIds(projectRoot: string, sessionId: string): readonly string[] {
-  const dir = join(getSessionDir(projectRoot, sessionId), BATCH_DIR);
   try {
+    const dir = join(getSessionDir(projectRoot, sessionId), BATCH_DIR);
     return readdirSync(dir, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name);
@@ -107,11 +113,22 @@ export function isBatchAtCompactionBoundary(progress: BatchProgress): boolean {
 /**
  * Whether a batch in this project is at a compaction boundary.
  *
+ * THIS FUNCTION NEVER THROWS. It is called on EVERY auto-compact run, and
+ * the batch lookup is ADVISORY: a batch in flight is a hint about the
+ * cheapest moment to compact, never a precondition for compacting. So a
+ * failure to determine whether a batch is at a boundary means "assume not
+ * at a boundary" — the compaction path carries on exactly as it did before
+ * this lookup existed.
+ *
  * Fail-safe: `false` when there is no batch in flight, when its record
- * cannot be read, and when the batch is mid-stage. A false answer leaves
- * the existing behaviour exactly as it was.
+ * cannot be read, when the session id is not usable, and when the batch is
+ * mid-stage.
  */
 export function resolveBatchCompactionBoundary(projectRoot: string, sessionId: string): boolean {
-  const active = findActiveBatch(projectRoot, sessionId);
-  return active !== null && isBatchAtCompactionBoundary(active.progress);
+  try {
+    const active = findActiveBatch(projectRoot, sessionId);
+    return active !== null && isBatchAtCompactionBoundary(active.progress);
+  } catch {
+    return false;
+  }
 }

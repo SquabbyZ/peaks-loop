@@ -164,3 +164,33 @@ describe('Scenario: behavior — the batch at a compaction boundary is the one t
     expect(active !== null && isBatchAtCompactionBoundary(active.progress)).toBe(true);
   });
 });
+
+describe('Scenario: a11y — a session id the reader cannot use is not a crash', () => {
+  it('when the session id is not one safe path segment, should list no batches rather than refuse', () => {
+    // given: a session id the session directory refuses
+    const root = makeRoot();
+    // when: the batches are listed
+    const ids = listBatchIds(root, './2026-09-15-session-r6-invariant');
+    // then: there are none — refusing to LOOK is the answer
+    expect(ids).toEqual([]);
+  });
+
+  it('when the session id is not one safe path segment, should find no batch rather than refuse', () => {
+    // given: a session id the session directory refuses
+    const root = makeRoot();
+    // when: the batch in flight is looked for
+    const active = findActiveBatch(root, './2026-09-15-session-r6-invariant');
+    // then: there is none
+    expect(active).toBeNull();
+  });
+
+  it('when the session id is not one safe path segment, should answer the boundary question without throwing', () => {
+    // given: a session id the session directory refuses
+    const root = makeRoot();
+    // when: the boundary signal is read
+    const answer = () => resolveBatchCompactionBoundary(root, './2026-09-15-session-r6-invariant');
+    // then: the answer is "not at a boundary" — the compaction path carries on
+    expect(answer).not.toThrow();
+    expect(answer()).toBe(false);
+  });
+});
