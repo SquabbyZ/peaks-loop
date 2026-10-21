@@ -218,7 +218,11 @@ export function normalizeGatePath(filePath: string, projectRoot?: string | null)
  *
  * `projectRoot` is the root the deny families are relative to. It is what
  * lets an ABSOLUTE path be judged like its relative spelling; without it an
- * absolute path cannot be related to the project and is left alone.
+ * absolute path cannot be related to the project and is left alone. It is the
+ * project root the CALLER named, not the canonical root above it: a project
+ * nested inside a git repository is judged against itself, and the canonical
+ * root - where the session and the leases live - is a different question
+ * that this parameter does not answer.
  */
 export function decideGateAction(
   tool: GateToolName,
