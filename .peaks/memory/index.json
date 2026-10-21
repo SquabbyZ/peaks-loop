@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-20T15:28:34.538Z",
+  "updatedAt": "2026-10-21T06:51:10.536Z",
   "hot": {
     "rule": [
       {
@@ -1654,6 +1654,14 @@
         "updatedAt": "2026-10-20"
       },
       {
+        "name": "a-new-src-file-over-300-lines-breaks-the-file-size-ratchet",
+        "kind": "lesson",
+        "description": "The file-size policy in  is: and the census counts a file as  — which is **one more than **, because the trailing new...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-new-src-file-over-300-lines-breaks-the-file-size-ratchet.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-20-session-f7f45b/rd/requests/2026-10-21-race-batch-mode.md",
+        "updatedAt": "2026-10-21"
+      },
+      {
         "name": "a-packaged-asset-is-not-at-the-consumer-project-root",
         "kind": "lesson",
         "description": "Making the reviewer's  load-bearing first resolved it against the consumer project root, which broke every consumer: ...",
@@ -2502,6 +2510,22 @@
         "updatedAt": "2026-10-09"
       },
       {
+        "name": "the-gate-baseline-has-one-owner-the-orchestrator",
+        "kind": "lesson",
+        "description": "Three separate slices in the race-batch-mode run (Task 4, Task 1, Task 2) each added in-scope files without regenerat...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-gate-baseline-has-one-owner-the-orchestrator.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-20-session-f7f45b/rd/requests/2026-10-21-race-batch-mode.md",
+        "updatedAt": "2026-10-21"
+      },
+      {
+        "name": "the-gate-does-not-lint-tests-so-a-new-test-file-is-ungated",
+        "kind": "lesson",
+        "description": "and the gate lint an explicit file list from : ** + , 1344 files**.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-gate-does-not-lint-tests-so-a-new-test-file-is-ungated.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-20-session-f7f45b/rd/requests/2026-10-21-race-batch-mode.md",
+        "updatedAt": "2026-10-21"
+      },
+      {
         "name": "the-globally-installed-peaks-binary-silently-lags-src-by-days",
         "kind": "lesson",
         "description": "resolves to a compiled single-file binary (measured 2026-10-14: , dated **2026-10-04**) that reports version **4.1.4*...",
@@ -2532,6 +2556,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\three-units-one-contract-line-range-and-logical-comment.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-bdd.md",
         "updatedAt": "2026-10-18"
+      },
+      {
+        "name": "touching-a-shared-path-means-running-that-paths-existing-tests",
+        "kind": "lesson",
+        "description": "The race-batch-mode Task 8 changed  and  — the **shared** compaction path every lane walks through — and its scoped t...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\touching-a-shared-path-means-running-that-paths-existing-tests.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-20-session-f7f45b/rd/requests/2026-10-21-race-batch-mode.md",
+        "updatedAt": "2026-10-21"
       },
       {
         "name": "trae-adapter-values-hookevent-toolmatcher-envvar-are-1-x-assumptions-not-verified",
