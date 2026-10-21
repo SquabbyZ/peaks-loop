@@ -123,25 +123,85 @@ fi
 # --- 5. Normalize the SPELLING of the path ----------------------------------
 # The deny families are project-relative prefixes, so how the path is
 # spelled must not decide the verdict: `./src/x.ts` is the file `src/x.ts`.
-# Two normalizations only, and both are spelling-level:
+# Three normalizations, and all of them are spelling-level:
 #   - backslashes fold to `/` (a Windows payload spells the separator that way)
 #   - leading `./` segments are dropped
+#   - the `.` and `..` segments of a RELATIVE path are collapsed
+# The collapse needs no project root: a `..` cancels the segment before it
+# for every base that does not escape, and a `..` that DOES escape is kept,
+# so the path still reads as "outside" and lands in no family.
 # An ABSOLUTE path is NOT relativized here: that needs the project root,
 # which this script has no way to know (it takes no env vars and no
 # arguments), and a guess would be a false-positive block. The Node command
 # (`peaks code-gate`) is the gate that knows the project root, and it judges
 # the absolute spelling of the same file. The raw path is kept for the
 # deny message, which names the file the tool asked for.
+collapse_dot_segments() {
+  # `out` is a sequence of segments, each followed by `/`, and it always
+  # starts with `/` so that dropping the last segment of a one-segment path
+  # leaves the empty base rather than the segment itself.
+  local out="/"
+  local rest="${1}"
+  local segment=""
+  local trimmed=""
+  local result=""
+  while [[ -n "${rest}" ]]; do
+    segment="${rest%%/*}"
+    if [[ "${rest}" == */* ]]; then
+      rest="${rest#*/}"
+    else
+      rest=""
+    fi
+    case "${segment}" in
+      ''|'.')
+        ;;
+      '..')
+        if [[ "${out}" == "/" ]]; then
+          out="/../"
+        elif [[ "${out}" == */../ ]]; then
+          out="${out}../"
+        else
+          trimmed="${out%/}"
+          out="${trimmed%/*}/"
+        fi
+        ;;
+      *)
+        out="${out}${segment}/"
+        ;;
+    esac
+  done
+  result="${out#/}"
+  printf '%s' "${result%/}"
+}
+
 MATCH_PATH="${FILE_PATH//\\//}"
 while [[ "${MATCH_PATH}" == ./* ]]; do
   MATCH_PATH="${MATCH_PATH#./}"
 done
+# An ABSOLUTE path keeps its own shape: making it project-relative needs
+# the project root, which this script does not have.
+case "${MATCH_PATH}" in
+  /*|[A-Za-z]:*) ;;
+  *) MATCH_PATH="$(collapse_dot_segments "${MATCH_PATH}")" ;;
+esac
+
+# The comparison folds CASE: every family name is lower-case, and on a
+# case-insensitive filesystem `SRC/x.ts` IS `src/x.ts`. The trade-off is the
+# one the Node gate accepts on purpose - on a case-SENSITIVE filesystem a
+# repository holding both `src/` and `SRC/` refuses the `SRC/` edit too,
+# because a wrongly allowed edit is a hole in the gate while a wrongly
+# refused one is an inconvenience. Only the COMPARISON folds case; the deny
+# message below names the path the tool asked for, as it was spelled.
+# BOTH lists are folded the same way, because both are judged against the
+# same path - a case variant of an allow-listed file must reach the same
+# verdict as the file itself.
+MATCH_FOLDED="$(printf '%s' "${MATCH_PATH}" | tr '[:upper:]' '[:lower:]')"
 
 # --- 6. Allow-list check (.peaks/, .peaks/_runtime/, skills/) ---------------
 # Allow-listed paths are NEVER blocked. The orchestrator may freely
 # Edit/Write these — they are not application source code.
-case "${MATCH_PATH}" in
-  .peaks/*|.peaks_*|skills/*|docs/*|CHANGELOG.md|README.md|*.md)
+case "${MATCH_FOLDED}" in
+  .peaks/*|.peaks_*|skills/*|docs/*|changelog.md|readme.md|*.md)
     exit 0 ;;
 esac
 
@@ -150,7 +210,7 @@ esac
 # message; the deny rule is symmetric across all 6 families.
 BLOCKED=0
 BLOCKED_REASON=""
-case "${MATCH_PATH}" in
+case "${MATCH_FOLDED}" in
   src/*)
     BLOCKED=1
     BLOCKED_REASON="src/ (application source code)" ;;

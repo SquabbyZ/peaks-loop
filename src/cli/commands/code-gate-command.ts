@@ -21,6 +21,7 @@
  */
 
 import type { Command } from 'commander';
+import { resolve } from 'node:path';
 
 import { type ProgramIO, addJsonOption, printResult } from '../cli-helpers.js';
 import {
@@ -241,13 +242,16 @@ export function registerCodeGateCommand(program: Command, io: ProgramIO): void {
     if (undecidable !== null) {
       reportUndecidable(undecidable);
     }
-    // The project root is what the deny families are relative to, so it is
-    // resolved ONCE and used twice: to place the caller, and to relate an
-    // absolute target path to the project. A path spelled absolutely is the
-    // same file as the same path spelled relatively, and both must be judged
-    // the same way.
-    const projectRoot = resolveCanonicalProjectRoot(opts.project ?? process.cwd());
-    const verdict = decideGateAction(tool, input, resolveDriver(projectRoot, parsed), projectRoot);
+    // TWO roots, because two questions ask for one. The CANONICAL root is
+    // where the session and the leases live, so the caller is placed against
+    // it. The NAMED root is the project the caller named, and it is what the
+    // deny families are relative to: a project nested inside a git repository
+    // is judged against ITSELF, not against the git root above it. One file
+    // must not get two verdicts from two spellings, and a project that is not
+    // the git root is exactly where the two would differ.
+    const namedRoot = resolve(opts.project ?? process.cwd());
+    const canonicalRoot = resolveCanonicalProjectRoot(namedRoot);
+    const verdict = decideGateAction(tool, input, resolveDriver(canonicalRoot, parsed), namedRoot);
     if (opts.dryRun === true) {
       printDryRunVerdict(io, opts.json === true, { tool, input, verdict, undecidable });
       return;

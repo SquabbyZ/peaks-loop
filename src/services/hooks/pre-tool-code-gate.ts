@@ -87,11 +87,31 @@ export function extractFilePath(input: Readonly<Record<string, unknown>>): strin
   return '';
 }
 
+/**
+ * Does the path belong to one of these families?
+ *
+ * The comparison folds CASE: every family name is written in lower case, and
+ * on a case-insensitive filesystem (Windows, and macOS by default) `SRC/x.ts`
+ * IS the file `src/x.ts`, so comparing the case exactly lets the spelling
+ * decide the verdict. BOTH lists are folded the same way, because both are
+ * judged against the same path: a case variant of an allow-listed file has to
+ * reach the same verdict as the file itself, or the fold would only move the
+ * inconsistency from one list to the other.
+ *
+ * THE TRADE-OFF, written down instead of left to look like an oversight: on a
+ * case-SENSITIVE filesystem a repository holding BOTH `src/` and `SRC/`
+ * refuses the edit under `SRC/` as well. That refusal is accepted on purpose.
+ * A wrongly allowed edit is a hole in the gate; a wrongly refused one is an
+ * inconvenience the caller can undo. Only the COMPARISON folds case - the
+ * path the tool asked for is echoed to the caller exactly as it was spelled,
+ * and the family a verdict names is the canonical one, not the folded form.
+ */
 function matchesAny(path: string, families: readonly string[]): string | null {
+  const folded = path.toLowerCase();
   for (const fam of families) {
-    if (path.startsWith(fam)) return fam;
+    if (folded.startsWith(fam.toLowerCase())) return fam;
     // also handle ".md" suffix pattern
-    if (fam.startsWith('.') && path.endsWith(fam)) return fam;
+    if (fam.startsWith('.') && folded.endsWith(fam.toLowerCase())) return fam;
   }
   return null;
 }
@@ -101,6 +121,40 @@ function stripLeadingDotSegments(path: string): string {
   let out = path;
   while (out.startsWith('./')) out = out.slice(2);
   return out;
+}
+
+/**
+ * Collapse the `.` and `..` segments of a RELATIVE path, lexically.
+ *
+ * The base directory does not enter the answer for a path that stays inside
+ * it: a `..` cancels the segment before it, for every base. A `..` that would
+ * leave the base is KEPT, so the result still reads as "outside", and a path
+ * outside the project belongs to no family.
+ */
+function collapseRelativeDotSegments(path: string): string {
+  const out: string[] = [];
+  for (const segment of path.split('/')) {
+    if (segment === '' || segment === '.') continue;
+    if (segment === '..') {
+      const last = out.length > 0 ? out[out.length - 1] : null;
+      if (last !== null && last !== '..') out.pop();
+      else out.push('..');
+      continue;
+    }
+    out.push(segment);
+  }
+  return out.join('/');
+}
+
+/**
+ * The path of `target` relative to `root`, when `target` is INSIDE `root`;
+ * `null` when it is not — the target is outside the root, or it is the root.
+ */
+function relativizeInsideRoot(target: string, root: string): string | null {
+  const relativePath = normalizePath(relative(root, target));
+  if (relativePath.length === 0) return null;
+  if (relativePath.startsWith('..') || isAbsolute(relativePath)) return null;
+  return stripLeadingDotSegments(relativePath);
 }
 
 /**
@@ -114,6 +168,7 @@ function stripLeadingDotSegments(path: string): string {
  *
  *   - separators fold to `/` (a Windows payload spells `src\x.ts`)
  *   - a leading `./` is dropped
+ *   - a `..` segment is resolved
  *   - an ABSOLUTE path inside `projectRoot` becomes project-relative
  *   - an absolute path OUTSIDE `projectRoot` stays absolute: the families name
  *     THIS project's directories, and a path in another repository is another
@@ -122,21 +177,33 @@ function stripLeadingDotSegments(path: string): string {
  *   - with no `projectRoot` an absolute path cannot be made relative and is
  *     left as it is
  *
- * A `..` segment is deliberately NOT resolved: a relative path is relative to
- * the tool call's own working directory, which this module does not know, and
- * resolving it against the project root would be a guess.
+ * The base a `..` is resolved against is the PROJECT ROOT the caller named,
+ * and that is a fact about the caller rather than a guess: the IDE invokes
+ * `peaks code-gate --project "<the project directory>"`, and the tool call's
+ * own working directory is that same project directory. A `..` that resolves
+ * OUTSIDE the root names a file outside the project, so it belongs to no
+ * family and is allowed - the same rule an absolute path outside the root
+ * follows. The trade-off is written down rather than left implicit: a base
+ * chosen wrongly would refuse files of a neighbouring directory, and the
+ * project root is the one base both the caller and the tool call agree on.
  */
 export function normalizeGatePath(filePath: string, projectRoot?: string | null): string {
   if (filePath.length === 0) return '';
   const slashed = normalizePath(filePath);
-  if (!isAbsolute(slashed)) return stripLeadingDotSegments(slashed);
-  if (typeof projectRoot === 'string' && projectRoot.length > 0) {
-    const relativePath = normalizePath(relative(resolve(projectRoot), resolve(slashed)));
-    if (relativePath.length > 0 && !relativePath.startsWith('..') && !isAbsolute(relativePath)) {
-      return stripLeadingDotSegments(relativePath);
-    }
+  const root =
+    typeof projectRoot === 'string' && projectRoot.length > 0 ? resolve(projectRoot) : null;
+
+  if (isAbsolute(slashed)) {
+    if (root === null) return slashed;
+    return relativizeInsideRoot(resolve(slashed), root) ?? slashed;
   }
-  return slashed;
+
+  if (root === null) return collapseRelativeDotSegments(stripLeadingDotSegments(slashed));
+  const resolved = resolve(root, slashed);
+  const inside = relativizeInsideRoot(resolved, root);
+  if (inside !== null) return inside;
+  // The `..` left the project root: the target is another project's file.
+  return normalizePath(resolved);
 }
 
 /**
@@ -151,7 +218,11 @@ export function normalizeGatePath(filePath: string, projectRoot?: string | null)
  *
  * `projectRoot` is the root the deny families are relative to. It is what
  * lets an ABSOLUTE path be judged like its relative spelling; without it an
- * absolute path cannot be related to the project and is left alone.
+ * absolute path cannot be related to the project and is left alone. It is the
+ * project root the CALLER named, not the canonical root above it: a project
+ * nested inside a git repository is judged against itself, and the canonical
+ * root - where the session and the leases live - is a different question
+ * that this parameter does not answer.
  */
 export function decideGateAction(
   tool: GateToolName,
@@ -184,7 +255,8 @@ export function decideGateAction(
     return { action: 'allow' };
   }
 
-  // Hard-blocked family check.
+  // Hard-blocked family check — case-insensitively, because every family name
+  // is lower-case and the filesystem holding the file may not be.
   const denyMatch = matchesAny(filePath, HARD_BLOCKED_PATH_FAMILIES);
   if (denyMatch !== null) {
     // A driver that is not the fast lane falls through to the same deny a
