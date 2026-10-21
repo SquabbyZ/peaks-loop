@@ -31,6 +31,16 @@ export type BatchPhase = 'diagnosis' | 'topology' | 'fix' | 'verify' | 'done';
 export interface BatchItem {
   readonly id: string;
   readonly label: string;
+  /**
+   * What the user reported, in the user's words.
+   *
+   * This is the item's INPUT, not a measurement: the diagnosis prompt is
+   * built from it, and the report the diagnostician produces is an answer
+   * to it. It is kept on the record so a batch that resumes after a
+   * compaction can still ask the question — a record that kept only the
+   * label would ask the wrong one.
+   */
+  readonly symptom?: string;
   readonly status: BatchItemStatus;
   /**
    * The repo-relative paths this item is expected to touch.

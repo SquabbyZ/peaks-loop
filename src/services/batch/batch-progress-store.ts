@@ -209,11 +209,13 @@ function coerceItem(raw: unknown, path: string, index: number): BatchItem {
   const riskSurface = entry['riskSurface'];
   const diagnosedAt = entry['diagnosedAt'];
   const fixedAt = entry['fixedAt'];
+  const symptom = entry['symptom'];
   return {
     id,
     label,
     status,
     files,
+    ...(typeof symptom === 'string' ? { symptom } : {}),
     ...(typeof riskSurface === 'number' ? { riskSurface } : {}),
     ...(typeof diagnosedAt === 'string' ? { diagnosedAt } : {}),
     ...(typeof fixedAt === 'string' ? { fixedAt } : {})

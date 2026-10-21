@@ -5,6 +5,7 @@ import { registerAdapterCommands } from './adapter-commands.js';
 import { registerAdapterS2ACommands } from './adapter-commands-s2a.js';
 import { registerAssetCommands } from './asset-commands.js';
 import { registerAuditCommands } from './audit-commands.js';
+import { registerBatchCommands } from './batch-commands.js';
 import { registerBaselineCommands } from './baseline-commands.js';
 import { registerBeeCommands } from './bee-commands.js';
 import { registerBestPracticeScanCommand } from './best-practice-scan-command.js';
@@ -168,6 +169,7 @@ const REGISTRATIONS: readonly Registration[] = [
   ['loop-eval-commands', registerWorkflowEvalCommands],
   ['evolution-commands', registerEvolutionCommands],
   ['asset-commands', registerAssetCommands],
+  ['batch-commands', registerBatchCommands],
   ['evidence-commands', registerEvidenceCommands],
   ['fresh-context-commands', registerFreshContextCommands],
   ['bee-commands', registerBeeCommands],
