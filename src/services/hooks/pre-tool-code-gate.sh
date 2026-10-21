@@ -123,7 +123,7 @@ fi
 # --- 5. Normalize the SPELLING of the path ----------------------------------
 # The deny families are project-relative prefixes, so how the path is
 # spelled must not decide the verdict: `./src/x.ts` is the file `src/x.ts`.
-# Two normalizations only, and both are spelling-level:
+# Two normalizations, and both are spelling-level:
 #   - backslashes fold to `/` (a Windows payload spells the separator that way)
 #   - leading `./` segments are dropped
 # An ABSOLUTE path is NOT relativized here: that needs the project root,
@@ -137,11 +137,23 @@ while [[ "${MATCH_PATH}" == ./* ]]; do
   MATCH_PATH="${MATCH_PATH#./}"
 done
 
+# The comparison folds CASE: every family name is lower-case, and on a
+# case-insensitive filesystem `SRC/x.ts` IS `src/x.ts`. The trade-off is the
+# one the Node gate accepts on purpose - on a case-SENSITIVE filesystem a
+# repository holding both `src/` and `SRC/` refuses the `SRC/` edit too,
+# because a wrongly allowed edit is a hole in the gate while a wrongly
+# refused one is an inconvenience. Only the COMPARISON folds case; the deny
+# message below names the path the tool asked for, as it was spelled.
+# BOTH lists are folded the same way, because both are judged against the
+# same path - a case variant of an allow-listed file must reach the same
+# verdict as the file itself.
+MATCH_FOLDED="$(printf '%s' "${MATCH_PATH}" | tr '[:upper:]' '[:lower:]')"
+
 # --- 6. Allow-list check (.peaks/, .peaks/_runtime/, skills/) ---------------
 # Allow-listed paths are NEVER blocked. The orchestrator may freely
 # Edit/Write these — they are not application source code.
-case "${MATCH_PATH}" in
-  .peaks/*|.peaks_*|skills/*|docs/*|CHANGELOG.md|README.md|*.md)
+case "${MATCH_FOLDED}" in
+  .peaks/*|.peaks_*|skills/*|docs/*|changelog.md|readme.md|*.md)
     exit 0 ;;
 esac
 
@@ -150,7 +162,7 @@ esac
 # message; the deny rule is symmetric across all 6 families.
 BLOCKED=0
 BLOCKED_REASON=""
-case "${MATCH_PATH}" in
+case "${MATCH_FOLDED}" in
   src/*)
     BLOCKED=1
     BLOCKED_REASON="src/ (application source code)" ;;

@@ -87,11 +87,31 @@ export function extractFilePath(input: Readonly<Record<string, unknown>>): strin
   return '';
 }
 
+/**
+ * Does the path belong to one of these families?
+ *
+ * The comparison folds CASE: every family name is written in lower case, and
+ * on a case-insensitive filesystem (Windows, and macOS by default) `SRC/x.ts`
+ * IS the file `src/x.ts`, so comparing the case exactly lets the spelling
+ * decide the verdict. BOTH lists are folded the same way, because both are
+ * judged against the same path: a case variant of an allow-listed file has to
+ * reach the same verdict as the file itself, or the fold would only move the
+ * inconsistency from one list to the other.
+ *
+ * THE TRADE-OFF, written down instead of left to look like an oversight: on a
+ * case-SENSITIVE filesystem a repository holding BOTH `src/` and `SRC/`
+ * refuses the edit under `SRC/` as well. That refusal is accepted on purpose.
+ * A wrongly allowed edit is a hole in the gate; a wrongly refused one is an
+ * inconvenience the caller can undo. Only the COMPARISON folds case - the
+ * path the tool asked for is echoed to the caller exactly as it was spelled,
+ * and the family a verdict names is the canonical one, not the folded form.
+ */
 function matchesAny(path: string, families: readonly string[]): string | null {
+  const folded = path.toLowerCase();
   for (const fam of families) {
-    if (path.startsWith(fam)) return fam;
+    if (folded.startsWith(fam.toLowerCase())) return fam;
     // also handle ".md" suffix pattern
-    if (fam.startsWith('.') && path.endsWith(fam)) return fam;
+    if (fam.startsWith('.') && folded.endsWith(fam.toLowerCase())) return fam;
   }
   return null;
 }
@@ -184,7 +204,8 @@ export function decideGateAction(
     return { action: 'allow' };
   }
 
-  // Hard-blocked family check.
+  // Hard-blocked family check — case-insensitively, because every family name
+  // is lower-case and the filesystem holding the file may not be.
   const denyMatch = matchesAny(filePath, HARD_BLOCKED_PATH_FAMILIES);
   if (denyMatch !== null) {
     // A driver that is not the fast lane falls through to the same deny a
