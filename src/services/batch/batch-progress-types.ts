@@ -68,6 +68,20 @@ export interface BatchProgress {
   /** The wave plan produced by the topology stage, when it exists. */
   readonly topology?: unknown;
   /**
+   * The notice the batch recorded when it crossed its last phase
+   * boundary.
+   *
+   * The WORDING belongs to the batch's verification stage
+   * (`buildPhaseBoundaryNotice`); this record only carries it. That is
+   * what lets a reader with no access to that stage — the presence read,
+   * for one — still say what happened at the boundary, without a second
+   * module writing a second sentence about the same moment.
+   *
+   * Optional: a batch that crossed a boundary without recording a notice
+   * simply has none, and the reader falls back to the ratio sentence.
+   */
+  readonly boundaryNotice?: string;
+  /**
    * When the record was last written.
    *
    * Optional in the type because the writer stamps it: a caller that does

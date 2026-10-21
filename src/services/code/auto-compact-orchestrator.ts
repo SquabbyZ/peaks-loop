@@ -26,6 +26,7 @@
  * and the envelopes in `auto-compact-envelopes.js`.
  */
 import { getSessionIdCanonical } from '../session/session-manager.js';
+import { resolveBatchCompactionBoundary } from '../batch/batch-active-batch.js';
 import { resolveOuterSessionId } from '../session/binding-status-service.js';
 import { resolveCanonicalProjectRoot } from '../config/config-service.js';
 import { type AutoCompactMode, thresholdFor } from './auto-compact-modes.js';
@@ -215,6 +216,11 @@ async function openRun(
     force: input.force,
     bypassRedLine: input.bypassRedLine,
     mode,
+    // A batch at a compaction boundary is the batch's BEST compaction
+    // point: the stage's agents are done and its results are on disk, so
+    // the in-flight deferral must not apply there. Absent a batch, this
+    // is `false` and the behaviour is exactly what it was.
+    atPhaseBoundary: resolveBatchCompactionBoundary(input.projectRoot, sessionId),
     // Tagged through so the decision can apply the source-aware carve-out for Mac's
     // `transcript-estimate` signal.
     source: probe.source
