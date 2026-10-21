@@ -6576,3 +6576,73 @@ matcher ÊÇ `Bash|Task` ? **Ã¿´Î Task ÅÉ·¢¶¼ÅÜÒ»´ÎÌ½Õë**¡£ÔÚ 24h/partial Ä£Ê½ÏÂ a
 Í¬ÑùÓ°Ïì¼ÈÓÐÂ·¾¶¡£
 
 **×¢Òâ**£º±¾ÌõÄ¿**Ã»ÓÐ**Êµ²â¹ý¢Ù¢Ú¢ÛÖÐµÄÈÎºÎÒ»¸ö ¡ª¡ª ÉÏÃæÖ»ÊÇÁÐ³öºòÑ¡£¬²»ÊÇ½áÂÛ¡£
+---
+
+## 18. The race batch mode (2026-10-21/22) â€” three findings from the 4.1.13/4.1.14/4.1.15 releases
+
+**Source of record**: session `2026-10-20-session-f7f45b`, rid `2026-10-21-code-gate-path-and-package-layout`
+and `2026-10-21-code-gate-residual-spellings`. The gate's three defects were found by the **release
+acceptance** â€” an installed artifact exercised in a consumer project â€” and **not** by any failing test.
+All three are now fixed and shipped (4.1.14, 4.1.15). What is left is here.
+
+### 18.1 The gate judges a relative path against the wrong base when the tool call's cwd is not the project root
+
+- **Where**: `src/services/batch/batch-active-batch.ts` / the project-root resolution that
+  `src/cli/commands/code-gate-command.ts` hands to `decideGateAction`.
+- **Measured** by QA on the installed 4.1.14: with the tool call's working directory at
+  `<root>/src` and the payload naming `deep/x.ts`, the gate **allows** the edit â€” but that path is
+  `<root>/src/deep/x.ts`, which is **inside** `src/` and must be denied.
+- **Pre-existing, not a regression.** The 4.1.15 release did not introduce it: the same measurement
+  against the **extracted pre-fix source** allows it too.
+- **Why it is still open.** 4.1.15 fixed the *spelling* of a path. It did not fix **which directory a
+  relative path is relative to**. The slice's own invariant â€” *the verdict depends on which directory
+  the file is in, not on how the path is written* â€” therefore **does not yet hold**: the `..` fix
+  anchored relative paths to the **caller-named project root**, which equals the tool call's own
+  working directory only when the cwd **is** the project root.
+- **Why it was left.** Fixing it needs a **decision**, not an implementation: *which base does a
+  relative path belong to?* The three candidates â€” the tool call's cwd, the caller-named project root,
+  the canonical root â€” disagree exactly when the cwd is not the project root. The gate is invoked by
+  the IDE with `--project "${CLAUDE_PROJECT_DIR}"` and the tool call's cwd is the project directory,
+  so in the **normal** invocation they are the same; the divergence needs a deliberate choice for the
+  abnormal one.
+- **The shape to watch for**: a gate that takes a *path* as input and resolves it against a base it
+  does not own. The same shape is Â§2.13's root-`dist/` axis (a prerequisite resolved against the wrong
+  root) and is why "it works on this host" was not the question to ask.
+
+### 18.2 The plan's Step 7 A-1 acceptance cannot be run in this repository â€” it needs a project with `peaks hooks install`
+
+- **Where**: `docs/superpowers/plans/2026-10-21-peaks-race-batch-mode.md`, Task 2 Step 7.
+- **What it asks**: re-run the A-1 probe in a project that has `peaks hooks install` (and therefore
+  the `code-gate` entry), dispatch one Task sub-agent that edits a `src/` file, and assert it is
+  **not** denied.
+- **Measured / why it is not done here**: this repository has **no** `code-gate` entry â€” only
+  `gate-step-08`, `gate enforce` and `auto-compact`. The probe therefore only measures **identity
+  resolution**, not an installed refusal. A consumer project that installs the package and runs
+  `peaks hooks install` is the environment the acceptance needs; it does not exist in this session.
+- **What *was* done instead, and it is not the same thing**: the acceptance was re-run in a consumer
+  project built from the packed tarball, with the presence lease set to `peaks-race-code` and
+  `peaks hooks install` run there. The `code-gate` entry **did** appear in that consumer's
+  `.claude/settings.json` (`PreToolUse` â†’ `peaks code-gate --project "${CLAUDE_PROJECT_DIR}"`), and the
+  allow/deny verdicts were measured through the **installed** CLI. That covers the gate's **behaviour**
+  end to end; it does **not** cover the IDE **hook wiring** in a project that installed the package
+  from the registry with `--allow-scripts`, where the canonical store and the hook entry are created by
+  the package's own `postinstall`.
+- **Why it is still open**: the registry-installed path and the tarball-installed path are different
+  installations, and only the second was exercised.
+
+### 18.3 A claim this session carried into its notes **without measuring** â€” and it was false
+
+- **The claim**: that in a unit suite, `tests/unit/cli/verify-codegraph-tarball.test.ts` "fails as a
+  bare assertion with no remediation text" when the root `dist/` is missing.
+- **Where it came from**: Â§2.13's own description of the state **before** its 2026-10-19 fix
+  (`rid-root-dist-prereq`). The fix is in place: `verify-codegraph-tarball.test.ts:96` calls
+  `assertBuiltPath(projectRoot, CODEGRAPH_BUILD_DIR)` from
+  `tests/unit/_setup/root-dist-prerequisite.ts`, and line 161 has a test that **asserts** the message
+  contains `Prerequisite missing:`. So the failure is **directed**, and the claim was stale.
+- **Why it matters here, more than the claim itself**: it was carried into a session note and into
+  conversation **as if it had been measured**, when it had not been. Â§2.13's *own* residue list is
+  where the live state is recorded. This is the defect shape this document exists to prevent â€” "a
+  claim whose evidence was never gathered" â€” and it appeared in the place least expected.
+- **The rule that follows**: before writing down a behavioural claim about a test, **run it**. If the
+  claim is a *description of someone else's* measurement, **cite the source and its date**, and say
+  whether it was re-measured. Â§2.13 already did this, and this session did not.
