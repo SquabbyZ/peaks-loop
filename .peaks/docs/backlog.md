@@ -6683,8 +6683,42 @@ record and are kept as the measurement.
   end to end; it does **not** cover the IDE **hook wiring** in a project that installed the package
   from the registry with `--allow-scripts`, where the canonical store and the hook entry are created by
   the package's own `postinstall`.
-- **Why it is still open**: the registry-installed path and the tarball-installed path are different
+- **Why it was still open**: the registry-installed path and the tarball-installed path are different
   installations, and only the second was exercised.
+
+**VERIFIED 2026-10-22 — the registry-installed path was exercised, on `peaks-loop@4.1.16` (published
+from this repository's own release).** Consumer: a fresh directory **outside** this repository, with a
+`src/` in it, installing **from the npm registry** (`npm i peaks-loop@4.1.16`). Measured, in order:
+
+- **The four internal dependencies resolved from the registry to exact pins** — `peaks-loop-shared`
+  0.0.105, `peaks-loop-shared-channel` 0.0.73, `peaks-loop-internal-runtime` 0.0.56,
+  `peaks-loop-mut` 0.1.70 — **no `workspace:*` spec reached the consumer**. That leak is the reason
+  `scripts/release-pack.mjs` exists, and this is the first end-to-end check of it through a REGISTRY
+  install rather than a tarball.
+- **The package's own postinstall created the canonical store**: `~/.peaks/skills/*.peaks-managed`,
+  `~/.peaks/agents/` and `~/.peaks/output-styles/` all carry the install's own timestamp. The
+  "CLI installed, skills did not" shape of §2.52a did **not** reproduce here.
+- **The IDE hook wiring exists** in the consumer's `.claude/settings.json`:
+  `PreToolUse` / matcher `Edit|Write|MultiEdit` → `peaks code-gate --project "${CLAUDE_PROJECT_DIR}"
+  --json`, alongside the SessionStart and PostCompact entries and 5 `permissions.deny` rows.
+- **The A-1 probe re-run through the consumer's OWN installed CLI: 12 cases, 12 pass, 0 mismatch** —
+  the six recorded cases (lease owner edits `src/` ⇒ allow; unknown caller ⇒ deny; no caller id ⇒
+  deny; lease owner edits `tests/unit/` ⇒ allow; allow-listed `docs/` ⇒ allow; non-Edit tool ⇒
+  allow), plus the spellings that **bypassed the gate in the 4.1.13 tarball probe** — `./src/`, an
+  absolute `src/` path, `SRC/`, a backslash spelling, and the `.//src/` spelling this repository's
+  §18.1 slice found — **all now deny**. The fast lane's allow path is real, and the refusal path is
+  real, in a **registry-installed** project.
+
+**What this does NOT cover, stated plainly:**
+
+- **The `--allow-scripts` half cannot be exercised on this host.** §18.2's wording names the npm 12
+  flag, and **this machine runs npm 11.6.2, which has no such flag** (it is npm 12+). npm 11 runs
+  install scripts by default, so the postinstall ran — but **the npm 12 `allowScripts` cliff itself is
+  still unmeasured**. §2.52a's "CLI installed, skills did not" is **not** closed by this run; what is
+  closed is the **registry-install path**.
+- The probe drives the consumer's CLI **directly with a payload**, the way the IDE's hook does. It is
+  **not** a live IDE refusal — no IDE was launched, and the hook's own runtime working directory is
+  still unmeasured (see §19.5).
 
 ### 18.3 A claim this session carried into its notes **without measuring** — and it was false
 
@@ -6772,3 +6806,18 @@ session — none is a guess, and none was carried forward unmeasured.
   was measured at all**.
 - **Why it is written down**: the fallback carries the fix on its own, so this is not a hole — it
   is the one fact a future reader could mistake for a measured one.
+
+### 19.6 Two things the §18.2 verification found that are not yet recorded anywhere else
+
+- **`peaks hooks install`'s help text contradicts its behaviour.** The command description says *"the
+  only installed entry is the gate-enforce hook entry"* and *"the legacy progress-start hook is no
+  longer installed"*. The code installs the whole `resolveHookEntries(ide)` table, which for Claude
+  Code includes the **`code-gate` entry** (`Edit|Write|MultiEdit` → `peaks code-gate --project
+  "${CLAUDE_PROJECT_DIR}" --json`) and three SessionStart entries and a PostCompact entry. The
+  **behaviour is right**; the prose is stale, and it is the prose a reader would check first.
+- **The published layout is no longer load-bearing for a LOCAL install.** The 4.1.13 probe recorded
+  that `npm i peaks-loop` (local) **hoists** the four subpackages to the top level, so
+  `peaks-loop-shared`'s `dist/**` is no longer next to a directory carrying `skills/` and the CLI
+  dies at startup with *"Unable to locate Peaks repository root"*. In the 4.1.16 registry install the
+  CLI **started and ran** from a local install. That is the 4.1.14 fix ("the package boots anywhere")
+  — recorded here because §18.2's own record still carries the older shape.
