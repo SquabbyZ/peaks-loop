@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-21T10:20:36.160Z",
+  "updatedAt": "2026-10-22T06:26:18.296Z",
   "hot": {
     "rule": [
       {
@@ -469,6 +469,14 @@
       }
     ],
     "decision": [
+      {
+        "name": "a-relative-path-belongs-to-the-directory-the-tool-call-runs-in",
+        "kind": "decision",
+        "description": "When a gate resolves a path, the base it resolves against is the gate's decision, not a detail.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-relative-path-belongs-to-the-directory-the-tool-call-runs-in.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-22-session-b0e6e2/txt/handoff.md",
+        "updatedAt": "2026-10-22"
+      },
       {
         "name": "a-spawned-child-unref-must-wait-for-close",
         "kind": "decision",
@@ -2510,6 +2518,14 @@
         "updatedAt": "2026-10-09"
       },
       {
+        "name": "test-a-second-gate-against-the-first-and-never-read-a-missing-process-as-a-verdict",
+        "kind": "lesson",
+        "description": "Two lessons, both paid for by real mistakes in the same slice.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\test-a-second-gate-against-the-first-and-never-read-a-missing-process-as-a-verdict.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-22-session-b0e6e2/txt/handoff.md",
+        "updatedAt": "2026-10-22"
+      },
+      {
         "name": "the-gate-baseline-has-one-owner-the-orchestrator",
         "kind": "lesson",
         "description": "Three separate slices in the race-batch-mode run (Task 4, Task 1, Task 2) each added in-scope files without regenerat...",
@@ -4124,7 +4140,7 @@
       {
         "name": "the-code-gate-matches-raw-path-prefixes",
         "kind": "project",
-        "description": "() matches the payload's path with  = **** (, , …), on the **raw** string that  returned.",
+        "description": "**State: FIXED (2026-10-21, slice , commit ).** This file records the defect and what is left; do not read it as \"the...",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-code-gate-matches-raw-path-prefixes.md",
         "sourceArtifact": null,
         "updatedAt": "2026-10-21"
@@ -4148,7 +4164,7 @@
       {
         "name": "the-published-package-only-boots-with-nested-subpackages",
         "kind": "project",
-        "description": "publishes ** only** — no .",
+        "description": "**State: FIXED (2026-10-21, slice , commit ).** This file records the defect and the traps around it; do not read it ...",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-published-package-only-boots-with-nested-subpackages.md",
         "sourceArtifact": null,
         "updatedAt": "2026-10-21"

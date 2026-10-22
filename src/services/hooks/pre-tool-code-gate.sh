@@ -16,6 +16,11 @@
 #   Allow-listed paths (.peaks/**, .peaks/_runtime/**, skills/**,
 #   docs/**) exit 0 silently.
 #
+#   A RELATIVE target path is read against the directory the tool call
+#   runs in ($PWD) and is then judged by where it lands inside the
+#   project, so a call that runs in `src/` cannot reach `src/` by
+#   spelling a shorter relative path.
+#
 # Hard rules enforced here
 #   - Hook is a thin, idempotent, pure-stdin script. No env-mutating
 #     side effects.
@@ -123,28 +128,36 @@ fi
 # --- 5. Normalize the SPELLING of the path ----------------------------------
 # The deny families are project-relative prefixes, so how the path is
 # spelled must not decide the verdict: `./src/x.ts` is the file `src/x.ts`.
-# Three normalizations, and all of them are spelling-level:
+# Two normalizations, and both of them are spelling-level:
 #   - backslashes fold to `/` (a Windows payload spells the separator that way)
 #   - leading `./` segments are dropped
-#   - the `.` and `..` segments of a RELATIVE path are collapsed
-# The collapse needs no project root: a `..` cancels the segment before it
-# for every base that does not escape, and a `..` that DOES escape is kept,
-# so the path still reads as "outside" and lands in no family.
-# An ABSOLUTE path is NOT relativized here: that needs the project root,
-# which this script has no way to know (it takes no env vars and no
-# arguments), and a guess would be a false-positive block. The Node command
-# (`peaks code-gate`) is the gate that knows the project root, and it judges
-# the absolute spelling of the same file. The raw path is kept for the
-# deny message, which names the file the tool asked for.
-collapse_dot_segments() {
-  # `out` is a sequence of segments, each followed by `/`, and it always
-  # starts with `/` so that dropping the last segment of a one-segment path
-  # leaves the empty base rather than the segment itself.
-  local out="/"
-  local rest="${1}"
+# Whether the path is absolute is decided from the spelling BEFORE that drop,
+# so the drop can never turn a relative path into an absolute one.
+# The path is then read against the directory the tool call RUNS IN: the file
+# a call writes is the one that directory names, and the project root and
+# the call's own directory differ whenever the call runs in a subdirectory.
+# The file it lands in is judged by where it sits inside the project, so the
+# families still name this project's directories.
+#
+# The project root is the nearest ancestor of the call's own directory that
+# carries a peaks workspace. The script takes no arguments and no env vars,
+# so the root is found by walking UP; the NEAREST one wins, so a project
+# nested inside another repository is judged against ITSELF. A file OUTSIDE
+# the project belongs to no family, and the spelling is all the project can
+# judge it by, so that case falls back to the spelling read against the root.
+#
+# An ABSOLUTE path is NOT relativized here: that needs the project root in
+# the payload's own spelling, which this script does not have, and a guess
+# would be a false-positive block. The Node command (`peaks code-gate`) is
+# the gate that knows the project root, and it judges the absolute spelling
+# of the same file. The raw path is kept for the deny message, which names
+# the file the tool asked for.
+
+# The absolute path of `rel` under `base`, with `.` and `..` collapsed.
+resolve_under() {
+  local out="${1%/}"
+  local rest="${2}"
   local segment=""
-  local trimmed=""
-  local result=""
   while [[ -n "${rest}" ]]; do
     segment="${rest%%/*}"
     if [[ "${rest}" == */* ]]; then
@@ -157,33 +170,97 @@ collapse_dot_segments() {
         ;;
       '..')
         if [[ "${out}" == "/" ]]; then
-          out="/../"
-        elif [[ "${out}" == */../ ]]; then
-          out="${out}../"
+          out="/"
         else
-          trimmed="${out%/}"
-          out="${trimmed%/*}/"
+          out="${out%/*}"
+          if [[ -z "${out}" ]]; then out="/"; fi
         fi
         ;;
       *)
-        out="${out}${segment}/"
+        out="${out%/}/${segment}"
         ;;
     esac
   done
-  result="${out#/}"
-  printf '%s' "${result%/}"
+  printf '%s' "${out}"
+}
+
+# The path of `target` relative to `root`, or nothing when `target` is not
+# inside `root`.
+relativize_under() {
+  local root="${1%/}"
+  local target="$2"
+  if [[ "${target}" == "${root}" ]]; then
+    printf ''
+    return 0
+  fi
+  if [[ "${target:0:${#root}+1}" == "${root}/" ]]; then
+    printf '%s' "${target:${#root}+1}"
+    return 0
+  fi
+  return 1
+}
+
+# The project root the deny families are relative to: the nearest ancestor of
+# `dir` that carries a peaks workspace. The nearest one wins, so a project
+# nested inside another repository is judged against ITSELF. The walk stops at
+# a repository boundary and at the home directory, so a workspace that belongs
+# to no project cannot claim a project that is not its own.
+project_root() {
+  local dir="${1%/}"
+  local home="${HOME%/}"
+  while [[ -n "${dir}" ]]; do
+    # The home directory is a boundary, and it is checked FIRST: the global
+    # peaks workspace lives there, and it is not the root of any project.
+    if [[ -n "${home}" && "${dir}" == "${home}" ]]; then
+      break
+    fi
+    if [[ -d "${dir}/.peaks" ]]; then
+      printf '%s' "${dir}"
+      return 0
+    fi
+    if [[ "${dir}" == "/" ]]; then
+      break
+    fi
+    if [[ -e "${dir}/.git" ]]; then
+      break
+    fi
+    dir="$(dirname "${dir}")"
+  done
+  printf '%s' "${1%/}"
 }
 
 MATCH_PATH="${FILE_PATH//\\//}"
+
+# Is the path ABSOLUTE as the tool SPELLED it? Decided BEFORE the `./`
+# segments are dropped: the strip turns `.//x` into `/x`, and a path that now
+# starts with `/` read as absolute is never relativized, so the file lands
+# outside every family and is allowed - the same edit denied in one spelling
+# and allowed in another, and the allow is the one that happens.
+case "${MATCH_PATH}" in
+  /*|[A-Za-z]:*) IS_ABSOLUTE=1 ;;
+  *) IS_ABSOLUTE=0 ;;
+esac
+
 while [[ "${MATCH_PATH}" == ./* ]]; do
   MATCH_PATH="${MATCH_PATH#./}"
 done
+PROJECT_ROOT="$(project_root "${PWD}")"
 # An ABSOLUTE path keeps its own shape: making it project-relative needs
-# the project root, which this script does not have.
-case "${MATCH_PATH}" in
-  /*|[A-Za-z]:*) ;;
-  *) MATCH_PATH="$(collapse_dot_segments "${MATCH_PATH}")" ;;
-esac
+# the project root in the payload's own spelling, which this script does not
+# have. A RELATIVE path is read against the directory the call runs in, and
+# the strip above may have left it a leading `/` - the empty segment that
+# carries is skipped, so the file is still read against `$PWD`.
+if [[ "${IS_ABSOLUTE}" == "0" ]]; then
+  SPELLED="${MATCH_PATH}"
+  RESOLVED="$(resolve_under "${PWD}" "${SPELLED}")"
+  if ! MATCH_PATH="$(relativize_under "${PROJECT_ROOT}" "${RESOLVED}")"; then
+    # The file is outside the project: the project reads the spelling.
+    RESOLVED="$(resolve_under "${PROJECT_ROOT}" "${SPELLED}")"
+    if ! MATCH_PATH="$(relativize_under "${PROJECT_ROOT}" "${RESOLVED}")"; then
+      MATCH_PATH=""
+    fi
+  fi
+fi
 
 # The comparison folds CASE: every family name is lower-case, and on a
 # case-insensitive filesystem `SRC/x.ts` IS `src/x.ts`. The trade-off is the

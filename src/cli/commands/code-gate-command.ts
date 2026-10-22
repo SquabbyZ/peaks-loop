@@ -31,6 +31,7 @@ import {
   type GateToolName,
   type GateVerdict
 } from '../../services/hooks/pre-tool-code-gate.js';
+import { resolveToolCallBaseDir } from '../../services/hooks/hook-payload-cwd.js';
 import {
   hasLeaseForCaller,
   resolveActiveSkillForCaller
@@ -83,6 +84,17 @@ function resolveDriver(projectRoot: string, payload: HookPayload): string | null
   if (typeof callerId !== 'string' || callerId.length === 0) return null;
   if (!hasLeaseForCaller(projectRoot, callerId)) return null;
   return resolveActiveSkillForCaller(projectRoot, { callerId }).skill;
+}
+
+/**
+ * The directory the tool call runs in: the payload's own `cwd` when it names
+ * a usable one, and the gate process's own working directory otherwise — the
+ * directory the harness ran the hook in. Neither source is guessed: the
+ * payload is read at its top level, and the process's own directory is a fact
+ * about this process.
+ */
+function resolveToolCallDir(payload: HookPayload, projectRoot: string): string {
+  return resolveToolCallBaseDir(payload, projectRoot, process.cwd());
 }
 
 /**
@@ -249,9 +261,13 @@ export function registerCodeGateCommand(program: Command, io: ProgramIO): void {
     // is judged against ITSELF, not against the git root above it. One file
     // must not get two verdicts from two spellings, and a project that is not
     // the git root is exactly where the two would differ.
+    // The tool call's OWN directory is a third fact: it is the base a
+    // relative path is read against.
     const namedRoot = resolve(opts.project ?? process.cwd());
     const canonicalRoot = resolveCanonicalProjectRoot(namedRoot);
-    const verdict = decideGateAction(tool, input, resolveDriver(canonicalRoot, parsed), namedRoot);
+    const driver = resolveDriver(canonicalRoot, parsed);
+    const toolCwd = resolveToolCallDir(parsed, namedRoot);
+    const verdict = decideGateAction(tool, input, driver, { projectRoot: namedRoot, toolCwd });
     if (opts.dryRun === true) {
       printDryRunVerdict(io, opts.json === true, { tool, input, verdict, undecidable });
       return;

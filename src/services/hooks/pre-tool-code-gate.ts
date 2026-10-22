@@ -19,9 +19,10 @@
  * hard-blocked + allow-listed path families.
  */
 
-import { isAbsolute, relative, resolve } from 'node:path';
+import { normalizeGatePath, rootPair, type GateRoots } from './gate-path-normalize.js';
 
-import { normalizePath } from '../../shared/path-utils.js';
+export { normalizeGatePath };
+export type { GateRoots };
 
 export type GateToolName = 'Edit' | 'Write' | 'MultiEdit' | string;
 
@@ -116,96 +117,6 @@ function matchesAny(path: string, families: readonly string[]): string | null {
   return null;
 }
 
-/** Drop every leading `./` segment: `./src/x.ts` and `src/x.ts` are one path. */
-function stripLeadingDotSegments(path: string): string {
-  let out = path;
-  while (out.startsWith('./')) out = out.slice(2);
-  return out;
-}
-
-/**
- * Collapse the `.` and `..` segments of a RELATIVE path, lexically.
- *
- * The base directory does not enter the answer for a path that stays inside
- * it: a `..` cancels the segment before it, for every base. A `..` that would
- * leave the base is KEPT, so the result still reads as "outside", and a path
- * outside the project belongs to no family.
- */
-function collapseRelativeDotSegments(path: string): string {
-  const out: string[] = [];
-  for (const segment of path.split('/')) {
-    if (segment === '' || segment === '.') continue;
-    if (segment === '..') {
-      const last = out.length > 0 ? out[out.length - 1] : null;
-      if (last !== null && last !== '..') out.pop();
-      else out.push('..');
-      continue;
-    }
-    out.push(segment);
-  }
-  return out.join('/');
-}
-
-/**
- * The path of `target` relative to `root`, when `target` is INSIDE `root`;
- * `null` when it is not — the target is outside the root, or it is the root.
- */
-function relativizeInsideRoot(target: string, root: string): string | null {
-  const relativePath = normalizePath(relative(root, target));
-  if (relativePath.length === 0) return null;
-  if (relativePath.startsWith('..') || isAbsolute(relativePath)) return null;
-  return stripLeadingDotSegments(relativePath);
-}
-
-/**
- * The ONE spelling-independent form of a target path.
- *
- * The deny families are project-relative prefixes (`src/`, `tests/unit/`, …),
- * so how the incoming path happens to be SPELLED must not decide the verdict:
- * `src/x.ts`, `./src/x.ts` and the absolute spelling of that same file are one
- * file and must get one verdict. Without this, the same edit is denied in one
- * spelling and allowed in another — and the allow is the one that happens.
- *
- *   - separators fold to `/` (a Windows payload spells `src\x.ts`)
- *   - a leading `./` is dropped
- *   - a `..` segment is resolved
- *   - an ABSOLUTE path inside `projectRoot` becomes project-relative
- *   - an absolute path OUTSIDE `projectRoot` stays absolute: the families name
- *     THIS project's directories, and a path in another repository is another
- *     project's business. That is also what the gate already did with every
- *     absolute path, so it is not a widening.
- *   - with no `projectRoot` an absolute path cannot be made relative and is
- *     left as it is
- *
- * The base a `..` is resolved against is the PROJECT ROOT the caller named,
- * and that is a fact about the caller rather than a guess: the IDE invokes
- * `peaks code-gate --project "<the project directory>"`, and the tool call's
- * own working directory is that same project directory. A `..` that resolves
- * OUTSIDE the root names a file outside the project, so it belongs to no
- * family and is allowed - the same rule an absolute path outside the root
- * follows. The trade-off is written down rather than left implicit: a base
- * chosen wrongly would refuse files of a neighbouring directory, and the
- * project root is the one base both the caller and the tool call agree on.
- */
-export function normalizeGatePath(filePath: string, projectRoot?: string | null): string {
-  if (filePath.length === 0) return '';
-  const slashed = normalizePath(filePath);
-  const root =
-    typeof projectRoot === 'string' && projectRoot.length > 0 ? resolve(projectRoot) : null;
-
-  if (isAbsolute(slashed)) {
-    if (root === null) return slashed;
-    return relativizeInsideRoot(resolve(slashed), root) ?? slashed;
-  }
-
-  if (root === null) return collapseRelativeDotSegments(stripLeadingDotSegments(slashed));
-  const resolved = resolve(root, slashed);
-  const inside = relativizeInsideRoot(resolved, root);
-  if (inside !== null) return inside;
-  // The `..` left the project root: the target is another project's file.
-  return normalizePath(resolved);
-}
-
 /**
  * Pure decision function. Given the tool name + input object, return
  * the gate verdict. Tolerates malformed payloads (allow).
@@ -216,19 +127,27 @@ export function normalizeGatePath(filePath: string, projectRoot?: string | null)
  * hard-blocked families deny. Resolution is the caller's job, so this
  * module keeps no session, lease or filesystem state.
  *
- * `projectRoot` is the root the deny families are relative to. It is what
- * lets an ABSOLUTE path be judged like its relative spelling; without it an
- * absolute path cannot be related to the project and is left alone. It is the
- * project root the CALLER named, not the canonical root above it: a project
- * nested inside a git repository is judged against itself, and the canonical
- * root - where the session and the leases live - is a different question
- * that this parameter does not answer.
+ * `roots` is where the verdict is taken: the root the deny families are
+ * relative to, and the directory the tool call runs in. A bare string is the
+ * project root alone, which is how every earlier call spelled it.
+ *
+ * The project root is what lets an ABSOLUTE path be judged like its relative
+ * spelling; without it an absolute path cannot be related to the project and
+ * is left alone. It is the project root the CALLER named, not the canonical
+ * root above it: a project nested inside a git repository is judged against
+ * itself, and the canonical root - where the session and the leases live - is
+ * a different question that this parameter does not answer.
+ *
+ * The tool call's directory is the base a RELATIVE path is read against: the
+ * file a call writes is the one that directory names. It does not move the
+ * families - those stay relative to the project root - it only says which
+ * file the payload points at.
  */
 export function decideGateAction(
   tool: GateToolName,
   input: Readonly<Record<string, unknown>>,
   driver?: string | null,
-  projectRoot?: string | null
+  roots?: GateRoots
 ): GateVerdict {
   // Only gate Edit / Write / MultiEdit.
   if (!isGatedTool(tool)) {
@@ -247,7 +166,8 @@ export function decideGateAction(
   // names it, so the path is reduced to the project-relative form the
   // families are written in before anything is matched. The verdict still
   // echoes the path the tool actually asked for.
-  const filePath = normalizeGatePath(requestedPath, projectRoot);
+  const pair = rootPair(roots);
+  const filePath = normalizeGatePath(requestedPath, pair.projectRoot, pair.toolCwd);
 
   // Allow-list check first — short-circuits any deny, for every driver.
   const allowMatch = matchesAny(filePath, ALLOW_LISTED_PATH_PATTERNS);

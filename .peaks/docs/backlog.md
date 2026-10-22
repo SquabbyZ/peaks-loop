@@ -6587,6 +6587,62 @@ All three are now fixed and shipped (4.1.14, 4.1.15). What is left is here.
 
 ### 18.1 The gate judges a relative path against the wrong base when the tool call's cwd is not the project root
 
+**RULED 2026-10-22 (owner) — the tool call's cwd is the base of a relative path.** The deny
+families stay relative to the NAMED project root; only the *base a relative path is resolved
+against* changes.
+
+- **The ruling**: a relative path is resolved against the directory the tool call actually runs
+  in, not against the project root the caller named. Source, in order: the hook payload's
+  top-level `cwd` when the IDE provides one, otherwise the gate process's own working
+  directory. An ABSOLUTE path is unchanged: it is still judged by where it lands relative to the
+  named root.
+- **What it does not change**: the deny families (`src/`, `tests/unit/`, `tests/integration/`,
+  `config/`, `bin/`, `scripts/`) remain project-relative prefixes, and a project nested inside a
+  git repository is still judged against ITSELF, not the git root above it.
+- **Why this base**: it is the only one of the three candidates under which this entry's own
+  invariant — *the verdict depends on which directory the file is in, not on how the path is
+  written* — can hold. The named root disagrees with it exactly when the tool call's cwd is not
+  the project root, which is the case the QA measurement reproduced. The canonical (git) root was
+  already excluded by the two-roots rule in `code-gate-command.ts`.
+- **Measured consequence**: root `<root>`, tool call cwd `<root>/src`, payload
+  `file_path: "deep/x.ts"` → the file is `<root>/src/deep/x.ts` → `src/deep/x.ts` → **DENY**
+  (`src/`). Before the ruling it resolved to `<root>/deep/x.ts` → `deep/x.ts` → allow.
+- **Scope this ruling widens, and which this entry did not name**: the bash sibling
+  `src/services/hooks/pre-tool-code-gate.sh` judges the path as SPELLED and states in its own
+  comment that it has no way to learn the project root, so it carries the same escape. Both
+  implementations must reach the same verdict, so the slice covers both.
+- **Unverified dependency, to be established by the slice rather than assumed**: whether the hook
+  payload's top-level `cwd` is actually delivered by this repository's IDEs. Nothing in this tree
+  reads it today — the vendored hook protocol documents only `{tool_name, tool_input}` — so the
+  fallback path must be safe on its own, and the slice must MEASURE which source is in play
+  instead of asserting it.
+
+**Status: IMPLEMENTED 2026-10-22 — rid `2026-10-22-code-gate-relative-base`, shipped unreleased in the
+working tree.** The ruling was implemented, tested, and reviewed through two RD rounds and two QA
+rounds; QA round 2 returned `pass` over eight criteria. The bullets below are the pre-ruling
+record and are kept as the measurement.
+
+- **What shipped**: `src/services/hooks/gate-path-normalize.ts` (new — the path arithmetic, split
+  out because the decision's file was at its size cap), `src/services/hooks/hook-payload-cwd.ts`
+  (new — the one reader for the payload's top-level `cwd`), `src/services/hooks/pre-tool-code-gate.ts`
+  (277 -> 197 lines; the decision now takes the roots as one pair, so every earlier caller that
+  passed a bare project root is unchanged), `src/cli/commands/code-gate-command.ts` (278 -> 294),
+  and `src/services/hooks/pre-tool-code-gate.sh` — the bash sibling, which judges the path as
+  SPELLED and therefore carried the same escape.
+- **The escape, and the two spellings that opened it**: a relative path was read against the
+  NAMED PROJECT ROOT. The sibling's leading-`./` strip turned `.//deep/x.ts` into a leading `/`,
+  so it was read as ABSOLUTE, never relativized, and ALLOWED — 6 of 10 spellings of one file
+  diverged between the two implementations, while every individual test of either was green.
+  The Node command also trusted a payload `cwd` that did not name an existing directory, so the
+  path resolved outside the project and the escape re-opened.
+- **Measured after the repair**: 0 differences against the pre-change code across 72 action+reason
+  rows; 29/29 spelling agreement between the two implementations; 65/65 family rows denying in
+  both; the six unusable-`cwd` shapes all deny, so the fix does not depend on the payload `cwd`
+  being present and correct.
+- **What this left open** is in **§19** — the owner-level decision, the residual configuration, the
+  one unmeasured fact, and the doc sentence that is accurate only for the scenario it names.
+
+
 - **Where**: `src/services/batch/batch-active-batch.ts` / the project-root resolution that
   `src/cli/commands/code-gate-command.ts` hands to `decideGateAction`.
 - **Measured** by QA on the installed 4.1.14: with the tool call's working directory at
@@ -6646,3 +6702,73 @@ All three are now fixed and shipped (4.1.14, 4.1.15). What is left is here.
 - **The rule that follows**: before writing down a behavioural claim about a test, **run it**. If the
   claim is a *description of someone else's* measurement, **cite the source and its date**, and say
   whether it was re-measured. §2.13 already did this, and this session did not.
+
+---
+
+## 19. The §18.1 slice (2026-10-22) — what the repair left open
+
+**Source of record**: rid `2026-10-22-code-gate-relative-base`, session `2026-10-22-session-b0e6e2`.
+The slice closed §18.1's escape and was reviewed through two RD rounds and two QA rounds; QA round
+2 returned `pass`. These four items are what it did **not** close. Each was measured in that
+session — none is a guess, and none was carried forward unmeasured.
+
+### 19.1 The bash sibling derives its project root from the filesystem — an owner decision, and a prerequisite for §18.2
+
+- **Where**: `src/services/hooks/pre-tool-code-gate.sh` (the `project_root` walk) against
+  `src/cli/commands/hooks-commands.ts:119`, which is what `peaks hooks install` copies into a
+  consumer project.
+- **Measured**: the sibling takes **no arguments and no env vars**, so it finds the project root by
+  walking UP to the nearest peaks workspace. QA confirmed that a `.peaks` directory created inside
+  `<root>/src` moves that root — so **anyone who can create a directory can move the root the
+  deny families are judged against**. The installed Node gate is immune to this: it is handed the
+  root by `--project`.
+- **Why it was left**: fixing it means changing the **hook installation shape**, which the slice
+  listed as out of scope — and that shape is where §18.2's end-to-end acceptance has to run.
+- **The decision**: give the sibling the project root as an **argument at install time**. The
+  installer knows it; the script would stop guessing. This closes **19.1** and **19.2** together,
+  and it is a **prerequisite for §18.2** — the A-1 acceptance needs a project that has actually run
+  `peaks hooks install`.
+
+### 19.2 The absolute-path parity row is unsatisfiable with the sibling's current shape
+
+- **Measured** by QA round 2: the two implementations cannot be made to agree on an ABSOLUTE path,
+  because the sibling has no project root to relativize one against and judges an absolute path by
+  its spelling. Pre-existing, and identical before and after the slice.
+- **Why it is still open**: the same shape as 19.1 — the sibling needs the root. Closing 19.1
+  closes this.
+
+### 19.3 The doc sentence in `hook-payload-cwd.ts` is accurate for the scenario it names, and not as a general statement
+
+- **Measured** by QA round 2: the module says the fallback's error is *one-directional* — a file
+  outside every family can be denied, and *never the other way round*. That holds **for the
+  scenario the sentence names** (the call running outside the named project: `src/x.ts` is denied
+  by both, measured). It does **not** hold as a general statement of the fallback: when the call
+  runs INSIDE the project and the gate process's own working directory is not the call's directory,
+  the opposite error appears (below).
+- **Not edited** by the slice — production code was out of QA's scope. The sentence should say the
+  property holds *while the gate process runs in the call's directory*.
+
+### 19.4 The residual configuration: an unusable payload `cwd` AND a gate that is not running in the call's directory
+
+- **Measured**: the payload's `cwd` is the base only when it is an absolute path naming an
+  existing directory INSIDE the named project; otherwise the base is the **gate process's own
+  working directory**. When the gate is spawned from the project root while the tool call runs in
+  `<root>/src`, an unusable `cwd` yields **allow** for `<root>/src/deep/x.ts`.
+- **Reachability**: the hook is installed to run where the tool call runs, so this configuration is
+  one the hook is not installed for. **No IDE was measured**, so reachability is unproven rather
+  than disproven.
+- **Not a regression**: the pre-change code resolved a relative path against the named project
+  root and allowed the same case — verified on the HEAD snapshot (allow before, allow after).
+
+### 19.5 The top-level payload `cwd` is unmeasured for EVERY IDE
+
+- **The fact**: the fix does **not** depend on it — the six unusable-`cwd` shapes and the
+  *absence* of a `cwd` all deny — but the payload path is the one the ruling names first, and it
+  has never been observed.
+- **What was tried**: the RD grepped the locally installed `@anthropic-ai/claude-code` 2.1.307
+  binary and read a hook-input base object carrying `cwd`. **QA round 2 could not re-derive it**:
+  the `claude.exe` on PATH is a 546 KB launcher with no hook-payload strings. So the schema
+  reading rests on one grep of one installed artifact, and **no other IDE this repository supports
+  was measured at all**.
+- **Why it is written down**: the fallback carries the fix on its own, so this is not a hole — it
+  is the one fact a future reader could mistake for a measured one.
