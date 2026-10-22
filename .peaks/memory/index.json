@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-22T06:26:18.296Z",
+  "updatedAt": "2026-10-22T15:11:05.609Z",
   "hot": {
     "rule": [
       {
@@ -1444,6 +1444,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-citation-that-outlives-its-referent-is-silent.md",
         "sourceArtifact": null,
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "a-claim-that-nothing-moved-the-other-way-is-a-statement-about-the-rows-measured",
+        "kind": "lesson",
+        "description": "**\"Nothing moved the other way\" is a statement about the ROWS MEASURED, not about the space.** Measured twice in one ...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-claim-that-nothing-moved-the-other-way-is-a-statement-about-the-rows-measured.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-22-session-b0e6e2/txt/handoff-round2.md",
+        "updatedAt": "2026-10-22"
       },
       {
         "name": "a-cli-options-parsed-name-is-not-its-flag-name",
@@ -4144,6 +4152,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-code-gate-matches-raw-path-prefixes.md",
         "sourceArtifact": null,
         "updatedAt": "2026-10-21"
+      },
+      {
+        "name": "the-path-copies-of-claude-and-peaks-are-dispatcher-shims-not-the-programs",
+        "kind": "project",
+        "description": "**On this machine the executables on PATH are 546 KB dispatcher shims, and the real programs live elsewhere.** Measur...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-path-copies-of-claude-and-peaks-are-dispatcher-shims-not-the-programs.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-22-session-b0e6e2/txt/handoff-round2.md",
+        "updatedAt": "2026-10-22"
       },
       {
         "name": "the-prd-handoff-capsule-is-a-single-slot-per-session",

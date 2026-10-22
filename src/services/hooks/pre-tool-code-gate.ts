@@ -19,7 +19,12 @@
  * hard-blocked + allow-listed path families.
  */
 
-import { normalizeGatePath, rootPair, type GateRoots } from './gate-path-normalize.js';
+import {
+  canonicalGatePath,
+  normalizeGatePath,
+  rootPair,
+  type GateRoots
+} from './gate-path-normalize.js';
 
 export { normalizeGatePath };
 export type { GateRoots };
@@ -118,6 +123,42 @@ function matchesAny(path: string, families: readonly string[]): string | null {
 }
 
 /**
+ * The hard-blocked family a reading of the path names, or `null` when it
+ * names none.
+ *
+ * The ALLOW-LIST is read FIRST, for each reading on its own: a path the
+ * project allows is allowed, and a reading that names an allow-listed
+ * directory does not become a deny because ANOTHER reading names a family.
+ * That is what keeps `src/x.md` allowed, exactly as it was before.
+ *
+ * The family comparison folds CASE, because every family name is written in
+ * lower case and the filesystem holding the file may not be.
+ */
+function hardBlockedFamilyOf(reading: string): string | null {
+  if (matchesAny(reading, ALLOW_LISTED_PATH_PATTERNS) !== null) return null;
+  return matchesAny(reading, HARD_BLOCKED_PATH_FAMILIES);
+}
+
+/**
+ * The verdict for a file that one reading of the path placed in a
+ * hard-blocked family.
+ *
+ * A driver that is not the fast lane falls through to the same deny a
+ * two-argument call produces, so an unresolvable identity can never become a
+ * silent pass.
+ */
+function denyVerdict(family: string, requestedPath: string, driver: string | null): GateVerdict {
+  if (driver === FAST_LANE_DRIVER) {
+    return { action: 'allow' };
+  }
+  const reason = `${family} (orchestrator's hard-blocked path family)`;
+  const message =
+    `PEAKS_CODE_PROHIBITED_DIRECT_EDIT: ${requestedPath} matches hard-blocked path family ${reason}; ` +
+    `orchestrator MUST NOT Edit/Write these directly. Use: peaks sub-agent dispatch rd --prompt '<your task>' --request-id <rid> --project . --batch-id <uuid>`;
+  return { action: 'deny', filePath: requestedPath, reason, message };
+}
+
+/**
  * Pure decision function. Given the tool name + input object, return
  * the gate verdict. Tolerates malformed payloads (allow).
  *
@@ -142,6 +183,26 @@ function matchesAny(path: string, families: readonly string[]): string | null {
  * file a call writes is the one that directory names. It does not move the
  * families - those stay relative to the project root - it only says which
  * file the payload points at.
+ *
+ * THE VERDICT IS THE STRICTEST OF THE TWO READINGS. The path is read
+ * LEXICALLY - how it is written - and, when that reading has not already
+ * denied the file, CANONICALLY - where the file really is. A directory can
+ * be named two ways, and the difference is what a symlinked base looks like:
+ * a call that runs in `link/` and writes `deep/x.ts` lands in `src/deep/x.ts`
+ * when `link` points at `src`, and the lexical reading says `link/deep/x.ts`
+ * - no family at all. §18.1 rules that the verdict depends on WHICH
+ * DIRECTORY the file is in, not on how the path is written.
+ *
+ * Strictest, and not "canonical wins": making the canonical reading
+ * authoritative would WIDEN the gate in a layout this repository supports.
+ * When `src` is a symlink to `shared/src`, the lexical reading is
+ * `src/x.ts` (a family) and the canonical one is `shared/src/x.ts` (not
+ * one), and the file the gate denies today must stay denied. The tie-breaker
+ * is the repository's own: a wrongly ALLOWED edit is a hole, a wrongly
+ * REFUSED one is only an inconvenience. So a file reached through a
+ * directory NAMED `src` stays refused even when it really sits in `docs/` -
+ * the spelling is what the path says in this project's terms, and the gate
+ * refuses it rather than resolve it.
  */
 export function decideGateAction(
   tool: GateToolName,
@@ -169,27 +230,22 @@ export function decideGateAction(
   const pair = rootPair(roots);
   const filePath = normalizeGatePath(requestedPath, pair.projectRoot, pair.toolCwd);
 
-  // Allow-list check first — short-circuits any deny, for every driver.
-  const allowMatch = matchesAny(filePath, ALLOW_LISTED_PATH_PATTERNS);
-  if (allowMatch !== null) {
-    return { action: 'allow' };
+  // The LEXICAL reading: the allow-list first — it short-circuits any deny,
+  // for every driver — and then the hard-blocked families.
+  const denyMatch = hardBlockedFamilyOf(filePath);
+  if (denyMatch !== null) {
+    return denyVerdict(denyMatch, requestedPath, driver ?? null);
   }
 
-  // Hard-blocked family check — case-insensitively, because every family name
-  // is lower-case and the filesystem holding the file may not be.
-  const denyMatch = matchesAny(filePath, HARD_BLOCKED_PATH_FAMILIES);
-  if (denyMatch !== null) {
-    // A driver that is not the fast lane falls through to the same deny a
-    // two-argument call produces, so an unresolvable identity can never
-    // become a silent pass.
-    if (driver === FAST_LANE_DRIVER) {
-      return { action: 'allow' };
+  // The CANONICAL reading, asked only when the lexical one has not already
+  // denied the file: it costs two filesystem lookups, and the file it names
+  // is the one the lexical reading could not place.
+  const canonical = canonicalGatePath(requestedPath, pair.projectRoot, pair.toolCwd);
+  if (canonical !== null) {
+    const canonicalMatch = hardBlockedFamilyOf(canonical);
+    if (canonicalMatch !== null) {
+      return denyVerdict(canonicalMatch, requestedPath, driver ?? null);
     }
-    const reason = `${denyMatch} (orchestrator's hard-blocked path family)`;
-    const message =
-      `PEAKS_CODE_PROHIBITED_DIRECT_EDIT: ${requestedPath} matches hard-blocked path family ${reason}; ` +
-      `orchestrator MUST NOT Edit/Write these directly. Use: peaks sub-agent dispatch rd --prompt '<your task>' --request-id <rid> --project . --batch-id <uuid>`;
-    return { action: 'deny', filePath: requestedPath, reason, message };
   }
 
   // Anything not in the deny list → allow (e.g. CHANGELOG, README, top-level files).

@@ -21,6 +21,15 @@
 #   project, so a call that runs in `src/` cannot reach `src/` by
 #   spelling a shorter relative path.
 #
+#   The path is read TWICE — as it is SPELLED and as the file REALLY
+#   sits on disk — and the STRICTEST of the two readings decides. One
+#   directory can be named two ways (a symlink, a junction, macOS's
+#   `/var` → `/private/var`), and the difference is what a symlinked
+#   BASE inside the project looks like: the call runs in `link/`,
+#   `link/` points at `src/`, and the file it writes lands in `src/`.
+#   A wrongly allowed edit is a hole in the gate; a wrongly refused one
+#   is only an inconvenience.
+#
 # Hard rules enforced here
 #   - Hook is a thin, idempotent, pure-stdin script. No env-mutating
 #     side effects.
@@ -139,6 +148,20 @@ fi
 # The file it lands in is judged by where it sits inside the project, so the
 # families still name this project's directories.
 #
+# THE PATH IS READ TWICE, and the STRICTEST reading is the verdict.
+#   - the LEXICAL reading: the base as it is SPELLED ($PWD), and the project
+#     root as that base spells it
+#   - the CANONICAL reading: the base RESOLVED through its symlinks
+#     (`pwd -P`), and the project root derived from THAT base
+# One directory can be named two ways — a symlink, a junction, macOS's
+# `/var` → `/private/var` — and the difference is what a symlinked BASE
+# inside the project looks like: the call runs in `link/`, `link/` points
+# at `src/`, and the file it writes lands in `src/`. The lexical reading
+# says `link/deep/x.ts` (no family) and the canonical one says
+# `src/deep/x.ts` (a family). A wrongly allowed edit is a hole in the gate
+# and a wrongly refused one is only an inconvenience, so a path that EITHER
+# reading places in a hard-blocked family is REFUSED.
+#
 # The project root is the nearest ancestor of the call's own directory that
 # carries a peaks workspace. The script takes no arguments and no env vars,
 # so the root is found by walking UP; the NEAREST one wins, so a project
@@ -229,6 +252,52 @@ project_root() {
   printf '%s' "${1%/}"
 }
 
+# The physical spelling of `path`: every component that EXISTS is resolved
+# through its symlinks, and the components that do not are kept as they are
+# spelled. A directory that cannot be entered is kept as it is spelled too,
+# so the reading falls back to the spelling rather than to nothing.
+physical_path() {
+  local target="$1" dir="" base="" phys=""
+  dir="$(dirname "${target}")"
+  base="$(basename "${target}")"
+  if phys="$(CDPATH='' cd -P "${dir}" 2>/dev/null && pwd -P)"; then
+    printf '%s/%s' "${phys}" "${base}"
+    return 0
+  fi
+  printf '%s' "${target}"
+}
+
+# The project-relative reading of `spelled`, read against `base` and judged
+# against `root`.
+#
+# A file that lands INSIDE the project is named by where it sits in the
+# project. A file that lands OUTSIDE has no name in the project, so the
+# project reads its SPELLING against the root — a reading that never reaches
+# a family the file itself did not reach.
+read_under() {
+  local base="${1%/}" root="${2%/}" spelled="$3" resolved="" out=""
+  resolved="$(resolve_under "${base}" "${spelled}")"
+  if ! out="$(relativize_under "${root}" "${resolved}")"; then
+    resolved="$(resolve_under "${root}" "${spelled}")"
+    if ! out="$(relativize_under "${root}" "${resolved}")"; then
+      out=""
+    fi
+  fi
+  printf '%s' "${out}"
+}
+
+# The CANONICAL reading: the file named by the directory it REALLY sits in.
+# Nothing when the file is outside the project — the project has no name for
+# it there, and the reading that does is the spelling one above.
+read_canonical_under() {
+  local base="${1%/}" root="${2%/}" spelled="$3" resolved="" out=""
+  resolved="$(physical_path "$(resolve_under "${base}" "${spelled}")")"
+  if ! out="$(relativize_under "${root}" "${resolved}")"; then
+    out=""
+  fi
+  printf '%s' "${out}"
+}
+
 MATCH_PATH="${FILE_PATH//\\//}"
 
 # Is the path ABSOLUTE as the tool SPELLED it? Decided BEFORE the `./`
@@ -245,21 +314,28 @@ while [[ "${MATCH_PATH}" == ./* ]]; do
   MATCH_PATH="${MATCH_PATH#./}"
 done
 PROJECT_ROOT="$(project_root "${PWD}")"
+# The base in its other spelling, and the project root THAT base names. The
+# root is walked on the SAME spelling as its base, so the two always relate
+# to each other: a root found from the physical base is a physical path, and
+# the file is compared against it in the same spelling.
+PHYSICAL_BASE="$(pwd -P 2>/dev/null || printf '%s' "${PWD}")"
+PHYSICAL_ROOT="$(project_root "${PHYSICAL_BASE}")"
 # An ABSOLUTE path keeps its own shape: making it project-relative needs
 # the project root in the payload's own spelling, which this script does not
 # have. A RELATIVE path is read against the directory the call runs in, and
 # the strip above may have left it a leading `/` - the empty segment that
 # carries is skipped, so the file is still read against `$PWD`.
+#
+# An ABSOLUTE path therefore has NO canonical reading either: the root the
+# canonical reading would relativize against is the one this script GUESSED,
+# not the one the payload named, so the two answers would be about two
+# different projects. The gap is pre-existing and recorded (§19.2 of the
+# backlog); the Node command is the gate that knows the project root.
+MATCH_CANONICAL=""
 if [[ "${IS_ABSOLUTE}" == "0" ]]; then
   SPELLED="${MATCH_PATH}"
-  RESOLVED="$(resolve_under "${PWD}" "${SPELLED}")"
-  if ! MATCH_PATH="$(relativize_under "${PROJECT_ROOT}" "${RESOLVED}")"; then
-    # The file is outside the project: the project reads the spelling.
-    RESOLVED="$(resolve_under "${PROJECT_ROOT}" "${SPELLED}")"
-    if ! MATCH_PATH="$(relativize_under "${PROJECT_ROOT}" "${RESOLVED}")"; then
-      MATCH_PATH=""
-    fi
-  fi
+  MATCH_PATH="$(read_under "${PWD}" "${PROJECT_ROOT}" "${SPELLED}")"
+  MATCH_CANONICAL="$(read_canonical_under "${PHYSICAL_BASE}" "${PHYSICAL_ROOT}" "${SPELLED}")"
 fi
 
 # The comparison folds CASE: every family name is lower-case, and on a
@@ -271,42 +347,55 @@ fi
 # message below names the path the tool asked for, as it was spelled.
 # BOTH lists are folded the same way, because both are judged against the
 # same path - a case variant of an allow-listed file must reach the same
-# verdict as the file itself.
+# verdict as the file itself. BOTH readings are folded the same way too:
+# they are two spellings of one file, and one file has one verdict.
 MATCH_FOLDED="$(printf '%s' "${MATCH_PATH}" | tr '[:upper:]' '[:lower:]')"
+CANONICAL_FOLDED="$(printf '%s' "${MATCH_CANONICAL}" | tr '[:upper:]' '[:lower:]')"
 
 # --- 6. Allow-list check (.peaks/, .peaks/_runtime/, skills/) ---------------
 # Allow-listed paths are NEVER blocked. The orchestrator may freely
 # Edit/Write these — they are not application source code.
-case "${MATCH_FOLDED}" in
-  .peaks/*|.peaks_*|skills/*|docs/*|changelog.md|readme.md|*.md)
-    exit 0 ;;
-esac
+#
+# The allow-list is read FIRST, for EACH reading on its own: a path the
+# project allows is allowed, and a reading that names an allow-listed
+# directory does not become a deny because ANOTHER reading names a family.
+allow_listed() {
+  case "$1" in
+    .peaks/*|.peaks_*|skills/*|docs/*|changelog.md|readme.md|*.md) return 0 ;;
+  esac
+  return 1
+}
 
 # --- 7. Hard-blocked path family scan ---------------------------------------
 # Match against the 6 deny families. Order matters only for the stderr
 # message; the deny rule is symmetric across all 6 families.
+blocked_family() {
+  case "$1" in
+    src/*) printf 'src/ (application source code)'; return 0 ;;
+    tests/unit/*) printf 'tests/unit/ (unit test source)'; return 0 ;;
+    tests/integration/*) printf 'tests/integration/ (integration test source)'; return 0 ;;
+    config/*) printf 'config/ (project configuration)'; return 0 ;;
+    bin/*) printf 'bin/ (binary / executable entrypoint)'; return 0 ;;
+    scripts/*) printf 'scripts/ (build / release script)'; return 0 ;;
+  esac
+  return 1
+}
+
+# The STRICTEST of the two readings decides: a path that EITHER reading
+# places in a hard-blocked family is refused. The lexical reading is asked
+# first, so the family the message names is the one the spelling reached.
 BLOCKED=0
 BLOCKED_REASON=""
-case "${MATCH_FOLDED}" in
-  src/*)
+for READING in "${MATCH_FOLDED}" "${CANONICAL_FOLDED}"; do
+  if allow_listed "${READING}"; then
+    continue
+  fi
+  if REASON="$(blocked_family "${READING}")"; then
     BLOCKED=1
-    BLOCKED_REASON="src/ (application source code)" ;;
-  tests/unit/*)
-    BLOCKED=1
-    BLOCKED_REASON="tests/unit/ (unit test source)" ;;
-  tests/integration/*)
-    BLOCKED=1
-    BLOCKED_REASON="tests/integration/ (integration test source)" ;;
-  config/*)
-    BLOCKED=1
-    BLOCKED_REASON="config/ (project configuration)" ;;
-  bin/*)
-    BLOCKED=1
-    BLOCKED_REASON="bin/ (binary / executable entrypoint)" ;;
-  scripts/*)
-    BLOCKED=1
-    BLOCKED_REASON="scripts/ (build / release script)" ;;
-esac
+    BLOCKED_REASON="${REASON}"
+    break
+  fi
+done
 
 if [[ "${BLOCKED}" != "1" ]]; then
   exit 0

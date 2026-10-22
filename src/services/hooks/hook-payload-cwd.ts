@@ -19,7 +19,7 @@
 import { statSync } from 'node:fs';
 import { isAbsolute, relative, resolve } from 'node:path';
 
-import { normalizePath } from '../../shared/path-utils.js';
+import { normalizePath, stablePath } from '../../shared/path-utils.js';
 
 export function readToolCallCwd(payload: Readonly<Record<string, unknown>>): string | null {
   const cwd = payload['cwd'];
@@ -45,19 +45,35 @@ function isExistingDirectory(dir: string): boolean {
 }
 
 /**
- * Is `dir` the project root itself, or a directory inside it?
- *
- * The check is LEXICAL, like the path arithmetic it feeds: a symlink inside
- * the project that points outside it passes here. A base outside the project
- * resolves the path against a tree the families do not name, so the file it
- * lands in cannot be judged by where it sits in the project — which is the
- * invariant the gate is built on.
+ * Is `dir` the project root itself, or a directory inside it? Compared
+ * LEXICALLY: the two are compared as they are written.
  */
-function isInsideProject(root: string, dir: string): boolean {
+function isInsideLexically(root: string, dir: string): boolean {
   const rel = normalizePath(relative(resolve(root), resolve(dir)));
   if (rel.length === 0) return true;
   if (rel === '..' || rel.startsWith('../')) return false;
   return !isAbsolute(rel);
+}
+
+/**
+ * Is `dir` the project root itself, or a directory inside it?
+ *
+ * The check is LEXICAL first, like the path arithmetic it feeds: a symlink
+ * inside the project that points outside it passes here. A base outside the
+ * project resolves the path against a tree the families do not name, so the
+ * file it lands in cannot be judged by where it sits in the project — which
+ * is the invariant the gate is built on.
+ *
+ * When the lexical answer says "outside", the question is asked again with the
+ * CANONICAL spelling of both sides, because one directory can be named two
+ * ways — a symlink, a junction, macOS's `/var` → `/private/var` — and then
+ * the lexical answer is a statement about the SPELLING, not about the
+ * directory. The retry can only turn "outside" into "inside", so the base it
+ * accepts is one that really is inside the project.
+ */
+function isInsideProject(root: string, dir: string): boolean {
+  if (isInsideLexically(root, dir)) return true;
+  return isInsideLexically(stablePath(root), stablePath(dir));
 }
 
 /**

@@ -8,6 +8,14 @@
 // judges the file it lands in, and the Node command must reach the same
 // verdict for the same input.
 //
+// It reads that path TWICE — as it is spelled and as the file really sits
+// on disk — and takes the STRICTEST of the two readings. A base that is a
+// symlink INSIDE the project pointing at a hard-blocked directory is the
+// shape that needs the second reading: the call runs in `to-src/`,
+// `to-src/` points at `src/`, and the file it writes lands in `src/`. The
+// spelling says `to-src/deep/x.ts` (no family) and the directory the file
+// really sits in says `src/deep/x.ts` (a family).
+//
 // Dimensions covered:
 //   - behavior:   the sibling's own reading of a relative path
 //   - integration: the sibling spawned with a payload, and the Node command
@@ -19,7 +27,7 @@
 // which is where the two gates can be compared.
 
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -47,6 +55,12 @@ vi.setConfig({ testTimeout: SUBPROCESS_TEST_TIMEOUT_MS });
 const tmpRoots: string[] = [];
 
 /**
+ * The links the cases below remove on their own: a recursive remove that
+ * walks a link can follow it to the directory it names.
+ */
+const tmpLinks: string[] = [];
+
+/**
  * A project the sibling can find: it carries a `.peaks` directory, so the
  * walk up from the call's own directory stops there.
  */
@@ -58,6 +72,32 @@ function makeProject(): string {
   mkdirSync(join(root, 'src', 'deep'), { recursive: true });
   mkdirSync(join(root, 'docs'), { recursive: true });
   mkdirSync(join(root, 'bin'), { recursive: true });
+  return root;
+}
+
+/**
+ * A project whose OWN `to-src` points at its `src/`, so the directory the
+ * call runs in is named `to-src` while the file it lands in lives under
+ * `src`. The file every case below names is `<root>/src/deep/x.ts`.
+ *
+ * The link is a JUNCTION on Windows and a symlink on POSIX: `symlinkSync`
+ * reads the type on Windows only, and a junction needs no elevation, so the
+ * case runs the same way on every platform.
+ */
+function makeLinkedProject(): string {
+  const root = mkdtempSync(join(tmpdir(), 'peaks-code-gate-shell-linked-'));
+  tmpRoots.push(root);
+  mkdirSync(join(root, '.peaks'), { recursive: true });
+  writeFileSync(join(root, '.peaks', 'config.json'), JSON.stringify({ schemaVersion: 1 }));
+  mkdirSync(join(root, 'src', 'deep'), { recursive: true });
+  writeFileSync(join(root, 'src', 'deep', 'x.ts'), 'x');
+  mkdirSync(join(root, 'docs'), { recursive: true });
+  const junction = join(root, 'to-src');
+  symlinkSync(join(root, 'src'), junction, 'junction');
+  tmpLinks.push(junction);
+  const docsLink = join(root, 'to-docs');
+  symlinkSync(join(root, 'docs'), docsLink, 'junction');
+  tmpLinks.push(docsLink);
   return root;
 }
 
@@ -104,6 +144,10 @@ function runCodeGate(
 }
 
 afterEach(() => {
+  while (tmpLinks.length > 0) {
+    const link = tmpLinks.pop();
+    if (link !== undefined) unlinkSync(link);
+  }
   while (tmpRoots.length > 0) {
     const root = tmpRoots.pop();
     if (root !== undefined) rmSync(root, { recursive: true, force: true });
@@ -308,6 +352,103 @@ describe('integration — the two gates reach the same verdict', () => {
         expect(shell.status, `shell: ${spelling}`).toBe(2);
         expect(shell.stderr, `shell: ${spelling}`).toContain('src/');
       }
+    }
+  );
+});
+
+describe('integration — the two gates agree when the base is a symlink', () => {
+  const cases: ReadonlyArray<{
+    readonly label: string;
+    readonly dir: (root: string) => string;
+    readonly filePath: string;
+    readonly verdict: 'deny' | 'allow';
+  }> = [
+    {
+      label: 'a file that lands in the family the link points at',
+      dir: (r) => join(r, 'to-src'),
+      filePath: 'deep/x.ts',
+      verdict: 'deny'
+    },
+    {
+      label: 'a file beside the family the link points at',
+      dir: (r) => join(r, 'to-src'),
+      filePath: 'x.ts',
+      verdict: 'deny'
+    },
+    {
+      label: 'a file that leaves the family the link points at',
+      dir: (r) => join(r, 'to-src'),
+      filePath: '../docs/spec.md',
+      verdict: 'allow'
+    },
+    {
+      label: 'a file that lands in an allow-listed directory the link points at',
+      dir: (r) => join(r, 'to-docs'),
+      filePath: 'spec.txt',
+      verdict: 'allow'
+    }
+  ];
+
+  for (const testCase of cases) {
+    it(
+      `when the case is ${testCase.label}, should reach the same verdict in both gates`,
+      { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+      () => {
+        // given: a project whose own directory is named by a link, and a call
+        //   that runs in that directory
+        // when: the Node command and the shell sibling are both given the
+        //   payload, from the directory the call runs in
+        // then: both reach the same verdict — the file is judged by the
+        //   directory it REALLY sits in
+        const root = makeLinkedProject();
+        const cwd = testCase.dir(root);
+        const stdin = payload(testCase.filePath, cwd);
+
+        const cli = runCodeGate(root, stdin, cwd);
+        const shell = runShellSibling(root, stdin, cwd);
+
+        const cliVerdict = cli.stdout.includes('"action": "deny"') ? 'deny' : 'allow';
+        const shellVerdict = shell.status === 2 ? 'deny' : 'allow';
+
+        expect(cliVerdict, `node: ${cli.stdout}`).toBe(testCase.verdict);
+        expect(shellVerdict, `shell: ${shell.stderr}`).toBe(testCase.verdict);
+        expect(cliVerdict).toBe(shellVerdict);
+      }
+    );
+  }
+
+  it(
+    'when the base points at a hard-blocked directory, should deny the file it lands in',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: a project whose own `to-src` points at its `src/`
+      // when: the call runs in `to-src` and writes `deep/x.ts`
+      // then: the sibling refuses it — the file really lands in `src/`
+      const root = makeLinkedProject();
+      const cwd = join(root, 'to-src');
+
+      const result = runShellSibling(root, payload('deep/x.ts', cwd), cwd);
+
+      expect(result.status).toBe(2);
+      expect(result.stderr).toContain('PEAKS_CODE_PROHIBITED_DIRECT_EDIT');
+      expect(result.stderr).toContain('src/');
+    }
+  );
+
+  it(
+    'when the base points at a hard-blocked directory, should name the family it landed in',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: the same project
+      // when: the sibling refuses the file
+      // then: the message names the `src/` family and the file it was asked for
+      const root = makeLinkedProject();
+      const cwd = join(root, 'to-src');
+
+      const result = runShellSibling(root, payload('deep/x.ts', cwd), cwd);
+
+      expect(result.stderr).toContain('src/');
+      expect(result.stderr).toContain('deep/x.ts');
     }
   );
 });

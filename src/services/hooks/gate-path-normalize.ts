@@ -14,6 +14,12 @@
  * subdirectory. The file it lands in is then judged by where it sits inside
  * the project, so the families still name this project's directories.
  *
+ * Two readings of one file are offered: the LEXICAL one (`normalizeGatePath`)
+ * and the CANONICAL one (`canonicalGatePath`). One directory can be named
+ * two ways, and the caller takes the STRICTEST of the two — a wrongly
+ * allowed edit is a hole in the gate, a wrongly refused one is only an
+ * inconvenience.
+ *
  * The arithmetic lives apart from the decision on purpose: the decision is
  * the gate's rule, and this is the path arithmetic it rests on. The file the
  * decision sits in was at its size cap, and the arithmetic needs room.
@@ -21,7 +27,7 @@
 
 import { isAbsolute, relative, resolve } from 'node:path';
 
-import { normalizePath } from '../../shared/path-utils.js';
+import { normalizePath, stablePath } from '../../shared/path-utils.js';
 
 /**
  * The roots a verdict is taken against: the project the caller named, and
@@ -72,14 +78,37 @@ function collapseRelativeDotSegments(path: string): string {
 }
 
 /**
- * The path of `target` relative to `root`, when `target` is INSIDE `root`;
- * `null` when it is not — the target is outside the root, or it is the root.
+ * The path of `target` relative to `root`, compared LEXICALLY: `null` when
+ * `target` is not inside `root` — it is outside the root, or it is the root.
  */
-function relativizeInsideRoot(target: string, root: string): string | null {
+function relativizeLexically(target: string, root: string): string | null {
   const relativePath = normalizePath(relative(root, target));
   if (relativePath.length === 0) return null;
   if (relativePath.startsWith('..') || isAbsolute(relativePath)) return null;
   return stripLeadingDotSegments(relativePath);
+}
+
+/**
+ * The path of `target` relative to `root`, when `target` is INSIDE `root`;
+ * `null` when it is not — the target is outside the root, or it is the root.
+ *
+ * The answer is LEXICAL first: the two sides are compared as they are
+ * written, so the common case costs no syscall. When the lexical answer is
+ * "outside", the question is asked again with the CANONICAL spelling of both
+ * sides, because one directory can be named two ways — a symlink, a junction,
+ * macOS's `/var` → `/private/var` — and then the lexical answer is a
+ * statement about the SPELLING, not about the directory the file is in. The
+ * retry can only turn "outside" into "inside", so it can only tighten the
+ * gate; whenever the lexical answer says "inside", that answer stands.
+ *
+ * The canonical answer is relativized against the CANONICAL root, because
+ * the project-relative spelling it produces is what the deny families are
+ * matched against.
+ */
+function relativizeInsideRoot(target: string, root: string): string | null {
+  const lexical = relativizeLexically(target, root);
+  if (lexical !== null) return lexical;
+  return relativizeLexically(stablePath(target), stablePath(root));
 }
 
 /**
@@ -101,6 +130,14 @@ function relativizeInsideRoot(target: string, root: string): string | null {
  * project. A path that lands OUTSIDE the project keeps the older reading,
  * the spelling read against the project root, which never widens the gate:
  * it refuses a spelled family the file itself never reached.
+ *
+ * "Inside" and "outside" are asked LEXICALLY first and CANONICALLY second
+ * (see `relativizeInsideRoot`), so two spellings of one directory reach one
+ * verdict.
+ *
+ * This is the LEXICAL reading. The CANONICAL reading — the file named by the
+ * directory it really sits in — is a separate question, asked by
+ * `canonicalGatePath`.
  */
 export function normalizeGatePath(
   filePath: string,
@@ -135,4 +172,41 @@ export function rootPair(roots: GateRoots | undefined): GateRootPair {
   if (roots === null || roots === undefined) return { projectRoot: null };
   if (typeof roots === 'string') return { projectRoot: roots };
   return roots;
+}
+
+/**
+ * The CANONICAL project-relative form of a target path: the file the call
+ * really touches, named by the directory it REALLY sits in.
+ *
+ * The lexical form says how the path is WRITTEN; this one says where the
+ * file IS. The two differ whenever a directory is named two ways — a
+ * symlink, a junction, macOS's `/var` → `/private/var` — and the difference
+ * is what a symlinked BASE inside the project looks like: the call runs in
+ * `link/`, the file is in `src/`, and the lexical form says `link/x.ts`
+ * (no family) while this one says `src/x.ts` (a family).
+ *
+ * The two sides are compared as they are CANONICALLY spelled, so the answer
+ * is the directory the file is in and not the spelling the caller used to
+ * reach it. The LEXICAL-first-then-canonical retry belongs to the other
+ * reading (`relativizeInsideRoot`), which needs it because a lexical answer
+ * can be a statement about the SPELLING rather than about the directory.
+ *
+ * `null` when the file is outside the project: the project has no name for
+ * it, and the spelling-anchored reading the caller already holds is the one
+ * that applies. `null` also when there is no project root at all, for the
+ * same reason — a path cannot be made relative to nothing.
+ */
+export function canonicalGatePath(
+  filePath: string,
+  projectRoot?: string | null,
+  toolCwd?: string | null
+): string | null {
+  if (filePath.length === 0) return null;
+  const slashed = normalizePath(filePath);
+  const root = resolvedDirectory(projectRoot);
+  if (root === null) return null;
+
+  const base = resolvedDirectory(toolCwd) ?? root;
+  const target = isAbsolute(slashed) ? resolve(slashed) : resolve(base, slashed);
+  return relativizeLexically(stablePath(target), stablePath(root));
 }

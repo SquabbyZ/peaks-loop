@@ -6532,12 +6532,12 @@ untested.
 
 ---
 
-## ¡ì20 ¡ª D6.e µÄ deferral ÔÚ production ÊÇËÀ´úÂë£¨2026-10-21 Êµ²â£©
+## ï¿½ï¿½20 ï¿½ï¿½ D6.e ï¿½ï¿½ deferral ï¿½ï¿½ production ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ë£¨2026-10-21 Êµï¿½â£©
 
-**ÔÚÄÄ**£º`src/cli/commands/code-auto-compact-command.ts:84`£¬Î¨Ò»¸ø `runAutoCompact` ´«
-`probeInflightBatch` µÄ production µ÷ÓÃµã¡£
+**ï¿½ï¿½ï¿½ï¿½**ï¿½ï¿½`src/cli/commands/code-auto-compact-command.ts:84`ï¿½ï¿½Î¨Ò»ï¿½ï¿½ `runAutoCompact` ï¿½ï¿½
+`probeInflightBatch` ï¿½ï¿½ production ï¿½ï¿½ï¿½Ãµã¡£
 
-**²âµ½µÄ**£º
+**ï¿½âµ½ï¿½ï¿½**ï¿½ï¿½
 
 ```ts
 probeInflightBatch: () => {
@@ -6547,35 +6547,35 @@ probeInflightBatch: () => {
 }
 ```
 
-`probeInFlightBatch`£¨`src/services/workflow/workflow-inflight-probe.ts:79`£©Ö»±éÀú´«ÈëµÄÍ¼£»
-`graphs: []` ? Ñ­»·ÌåÒ»´Î¶¼²»Ö´ĞĞ ? `inFlightBatch` **ºãÎª false**¡£
-`evaluateAutoCompactDecision` µÄ deferral ·ÖÖ§ÒªÇó `probe?.hasInFlightBatch === true`
-£¨`src/services/code/auto-compact-decision.ts:156`£©? **¸Ã·ÖÖ§ÔÚ production ²»¿É´ï**¡£
+`probeInFlightBatch`ï¿½ï¿½`src/services/workflow/workflow-inflight-probe.ts:79`ï¿½ï¿½Ö»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½
+`graphs: []` ? Ñ­ï¿½ï¿½ï¿½ï¿½Ò»ï¿½Î¶ï¿½ï¿½ï¿½Ö´ï¿½ï¿½ ? `inFlightBatch` **ï¿½ï¿½Îª false**ï¿½ï¿½
+`evaluateAutoCompactDecision` ï¿½ï¿½ deferral ï¿½ï¿½Ö§Òªï¿½ï¿½ `probe?.hasInFlightBatch === true`
+ï¿½ï¿½`src/services/code/auto-compact-decision.ts:156`ï¿½ï¿½? **ï¿½Ã·ï¿½Ö§ï¿½ï¿½ production ï¿½ï¿½ï¿½É´ï¿½**ï¿½ï¿½
 
-**ÎªÊ²Ã´Ã»±»Ôç·¢ÏÖ**£ºD6.e Ö»ÔÚ**²âÊÔ seam**£¨`PEAKS_TEST_SEAM === '1'` + `--in-flight-batch`£©
-ÏÂ¿É´ï£»production ×ßÁíÒ»ÌõÂ·£¬¶øÄÇÌõÂ·ºãÎª false¡£²âÊÔ¸²¸ÇµÄÊÇ seam£¬²»ÊÇ production Â·¾¶¡£
+**ÎªÊ²Ã´Ã»ï¿½ï¿½ï¿½ç·¢ï¿½ï¿½**ï¿½ï¿½D6.e Ö»ï¿½ï¿½**ï¿½ï¿½ï¿½ï¿½ seam**ï¿½ï¿½`PEAKS_TEST_SEAM === '1'` + `--in-flight-batch`ï¿½ï¿½
+ï¿½Â¿É´ï£»production ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Â·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â·ï¿½ï¿½Îª falseï¿½ï¿½ï¿½ï¿½ï¿½Ô¸ï¿½ï¿½Çµï¿½ï¿½ï¿½ seamï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ production Â·ï¿½ï¿½ï¿½ï¿½
 
-**ºó¹û**£º`peaks code auto-compact` **ÓÀÔ¶²»»áÒòÎª¡¸ÓĞ×Ó´úÀíÔÚ·É¡¹¶øÍÆ³ÙÑ¹Ëõ**¡£¶øËüµÄ hook
-matcher ÊÇ `Bash|Task` ? **Ã¿´Î Task ÅÉ·¢¶¼ÅÜÒ»´ÎÌ½Õë**¡£ÔÚ 24h/partial Ä£Ê½ÏÂ auto-fire
-ãĞÖµÊÇ 0.70£¨±È±ê×¼Ä£Ê½µÄ 0.80 ¸üÔç£©£¬ÔÚ³¤ÅÜÀï¸üÈİÒ×ÔÚ fan-out ÖĞÍ¾´¥·¢Ñ¹Ëõ¡£
+**ï¿½ï¿½ï¿½**ï¿½ï¿½`peaks code auto-compact` **ï¿½ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½Ó´ï¿½ï¿½ï¿½ï¿½Ú·É¡ï¿½ï¿½ï¿½ï¿½Æ³ï¿½Ñ¹ï¿½ï¿½**ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ hook
+matcher ï¿½ï¿½ `Bash|Task` ? **Ã¿ï¿½ï¿½ Task ï¿½É·ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Ì½ï¿½ï¿½**ï¿½ï¿½ï¿½ï¿½ 24h/partial Ä£Ê½ï¿½ï¿½ auto-fire
+ï¿½ï¿½Öµï¿½ï¿½ 0.70ï¿½ï¿½ï¿½È±ï¿½×¼Ä£Ê½ï¿½ï¿½ 0.80 ï¿½ï¿½ï¿½ç£©ï¿½ï¿½ï¿½Ú³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ fan-out ï¿½ï¿½Í¾ï¿½ï¿½ï¿½ï¿½Ñ¹ï¿½ï¿½ï¿½ï¿½
 
-**Ö¤¾İÀ´Ô´**£ºrace ÅúÁ¿Ä£Ê½Éè¼ÆµÄ Probe B£¨`docs/superpowers/plans/2026-10-21-race-batch-probe-results.md`£©£¬
-2026-10-21£¬»á»° `2026-10-20-session-f7f45b`¡£
+**Ö¤ï¿½ï¿½ï¿½ï¿½Ô´**ï¿½ï¿½race ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½ï¿½Æµï¿½ Probe Bï¿½ï¿½`docs/superpowers/plans/2026-10-21-race-batch-probe-results.md`ï¿½ï¿½ï¿½ï¿½
+2026-10-21ï¿½ï¿½ï¿½á»° `2026-10-20-session-f7f45b`ï¿½ï¿½
 
-**ÎªÊ²Ã´²»ÔÚÄÇ¸ö slice ÀïË³ÊÖĞŞ**£ºĞŞËüĞèÒª production µ÷ÓÃµãÕæÕı¼ÓÔØ¹¤×÷Á÷Í¼
-£¨`graphs/<wid>.json`£©£¬ÄÇ»á¸Ä±ä**¼ÈÓĞ peaks-code Â·¾¶**µÄĞĞÎª ¡ª¡ª ÊôÓÚ¶ÀÁ¢¾ö²ß£¬²»¸Ã¹ÒÔÚÒ»¸ö
-ĞÂ¹¦ÄÜµÄ slice ÉÏ¡£
+**ÎªÊ²Ã´ï¿½ï¿½ï¿½ï¿½ï¿½Ç¸ï¿½ slice ï¿½ï¿½Ë³ï¿½ï¿½ï¿½ï¿½**ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òª production ï¿½ï¿½ï¿½Ãµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø¹ï¿½ï¿½ï¿½ï¿½ï¿½Í¼
+ï¿½ï¿½`graphs/<wid>.json`ï¿½ï¿½ï¿½ï¿½ï¿½Ç»ï¿½Ä±ï¿½**ï¿½ï¿½ï¿½ï¿½ peaks-code Â·ï¿½ï¿½**ï¿½ï¿½ï¿½ï¿½Îª ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ú¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß£ï¿½ï¿½ï¿½ï¿½Ã¹ï¿½ï¿½ï¿½Ò»ï¿½ï¿½
+ï¿½Â¹ï¿½ï¿½Üµï¿½ slice ï¿½Ï¡ï¿½
 
-**¿ÉÄÜµÄĞŞ·¨£¨´ı²Ã¾ö£©**£º
-¢Ù production µ÷ÓÃµãÕæµÄ¶Á `graphs/` Ä¿Â¼²¢°ÑÍ¼Î¹¸øÌ½Õë£»
-¢Ú °Ñ `inFlightBatch` »»³É¶Á dispatch ledger£¨`.peaks/_sub_agents/<sid>/active-dispatches.json`£©
-¡ª¡ª Ëü¼ÇµÄÊÇ**ÕæÕıÔÚÅÜµÄÅÉ·¢**£¬¶ø²»ÊÇÍ¼½Úµã£»
-¢Û ³ĞÈÏ D6.e ÒÑ·ÏÆú£¬É¾µô deferral ·ÖÖ§ÓëËüµÄ²âÊÔ seam£¬²¢¸ÄÎÄµµ¡£
+**ï¿½ï¿½ï¿½Üµï¿½ï¿½Ş·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã¾ï¿½ï¿½ï¿½**ï¿½ï¿½
+ï¿½ï¿½ production ï¿½ï¿½ï¿½Ãµï¿½ï¿½ï¿½Ä¶ï¿½ `graphs/` Ä¿Â¼ï¿½ï¿½ï¿½ï¿½Í¼Î¹ï¿½ï¿½Ì½ï¿½ë£»
+ï¿½ï¿½ ï¿½ï¿½ `inFlightBatch` ï¿½ï¿½ï¿½É¶ï¿½ dispatch ledgerï¿½ï¿½`.peaks/_sub_agents/<sid>/active-dispatches.json`ï¿½ï¿½
+ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Çµï¿½ï¿½ï¿½**ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Üµï¿½ï¿½É·ï¿½**ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼ï¿½Úµã£»
+ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ D6.e ï¿½Ñ·ï¿½ï¿½ï¿½ï¿½ï¿½É¾ï¿½ï¿½ deferral ï¿½ï¿½Ö§ï¿½ï¿½ï¿½ï¿½ï¿½Ä²ï¿½ï¿½ï¿½ seamï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Äµï¿½ï¿½ï¿½
 
-¢Ú ¿´ÆğÀ´×îÌù½üÓïÒå£¨¡¸ÓĞÅÉ·¢ÔÚ·É¡¹¶ø²»ÊÇ¡¸ÓĞÍ¼½ÚµãÔÚÅÜ¡¹£©£¬µ«ËüÒª¶¯ dispatch ledger µÄ¶Á·¨£¬
-Í¬ÑùÓ°Ïì¼ÈÓĞÂ·¾¶¡£
+ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½å£¨ï¿½ï¿½ï¿½ï¿½ï¿½É·ï¿½ï¿½Ú·É¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¡ï¿½ï¿½ï¿½Í¼ï¿½Úµï¿½ï¿½ï¿½ï¿½Ü¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ dispatch ledger ï¿½Ä¶ï¿½ï¿½ï¿½ï¿½ï¿½
+Í¬ï¿½ï¿½Ó°ï¿½ï¿½ï¿½ï¿½ï¿½Â·ï¿½ï¿½ï¿½ï¿½
 
-**×¢Òâ**£º±¾ÌõÄ¿**Ã»ÓĞ**Êµ²â¹ı¢Ù¢Ú¢ÛÖĞµÄÈÎºÎÒ»¸ö ¡ª¡ª ÉÏÃæÖ»ÊÇÁĞ³öºòÑ¡£¬²»ÊÇ½áÂÛ¡£
+**×¢ï¿½ï¿½**ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿**Ã»ï¿½ï¿½**Êµï¿½ï¿½ï¿½ï¿½Ù¢Ú¢ï¿½ï¿½Ğµï¿½ï¿½Îºï¿½Ò»ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ö»ï¿½ï¿½ï¿½Ğ³ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½Ç½ï¿½ï¿½Û¡ï¿½
 ---
 
 ## 18. The race batch mode (2026-10-21/22) â€” three findings from the 4.1.13/4.1.14/4.1.15 releases
@@ -6758,10 +6758,35 @@ session â€” none is a guess, and none was carried forward unmeasured.
   root by `--project`.
 - **Why it was left**: fixing it means changing the **hook installation shape**, which the slice
   listed as out of scope â€” and that shape is where Â§18.2's end-to-end acceptance has to run.
-- **The decision**: give the sibling the project root as an **argument at install time**. The
-  installer knows it; the script would stop guessing. This closes **19.1** and **19.2** together,
-  and it is a **prerequisite for Â§18.2** â€” the A-1 acceptance needs a project that has actually run
-  `peaks hooks install`.
+- **The decision** (owner ruling, 2026-10-22): **make the sibling a thin wrapper over the
+  Node CLI.** Where a Node CLI is reachable it execs `peaks code-gate` and the payload, so there
+  is **ONE** implementation of the rule wherever Node exists and the two cannot drift. Where no Node
+  CLI is reachable it falls back to its own conservative guard, and that fallback's contract is
+  **tightened** to match what the race-code skill already documents for it: it refuses when it
+  cannot place the file. Specifically â€” a relative path is read against `$PWD` and denied when it
+  lands in a hard-blocked family, and **a payload that states a directory the sibling cannot read
+  is denied too**, because "this file cannot be placed" is a reason to refuse, not a reason to
+  guess. That is what closes **Â§19.8's MED 1** (the sibling allowing what the Node command denies)
+  in the **conservative** direction the sibling's own contract already takes, and it removes
+  **MED 2** with it, because the fallback no longer relativizes a canonical reading against a
+  **derived** root at all.
+- âš ï¸ **The remedy as first written â€” "pass the project root as an argument at install time" â€” is
+  NOT implementable, and the reason is worth keeping.** The sibling is copied **once**, into the
+  **user-global** `~/.claude/skills/peaks-code/hooks/` directory, and serves **every** project; the
+  project root is **per-project**. One global file cannot carry a per-project root, so the first
+  wording of this decision was unbuildable and nobody noticed until the install path was read.
+  What carries the information instead is the **payload** (the tool call's own directory) and the
+  **process's** working directory â€” which is why the fallback refuses rather than guesses.
+- **What is already known and recorded, and is not this item's job**: the sibling **lies inert**.
+  `peaks hooks install --scope global` copies it, **no settings template invokes a `.sh`**, and
+  the race-code skill says so in as many words â€” *"nothing wires that copy up â€¦ so it lies inert
+  until a harness is pointed at it by hand"*, and that its refusal "will not mention this file".
+  The Node CLI is what every adapter installs and what the shipped entries run. So this item is
+  about **a second implementation that drifts**, not about a live hole in the shipped path â€” and the
+  thin wrapper is the shape that removes the drift instead of maintaining it.
+- **The prerequisite stands**: this is still a **prerequisite for Â§18.2** â€” the A-1 acceptance
+  needs a project that has actually run `peaks hooks install`, and the sibling's role in that
+  environment is exactly what this item settles.
 
 ### 19.2 The absolute-path parity row is unsatisfiable with the sibling's current shape
 
@@ -6794,18 +6819,39 @@ session â€” none is a guess, and none was carried forward unmeasured.
 - **Not a regression**: the pre-change code resolved a relative path against the named project
   root and allowed the same case â€” verified on the HEAD snapshot (allow before, allow after).
 
-### 19.5 The top-level payload `cwd` is unmeasured for EVERY IDE
+### 19.5 The top-level payload `cwd` â€” MEASURED for Claude Code, still unmeasured for the other IDEs
 
 - **The fact**: the fix does **not** depend on it â€” the six unusable-`cwd` shapes and the
-  *absence* of a `cwd` all deny â€” but the payload path is the one the ruling names first, and it
-  has never been observed.
-- **What was tried**: the RD grepped the locally installed `@anthropic-ai/claude-code` 2.1.307
-  binary and read a hook-input base object carrying `cwd`. **QA round 2 could not re-derive it**:
-  the `claude.exe` on PATH is a 546 KB launcher with no hook-payload strings. So the schema
-  reading rests on one grep of one installed artifact, and **no other IDE this repository supports
-  was measured at all**.
-- **Why it is written down**: the fallback carries the fix on its own, so this is not a hole â€” it
-  is the one fact a future reader could mistake for a measured one.
+  *absence* of a `cwd` all deny â€” but the payload path is the one the ruling names first.
+- **Measured 2026-10-22, for Claude Code 2.1.308.** The artifact read is the **real** installed
+  binary â€” `nvm/installs/v24.12.0/node_modules/@anthropic-ai/claude-code/bin/claude.exe`,
+  **297 MB**, dated the same day. The `claude.exe` **on PATH** is a 546 KB **dispatcher shim**
+  (byte-identical to the shims for `bun`, `npm`, `pnpm` and `peaks` in the same directory) and
+  carries **no** hook-payload strings â€” which is why QA round 2 could not re-derive the reading
+  and recorded it as unmeasured.
+- **What the binary contains.** Three places, read as plain text:
+  1. the hook input's top-level key list â€”
+     `["hook_event_name","session_id","transcript_path","cwd","scratchpad_dir","prompt_id",
+     "permission_mode","agent_id","agent_type","served_call","caller_session_id","effort"]` â€”
+     with a validator `typeof e.cwd === "string"`;
+  2. the base object built for a session â€” `{ session_id, transcript_path, cwd, scratchpad_dir,
+     prompt_id, permission_mode, agent_id, agent_type, effort }`;
+  3. the **assembly site** for the event â€” `{ ...base, hook_event_name: "PreToolUse", tool_name,
+     tool_input, tool_use_id }` â€” with the per-event schema naming `hook_event_name`, `tool_name`,
+     `tool_input`, `tool_use_id` and an optional `mcp_server`.
+- **What it settles**: for Claude Code, the **PreToolUse payload carries `cwd` at the top level**,
+  as a **string**, and its value is the **session's working directory** â€” the same directory the
+  tool call resolves a relative path against. So Â§18.1's chosen source is **correct for Claude
+  Code**, and the gate's reader (`hook-payload-cwd.ts`, top-level `cwd` only, string only) matches
+  what the IDE sends.
+- **What is still open**: **the other IDEs this repository supports were not measured.** The adapter
+  layer is vendor-neutral and `trae`, `cursor` and `codex` are supported, so the payload shape for
+  them is an assumption, not a measurement. The fix does not depend on it â€” the fallback carries
+  it â€” but the *preference* for the payload `cwd` over the process's own working directory is
+  Claude-Code-shaped, and on an IDE that states a `cwd` with a different meaning (or none) the
+  fallback is the one that decides.
+- **Why it is still written down**: the fallback is what makes the fix safe, and a future reader
+  must not mistake the Claude Code measurement for a measurement of every IDE.
 
 ### 19.6 Two things the Â§18.2 verification found that are not yet recorded anywhere else
 
@@ -6821,3 +6867,150 @@ session â€” none is a guess, and none was carried forward unmeasured.
   dies at startup with *"Unable to locate Peaks repository root"*. In the 4.1.16 registry install the
   CLI **started and ran** from a local install. That is the 4.1.14 fix ("the package boots anywhere")
   â€” recorded here because Â§18.2's own record still carries the older shape.
+
+### 19.7 The Code-Gate's verdict depended on the SPELLING of the base directory (found by the macOS CI job on 4.1.16)
+
+- **Where**: the base a relative path is read against â€” the payload's top-level `cwd` or the gate
+  process's own working directory â€” compared against the named project root.
+- **Found**: 2026-10-22, by the `macos-latest` job of CI run `39743269994`, which went red on the
+  4.1.16 push with **8 failing cases** in the two suites this slice added. **Not a macOS quirk**:
+  the orchestrator reproduced it on **Windows** with a junction, and the same 14-row matrix was used
+  to measure the fix.
+- **The mechanism**: the base and the project root were compared **lexically**. A directory can be
+  named two ways â€” a symlink, a junction, macOS's `/var` â†’ `/private/var` â€” and when the two
+  spellings disagreed the gate concluded "the file is outside the project", fell back to reading
+  the path's **spelling** against the root, and allowed a spelling that names a hard-blocked
+  family. On macOS the harness's project root is `mkdtempSync(tmpdir())` â€” the **non-canonical**
+  `/var/folders/...` â€” while the gate process's `process.cwd()` returns the **canonical**
+  `/private/var/...`; that alone made the two disagree.
+- **What it violated**: Â§18.1's own invariant â€” *"the verdict depends on **which directory the file
+  is in**, not on **how the path is written**"*. A symlinked spelling of the base IS a way of
+  writing the path, so the ruling was not fully honoured by the implementation that carried it.
+- **The fix**: the path is read **lexically** and **canonically**, and the verdict is the
+  **strictest** of the two readings â€” a path either reading places in a hard-blocked family is
+  denied. The allow-list is read **per reading**, so an allow-listed reading is not turned into a
+  deny by the other one. The tie-breaker is this repository's own, written in the 4.1.15 CHANGELOG:
+  **"è¯¯æ”¾æ˜¯æ¼æ´ï¼Œè¯¯æ‹’åªæ˜¯ç¢äº‹"** â€” a wrongly allowed edit is a hole, a wrongly refused one is only
+  an inconvenience.
+- **Measured, and the limits of the measurement**: over a **14-row** matrix against the
+  committed pre-change code, **2 rows moved (allow â†’ deny) and 0 moved the other way**; the other
+  12 rows â€” the plain shapes, the absolute path, `./`, `.//`, `SRC/`, a backslash spelling, a
+  `..` escape, an allow-listed path, a path outside the project â€” did not move.
+  âš ï¸ **That matrix is narrower than the claim it was used to support.** Every base in it was
+  **at the project root or inside a hard-blocked family**. A later sweep over a base in a
+  **non-family** directory (`<root>/docs`) found the opposite direction â€” see **Â§19.8**. The
+  "0 moved the other way" line is true **of the 14 rows measured** and is **not** a statement
+  about the whole space. âš ï¸ And the earlier LOW â€” *the verdict can ALLOW a spelling that names a
+  file outside a hard-blocked family, where the older spelling-anchored rule denied it* â€” is
+  **NOT closed**: that direction change is still there, and it is an **accepted** consequence of
+  the ruling rather than a fixed defect. It was wrongly written up as "closed" once already.
+- **The accepted price**: a file that really is in `docs/` but is reached through a directory
+  **named** `src` stays **denied**. That is a false deny in the physical sense, and it is what the
+  tie-breaker charges. It also keeps the monorepo shape (`src` â†’ `shared/src`) denied, which is
+  what "never widen" means.
+- **The residual that is irreducible**: when the payload states **no usable** `cwd` **and** the gate
+  process's own working directory is **not** the call's directory, the path is read against the
+  wrong tree. The base the call really ran in is not recoverable from anything the gate holds, so
+  this is recorded rather than fixed.
+- **A divergence this slice introduced, and the lesson in it**: fixing the Node command left the
+  **bash sibling** behind â€” the sibling judges the path as SPELLED, so on the symlinked-base shape
+  it still ALLOWS where the Node command now DENIES. Before the slice both allowed, so they
+  agreed; after it they do not, and the handoff's AC-5 ("the Node path and the shell path reach the
+  same verdict on the same inputs") is not met. The lesson: **a report that says a defect "cannot
+  arise" has generalised past what it measured.** The earlier report had measured the base/root
+  spelling mismatch and concluded the sibling was immune because its root and base are always
+  consistent with each other â€” true, and irrelevant to a shape where they are consistent with each
+  other AND point at a tree neither implementation resolves. **Two implementations of one rule must
+  be compared against each other, on every shape, not only on the shape the last bug was about.**
+
+### 19.8 What an independent review found on the Â§18.1 slice (2026-10-22) â€” and the correction it forced
+
+- **Source**: an independent review pass over the whole working-tree diff, run because the
+  `rd/code-review-` and `rd/karpathy-review-` artifacts on disk had been written against the
+  round-2 code and were **stale**. Verdict: **0 CRITICAL, 0 HIGH, 3 MED, 5 LOW**. The orchestrator
+  re-measured all three MEDs independently; **all three reproduce**.
+
+**MED 1 â€” the bash sibling does not implement Â§18.1's ruling at all.**
+
+- The sibling reads its base as `$PWD` and **cannot read the payload's top-level `cwd`** (its
+  scan is line-oriented). Measured: the payload states `cwd = <root>/src` and
+  `file_path = deep/x.ts`; the real file is `<root>/src/deep/x.ts` (inside `src/`), the Node
+  command **denies**, the sibling **allows** â€” before the slice and after it.
+- **Why it matters more than a LOW**: Â§18.1's ruling is *the base is the directory the tool call
+  runs in*, and the sibling resolves the base a different way. `peaks hooks install` copies the
+  **sibling** into a consumer project, so this is the implementation a consumer actually runs.
+- **Reachability**: in the normal invocation the hook's working directory IS the tool call's
+  directory, so the two agree; the gap opens when the payload's `cwd` and the process's directory
+  differ. The information is **in the payload** â€” this is a parsing limitation, not an
+  information limitation.
+- **Disposition**: this is the **Â§19.1** owner decision, and it is now **load-bearing**: Â§19.1's
+  remedy (carry the project root AND the call's directory to the sibling at install time) closes
+  MED 1 and MED 2 together.
+
+**MED 2 â€” a new divergence, in the safe direction.**
+
+- The sibling relativizes its canonical reading against a root it **derived** from the filesystem
+  rather than the named one. Measured: the base is a junction inside the project pointing OUTSIDE
+  it â€” the Node command **allows** (the file lands outside the project) and the sibling **denies**
+  `src/` (its derived root degenerated to the base). **Pre-slice both denied**, so the
+  divergence is new; the direction is a **false deny**, not a hole.
+- **Disposition**: the same Â§19.1 remedy.
+
+**MED 3 â€” the slice WIDENS on a base in a non-family directory. This corrects Â§19.7.**
+
+- Measured: with the base at `<root>/docs`, the spellings `src/x.ts`, `./src/x.ts`,
+  `SRC/x.ts`, `src\x.ts`, `tests/unit/x.test.ts`, `config/x.json`, `bin/x.js`, `scripts/x.sh`
+  all move from **deny** (pre-slice) to **allow** (now). The bash sibling moves identically.
+- **Is it a hole? No.** Every one of those files lands at `<root>/docs/<spelling>`, which is
+  **outside every hard-blocked family** â€” the pre-slice deny was a **false deny**: it judged the
+  spelling against the project root and ignored that the base was `docs/`. The slice's direction
+  change is the ruling's own invariant (*the verdict follows the file, not the spelling*).
+- **But it IS a widening, and it was undisclosed.** The orchestrator's 14-row matrix and the RD's
+  833-row sweep both took their bases at the project root or inside a family, so neither could
+  see it. **Â§19.7's "0 moved the other way" and its "one earlier LOW is closed" have been
+  corrected above.** The widening is **accepted**, and it is now **recorded** rather than claimed
+  away.
+- **The lesson, which is the same one Â§18.3 records**: a claim of the form "nothing moved the
+  other way" is a statement about the **rows measured**, not about the space. Say which rows.
+
+**The LOWs.**
+
+- **LOW 1** â€” Â§19.7's overstated claims (now corrected above).
+- **LOW 2** â€” `canonicalGatePath`'s doc comment says the two sides are "compared as they are
+  SPELLED first and canonically second", but the code compares **only** the canonical spellings.
+  A comment that contradicts the code is a finding in this repository's own terms (Â§9.40, Â§18.3).
+- **LOW 3** â€” the Â§19.4 residual is unchanged: with no usable `cwd` and the gate process not
+  running in the call's directory, the path is read against the wrong tree.
+- **LOW 4** â€” three shapes are not pinned by a test: the junction-pointing-outside base (MED 2),
+  the widening shape (MED 3), and the Â§19.2 absolute-path divergence.
+- **LOW 5** â€” no file crosses a size cap (`code-gate-command.ts` 294/300, the shell suite 473/500,
+  the canonical-spelling suite 459/500).
+
+**QA's final verdict (2026-10-22) â€” `return-to-rd` on two NON-BEHAVIOURAL items only.**
+
+- **The measurements**: a **900-row** matrix over both implementations, the committed code and the
+  pre-slice code (`1feefd13`), 8 bases, 28 spellings, and both base sources (the payload's `cwd`
+  and the process's working directory). **Hole check: 0 rows out of 896** where either
+  implementation allowed a file that lands in a deny family. **Never looser**, like-for-like: the
+  Node command **92 tightened / 0 loosened** against the committed code; the sibling **76 / 0**.
+  Against the **pre-slice** code the Node command is 112 tightened / **40 loosened** and the
+  sibling 108 / 36 â€” and every one of those 76 loosenings is on a **non-family base**
+  (`docs/`), every file landing outside every family: the corrected false deny of **MED 3**, not a
+  hole. **The sibling never loosens at all.**
+- **The divergence rows**: 36 of 448 like-for-like rows differ â€” 32 absolute-inside-the-project
+  and 4 nested-`.peaks`, both **unchanged** against the committed sibling, plus the 9 rows of
+  the **new** class (**MED 2**, a junction base pointing outside the project). All three are
+  recorded above and in the security audit.
+- **The two items that held the verdict back**: (R-1) the doc comment on `canonicalGatePath` that
+  describes a comparison the code does not make â€” the review's LOW 2, the Karpathy review's warn,
+  and the security audit's **sixth** finding, which the audit's Summary mentions and its
+  `## Findings` list omitted; (R-2) that omission itself.
+- **Everything else passed**: the full `tests/unit` (572 files, 6301 passed, 3 skipped, exit 0),
+  the `.//` fix still deciding absoluteness before the strip, the macOS shape closed over 448
+  spelling-pair comparisons (**a construction of the same shape, not a macOS run**), every lint
+  ceiling **exactly held** (`1700 / 561 / 0 / 0 / 0 / 22 / 77 / 21935 / 44 / 60`) with
+  `prettier --check` clean over the gate's own 1347-file list, and the security audit's five
+  judged hashes **5/5 matching**.
+- **What the review could not pin, QA pinned**: a new suite
+  `tests/unit/hooks/code-gate-qa-final-verification.test.ts` (8 tests) covers the three shapes
+  that had no test.
