@@ -42,7 +42,8 @@ declareDimensions(
   [
     {
       dim: 'render',
-      reason: 'neither gate writes stdout text; the Node command’s JSON envelope belongs to its own suite'
+      reason:
+        'neither gate writes stdout text; the Node command’s JSON envelope belongs to its own suite'
     }
   ]
 );
