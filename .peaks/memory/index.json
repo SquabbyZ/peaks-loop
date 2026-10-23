@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-23T15:58:08.169Z",
+  "updatedAt": "2026-10-23T17:55:50.964Z",
   "hot": {
     "rule": [
       {
@@ -1146,10 +1146,10 @@
         "updatedAt": "2026-10-18"
       },
       {
-        "name": "on-this-host-the-full-suite-cannot-pass-and-bash-is-the-wsl-launcher",
+        "name": "on-this-host-bash-is-the-wsl-launcher-and-a-host-limit-measured-once-is-not-a-permanent-limit",
         "kind": "convention",
-        "description": "Measured 2026-10-23 on the Windows dev host for .",
-        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\on-this-host-the-full-suite-cannot-pass-and-bash-is-the-wsl-launcher.md",
+        "description": "Measured on the Windows dev host for .",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\on-this-host-bash-is-the-wsl-launcher-and-a-host-limit-measured-once-is-not-a-permanent-limit.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-22-session-b0e6e2/txt/handoff-t1-backlog-2026-10-23.md",
         "updatedAt": "2026-10-23"
       },
@@ -2044,6 +2044,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\gate-h-can-be-turned-green-by-installing-hooks-that-allow-everything.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-29-session-b7cf21/txt/handoff.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "git-opens-the-ssh-connection-before-the-pre-push-hook-and-a-long-hook-lets-it-go-stale",
+        "kind": "lesson",
+        "description": "Measured 2026-10-24 (T1 backlog campaign, pushing 8 commits to ).",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\git-opens-the-ssh-connection-before-the-pre-push-hook-and-a-long-hook-lets-it-go-stale.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-22-session-b0e6e2/txt/handoff-t1-backlog-2026-10-23.md",
+        "updatedAt": "2026-10-23"
       },
       {
         "name": "guard-verifies-syntax-shape-not-the-property",
