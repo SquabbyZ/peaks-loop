@@ -4,6 +4,10 @@
  * helper, and the synthetic-lookup refusal renderer. Later additions (the
  * refusal write-path rule, the fragments-free refusal) live here for the same
  * file-size reason.
+ *
+ * The artifact PATH and the record of which intent owns it moved to
+ * `best-practice-scan-collision.ts` in the same campaign: the §12.3 collision
+ * check needed more room than this file had under the 300-line cap.
  */
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, parse } from 'node:path';
@@ -11,6 +15,8 @@ import { dirname, join, parse } from 'node:path';
 import { fail } from 'peaks-loop-shared/result';
 
 import { printResult, type ProgramIO } from '../cli-helpers.js';
+
+import { intentIdLine, scanArtifactPath } from './best-practice-scan-collision.js';
 
 export const CATCH_GATE_PROMPT = [
   '⚠️ 任何跟你真实业务不一样,改 — LLM 推荐可能错。',
@@ -27,22 +33,30 @@ export const SYNTHETIC_SOURCE_MESSAGE =
   '(synthetic fragments), so no real documentation was consulted and there is nothing to ' +
   'recommend. No recommendation, no comparison table and no ⚠️ catch gate were produced.';
 
-export function bestPracticeDir(projectRoot: string): string {
-  return join(projectRoot, 'best-practice');
-}
-
-/** `YYYY-MM-DD` is 10 characters, and the slug is capped at 32 so the filename
- *  stays a filename. Both are part of the pinned artifact path. */
-const ISO_DATE_LENGTH = 10;
-const SLUG_MAX_LENGTH = 32;
-
-/** `<project>/best-practice/<date>-<slug>.md`. The slug is lossy by design:
- *  every character outside `[A-Za-z0-9_-]` collapses to `-` and the result is
- *  truncated to 32, so no intent can introduce a path separator. */
-export function scanArtifactPath(projectRoot: string, slugSource: string): string {
-  const dateStr = new Date().toISOString().slice(0, ISO_DATE_LENGTH);
-  const slug = slugSource.replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, SLUG_MAX_LENGTH) || 'intent';
-  return join(bestPracticeDir(projectRoot), `${dateStr}-${slug}.md`);
+/**
+ * The catch-gate reply: the `PEAKS_BEST_PRACTICE_STDIN` seam in tests, the
+ * real stdin in production.
+ *
+ * Moved here from the command file: that file had three lines of headroom
+ * under the 300-line cap, and the collision check needed more than that.
+ */
+export async function readUserInput(): Promise<string> {
+  const override = process.env.PEAKS_BEST_PRACTICE_STDIN;
+  if (override !== undefined) return override;
+  if (process.stdin.isTTY) return '';
+  return new Promise<string>((resolveStdin) => {
+    let data = '';
+    process.stdin.setEncoding('utf8');
+    process.stdin.on('data', (chunk) => {
+      // `setEncoding('utf8')` above makes every chunk a string at runtime, but
+      // the declared type of the 'data' event is still a Buffer, so the `+`
+      // needs a string operand. `String(chunk)` is the same ToString the `+`
+      // operator applies, so the bytes accumulated are unchanged.
+      data += String(chunk);
+    });
+    process.stdin.on('end', () => resolveStdin(data.trim()));
+    process.stdin.on('error', () => resolveStdin(data.trim()));
+  });
 }
 
 /** Refusal body for a synthetic scan. It is written to the artifact path so
@@ -90,7 +104,7 @@ export function writeRefusal(projectRoot: string, intent: string, refusal: strin
     ? join(dirname(primary), 'skipped', parse(primary).base)
     : primary;
   mkdirSync(dirname(target), { recursive: true });
-  writeFileSync(target, refusal + '\n', 'utf8');
+  writeFileSync(target, intentIdLine(intent) + '\n' + refusal + '\n', 'utf8');
   return target;
 }
 
@@ -101,11 +115,19 @@ export function writeRefusal(projectRoot: string, intent: string, refusal: strin
  * payload is proved to serialise *before* anything is written: a payload the
  * printer cannot render must not leave behind an artifact claiming a scan that
  * never reported.
+ *
+ * The first line is the intent-id marker, so a later scan can tell which
+ * intent owns this artifact.
  */
-export function writeRenderedArtifact(artifactPath: string, table: string, payload: unknown): void {
+export function writeRenderedArtifact(
+  artifactPath: string,
+  table: string,
+  payload: unknown,
+  intent: string
+): void {
   JSON.stringify(payload);
   mkdirSync(dirname(artifactPath), { recursive: true });
-  writeFileSync(artifactPath, table + '\n', 'utf8');
+  writeFileSync(artifactPath, intentIdLine(intent) + '\n' + table + '\n', 'utf8');
 }
 
 export const NO_FRAGMENTS_MESSAGE =

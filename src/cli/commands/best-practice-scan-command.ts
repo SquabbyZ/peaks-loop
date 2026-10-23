@@ -29,6 +29,11 @@
  * (`BEST_PRACTICE_SCAN_NO_FRAGMENTS` — see `emitNoFragmentsRefusal`, which is
  * the guard against a `★` recommendation built from zero fragments).
  *
+ * Collision refusal: the artifact path keys on `(date, slug)` with the slug
+ * capped at 32 characters, so two intents that agree in their first 32 slug
+ * characters land on one file. The second scan refuses
+ * (`BEST_PRACTICE_SCAN_SLUG_COLLISION`) rather than overwrite the first.
+ *
  * Catch-gate (spec §7): the command emits a 3-line prompt asking the
  * user to ack / pick alt / reject + reason. The gate is read from
  * stdin via `PEAKS_BEST_PRACTICE_STDIN` (test seam) or the real stdin
@@ -50,12 +55,17 @@ import {
   CATCH_GATE_PROMPT,
   emitNoFragmentsRefusal,
   INTENT_REQUIRED_MESSAGE,
+  readUserInput,
   renderSyntheticRefusal,
-  scanArtifactPath,
   SYNTHETIC_SOURCE_MESSAGE,
   writeRefusal,
   writeRenderedArtifact
 } from './best-practice-scan-helpers.js';
+import {
+  detectSlugCollision,
+  emitSlugCollisionRefusal,
+  scanArtifactPath
+} from './best-practice-scan-collision.js';
 import { readLookupResultsOrFail } from './best-practice-scan-lookup-results.js';
 
 type BestPracticeScanOptions = {
@@ -66,21 +76,6 @@ type BestPracticeScanOptions = {
   readonly lookupResults?: string;
   readonly json?: boolean;
 };
-
-async function readUserInput(): Promise<string> {
-  const override = process.env.PEAKS_BEST_PRACTICE_STDIN;
-  if (override !== undefined) return override;
-  if (process.stdin.isTTY) return '';
-  return new Promise<string>((resolveStdin) => {
-    let data = '';
-    process.stdin.setEncoding('utf8');
-    process.stdin.on('data', (chunk) => {
-      data += chunk;
-    });
-    process.stdin.on('end', () => resolveStdin(data.trim()));
-    process.stdin.on('error', () => resolveStdin(data.trim()));
-  });
-}
 
 export type CatchGateOutcome =
   | { kind: 'accept'; choice: RecommendationChoice }
@@ -223,6 +218,13 @@ export function registerBestPracticeScanCommand(program: Command, io: ProgramIO)
         return;
       }
 
+      const collision = detectSlugCollision(opts.project, intent, language);
+      if (collision !== null) {
+        emitSlugCollisionRefusal(io, opts.json === true, collision);
+        process.exitCode = 1;
+        return;
+      }
+
       const recommendation: RecommendationChoice = scan.results.length > 0 ? 'A' : 'B';
       const reasoning =
         `基于调用方提供的 ${scan.fragments.length} 个 ${scan.source} 文档片段` +
@@ -264,7 +266,7 @@ export function registerBestPracticeScanCommand(program: Command, io: ProgramIO)
         commitFlag: opts.commit === true,
         forbiddenHits
       };
-      writeRenderedArtifact(artifactPath, table, payload);
+      writeRenderedArtifact(artifactPath, table, payload, intent);
 
       printResult(
         io,
