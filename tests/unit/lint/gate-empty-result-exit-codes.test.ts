@@ -159,7 +159,10 @@ describe('Scenario: a11y — the two LEGITIMATE empty results keep exit 0', () =
       //        refusal — i.e. arm A's check did not swallow a legitimate path
       expect(run.code, run.out).toBe(0);
       expect(run.out).toContain('outside the lint scope');
-      expect(run.out).toContain('NOTHING WAS COMPARED');
+      // The per-file ratchet compared nothing — every staged file is outside the
+      // lint scope — and the sentence says WHICH check compared nothing, because
+      // the wide formatting leg DID compare this file, on the other axis.
+      expect(run.out).toContain('THE PER-FILE RATCHET COMPARED NOTHING');
       expect(run.out).not.toContain('USAGE (staged)');
     }
   );

@@ -18,32 +18,47 @@
 #   - unit tests ~7 min; CI runs the full suite in the `vitest + build` job.
 #                The push gate runs only the tests the pushed diff implies
 #                (`pnpm test:changed`, see .husky/pre-push).
-#   - formatting OUTSIDE the lint scope. `pnpm format:check` covers src, tests,
-#                packages and scripts; this hook compares only the owner-decided
-#                lint scope (src/** + packages/*/src/**, .husky/lint-scope.mjs,
-#                owner decision 2026-10-03) and says so by name for every staged
-#                file it drops ("outside the lint scope, not compared").
+#   - formatting OUTSIDE the lint scope, by the PER-FILE ratchet. `pnpm
+#                format:check` covers src, tests, packages and scripts; the
+#                per-file ratchet compares only the owner-decided lint scope
+#                (src/** + packages/*/src/**, .husky/lint-scope.mjs, owner
+#                decision 2026-10-03) and says so by name for every staged file
+#                it drops ("outside the lint scope, not compared by the per-file
+#                ratchet").
 #                THE TWO SCOPES ARE MEANT TO BE DIFFERENT, and until rid-038 the
-#                reason was written down nowhere. This hook is a PER-FILE RATCHET
-#                ("a file you touch may not be worse than its own baseline row"),
-#                so it can only cover files that HAVE a baseline row — the owned
-#                product boundary. Widening the ratchet to tests/** + scripts/**
-#                would re-open an owner decision, need rows for ~600 more files,
-#                and refuse every commit touching an already-unformatted file
-#                (an absent row reads as NEW FILE, which must be clean outright).
-#                So the wide check is NOT narrowed to match this hook: it is
-#                EXECUTED, in the `format-check` job of .github/workflows/ci.yml,
-#                as .husky/format-check-ratchet.mjs. That job is ALSO a ratchet —
-#                the current unformatted set must stay INSIDE a named baseline SET
-#                (it may only shrink) over the SAME four globs this hook does not
-#                cover. That set is EMPTY since 2026-10-17: its names were each
-#                collected by formatting the file the ratchet named, so the set
-#                sits at its floor and can never regrow into a permission. So the
-#                two are consistent on the only axis that matters here ("ratchet,
-#                never a whole-repo boolean"); they differ in WHICH files they
-#                watch, not in what KIND of check they are. Before rid-038 no
-#                executor called the wide check at all, and unformatted files
-#                reached a commit with every gate green.
+#                reason was written down nowhere. The per-file ratchet is a
+#                PER-FILE RATCHET ("a file you touch may not be worse than its
+#                own baseline row"), so it can only cover files that HAVE a
+#                baseline row — the owned product boundary. Widening THAT
+#                ratchet to tests/** + scripts/** would re-open an owner
+#                decision, need rows for ~600 more files, and refuse every commit
+#                touching an already-unformatted file (an absent row reads as
+#                NEW FILE, which must be clean outright). So the wide check is
+#                NOT narrowed to match this hook, and the per-file ratchet is
+#                NOT widened to match the wide check.
+#                THE WIDE CHECK IS A DIFFERENT KIND OF CHECK, which is how both
+#                of those can be true at once. It is a SET ratchet over the SAME
+#                four globs (package.json#scripts['format:check']): no per-file
+#                row, one allowed SET of known names, and it may only shrink.
+#                That set is EMPTY since 2026-10-17 — its names were each
+#                collected by formatting the file the ratchet named — so over
+#                those four globs its rule is literally "no unformatted file at
+#                all", and an empty set can never regrow into a permission. It
+#                needs no baseline row, so the objection above does not apply to
+#                it, and that is the whole difference.
+#                WHERE IT RUNS. Whole tree: the `format-check` job of
+#                .github/workflows/ci.yml and the push gate's leg 1
+#                (.husky/format-check-ratchet.mjs). STAGED FILES ONLY: this
+#                hook, as .husky/gate/wide-format.mjs — because three files
+#                reached a commit unformatted in one slice (2026-10-23) with
+#                every commit-time gate green, and the push gate refused the
+#                push each time, so the commit boundary did not hold. The
+#                commit-time leg applies the wide rule to the staged files the
+#                lint scope DROPS, and to nothing else: a staged file inside the
+#                lint scope stays the per-file ratchet's business, and the
+#                eslint leg is not widened by any of this. The two scopes stay
+#                different, and a staged code file is now dropped by at most one
+#                of them.
 set -e
 pnpm exec lint-staged
 # Staged-parity leg. APPENDED, on purpose, and BEFORE the artifact-contract leg:

@@ -13,10 +13,10 @@
  *   (.peaks/**, .peaks/_runtime/**, skills/**, docs/**, *.md)
  *   → allow (silent exit 0).
  *
- * Pure function. The shell-script sibling
- * (`pre-tool-code-gate.sh`) is the canonical source for the same
- * logic, usable from any non-Node harness. Both share the same
- * hard-blocked + allow-listed path families.
+ * Pure function. This module is the ONE implementation of the rule: the
+ * shell-script sibling (`pre-tool-code-gate.sh`) is a thin wrapper that
+ * execs the CLI built on it, and its own no-CLI fallback carries a
+ * narrower copy of the same families.
  */
 
 import {

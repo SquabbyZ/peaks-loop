@@ -56,6 +56,11 @@ import { REPO_ROOT } from '../standards/_file-size-cap-scan.js';
 import { FIXTURE_COPIED_FILES, hooksScopeFilesUnder } from './_file-size-copy-set.js';
 import { GATE_TOOL_STUBS } from './_file-size-hooks-walk.js';
 import { type HooksWalk, type OverCapEntry, walkHooksScope } from './_file-size-hooks-walk.js';
+import {
+  PICOMATCH_PACKAGE,
+  declaredFormatCheck,
+  picomatchShim
+} from './_wide-format-scope-fixture.js';
 
 export { FIXTURE_COPIED_FILES, hooksScopeFilesUnder };
 
@@ -233,7 +238,12 @@ export function createFixture(name: string) {
   write(
     'package.json',
     `${JSON.stringify(
-      { name: `peaks-${name}-fixture`, version: '0.0.0', prettier: declaredPrettier },
+      {
+        name: `peaks-${name}-fixture`,
+        version: '0.0.0',
+        prettier: declaredPrettier,
+        scripts: { 'format:check': declaredFormatCheck(REPO_ROOT) }
+      },
       null,
       2
     )}\n`
@@ -253,6 +263,8 @@ export function createFixture(name: string) {
   write(join('node_modules/tsx/dist', 'cli.mjs'), tsxForwarder());
   write('node_modules/prettier/package.json', PRETTIER_PACKAGE);
   write('node_modules/prettier/index.mjs', prettierShim());
+  write('node_modules/picomatch/package.json', PICOMATCH_PACKAGE);
+  write('node_modules/picomatch/index.js', picomatchShim(REPO_ROOT));
   git(['init', '-q']);
   git(['add', '-A']);
   git([...GIT_NEUTRAL, 'commit', '-q', '-m', 'fixture: guards, hooks files, no artifact in HEAD']);

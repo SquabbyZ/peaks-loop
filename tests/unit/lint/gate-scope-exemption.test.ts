@@ -142,7 +142,7 @@ describe('Scenario: integration — H2: the exemption is real and it is loud', (
       expect(run.out).not.toContain('NEW file');
       expect(run.out).not.toContain('blocked');
       expect(run.out).toContain(
-        'peaks-gate: 1 staged file(s) are outside the lint scope and were not compared: tests/dirty.ts'
+        'peaks-gate: 1 staged file(s) are outside the lint scope and were not compared by the per-file ratchet: tests/dirty.ts'
       );
       expect(run.out).toContain('1 staged file(s) OK');
     }
@@ -157,7 +157,9 @@ describe('Scenario: integration — H2: the exemption is real and it is loud', (
       expect(run.out).toContain('NEW file src/new-dirty.ts has 1 lint finding');
       // The exemption sentence still prints for the OTHER file: the two facts
       // are independent and neither may silence the other.
-      expect(run.out).toContain('are outside the lint scope and were not compared: tests/dirty.ts');
+      expect(run.out).toContain(
+        'are outside the lint scope and were not compared by the per-file ratchet: tests/dirty.ts'
+      );
     }
   );
 });
@@ -171,7 +173,12 @@ describe('Scenario: a11y — empty and all-dropped are different facts', () => {
       expect(run.code, run.out).toBe(0);
       expect(run.out).toContain('outside the lint scope');
       expect(run.out).not.toContain('EMPTY CHANGE SET');
-      expect(run.out).toContain('NOTHING WAS COMPARED');
+      // The PER-FILE ratchet compared nothing — every file is outside the lint
+      // scope — and the sentence says WHICH check compared nothing, because the
+      // wide formatting leg DID compare this file, on the other axis. A reader
+      // must not be able to flatten the two into "nothing was checked".
+      expect(run.out).toContain('THE PER-FILE RATCHET COMPARED NOTHING');
+      expect(run.out).toContain('The wide formatting check compared 1 of them');
     }
   );
 
@@ -204,7 +211,7 @@ describe('Scenario: a11y — empty and all-dropped are different facts', () => {
       expect(run.code, run.out).toBe(0);
       expect(run.out).not.toContain('NEW file');
       expect(run.out).toContain(
-        'peaks-gate: 1 pushed file(s) are outside the lint scope and were not compared: tests/dirty.ts'
+        'peaks-gate: 1 pushed file(s) are outside the lint scope and were not compared by the per-file ratchet: tests/dirty.ts'
       );
     }
   );

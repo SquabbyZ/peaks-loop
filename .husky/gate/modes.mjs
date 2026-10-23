@@ -15,6 +15,7 @@ import {
 import { ratchetFiles } from './ratchet.mjs';
 import { silentWarningLeg, fileSizeLeg } from './legs.mjs';
 import { stagedSizeLeg } from './staged-size.mjs';
+import { wideFormatLeg } from './wide-format.mjs';
 // The enforced scope, from the one module that owns the rule — the same list
 // `.husky/peaks-gate.mjs`'s `repoFileList()` builds for `repo` mode, reached the
 // copy-safe way (see the header of `.husky/peaks-gate.mjs`).
@@ -79,11 +80,47 @@ function refuseNoFileArgument() {
   return 2;
 }
 
+/**
+ * What the OTHER axis did, for the empty-change-set sentence.
+ *
+ * The per-file ratchet and the wide formatting leg are two different checks over
+ * two different scopes, and the sentence that reports "nothing was compared" must
+ * only ever be said when NOTHING was compared. So this returns `null` — meaning
+ * "no other axis read anything, the plain sentence is true as it stands" — when
+ * the wide leg measured no file, and a sentence naming the other axis when it
+ * did. A wide leg that could not measure at all is a third case, and it says so
+ * rather than letting an unreadable scope read as an empty one.
+ */
+function wideNote(wide) {
+  if (wide.line === null) {
+    return 'The wide formatting check could not measure them at all.';
+  }
+  if (wide.compared.length === 0) {
+    return null;
+  }
+  return `The wide formatting check compared ${wide.compared.length} of them on a different axis — see its line above.`;
+}
+
 async function stagedMode(argv) {
   if (noFileArgumentReceived(argv)) return refuseNoFileArgument();
   const all = argv.map(rel).filter((f) => f !== '');
   const dropped = outOfScopeNotice('staged', all);
   const files = all.filter(inScope);
+  // THE WIDE FORMATTING LEG, ON THE COMMIT PATH. It is handed `all`, not `files`,
+  // for the same reason the file-size leg is: `tests/**` and `scripts/**` are
+  // OUTSIDE the lint scope by owner decision (2026-10-03), and they are exactly
+  // the files this leg measures. The wide scope is read from
+  // `package.json#scripts['format:check']` — the same four globs the CI job and
+  // the push gate's format ratchet use — so the two spellings cannot drift.
+  //
+  // IT IS NOT THE ESLINT LEG, AND IT DOES NOT WIDEN THE LINT SCOPE. The wide
+  // check's rule is "prettier-clean" and it needs no baseline row, which is
+  // exactly the objection the owner's 2026-10-03 decision recorded against
+  // widening the PER-FILE ratchet: a per-file ratchet can only cover files that
+  // HAVE a baseline row. `.husky/gate/wide-format.mjs` states the whole
+  // distinction, and the lint scope, the eslint leg and the per-file baseline
+  // rows are all untouched by this one.
+  const wide = await wideFormatLeg(all);
   // THE FILE-SIZE RATCHET, ON THE COMMIT PATH. It is handed `all`, not `files`:
   // `tests/**` and `scripts/**` are outside the LINT scope but inside the file-size
   // POLICY's, and a leg hung off `files` would have missed the very file the defect was
@@ -96,8 +133,16 @@ async function stagedMode(argv) {
   // placed after it would be unreachable on the input this slice exists to cover.
   const size = stagedSizeLeg(all, ROOT);
   if (size.line !== null) console.log(`peaks-gate: ${size.line}`);
+  if (wide.line !== null) console.log(`peaks-gate: ${wide.line}`);
   const lint =
-    files.length === 0 ? reportEmpty('staged', dropped) : await ratchetFiles(files, 'staged');
+    files.length === 0
+      ? reportEmpty('staged', dropped, wideNote(wide))
+      : await ratchetFiles(files, 'staged');
+  if (wide.refusal !== null) {
+    console.error(`\npeaks-gate: commit blocked — the wide formatting check refused.\n`);
+    console.error(`${wide.refusal}\n`);
+    return 1;
+  }
   if (size.refusal !== null) {
     console.error(`\npeaks-gate: commit blocked — the staged file-size ratchet refused.\n`);
     console.error(`${size.refusal}\n`);

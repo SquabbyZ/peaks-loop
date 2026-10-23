@@ -220,7 +220,7 @@ CLI 只是薄壳,业务逻辑在 `src/services/<domain>/`。按体量与重要�
 2. **Two-Forms-Only** —— 用户**所有**交互(下载 skill、导入 bundle、精炼 bee、克隆、导出、留存/处置、晋升、重训)都塌缩成这两种形态。未来桌面端只是 **UI 加速器**,不构成新的动词面。
 3. **Enhancement, not new AI CLI** —— 不抢 shell prompt、不注入 system prompt、不造竞争性 REPL、不替换任何 runtime 原生 skill 激活入口。厂商中立,厂商差异只活在 adapter 层。
 
-另有 **Code-Change Red Line**:编排器(peaks-code 本体)**不得**直接 `Edit`/`Write` `src/` `tests/` `config/` `bin/` `scripts/`;两层机械拦截(`peaks code orchestrator-can-do` 探针 + `pre-tool-code-gate.sh` PreToolUse hook)。例外:`.peaks/**`、`skills/**/SKILL.md`、`docs/**` 可直接写。
+另有 **Code-Change Red Line**:编排器(peaks-code 本体)**不得**直接 `Edit`/`Write` `src/` `tests/` `config/` `bin/` `scripts/`;两层机械拦截(`peaks code orchestrator-can-do` 探针 + `peaks code-gate` PreToolUse hook;规则只有一份实现,在 `src/services/hooks/pre-tool-code-gate.ts`,`.sh` 只是薄壳)。例外:`.peaks/**`、`skills/**/SKILL.md`、`docs/**` 可直接写。
 
 ---
 

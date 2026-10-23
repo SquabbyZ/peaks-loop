@@ -19,7 +19,7 @@
  * `hooks-command-shared.ts`.
  */
 
-import { existsSync, copyFileSync, mkdirSync } from 'node:fs';
+import { existsSync, copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Command } from 'commander';
@@ -106,14 +106,45 @@ function copyBridgeHookIfPresent(userHome: string, dryRun = false): HookScriptCo
 }
 
 /**
+ * The sibling file the copied code-gate wrapper reads to find the CLI.
+ *
+ * The wrapper is a THIN WRAPPER over the Node command: where a CLI is
+ * reachable it execs `peaks code-gate`, so there is one implementation of the
+ * rule wherever Node exists. It looks for that CLI in two places — `peaks` on
+ * PATH, and this file. What this file carries is the PACKAGE ROOT, which is
+ * INSTALLER information (where the installed package lives), not PROJECT
+ * information: the project root is per-project and one user-global copy of
+ * the wrapper serves every project, so it cannot be stored here.
+ */
+const CODE_GATE_PACKAGE_ROOT_FILE = 'pre-tool-code-gate.package-root';
+
+/**
+ * The package root this CLI was loaded from: `<root>/src/cli/commands` in the
+ * source tree, `<root>/dist/cli/commands` in a build. Three levels up is the
+ * root in both, and it is the directory that holds `bin/peaks.js`.
+ */
+const PACKAGE_ROOT = resolve(MODULE_DIR, '..', '..', '..');
+
+/**
+ * Write the package-root pointer next to the copied wrapper.
+ *
+ * It is written next to the script and NOT inside it: the script is copied
+ * once, byte for byte, and the pointer is a separate file the wrapper reads
+ * at run time. A dry-run install writes nothing.
+ */
+function writeCodeGatePackageRootPointer(hooksDir: string): void {
+  writeFileSync(resolve(hooksDir, CODE_GATE_PACKAGE_ROOT_FILE), `${PACKAGE_ROOT}\n`, 'utf8');
+}
+
+/**
  * The same distribution for the code-gate hook
  * source (`src/services/hooks/pre-tool-code-gate.sh`) into the user-
  * global peaks-code hooks dir, mirroring the bridge-hook copy. The
- * hook itself is vendor-neutral (no `claude` / `anthropic` strings in
- * the script) — this installer is the vendor adapter that decides
+ * hook itself is vendor-neutral (no IDE / vendor names in the
+ * script) — this installer is the vendor adapter that decides
  * where the file lands. The CLI command `peaks code-gate` is the
  * runtime entry; the shell script is the canonical artifact distributed
- * alongside the bridge hook.
+ * alongside the bridge hook, and it is a thin wrapper over that command.
  */
 function copyCodeGateHookIfPresent(userHome: string, dryRun = false): HookScriptCopy {
   const source = resolve(MODULE_DIR, '..', '..', 'services', 'hooks', 'pre-tool-code-gate.sh');
@@ -133,6 +164,7 @@ function copyCodeGateHookIfPresent(userHome: string, dryRun = false): HookScript
   }
   mkdirSync(dirname(target), { recursive: true });
   copyFileSync(source, target);
+  writeCodeGatePackageRootPointer(dirname(target));
   return { copied: true, source, target };
 }
 
@@ -188,14 +220,14 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
   const hooks = program
     .command('hooks')
     .description(
-      "Manage the Peaks-managed hook entry in the adapter's settings.json (default: .claude/settings.json for Claude, .trae/settings.json for Trae). Slice #014: the only installed entry is the gate-enforce hook (SOP gate). The legacy progress-start hook (auto-spawn sub-agent progress terminal) is no longer installed — sub-agent progress is now surfaced via the dispatch + heartbeat flow (`peaks sub-agent dispatch` / `peaks sub-agent heartbeat`). The IDE is auto-detected from env / cwd; override with --ide <id>."
+      "Manage the Peaks-managed hook entries in the adapter's settings.json (default: .claude/settings.json for Claude, .trae/settings.json for Trae). The installed set is the adapter's own peaks-managed entries — for Claude Code: peaks gate enforce (Bash and MCP tool calls), peaks code-gate (Edit|Write|MultiEdit), peaks outer-cache write, peaks session primer, peaks session reinject, peaks compact settle — plus the Layer-3 permissions.deny entries (worktree governance); the other adapters install their own single hook entry. The legacy progress-start hook (auto-spawn sub-agent progress terminal) is not installed (slice #014) — sub-agent progress is now surfaced via the dispatch + heartbeat flow (`peaks sub-agent dispatch` / `peaks sub-agent heartbeat`). The IDE is auto-detected from env / cwd; override with --ide <id>."
     );
 
   addJsonOption(
     hooks
       .command('install')
       .description(
-        `Install the peaks-managed gate-enforce hook entry into the adapter's settings.json. Slice #014: only the gate-enforce entry is installed; the legacy progress-start entry is no longer installed. Idempotent: re-runs are no-ops. Project scope by default.`
+        `Install the peaks-managed hook entries into the adapter's settings.json — for Claude Code: peaks gate enforce (Bash and MCP tool calls), peaks code-gate (Edit|Write|MultiEdit), peaks outer-cache write, peaks session primer, peaks session reinject, peaks compact settle — plus the Layer-3 permissions.deny entries (worktree governance); the other adapters install their own single hook entry. The legacy progress-start entry is not installed (slice #014). Idempotent: re-runs are no-ops. Project scope by default. --global additionally copies the two hook scripts (pre-tool-code-gate.sh and pre-tool-superpowers-bridge.sh) and writes the package-root pointer pre-tool-code-gate.package-root into the user-global ~/.claude/skills/peaks-code/hooks/ directory; the project scope copies nothing there.`
       )
       .option(
         '--global',
@@ -206,7 +238,7 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
       .option('--dry-run', 'show what would change without writing')
       .option(
         '--no-progress',
-        'skip the progress-start PreToolUse hook entry; install ONLY the gate-enforce entry'
+        'retained for backward compatibility and currently a no-op: the progress-start entry is no longer installed (slice #014), so the installed entry set is identical with or without this flag'
       )
   ).action((options: HookCliOptions) => runHooksInstall(io, options));
 

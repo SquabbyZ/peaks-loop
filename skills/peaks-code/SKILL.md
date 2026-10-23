@@ -114,7 +114,7 @@ Two-layer enforcement — do NOT try to bypass either:
    ```
    For source-code changes (mentioning `src/`, `tests/unit/`, `tests/integration/`, `config/`, `bin/`, `scripts/`) the probe MUST return `canDoInSession: false` with `blockers: ["requires-sub-agent-dispatch"]`. The probe does NOT block non-source slices (memory sediment, docs, SKILL.md updates).
 
-2. **Tool-level guard — `pre-tool-code-gate.sh`** (PreToolUse hook). When the orchestrator reaches for `Edit`/`Write`/`MultiEdit` against a hard-blocked path family, the hook exits 2 with stderr `PEAKS_CODE_PROHIBITED_DIRECT_EDIT: <file>... use 'peaks sub-agent dispatch rd'`. The hook is vendor-neutral — it inspects only the standard `{tool, input}` JSON contract, never env vars.
+2. **Tool-level guard — `peaks code-gate`** (PreToolUse hook). When the orchestrator reaches for `Edit`/`Write`/`MultiEdit` against a hard-blocked path family, the hook exits 2 with stderr `PEAKS_CODE_PROHIBITED_DIRECT_EDIT: <file>... use 'peaks sub-agent dispatch rd'`. The hook is vendor-neutral — it inspects only the standard `{tool, input}` JSON contract, never env vars. **The rule lives in ONE implementation**: `src/services/hooks/pre-tool-code-gate.ts`, with the path arithmetic in `gate-path-normalize.ts` and the payload's own directory in `hook-payload-cwd.ts`. The shell sibling `src/services/hooks/pre-tool-code-gate.sh` is a **thin wrapper** that execs `peaks code-gate`; it carries a second copy of the rule **only** for a machine where no Node CLI is reachable, and that fallback **refuses rather than guessing** when it cannot place the file.
 
 ### If you catch yourself reaching for Edit/Write on `src/**`
 

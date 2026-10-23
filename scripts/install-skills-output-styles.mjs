@@ -13,7 +13,11 @@ import { join } from 'node:path';
 
 import { reconcileCanonicalFileEntry } from './canonical-store-link.mjs';
 import { pruneBundledEntries } from './canonical-store-prune.mjs';
-import { createInstallRootValidator, resolvePackageRoot } from './install-skills-fs.mjs';
+import {
+  createInstallRootValidator,
+  readPackageVersion,
+  resolvePackageRoot
+} from './install-skills-fs.mjs';
 import { createInstallResult } from './install-skills-report.mjs';
 import { resolveBundleTargetRoot } from './install-skills-ide.mjs';
 
@@ -54,6 +58,7 @@ import { resolveBundleTargetRoot } from './install-skills-ide.mjs';
 export function installBundledOutputStyles(options = {}) {
   const packageRoot = resolvePackageRoot(options);
   const outputStylesRoot = join(packageRoot, 'output-styles');
+  const packageVersion = readPackageVersion(packageRoot);
 
   if (process.env.PEAKS_SKIP_SKILL_INSTALL === '1' || !existsSync(outputStylesRoot)) {
     return createInstallResult();
@@ -94,7 +99,8 @@ export function installBundledOutputStyles(options = {}) {
       name: outputStyleName,
       sourcePath,
       linkPath: join(targetRoot, outputStyleName),
-      createFileLink: options.createFileLink
+      createFileLink: options.createFileLink,
+      version: packageVersion
     });
     validateOutputStylesRoot();
 

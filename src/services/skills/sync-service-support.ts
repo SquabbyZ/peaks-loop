@@ -23,6 +23,31 @@ export const SYNC_PLATFORMS: readonly IdeId[] = [
   'openclaw'
 ];
 
+/**
+ * What the canonical store holds for one skill, as the installer found it.
+ *
+ * `current` — the store holds this entry and it is not behind the installed
+ * release. `stale` — it is behind, or its bytes differ from the package's.
+ * `unmanaged` — the store holds an entry peaks-loop does not own (no
+ * sidecar); it is never overwritten, and it is reported so the skip is not
+ * silent. `retired` — the store holds an entry peaks-loop owns that this
+ * release does not ship any more. `absent` — the store does not hold this
+ * entry at all: there is nothing there to compare, so it is neither current
+ * nor stale.
+ */
+export type StoreEntryState = 'current' | 'stale' | 'unmanaged' | 'retired' | 'absent';
+
+export interface StoreEntryReport {
+  readonly name: string;
+  readonly state: StoreEntryState;
+  /** What the installer did: `installed`, `unchanged`, `planned`, `unmanaged`. */
+  readonly action: string;
+  /** The version the copy was made from, or null when the marker records none. */
+  readonly version: string | null;
+  /** Why a stale entry was stale: `version` or `content`; null otherwise. */
+  readonly reason: string | null;
+}
+
 export interface PlatformSyncResult {
   /** The platform that was attempted. */
   readonly platform: IdeId;
@@ -32,6 +57,8 @@ export interface PlatformSyncResult {
   readonly installed: readonly string[];
   /** Skills whose target was not a managed symlink (third-party owned). */
   readonly skipped: readonly string[];
+  /** What the canonical store holds per skill, as found. */
+  readonly entries?: readonly StoreEntryReport[];
   /** Error message; present when ok=false. */
   readonly error?: string;
   /** Wall-clock duration in ms. */
@@ -69,6 +96,8 @@ export interface InstallBundledSkillsOptions {
 export interface InstallResult {
   readonly installed: readonly string[];
   readonly skipped: readonly string[];
+  /** What the canonical store holds per skill, when the installer reports it. */
+  readonly entries?: readonly StoreEntryReport[];
 }
 
 export type InstallerFn = (opts: InstallBundledSkillsOptions) => InstallResult;

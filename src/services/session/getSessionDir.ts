@@ -50,8 +50,14 @@ import { isUnsafePathInput } from '../../shared/path-safety.js';
  * traversal guard only and ADMITS `a/b`, so the separator axes are
  * checked here as well. The session dir is ONE directory name under
  * `_runtime/`.
+ *
+ * EXPORTED because the session id is the last caller-supplied segment of
+ * more than one session-scoped path: the runtime dir here, and the dispatch
+ * ledger's dir under `.peaks/_sub_agents/` (read by
+ * `src/services/dispatch/dispatch-ledger-reader.ts`). One predicate, two
+ * users, so the two cannot drift apart.
  */
-function isSinglePathSegment(sessionId: string): boolean {
+export function isSinglePathSegment(sessionId: string): boolean {
   return !isUnsafePathInput(sessionId) && !sessionId.includes('/') && !sessionId.includes('\\');
 }
 

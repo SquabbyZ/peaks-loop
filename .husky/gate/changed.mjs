@@ -52,6 +52,31 @@ const CHANGED_BASE_DEFAULT = 'origin/main';
 // nobody would notice.
 const CHANGED_BASE_FALLBACKS = ['@{upstream}', 'main'];
 
+/**
+ * THE OTHER AXES ON THE PUSH PATH, for the empty-change-set sentence.
+ *
+ * WHY THE PUSH PATH NEEDS THIS AND THE COMMIT PATH DID NOT. On the commit path
+ * the other axis is measured INSIDE this gate — the wide formatting leg
+ * (`.husky/gate/wide-format.mjs`) runs over the staged files the lint scope
+ * drops — so the gate knows whether it read anything and says so. On the push
+ * path the other axes are OTHER LEGS of the hook: leg 1
+ * (`node .husky/format-check-ratchet.mjs`) compares the WHOLE TREE on the
+ * formatting axis, and leg 3 (`pnpm test:changed`) compares the affected test
+ * suites.
+ *
+ * WITHOUT THIS NOTE THE PUSH PATH SAID SOMETHING FALSE. An empty change set on
+ * this path printed "NOTHING WAS COMPARED", one line below the whole-tree
+ * formatting ratchet's own verdict — so a reader was told that nothing had been
+ * compared when the tree HAD been compared, by the leg above. The per-file
+ * ratchet compared nothing; the tree was compared on other axes. Those are two
+ * different facts, and the sentence now names both.
+ */
+const PUSH_OTHER_AXES =
+  'This sentence is about the per-file ratchet alone. The push hook measures the same ' +
+  'tree on other axes: leg 1 (`node .husky/format-check-ratchet.mjs`) compares the WHOLE ' +
+  'TREE on the formatting axis, and leg 3 (`pnpm test:changed`) compares the affected test ' +
+  'suites — each of them prints its own line.';
+
 function gitOut(args) {
   return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' });
 }
@@ -167,7 +192,7 @@ async function changedMode() {
     for (const f of missing) console.log(`    - ${f}`);
   }
 
-  if (files.length === 0) return reportEmpty(`changed vs ${base.ref}`, dropped);
+  if (files.length === 0) return reportEmpty(`changed vs ${base.ref}`, dropped, PUSH_OTHER_AXES);
   return ratchetFiles(files, 'changed');
 }
 

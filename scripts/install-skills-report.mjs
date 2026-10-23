@@ -13,6 +13,25 @@ export function createInstallResult() {
 }
 
 /**
+ * The result a run reports, with the dry run's own rule applied.
+ *
+ * WHY. A dry run installs nothing, so it reports nothing installed: a plan that
+ * says "184 skill symlinks" describes a run that did not happen. The plan itself
+ * is not lost — every entry carries the action it would take (`planned`) — and
+ * this is where the installed list is emptied, so the ONE place that decides what
+ * a dry run claims does it.
+ *
+ * @param {{ installed: string[], skipped: string[], pruned?: string[], entries?: unknown[] }} result
+ * @param {boolean} dryRun
+ */
+export function finalizeInstallResult(result, dryRun) {
+  if (dryRun === true) {
+    return { ...result, installed: [] };
+  }
+  return result;
+}
+
+/**
  * A fallback is not a failure — but it must never LOOK like a plain success. The
  * entry is a real copy instead of a link, and the postinstall says so, naming each
  * one. Silence here would be the same shape as the defect this slice fixes: an

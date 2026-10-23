@@ -1,81 +1,108 @@
 #!/usr/bin/env bash
 #
-# pre-tool-code-gate.sh — peaks-code Code-Gate PreToolUse hook
-# (slice 2026-08-06-codegate-vendor-neutral)
+# pre-tool-code-gate.sh — the peaks-code Code-Gate PreToolUse hook.
 #
-# Purpose
-#   Read the active PreToolUse JSON payload from stdin (vendor-neutral
-#   hook protocol: { tool, input }). When the tool call is
-#   Edit|Write|MultiEdit AND the target file path matches any of the
-#   hard-blocked path families (src/, tests/unit/, tests/integration/,
-#   config/, bin/, scripts/), this hook REFUSES the call (exit 2 +
-#   stderr containing PEAKS_CODE_PROHIBITED_DIRECT_EDIT) so the LLM
-#   is forced to dispatch via `peaks sub-agent dispatch rd` instead
-#   of editing source code directly.
+# WHAT THIS FILE IS
+#   A THIN WRAPPER over the Node CLI. The rule — which paths a tool call may
+#   not write directly — lives in ONE implementation: `peaks code-gate`
+#   (src/services/hooks/pre-tool-code-gate.ts, with the path arithmetic in
+#   src/services/hooks/gate-path-normalize.ts and the payload's own directory
+#   in src/services/hooks/hook-payload-cwd.ts). Where a Node CLI is reachable
+#   this script EXECS it with the payload on stdin, so there is nothing here
+#   that can drift from it. Where no Node CLI is reachable, the conservative
+#   guard at the bottom of this file decides on its own.
 #
-#   Allow-listed paths (.peaks/**, .peaks/_runtime/**, skills/**,
-#   docs/**) exit 0 silently.
+# HOW THE NODE CLI IS FOUND — this order, and nothing else
+#   1. `peaks` on PATH (`command -v peaks`).
+#   2. A SIBLING FILE the installer writes, recording the PACKAGE ROOT:
+#      `pre-tool-code-gate.package-root`, next to this file. That is
+#      INSTALLER information (where the installed package lives), not PROJECT
+#      information, so one user-global copy may carry it. The project root is
+#      per-project and is therefore NOT stored here.
+#   3. Nothing — the conservative guard below.
 #
-#   A RELATIVE target path is read against the directory the tool call
-#   runs in ($PWD) and is then judged by where it lands inside the
-#   project, so a call that runs in `src/` cannot reach `src/` by
-#   spelling a shorter relative path.
+# THE INTERFACE
+#   pre-tool-code-gate.sh [PROJECT-ROOT]
+#   The payload arrives on STDIN and is passed on UNCHANGED. The single
+#   optional positional argument is the PROJECT ROOT: it is forwarded to the
+#   Node CLI as `--project`, and the CLI falls back to its own working
+#   directory when it is absent. A harness that points at this file without
+#   naming a root gets that default.
 #
-#   The path is read TWICE — as it is SPELLED and as the file REALLY
-#   sits on disk — and the STRICTEST of the two readings decides. One
-#   directory can be named two ways (a symlink, a junction, macOS's
-#   `/var` → `/private/var`), and the difference is what a symlinked
-#   BASE inside the project looks like: the call runs in `link/`,
-#   `link/` points at `src/`, and the file it writes lands in `src/`.
-#   A wrongly allowed edit is a hole in the gate; a wrongly refused one
-#   is only an inconvenience.
+# THE HOOK CONTRACT (unchanged by this rewrite)
+#   exit 0 — the call is allowed.
+#   exit 2 — the call is refused, with PEAKS_CODE_PROHIBITED_DIRECT_EDIT on
+#   stderr. stdout stays empty: the IDE denies the call before it runs.
 #
-# Hard rules enforced here
-#   - Hook is a thin, idempotent, pure-stdin script. No env-mutating
-#     side effects.
-#   - Source of truth lives in the peaks-loop repo (this file). The
-#     user-global copy at the IDE's skills/peaks-code/hooks/ directory
-#     is installed by `peaks hooks install` and MUST be byte-identical
-#     to this source after install.
-#   - Vendor-neutral — this hook does NOT reference any specific IDE
-#     or vendor. It uses only the standard `{tool, input}` JSON hook
-#     protocol, no env vars. The vendor-specific install adapter is a
-#     SEPARATE file (`src/cli/commands/hooks-commands.ts` + the IDE
-#     adapter layer in `src/services/ide/`) — not this script.
+# WHY THE INSTALLED COPY LIES INERT
+#   `peaks hooks install --scope global` copies this file into the IDE's
+#   skills/peaks-code/hooks/ directory, and every hook entry the installer
+#   writes is a `peaks …` command — no settings template invokes a `.sh`. So
+#   the copy is on no session's path by default; it is the shape a non-Node
+#   harness reproduces when a harness is pointed at it by hand. The source of
+#   truth is this file: the installed copy is byte-identical to it, and the
+#   installer writes the package-root pointer BESIDE it rather than into it.
 #
-# Lane judgement is NOT here (deliberate, not drift)
-#   This gate judges two things — the tool call and the target path — and
-#   takes no driver input. Nothing in the hook payload tells it which lane
-#   is driving, so the hard-blocked families below are refused
-#   UNCONDITIONALLY, including for a session the Node CLI gate would let
-#   through. The CLI gate (`peaks code-gate`) is the one that resolves the
-#   driver and opens those families; this file cannot, and MUST NOT grow
-#   that resolution — it would be a second implementation of a single
-#   decision. A harness pointed at this script is therefore refused where
-#   that command allows, and the asymmetry is intentional.
-#
-#   Nothing points a harness at it by default. `peaks hooks install
-#   --scope global` copies this file into the IDE's skills directory (a
-#   project-scope install copies nothing), but that copy is inert: every
-#   hook entry the installer writes is a `peaks …` command, and no
-#   settings template invokes a `.sh`. This script is the conservative
-#   shape a non-Node harness would reproduce, not a gate any session is
-#   on by default.
-#
-# Karpathy §2 (Simplicity First): no retries, no jq dependency, no
-# colour codes. Pure bash + grep + sed.
-# Karpathy §3 (Surgical Changes): reads stdin only; never mutates
-# user-global state.
-# Karpathy §4 (Goal-Driven Execution): the only side effects are
-#   (a) exit code 0 / 2,
-#   (b) stderr containing the PEAKS_CODE_PROHIBITED_DIRECT_EDIT
-#       message when blocked.
-#   No stdout JSON envelope — the IDE denies the tool call before it
-#   runs.
+# VENDOR-NEUTRAL
+#   No IDE and no vendor is named here. The hook protocol is the standard
+#   `{tool, input}` JSON payload. The vendor-specific install adapter is a
+#   SEPARATE file (src/cli/commands/hooks-commands.ts and the IDE adapter
+#   layer in src/services/ide/).
 
 set -euo pipefail
 
-# --- 1. Read the tool payload from stdin ------------------------------------
+# --- 0. The Node CLI, if one is reachable ------------------------------------
+# The payload is NOT read here: the child inherits this script's stdin, so the
+# payload reaches it unchanged. Only the fallback below reads stdin.
+PROJECT_ROOT_ARG="${1:-}"
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" >/dev/null 2>&1 && pwd -P || printf '%s' '.')"
+PACKAGE_ROOT_FILE="${SCRIPT_DIR}/pre-tool-code-gate.package-root"
+
+CLI=()
+if command -v peaks >/dev/null 2>&1; then
+  CLI=("peaks")
+elif [[ -f "${PACKAGE_ROOT_FILE}" ]]; then
+  # The installer writes the package root next to the copy it installs, so a
+  # global copy can still find the CLI when the command is not on PATH.
+  PKG_ROOT="$(tr -d '\r\n' <"${PACKAGE_ROOT_FILE}" 2>/dev/null || true)"
+  if [[ -n "${PKG_ROOT}" && -f "${PKG_ROOT}/bin/peaks.js" ]] && command -v node >/dev/null 2>&1; then
+    CLI=(node "${PKG_ROOT}/bin/peaks.js")
+  fi
+fi
+
+if [[ "${#CLI[@]}" -gt 0 ]]; then
+  GATE_ARGS=(code-gate)
+  if [[ -n "${PROJECT_ROOT_ARG}" ]]; then
+    GATE_ARGS+=(--project "${PROJECT_ROOT_ARG}")
+  fi
+  exec "${CLI[@]}" "${GATE_ARGS[@]}"
+fi
+
+# --- 1. The fallback: no Node CLI is reachable -------------------------------
+# The conservative guard below decides on its own. Its contract:
+#
+#   (a) A RELATIVE target path is read against the WORKING DIRECTORY ($PWD)
+#       — the directory the tool call runs in, not the directory this script
+#       lives in — and denied when the file it lands in is inside a
+#       hard-blocked family.
+#   (b) "Is this absolute?" is decided from the SPELLING, BEFORE the leading
+#       `./` segments are dropped — a drop can never turn a relative path into
+#       an absolute one.
+#   (c) A payload that states a directory this guard cannot use as its base
+#       is REFUSED: a directory it cannot read, and a directory that is not
+#       the one this script runs in. The keys this guard reads are read at
+#       the payload's TOP LEVEL, by a scan that knows the nesting depth, so a
+#       `cwd` nested inside the tool's own arguments is an ARGUMENT and not
+#       the directory the call runs in. A payload the scan cannot read at all
+#       is REFUSED too: an unknown location is a reason to REFUSE, not to
+#       guess.
+#   (d) It takes NO caller identity into account and names no session type:
+#       it refuses the hard-blocked families in every session. That asymmetry
+#       with the Node gate is deliberate and documented.
+#
+# The refusal code and the stderr shape are the hook contract above.
+
 PAYLOAD="$(cat || true)"
 
 # Tolerate empty stdin (the IDE may call the hook before the agent has
@@ -84,22 +111,204 @@ if [[ -z "${PAYLOAD}" ]]; then
   exit 0
 fi
 
-# --- 2. Extract tool name without depending on jq --------------------------
-# Use a portable grep/case-match instead of jq so the hook runs on
-# stock Git Bash (Windows) without an extra dependency. Accept both
-# the modern `tool_name` and legacy `tool` JSON keys.
-TOOL_NAME="$(printf '%s' "${PAYLOAD}" \
-  | grep -oE '"tool_name"[[:space:]]*:[[:space:]]*"[^"]+"' \
-  | head -n1 \
-  | sed -E 's/.*"tool_name"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/' \
-  || true)"
+# --- 2. Read the payload's OWN top-level keys --------------------------------
+# The keys the gate reads are read at the TOP LEVEL of the payload. A `cwd`
+# nested inside the tool's own arguments is an ARGUMENT the tool was handed,
+# not the directory the call runs in, and a `tool_name` nested there is not the
+# name of the call either. A line-oriented grep cannot tell the two apart —
+# the FIRST `"cwd"` in the text wins, so a nested one written before the
+# top-level one decides the verdict — so the payload is read by a scan that
+# knows the nesting depth, and a key is read only where it belongs.
+#
+# The scan is `awk`, which every POSIX shell environment carries, so the
+# fallback needs no runtime and no extra dependency — the reason `jq` is not
+# used. It reads the SAME keys the Node command reads: `tool_name` and then
+# `tool` for the name, `tool_input` and then `input` for the arguments, and
+# `file_path`, `path` and `notebook_path` inside those arguments. A repeated
+# key resolves the way `JSON.parse` resolves it — the LAST one — so the two
+# read the same payload the same way. A `\uXXXX` escape above the ASCII range
+# is left as it was written: it is a spelling of a character no path
+# carries, and reading it as the character itself would need an encoder the
+# scan does not have.
+#
+# A payload the scan cannot read — no reader at all, or braces that do not
+# balance — is REFUSED. The file's location is then unknown, and an unknown
+# location is a reason to REFUSE, not to guess.
+PAYLOAD_KEYS="$(printf '%s' "${PAYLOAD}" | awk '
+function isws(c) { return (c == " " || c == "\t" || c == "\r" || c == "\n") }
+function hexval(c) {
+  if (c >= "0" && c <= "9") return c + 0
+  if (c >= "a" && c <= "f") return index("abcdef", c) + 9
+  return index("ABCDEF", c) + 9
+}
+function hexchar(code,   i, n) {
+  n = 0
+  for (i = 1; i <= 4; i++) n = n * 16 + hexval(substr(code, i, 1))
+  if (n < 32 || n > 126) return "\\u" code
+  return sprintf("%c", n)
+}
+function unescape(s,   out, i, n, c) {
+  out = ""; n = length(s); i = 1
+  while (i <= n) {
+    c = substr(s, i, 1)
+    if (c != "\\") { out = out c; i++; continue }
+    i++
+    if (i > n) { out = out "\\"; break }
+    c = substr(s, i, 1)
+    if (c == "n") out = out "\n"
+    else if (c == "t") out = out "\t"
+    else if (c == "r") out = out "\r"
+    else if (c == "b") out = out "\b"
+    else if (c == "f") out = out "\f"
+    else if (c == "u") { out = out hexchar(substr(s, i + 1, 4)); i = i + 5; continue }
+    else out = out c
+    i++
+  }
+  return out
+}
+function addMember(key, kind, val, d) {
+  nm++
+  m_parent[nm] = stk_id[d]; m_key[nm] = key; m_kind[nm] = kind; m_val[nm] = val
+}
+function openObject(   id) {
+  oid++; id = oid; depth++; stk_id[depth] = id
+  if (depth == 1) ROOT = id
+  if (pend) { addMember(pendKey, "o", id, depth - 1); pend = 0 }
+}
+function closeObject() { if (depth > 0) depth--; pend = 0 }
+function addString(v) {
+  if (depth < 1 || !pend) return
+  addMember(pendKey, "s", v, depth); pend = 0
+}
+function skipString(j,   c) {
+  j++
+  while (j <= TLEN) {
+    c = substr(TXT, j, 1)
+    if (c == "\\") { j = j + 2; continue }
+    if (c == "\"") return j + 1
+    j++
+  }
+  return TLEN + 1
+}
+function skipArray(   j, c, lvl) {
+  lvl = 1; j = POS + 1
+  while (j <= TLEN) {
+    c = substr(TXT, j, 1)
+    if (c == "\"") { j = skipString(j); continue }
+    if (c == "[") { lvl++; j++; continue }
+    if (c == "]") { lvl--; j++; if (lvl == 0) { POS = j; return } continue }
+    j++
+  }
+  POS = TLEN + 1
+}
+function scan(   i, c, j) {
+  i = 1
+  while (i <= TLEN) {
+    c = substr(TXT, i, 1)
+    if (inStr) {
+      if (esc) { esc = 0; buf = buf c; i++; continue }
+      if (c == "\\") { esc = 1; buf = buf c; i++; continue }
+      if (c == "\"") {
+        inStr = 0
+        j = i + 1
+        while (j <= TLEN && isws(substr(TXT, j, 1))) j++
+        if (j <= TLEN && substr(TXT, j, 1) == ":") {
+          pend = 1; pendKey = buf; i = j + 1
+        } else {
+          addString(unescape(buf)); i = j
+        }
+        buf = ""
+        continue
+      }
+      buf = buf c; i++; continue
+    }
+    if (c == "\"") { inStr = 1; esc = 0; buf = ""; i++; continue }
+    if (c == "{") { openObject(); i++; continue }
+    if (c == "}") { closeObject(); i++; continue }
+    if (c == "[") {
+      if (pend && depth >= 1) { addMember(pendKey, "a", "", depth); pend = 0 }
+      POS = i; skipArray(); i = POS; continue
+    }
+    if (pend && depth >= 1 && (c ~ /[-+0-9tfn]/)) { addMember(pendKey, "x", "", depth); pend = 0 }
+    i++
+  }
+}
+function findLast(parent, key,   i, idx) {
+  idx = 0
+  for (i = 1; i <= nm; i++) if (m_parent[i] == parent && m_key[i] == key) idx = i
+  return idx
+}
+{ TXT = TXT $0 "\n" }
+END {
+  TLEN = length(TXT)
+  scan()
+  tool = ""; cwd = ""; filePath = ""; inputId = 0
+  if (ROOT > 0) {
+    idx = findLast(ROOT, "tool_name")
+    if (idx > 0 && m_kind[idx] == "s") tool = m_val[idx]
+    else {
+      idx = findLast(ROOT, "tool")
+      if (idx > 0 && m_kind[idx] == "s") tool = m_val[idx]
+    }
+    idx = findLast(ROOT, "cwd")
+    if (idx > 0 && m_kind[idx] == "s") {
+      cwd = m_val[idx]
+      sub(/^[[:space:]]+/, "", cwd); sub(/[[:space:]]+$/, "", cwd)
+    }
+    idx = findLast(ROOT, "tool_input")
+    if (idx > 0 && m_kind[idx] == "o") inputId = m_val[idx]
+    if (inputId == 0) {
+      idx = findLast(ROOT, "input")
+      if (idx > 0 && m_kind[idx] == "o") inputId = m_val[idx]
+    }
+  }
+  if (inputId > 0) {
+    idx = findLast(inputId, "file_path")
+    if (idx > 0 && m_kind[idx] == "s" && length(m_val[idx]) > 0) filePath = m_val[idx]
+    else {
+      idx = findLast(inputId, "path")
+      if (idx > 0 && m_kind[idx] == "s" && length(m_val[idx]) > 0) filePath = m_val[idx]
+      else {
+        idx = findLast(inputId, "notebook_path")
+        if (idx > 0 && m_kind[idx] == "s" && length(m_val[idx]) > 0) filePath = m_val[idx]
+      }
+    }
+  }
+  # A value that carries a line break cannot be carried by this line-based
+  # protocol, and a value that COULD would let a payload write a line of its
+  # own — a file path spelling "x\nstatus=ok" would then say what it likes.
+  # Such a payload is REFUSED, not guessed at.
+  status = "ok"
+  if (depth != 0 || inStr) status = "unbalanced"
+  else if (index(tool, "\n") > 0 || index(tool, "\r") > 0 || index(cwd, "\n") > 0 || index(cwd, "\r") > 0 || index(filePath, "\n") > 0 || index(filePath, "\r") > 0) status = "unreadable"
+  printf "tool=%s\n", tool
+  printf "cwd=%s\n", cwd
+  printf "file_path=%s\n", filePath
+  printf "status=%s\n", status
+}
+' 2>/dev/null || true)"
 
-if [[ -z "${TOOL_NAME}" ]]; then
-  TOOL_NAME="$(printf '%s' "${PAYLOAD}" \
-    | grep -oE '"tool"[[:space:]]*:[[:space:]]*"[^"]+"' \
-    | head -n1 \
-    | sed -E 's/.*"tool"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/' \
-    || true)"
+if [[ -z "${PAYLOAD_KEYS}" ]]; then
+  echo "PEAKS_CODE_PROHIBITED_DIRECT_EDIT: cannot be placed: this gate has no reader for the payload, so the file's location is unknown; refusing rather than guessing. Use: peaks sub-agent dispatch rd --prompt '<your task>' --request-id <rid> --project . --batch-id <uuid>" >&2
+  exit 2
+fi
+
+SCAN_STATUS=""
+TOOL_NAME=""
+FILE_PATH=""
+PAYLOAD_CWD=""
+while IFS= read -r KEY_LINE; do
+  case "${KEY_LINE}" in
+    status=*) SCAN_STATUS="${KEY_LINE#status=}" ;;
+    tool=*) TOOL_NAME="${KEY_LINE#tool=}" ;;
+    file_path=*) FILE_PATH="${KEY_LINE#file_path=}" ;;
+    cwd=*) PAYLOAD_CWD="${KEY_LINE#cwd=}" ;;
+  esac
+done <<< "${PAYLOAD_KEYS}"
+
+if [[ "${SCAN_STATUS}" != "ok" ]]; then
+  echo "PEAKS_CODE_PROHIBITED_DIRECT_EDIT: cannot be placed: the payload is not a JSON object this gate can read at its top level, so the file's location is unknown; refusing rather than guessing. Use: peaks sub-agent dispatch rd --prompt '<your task>' --request-id <rid> --project . --batch-id <uuid>" >&2
+  exit 2
 fi
 
 # --- 3. Only gate Edit / Write / MultiEdit ----------------------------------
@@ -109,32 +318,46 @@ case "${TOOL_NAME}" in
   *) exit 0 ;;
 esac
 
-# --- 4. Extract the target file path ----------------------------------------
+# --- 4. The target file path -----------------------------------------------
 # The hook protocol uses different keys per vendor / version:
 #   - Edit → input.file_path
 #   - Write → input.file_path
 #   - MultiEdit → input.file_path
-# Try `file_path` first, fall back to `path`, fall back to `notebook_path`.
-FILE_PATH=""
-for KEY in file_path path notebook_path; do
-  CAND="$(printf '%s' "${PAYLOAD}" \
-    | grep -oE "\"${KEY}\"[[:space:]]*:[[:space:]]*\"[^\"]+\"" \
-    | head -n1 \
-    | sed -E "s/.*\"${KEY}\"[[:space:]]*:[[:space:]]*\"([^\"]+)\".*/\\1/" \
-    || true)"
-  if [[ -n "${CAND}" ]]; then
-    FILE_PATH="${CAND}"
-    break
-  fi
-done
-
+# and the scan above read them out of the tool's own arguments, in that
+# order: `file_path`, then `path`, then `notebook_path`.
+#
 # No path in the payload → cannot decide; allow (fail-open on
 # path-missing rather than false-positive block).
 if [[ -z "${FILE_PATH}" ]]; then
   exit 0
 fi
 
-# --- 5. Normalize the SPELLING of the path ----------------------------------
+# --- 5. The directory the tool call runs in ----------------------------------
+# The payload states it in its own top-level `cwd` key, and the scan above
+# read that key at the top level only — a `cwd` nested inside the tool's own
+# arguments is an argument, not the directory the call runs in. The
+# directory the call runs in is the base a RELATIVE path is read against, and
+# the guard reads the path against its OWN working directory, so a stated
+# directory it cannot use as that base leaves the file's location unknown.
+# Unknown is a reason to REFUSE, not to guess: this is the refusal that
+# closes the gap where the sibling allowed what the Node command denies.
+if [[ -n "${PAYLOAD_CWD}" ]]; then
+  # The physical spelling of the WORKING DIRECTORY, and of the directory the
+  # payload states. Both are resolved through their symlinks, so two
+  # spellings of ONE directory compare equal.
+  OWN_CANON="$(pwd -P 2>/dev/null || printf '%s' "${PWD}")"
+  STATED_CANON="$(CDPATH='' cd -P -- "${PAYLOAD_CWD}" 2>/dev/null && pwd -P || true)"
+  if [[ -z "${STATED_CANON}" ]]; then
+    echo "PEAKS_CODE_PROHIBITED_DIRECT_EDIT: ${FILE_PATH} cannot be placed: the payload states the tool call's directory (${PAYLOAD_CWD}), which this gate cannot read; refusing rather than guessing. Use: peaks sub-agent dispatch rd --prompt '<your task>' --request-id <rid> --project . --batch-id <uuid>" >&2
+    exit 2
+  fi
+  if [[ "${STATED_CANON}" != "${OWN_CANON}" ]]; then
+    echo "PEAKS_CODE_PROHIBITED_DIRECT_EDIT: ${FILE_PATH} cannot be placed: the payload states the tool call's directory (${PAYLOAD_CWD}), which is not the directory this gate runs in; refusing rather than guessing. Use: peaks sub-agent dispatch rd --prompt '<your task>' --request-id <rid> --project . --batch-id <uuid>" >&2
+    exit 2
+  fi
+fi
+
+# --- 6. Normalize the SPELLING of the path ----------------------------------
 # The deny families are project-relative prefixes, so how the path is
 # spelled must not decide the verdict: `./src/x.ts` is the file `src/x.ts`.
 # Two normalizations, and both of them are spelling-level:
@@ -152,22 +375,23 @@ fi
 #   - the LEXICAL reading: the base as it is SPELLED ($PWD), and the project
 #     root as that base spells it
 #   - the CANONICAL reading: the base RESOLVED through its symlinks
-#     (`pwd -P`), and the project root derived from THAT base
+#     (`pwd -P`), and the project root in its own canonical spelling
 # One directory can be named two ways — a symlink, a junction, macOS's
 # `/var` → `/private/var` — and the difference is what a symlinked BASE
-# inside the project looks like: the call runs in `link/`, `link/` points
-# at `src/`, and the file it writes lands in `src/`. The lexical reading
-# says `link/deep/x.ts` (no family) and the canonical one says
-# `src/deep/x.ts` (a family). A wrongly allowed edit is a hole in the gate
-# and a wrongly refused one is only an inconvenience, so a path that EITHER
-# reading places in a hard-blocked family is REFUSED.
+# inside the project looks like: the call runs in `link/`, `link/` points at
+# `src/`, and the file it writes lands in `src/`. The lexical reading says
+# `link/deep/x.ts` (no family) and the canonical one says `src/deep/x.ts`
+# (a family). A wrongly allowed edit is a hole in the gate; a wrongly refused
+# one is only an inconvenience.
 #
-# The project root is the nearest ancestor of the call's own directory that
-# carries a peaks workspace. The script takes no arguments and no env vars,
-# so the root is found by walking UP; the NEAREST one wins, so a project
-# nested inside another repository is judged against ITSELF. A file OUTSIDE
-# the project belongs to no family, and the spelling is all the project can
-# judge it by, so that case falls back to the spelling read against the root.
+# The project root the deny families are relative to: the one the caller named
+# as this script's argument, and otherwise the nearest ancestor of the
+# WORKING DIRECTORY ($PWD) that carries a peaks workspace. $PWD is the
+# directory the tool call runs in — NOT the directory this script lives in.
+# The nearest one wins, so a project nested inside another repository is
+# judged against ITSELF. A file OUTSIDE the project belongs to no family, and
+# the spelling is all the project can judge it by, so that case falls back to
+# the spelling read against the root.
 #
 # An ABSOLUTE path is NOT relativized here: that needs the project root in
 # the payload's own spelling, which this script does not have, and a guess
@@ -298,6 +522,34 @@ read_canonical_under() {
   printf '%s' "${out}"
 }
 
+# The canonical spelling of a directory, or nothing when it cannot be entered.
+canonical_dir() {
+  (CDPATH='' cd -P -- "$1" 2>/dev/null && pwd -P) || true
+}
+
+# The ancestor of `dir` that IS `wanted`, in `dir`'s OWN spelling. Nothing
+# when there is no such ancestor.
+#
+# The caller's root arrives in the caller's spelling — a Windows path on
+# Windows, a POSIX one elsewhere — and two spellings of one directory have
+# to be compared before a path can be read against them. The ancestor is
+# therefore found by asking which one of them the caller named.
+ancestor_named() {
+  local dir="${1%/}" wanted="$2" canon=""
+  while [[ -n "${dir}" ]]; do
+    canon="$(canonical_dir "${dir}")"
+    if [[ -n "${canon}" && "${canon}" == "${wanted}" ]]; then
+      printf '%s' "${dir}"
+      return 0
+    fi
+    if [[ "${dir}" == "/" ]]; then
+      break
+    fi
+    dir="$(dirname "${dir}")"
+  done
+  return 1
+}
+
 MATCH_PATH="${FILE_PATH//\\//}"
 
 # Is the path ABSOLUTE as the tool SPELLED it? Decided BEFORE the `./`
@@ -313,13 +565,31 @@ esac
 while [[ "${MATCH_PATH}" == ./* ]]; do
   MATCH_PATH="${MATCH_PATH#./}"
 done
-PROJECT_ROOT="$(project_root "${PWD}")"
-# The base in its other spelling, and the project root THAT base names. The
-# root is walked on the SAME spelling as its base, so the two always relate
-# to each other: a root found from the physical base is a physical path, and
-# the file is compared against it in the same spelling.
+
+# The project root: the one the caller named, and otherwise the nearest
+# peaks workspace above $PWD — the WORKING DIRECTORY, which is the directory
+# the tool call runs in and NOT the directory this script lives in. It is ONE
+# root, read in two spellings — the lexical one and its canonical one — so the
+# two readings of a file are always judged against the same project. A root
+# DERIVED from the physical base would degenerate when that base sits outside
+# the project, and the two readings would then answer about two different
+# projects.
+PROJECT_ROOT=""
+if [[ -n "${PROJECT_ROOT_ARG}" && -d "${PROJECT_ROOT_ARG}" ]]; then
+  GIVEN_CANON="$(canonical_dir "${PROJECT_ROOT_ARG}")"
+  if [[ -n "${GIVEN_CANON}" ]]; then
+    PROJECT_ROOT="$(ancestor_named "${PWD}" "${GIVEN_CANON}" || true)"
+  fi
+fi
+if [[ -z "${PROJECT_ROOT}" ]]; then
+  PROJECT_ROOT="$(project_root "${PWD}")"
+fi
 PHYSICAL_BASE="$(pwd -P 2>/dev/null || printf '%s' "${PWD}")"
-PHYSICAL_ROOT="$(project_root "${PHYSICAL_BASE}")"
+PHYSICAL_ROOT="$(canonical_dir "${PROJECT_ROOT}")"
+if [[ -z "${PHYSICAL_ROOT}" ]]; then
+  PHYSICAL_ROOT="${PROJECT_ROOT}"
+fi
+
 # An ABSOLUTE path keeps its own shape: making it project-relative needs
 # the project root in the payload's own spelling, which this script does not
 # have. A RELATIVE path is read against the directory the call runs in, and
@@ -352,7 +622,7 @@ fi
 MATCH_FOLDED="$(printf '%s' "${MATCH_PATH}" | tr '[:upper:]' '[:lower:]')"
 CANONICAL_FOLDED="$(printf '%s' "${MATCH_CANONICAL}" | tr '[:upper:]' '[:lower:]')"
 
-# --- 6. Allow-list check (.peaks/, .peaks/_runtime/, skills/) ---------------
+# --- 7. Allow-list check (.peaks/, .peaks/_runtime/, skills/) ---------------
 # Allow-listed paths are NEVER blocked. The orchestrator may freely
 # Edit/Write these — they are not application source code.
 #
@@ -366,7 +636,7 @@ allow_listed() {
   return 1
 }
 
-# --- 7. Hard-blocked path family scan ---------------------------------------
+# --- 8. Hard-blocked path family scan ---------------------------------------
 # Match against the 6 deny families. Order matters only for the stderr
 # message; the deny rule is symmetric across all 6 families.
 blocked_family() {
@@ -401,7 +671,7 @@ if [[ "${BLOCKED}" != "1" ]]; then
   exit 0
 fi
 
-# --- 8. Emit deny signal ---------------------------------------------------
+# --- 9. Emit deny signal ---------------------------------------------------
 # Exit 2 = the standard PreToolUse hook deny code. Stderr carries the
 # structured reason string the LLM reads on its next turn; stdout is
 # empty (this hook does not need a hookSpecificOutput envelope — it is

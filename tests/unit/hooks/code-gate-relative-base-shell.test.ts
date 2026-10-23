@@ -4,6 +4,12 @@
 // judged a RELATIVE path as spelled, so a call running in `src/` could name
 // `deep/x.ts` and reach `src/deep/x.ts`.
 //
+// The sibling is now a THIN WRAPPER over the Node command: where a command is
+// reachable it execs it, and the comparison below would be the command
+// against itself. It is therefore run with NO command reachable, so what
+// answers is the conservative path inside it — the one a harness without Node
+// gets — and that path is still compared with the command, case by case.
+//
 // It reads the path against the directory the call runs in (`$PWD`) and
 // judges the file it lands in, and the Node command must reach the same
 // verdict for the same input.
@@ -33,6 +39,7 @@ import { join, resolve } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { runHook } from '../_setup/code-gate-shell-harness.js';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
@@ -48,7 +55,6 @@ declareDimensions(
 );
 
 const ROOT = resolve(__dirname, '..', '..', '..');
-const HOOK_SCRIPT = resolve(ROOT, 'src', 'services', 'hooks', 'pre-tool-code-gate.sh');
 
 vi.setConfig({ testTimeout: SUBPROCESS_TEST_TIMEOUT_MS });
 
@@ -106,19 +112,23 @@ function payload(filePath: string, cwd: string): string {
   return JSON.stringify({ tool: 'Edit', input: { file_path: filePath }, cwd });
 }
 
-/** The sibling, run in the directory the call runs in. */
+/**
+ * The sibling's OWN decision.
+ *
+ * The sibling is a thin wrapper over the Node command: where a command is
+ * reachable it execs it, so running it against the command would compare the
+ * command with itself. It is therefore run with NO command reachable at all,
+ * and what answers is the conservative path inside it — the one a harness
+ * without Node gets. The project root is passed the way a caller passes it,
+ * so both sides judge the families against the same project.
+ */
 function runShellSibling(
   root: string,
   stdin: string,
   cwd: string
 ): { status: number | null; stderr: string } {
-  const run = spawnSync('bash', [HOOK_SCRIPT], {
-    cwd,
-    encoding: 'utf8',
-    windowsHide: true,
-    input: stdin
-  });
-  return { status: run.status, stderr: run.stderr ?? '' };
+  const run = runHook({ payload: stdin, cwd, args: [root], cli: false });
+  return { status: run.status, stderr: run.stderr };
 }
 
 /** The Node command, run with the same payload and the same project. */

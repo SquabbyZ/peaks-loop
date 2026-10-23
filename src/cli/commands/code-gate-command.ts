@@ -4,10 +4,10 @@
  * payload from stdin and either exits 0 (allow) or exits 2 with stderr
  * containing PEAKS_CODE_PROHIBITED_DIRECT_EDIT (deny).
  *
- * This command is the runtime adapter for the shell-script sibling
- * (`src/services/hooks/pre-tool-code-gate.sh`). Both share the same
- * path-family decision; the CLI invokes the same pure decision
- * function (`decideGateAction`) the shell script encodes.
+ * This command is the runtime adapter the shell-script sibling
+ * (`src/services/hooks/pre-tool-code-gate.sh`) EXECS. The path-family
+ * decision lives in ONE implementation — `decideGateAction` — and the
+ * sibling's own no-CLI fallback is a narrower copy of it.
  *
  * Settings.json entry shape (vendor-neutral, registered by
  * `peaks hooks install`): an `Edit|Write|MultiEdit` matcher whose command is

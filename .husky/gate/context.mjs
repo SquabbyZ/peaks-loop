@@ -104,19 +104,45 @@ const inScope = (p) => filterScopeFiles([p], SCOPE_DIRS, EXTENSIONS).length === 
  * a message that a reader cannot flatten: it names the count, the source, and
  * what did NOT happen. The failure path is separate and shouts differently
  * ("push blocked", exit 1).
+ *
+ * THE AXIS IS NAMED, AND THE CLAIM IS ONLY MADE WHEN IT IS TRUE. The commit
+ * path runs a SECOND check — the wide formatting leg (`.husky/gate/wide-format.mjs`)
+ * — over the very files the lint scope drops. So "NOTHING WAS COMPARED" is
+ * true only while NOTHING was compared: once the wide leg has read a file, the
+ * sentence becomes "THE PER-FILE RATCHET COMPARED NOTHING" and `otherAxisNote`
+ * says what the other axis did. A reader must never be able to flatten "one file
+ * was compared and it was unformatted" into "nothing was checked" — and a reader
+ * must never be able to read "nothing was compared" as "the tree is clean".
+ *
+ * THE NOTE IS THE CALLER'S, AND ITS ABSENCE IS A MEASUREMENT. `otherAxisNote`
+ * is null when the caller's OTHER axis measured nothing — the wide formatting
+ * leg on the commit path, the push gate's whole-tree legs on the push path.
+ * A null note is therefore a fact ("nothing else read anything"), not a missing
+ * argument: it is what keeps the plain "NOTHING WAS COMPARED" sentence honest
+ * on the commit path, and what lets the push path name its own other axes.
  */
-function reportEmpty(source, droppedCount = 0) {
+function reportEmpty(source, droppedCount = 0, otherAxisNote = null) {
+  const axis = otherAxisNote === null ? '' : ` ${otherAxisNote}`;
   if (droppedCount > 0) {
+    const head =
+      otherAxisNote === null
+        ? `peaks-gate: NOTHING WAS COMPARED (${source})`
+        : `peaks-gate: THE PER-FILE RATCHET COMPARED NOTHING (${source})`;
     console.log(
-      `peaks-gate: NOTHING WAS COMPARED (${source}) — the change set held ${droppedCount} ` +
-        'code file(s) and every one of them is OUTSIDE the lint scope (owner decision ' +
-        '2026-10-03). This is a scope exemption, not a clean result: "nothing checked" ' +
-        'and "0 findings" remain different sentences.'
+      `${head} — the change set held ${droppedCount} code file(s) and every one of them is ` +
+        `OUTSIDE the lint scope (owner decision 2026-10-03).${axis} This is a scope ` +
+        'exemption for the per-file ratchet, not a clean result: "nothing checked" and ' +
+        '"0 findings" remain different sentences.'
     );
     return 0;
   }
+  const empty =
+    otherAxisNote === null
+      ? `peaks-gate: EMPTY CHANGE SET (${source}) — 0 in-scope files, NOTHING WAS CHECKED.`
+      : `peaks-gate: EMPTY CHANGE SET (${source}) — 0 in-scope files; THE PER-FILE RATCHET ` +
+        `CHECKED NOTHING.${axis}`;
   console.log(
-    `peaks-gate: EMPTY CHANGE SET (${source}) — 0 in-scope files, NOTHING WAS CHECKED.\n` +
+    `${empty}\n` +
       '  This is neither a pass nor a failure: there was no file to compare against the\n' +
       '  baseline. Zero files checked is not "clean" — it is zero files checked.'
   );
@@ -128,12 +154,21 @@ function reportEmpty(source, droppedCount = 0) {
 // exemption is named path by path. One implementation for `staged` and `changed`
 // (the two per-file modes), differing only in the label. Non-code paths (.md,
 // .json) are not named: they were never a candidate for any leg.
+//
+// THE AXIS IS NAMED (`by the per-file ratchet`). The commit path also runs the
+// WIDE formatting leg (`.husky/gate/wide-format.mjs`) over the staged files the
+// lint scope drops, so "were not compared" — with no axis — became false for
+// exactly the files the wide leg DID compare. The sentence now says which check
+// did not compare them, and the wide leg's own line says which check did, so
+// two sentences in one output can never say opposite things about one file.
+// The file set is unchanged: every out-of-scope code file is still NAMED here,
+// and the wide leg names the ones it read in its own line.
 function outOfScopeNotice(label, allRelPaths) {
   const dropped = allRelPaths.filter((f) => !inScope(f) && hasLintExtension(f));
   if (dropped.length > 0) {
     console.log(
       `peaks-gate: ${dropped.length} ${label} file(s) are outside the lint scope and were ` +
-        `not compared: ${dropped.join(', ')}`
+        `not compared by the per-file ratchet: ${dropped.join(', ')}`
     );
   }
   return dropped.length;

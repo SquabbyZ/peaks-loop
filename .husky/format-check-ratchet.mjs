@@ -68,18 +68,31 @@ const FORMAT_SCRIPT = 'format:check';
 // ---------------------------------------------------------------------------
 export const FORMAT_CHECK_BASELINE_FILES = Object.freeze([]);
 
+// The scope reader, exported for the one other consumer of the SAME scope: the
+// commit-time wide formatting leg (`.husky/gate/wide-format.mjs`). One reader, two
+// consumers — a second copied glob list would be a scope nothing observes.
+export { readCheckGlobs };
+
 /** A configuration problem (exit 2), the same usage code the gate uses. */
 function refuse(message) {
   console.error(`format-check-ratchet: ${message}`);
   process.exit(2);
 }
 
-/** The four globs, read from the script that owns them. */
-function checkGlobs() {
-  const pkg = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8'));
+/**
+ * The four globs, read from the script that owns them — the ONE reader of that
+ * scope, shared with the commit-time leg that measures the same scope over the
+ * STAGED files (`.husky/gate/wide-format.mjs`).
+ *
+ * IT THROWS rather than refusing, so that second consumer can fail closed in its
+ * own voice instead of having this process exit from under it. `checkGlobs()`
+ * below is this ratchet's own wrapper and keeps its refusal and its exit code.
+ */
+function readCheckGlobs(pkgPath = resolve(ROOT, 'package.json')) {
+  const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
   const script = pkg.scripts?.[FORMAT_SCRIPT];
   if (typeof script !== 'string') {
-    refuse(
+    throw new Error(
       `package.json declares no scripts.${FORMAT_SCRIPT}, so this ratchet has no scope to ` +
         'measure. It reads the globs from that script rather than restating them.'
     );
@@ -89,16 +102,26 @@ function checkGlobs() {
   // tokens are both accepted, so quoting the globs differently is not a refusal.
   const match = /^prettier\s+--check\s+(.+)$/.exec(script.trim());
   if (match === null) {
-    refuse(
+    throw new Error(
       `scripts.${FORMAT_SCRIPT} is ${JSON.stringify(script)}, which is not ` +
         '"prettier --check <globs>" — this ratchet cannot derive its scope from it.'
     );
   }
   const tokens = match[1].match(/"[^"]*"|\S+/g) ?? [];
   const globs = tokens.map((token) => token.replace(/^"|"$/g, ''));
-  if (globs.length === 0)
-    refuse(`scripts.${FORMAT_SCRIPT} names no globs: ${JSON.stringify(script)}`);
+  if (globs.length === 0) {
+    throw new Error(`scripts.${FORMAT_SCRIPT} names no globs: ${JSON.stringify(script)}`);
+  }
   return globs;
+}
+
+/** The four globs, read from the script that owns them — refusing when it cannot. */
+function checkGlobs() {
+  try {
+    return readCheckGlobs();
+  } catch (err) {
+    refuse(String(err.message));
+  }
 }
 
 /** The differing files, one per line. prettier exits 1 when any differ. */

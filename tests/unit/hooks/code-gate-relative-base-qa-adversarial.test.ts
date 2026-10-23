@@ -30,6 +30,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { decideGateAction } from '~/src/services/hooks/pre-tool-code-gate';
 import { readToolCallCwd } from '~/src/services/hooks/hook-payload-cwd';
+import { runHook } from '../_setup/code-gate-shell-harness.js';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
@@ -46,7 +47,6 @@ declareDimensions(
 );
 
 const ROOT = resolve(__dirname, '..', '..', '..');
-const HOOK_SCRIPT = resolve(ROOT, 'src', 'services', 'hooks', 'pre-tool-code-gate.sh');
 
 vi.setConfig({ testTimeout: SUBPROCESS_TEST_TIMEOUT_MS });
 
@@ -95,19 +95,22 @@ function runCodeGate(
   return { status: run.status, stdout: run.stdout ?? '' };
 }
 
-/** The shell sibling, run in the directory the call runs in. */
+/**
+ * The sibling's OWN decision.
+ *
+ * The sibling is a thin wrapper over the Node command: where a command is
+ * reachable it execs it, so running it against the command would compare the
+ * command with itself. It is therefore run with NO command reachable at all,
+ * and what answers is the conservative path inside it — the one a harness
+ * without Node gets.
+ */
 function runShellSibling(
   root: string,
   stdin: string,
   cwd: string
 ): { status: number | null; stderr: string } {
-  const run = spawnSync('bash', [HOOK_SCRIPT], {
-    cwd,
-    encoding: 'utf8',
-    windowsHide: true,
-    input: stdin
-  });
-  return { status: run.status, stderr: run.stderr ?? '' };
+  const run = runHook({ payload: stdin, cwd, args: [root], cli: false });
+  return { status: run.status, stderr: run.stderr };
 }
 
 /** The verdict the Node command reached. */

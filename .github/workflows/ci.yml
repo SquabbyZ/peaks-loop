@@ -648,6 +648,20 @@ jobs:
   # they cover and in nothing else — both ratchet, neither is a whole-repo boolean. They
   # can therefore never drift into "a check that is documented and never run" again.
   #
+  # AMENDED 2026-10-23 — the commit path now has a WIDE LEG TOO, and the sentence
+  # above ("the missing half was the WIDE EXECUTOR. This job is it") is no longer the
+  # whole truth. The commit gate gained `.husky/gate/wide-format.mjs`: a staged file
+  # that is outside the lint scope but inside these four globs must be prettier-clean,
+  # refused with exit 1 at commit time. It is the SAME KIND of rule as this job — a
+  # set ratchet with no per-file row, over the same four globs, read from the same
+  # one place (`readCheckGlobs()` in `.husky/format-check-ratchet.mjs`) — and it is
+  # what caught the leak at the boundary rather than a release later. So the two
+  # scopes did NOT converge; a SECOND, DIFFERENT-KINDED check was added over the
+  # wide globs beside the per-file ratchet, and the lint scope itself is unchanged
+  # (owner decision 2026-10-03). What changed on 2026-10-23 is that "the wide check
+  # is documented and only CI runs it" is no longer true: it now runs in CI AND at the
+  # commit boundary.
+  #
   # A SET RATCHET, NOT A BOOLEAN — and the set is now EMPTY. The job asserts the current
   # unformatted set stays INSIDE the baseline SET, so it is GREEN on the tree it lands on
   # and RED the moment an unformatted file appears OUTSIDE that set — the only way the leak

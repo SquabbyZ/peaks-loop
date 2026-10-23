@@ -25,14 +25,14 @@
 // This is a construction of the same shape macOS CI produced — a directory
 // named two ways — NOT a macOS run. The host here is Windows.
 
-import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { decideGateAction } from '~/src/services/hooks/pre-tool-code-gate';
+import { runHook } from '../_setup/code-gate-shell-harness.js';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
@@ -47,9 +47,6 @@ declareDimensions(
     }
   ]
 );
-
-const ROOT = resolve(__dirname, '..', '..', '..');
-const HOOK_SCRIPT = resolve(ROOT, 'src', 'services', 'hooks', 'pre-tool-code-gate.sh');
 
 vi.setConfig({ testTimeout: SUBPROCESS_TEST_TIMEOUT_MS });
 
@@ -98,14 +95,22 @@ function payload(filePath: string, cwd?: string): string {
   });
 }
 
-function runShell(stdin: string, cwd: string): { status: number | null; stderr: string } {
-  const run = spawnSync('bash', [HOOK_SCRIPT], {
-    cwd,
-    encoding: 'utf8',
-    windowsHide: true,
-    input: stdin
-  });
-  return { status: run.status, stderr: run.stderr ?? '' };
+/**
+ * The sibling's OWN decision.
+ *
+ * The sibling is a thin wrapper over the Node command: where a command is
+ * reachable it execs it, so running it against the command would compare the
+ * command with itself. It is therefore run with NO command reachable at all,
+ * and what answers is the conservative path inside it — the one a harness
+ * without Node gets.
+ */
+function runShell(
+  root: string,
+  stdin: string,
+  cwd: string
+): { status: number | null; stderr: string } {
+  const run = runHook({ payload: stdin, cwd, args: [root], cli: false });
+  return { status: run.status, stderr: run.stderr };
 }
 
 function shellVerdict(status: number | null): 'deny' | 'allow' {
@@ -200,7 +205,7 @@ describe('integration — the shell sibling on the recorded shapes', () => {
     // then: the sibling denies — the two gates agree on that shape
     const project = makeProject();
 
-    const run = runShell(payload('.//src/x.ts'), project.real);
+    const run = runShell(project.real, payload('.//src/x.ts'), project.real);
 
     expect(shellVerdict(run.status)).toBe('deny');
   });
@@ -218,7 +223,7 @@ describe('integration — the shell sibling on the recorded shapes', () => {
       projectRoot: project.real,
       toolCwd: project.real
     });
-    const run = runShell(payload(absolute), project.real);
+    const run = runShell(project.real, payload(absolute), project.real);
 
     expect(verdict.action).toBe('deny');
     expect(shellVerdict(run.status)).toBe('allow');
@@ -236,7 +241,7 @@ describe('integration — the shell sibling on the recorded shapes', () => {
       projectRoot: project.real,
       toolCwd: base
     });
-    const run = runShell(payload('src/x.ts'), base);
+    const run = runShell(project.real, payload('src/x.ts'), base);
 
     expect(verdict.action).toBe('allow');
     expect(shellVerdict(run.status)).toBe('allow');

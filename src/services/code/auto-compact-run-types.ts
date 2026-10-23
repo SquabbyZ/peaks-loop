@@ -28,16 +28,20 @@ export interface AutoCompactInput {
    */
   readonly inFlightBatch?: InFlightBatchProbe | undefined;
   /**
-   * Slice 4.0.8 (D4d): graph-only in-flight probe. When supplied,
-   * the orchestrator calls this function and uses the boolean
-   * result as the production `inFlightBatch` signal. The legacy
+   * Slice 4.0.8 (D4d): the in-flight probe. When supplied, the
+   * orchestrator calls this function with the session it resolved and uses
+   * the boolean result as the production `inFlightBatch` signal. The legacy
    * boolean parameter is suppressed in production callers — the
    * CLI's `--in-flight-batch` flag is gated behind
    * `PEAKS_TEST_SEAM === '1'`. The pure decision function
    * `evaluateAutoCompactDecision` retains the boolean signature
    * for the test seam + the red-line override.
+   *
+   * The session id is a parameter because the probe reads that session's
+   * dispatch ledger: the orchestrator already resolved the session, and a
+   * second resolution could name a different one.
    */
-  readonly probeInflightBatch?: (() => boolean) | undefined;
+  readonly probeInflightBatch?: ((sessionId: string) => boolean) | undefined;
   /**
    * Force execute even when ratio < threshold (test seam). In
    * production this is always `false` — peaks-loop drives compact

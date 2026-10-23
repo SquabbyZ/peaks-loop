@@ -31,6 +31,22 @@
 // non-zero exit as a hard stop. Returning a structured
 // object would force every caller to duplicate the
 // success/failure logic.
+//
+// A GATE WITH NOTHING TO CHECK SAYS SO, AND DOES NOT FAIL.
+// A tree of zero source-bearing packages used to fall
+// through to the same success line a tree of twenty
+// verified packages prints — `build-integrity: OK` — so a
+// reader could not tell "I checked twenty packages and
+// they agree" from "I checked nothing". The empty set is
+// LEGAL (a tree really can hold no source-bearing
+// package) and turning it into a red would break the
+// `build` and `pretest` chains on a legitimate tree, so
+// the exit code stays 0. The MESSAGE is what changes, and
+// it must not contain the all-clear at all: a reader (or
+// a grep) that flattens the output to the bare all-clear
+// would read a check that never happened as a check that
+// passed. Same discipline as `.husky/gate/context.mjs`'s
+// `reportEmpty()` for an empty change set.
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -111,12 +127,21 @@ function listDistJs(pkgName) {
 }
 
 const errors = [];
+// The two counts the nothing-to-check message names. `considered` is every
+// package directory under `packages/`; `sourceBearing` is the subset this
+// gate actually compared. Their difference is the packages skipped for
+// having no `.ts` source — a different fact from "the tree is empty", so
+// both numbers are reported.
+let considered = 0;
+let sourceBearing = 0;
 
 for (const entry of readdirSync(packagesRoot, { withFileTypes: true })) {
   if (!entry.isDirectory()) continue;
+  considered += 1;
   const pkgName = entry.name;
   const sources = listTsSources(pkgName);
   if (sources.length === 0) continue; // Skip packages without src/.
+  sourceBearing += 1;
 
   const expected = new Set([
     ...sources,
@@ -183,7 +208,42 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-// Quiet success path — pipeline callers don't want a
-// chatty stdout that mixes with build output. Operators
-// running the script standalone can grep for this line.
-process.stdout.write('build-integrity: OK\n');
+/**
+ * THE NOTHING-TO-CHECK MESSAGE.
+ *
+ * It names the count, the directory searched, and what did NOT happen — the
+ * three things `reportEmpty()` in `.husky/gate/context.mjs` names for an
+ * empty change set, in the same language. It deliberately does NOT contain
+ * the string `build-integrity: OK`: the all-clear this script prints on a
+ * verified tree would sit inside it as a substring, and a reader (or a grep)
+ * that flattens the output to the bare all-clear would then read a check that
+ * never happened as a check that passed. The leading token is
+ * `NOTHING WAS COMPARED` instead, which no flattening turns into the
+ * all-clear.
+ *
+ * @param {number} considered - the package directories under `packages/`.
+ *   PRECONDITION: no package was source-bearing, so every one of them was
+ *   skipped — the count of skipped packages is `considered` itself.
+ * @returns {string} the line(s) to print, ending in a newline
+ */
+function nothingToCheckMessage(considered) {
+  // No package had a `.ts` source, so every considered package was skipped.
+  const skipped = considered;
+  const skippedNote = skipped > 0 ? ` (${skipped} skipped for having no src/*.ts)` : '';
+  return [
+    `build-integrity: NOTHING WAS COMPARED — 0 source-bearing package(s) of ${considered} package(s) considered under ${packagesRoot}${skippedNote}.`,
+    '  Zero packages compared is not "clean" — it is zero packages compared.',
+    ''
+  ].join('\n');
+}
+
+// A gate with nothing to check must SAY SO, and must not fail: the empty set
+// is legal, so the exit code stays 0 and only the message changes.
+if (sourceBearing === 0) {
+  process.stdout.write(nothingToCheckMessage(considered));
+} else {
+  // Quiet success path — pipeline callers don't want a
+  // chatty stdout that mixes with build output. Operators
+  // running the script standalone can grep for this line.
+  process.stdout.write('build-integrity: OK\n');
+}

@@ -8,10 +8,13 @@
 // peaks-loop@latest`: the links bound to a VERSION, not to a PATH peaks-loop owns.
 //
 // WIRED FOR SKILLS (slice 2) and PRUNED (slice 3); agents / output-styles are later.
-// `scripts/install-skills.mjs` is the only caller today. Idempotence is by CONTENT —
-// an asset whose bytes already match is not rewritten — and OWNERSHIP is by MARKER:
-// see `isManagedEntry`, which gates the replace path here and the delete path in
-// `scripts/canonical-store-prune.mjs`.
+// `scripts/install-skills.mjs` is the only caller today. Idempotence is by CONTENT
+// AND BY VERSION — an asset whose bytes already match is not rewritten, and an
+// asset made by an OLDER release is refreshed even when its bytes happen to
+// match — and OWNERSHIP is by MARKER: see `isManagedEntry`, which gates the
+// replace path here and the delete path in `scripts/canonical-store-prune.mjs`.
+// The marker itself, its format and the version it records, live in
+// `scripts/canonical-store-marker.mjs`.
 
 import { randomUUID } from 'node:crypto';
 import {
@@ -19,17 +22,38 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
-  readdirSync,
-  readFileSync,
-  realpathSync,
   renameSync,
   rmSync,
   symlinkSync,
-  unlinkSync,
-  writeFileSync
+  unlinkSync
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+
+import { contentMatches, getPathStats, linkResolvesTo } from './canonical-store-fs.mjs';
+import {
+  LEGACY_MARKER_KIND,
+  MANAGED_MARKER_SUFFIX,
+  isVersionBehind,
+  markerExists,
+  parseLegacyMarker,
+  readManagedMarker,
+  readManagedTarget,
+  writeManagedMarker
+} from './canonical-store-marker.mjs';
+
+// The marker API is re-exported from here so every existing importer — the
+// link module, the prune module, the type declarations — keeps its one
+// import site, while the format itself lives in the module that owns it.
+export {
+  LEGACY_MARKER_KIND,
+  MANAGED_MARKER_SUFFIX,
+  parseLegacyMarker,
+  readManagedMarker,
+  readManagedTarget,
+  writeManagedMarker
+};
+export { linkResolvesTo };
 
 /** The three asset families, parallel under the canonical root. */
 export const CANONICAL_ASSET_KINDS = Object.freeze(['skills', 'agents', 'output-styles']);
@@ -38,64 +62,24 @@ export const CANONICAL_ASSET_KINDS = Object.freeze(['skills', 'agents', 'output-
  *  `~/.peaks` (`src/services/sop/sop-paths.ts`). */
 export const CANONICAL_ROOT_ENV = 'PEAKS_HOME';
 
-/** Sidecar suffix, same convention `install-skills.mjs` already writes. */
-export const MANAGED_MARKER_SUFFIX = '.peaks-managed';
-
 /** Scratch prefix for the atomic write; never a valid name (assets do not start with a dot). */
 const TEMP_PREFIX = '.peaks-tmp-';
-
-function getPathStats(path) {
-  try {
-    return lstatSync(path);
-  } catch {
-    return null;
-  }
-}
-
-/** `\\?\C:\x` and `\\?\UNC\srv\share` are spellings of a path, not other paths. */
-function stripLongPathPrefix(value) {
-  const uncPrefix = '\\\\?\\UNC\\';
-  if (value.startsWith(uncPrefix)) return `\\\\${value.slice(uncPrefix.length)}`;
-  const prefix = '\\\\?\\';
-  return value.startsWith(prefix) ? value.slice(prefix.length) : value;
-}
-
-/**
- * The real, resolved, case-folded identity of a path, or null when it does not
- * resolve (a dangling junction included).
- */
-function resolveIdentity(path) {
-  let resolved;
-  try {
-    resolved = realpathSync(path);
-  } catch {
-    return null;
-  }
-  const normalized = stripLongPathPrefix(resolved);
-  return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
-}
-
-/**
- * Whether `linkPath` resolves to the same directory as `expectedPath`. Both sides
- * go through `realpath`, so a `\\?\` prefix, a `.` segment or a case difference
- * cannot make one directory look like two.
- */
-export function linkResolvesTo(linkPath, expectedPath) {
-  const actual = resolveIdentity(linkPath);
-  const expected = resolveIdentity(expectedPath);
-  return actual !== null && expected !== null && actual === expected;
-}
 
 /**
  * Does peaks-loop own `targetPath`? Our `.peaks-managed` marker beside it is the
  * only proof: a path the user authored carries none and must never be replaced or
  * removed (a DANGLING link counts as ours).
+ *
+ * The marker's PRESENCE is the proof, not its content — the content is
+ * provenance, and a sidecar this build cannot parse is still a sidecar. Reading
+ * the content here would make an unreadable marker indistinguishable from a
+ * missing one, and the missing one is the user's.
  */
 export function isManagedEntry(targetPath) {
   const stats = getPathStats(targetPath);
   if (!stats) return false;
   if (stats.isSymbolicLink()) return isOurLink(targetPath, stats);
-  return readManagedTarget(targetPath) !== null;
+  return markerExists(targetPath);
 }
 
 /** Reject anything that is not one plain path segment; names reach the filesystem. */
@@ -138,99 +122,77 @@ export function resolveKindRoot(kind, options = {}) {
   return join(resolveCanonicalRoot(options), kind);
 }
 
-/** A marker is a plain single-linked file — never a link, never a hardlink. */
-function validateMarkerPath(markerPath) {
-  const stats = getPathStats(markerPath);
-  if (!stats) return;
-  if (stats.isSymbolicLink()) throw new Error('Peaks managed marker path must not be a symlink');
-  if (!stats.isFile()) throw new Error('Peaks managed marker path must be a file');
-  if (stats.nlink !== 1) throw new Error('Peaks managed marker path must not be hardlinked');
-}
-
-/** The `.peaks-managed` sidecar beside `targetPath`, trimmed, or null — the same
- *  convention `install-skills.mjs` writes (one line holding the producing path). */
-export function readManagedTarget(targetPath) {
-  const markerPath = `${targetPath}${MANAGED_MARKER_SUFFIX}`;
-  validateMarkerPath(markerPath);
-  if (!existsSync(markerPath)) return null;
-  return readFileSync(markerPath, 'utf8').trim();
-}
-
-/** Write the sidecar through a sibling temp file, so no reader sees it half-written. */
-export function writeManagedMarker(targetPath, provenance) {
-  const markerPath = `${targetPath}${MANAGED_MARKER_SUFFIX}`;
-  validateMarkerPath(markerPath);
-  mkdirSync(dirname(markerPath), { recursive: true });
-  const tempPath = `${markerPath}${TEMP_PREFIX}${randomUUID()}`;
-  writeFileSync(tempPath, `${provenance}\n`, 'utf8');
-  renameSync(tempPath, markerPath);
-}
-
-/** Every file and directory under `rootPath`, as sorted `/`-joined relative paths. */
-function listTreeEntries(rootPath) {
-  const entries = [];
-  const walk = (dir, prefix) => {
-    for (const name of readdirSync(dir).sort()) {
-      const relativePath = prefix === '' ? name : `${prefix}/${name}`;
-      const stats = lstatSync(join(dir, name));
-      if (stats.isDirectory()) {
-        entries.push(`${relativePath}/`);
-        walk(join(dir, name), relativePath);
-      } else if (stats.isFile()) {
-        entries.push(relativePath);
-      } else {
-        throw new Error(
-          `Peaks canonical store cannot read ${join(dir, name)}: not a file or directory`
-        );
-      }
-    }
-  };
-  walk(rootPath, '');
-  return entries;
-}
-
-/** True when `targetPath` already holds exactly the bytes `sourcePath` holds. */
-function contentMatches(sourcePath, targetPath) {
-  const targetStats = getPathStats(targetPath);
-  if (!targetStats || targetStats.isSymbolicLink()) return false;
-  if (!targetStats.isDirectory()) {
-    return targetStats.isFile() && readFileSync(sourcePath).equals(readFileSync(targetPath));
-  }
-  const sourceEntries = listTreeEntries(sourcePath);
-  const targetEntries = listTreeEntries(targetPath);
-  if (sourceEntries.length !== targetEntries.length) return false;
-  for (let index = 0; index < sourceEntries.length; index += 1) {
-    if (sourceEntries[index] !== targetEntries[index]) return false;
-    if (sourceEntries[index].endsWith('/')) continue;
-    const from = join(sourcePath, sourceEntries[index]);
-    const to = join(targetPath, targetEntries[index]);
-    if (!readFileSync(from).equals(readFileSync(to))) return false;
-  }
-  return true;
-}
-
 /**
  * Materialise `sourcePath` as a REAL COPY at `<kindRoot>/<name>`: idempotent by
- * content, and REFUSING when the landing path is not ours — an existing entry with
- * no marker beside it gets `action: 'unmanaged'` instead of the `rmSync` that used
- * to run unconditionally (the `~/.peaks/agents/ecc` shape).
+ * content AND by version, and REFUSING when the landing path is not ours — an
+ * existing entry with no marker beside it gets `action: 'unmanaged'` instead of
+ * the `rmSync` that used to run unconditionally (the `~/.peaks/agents/ecc`
+ * shape).
  *
- * @param {{ sourcePath: string, name: string, kind: string, root?: string }} options
+ * THE DECISION, in order:
+ *
+ *   1. the entry exists and carries NO marker → `unmanaged`. Never overwritten.
+ *      This is the user's own copy, and it is the protection the whole chain
+ *      rests on.
+ *   2. the entry's RECORDED VERSION is behind the source package's version →
+ *      refreshed, whatever the bytes say and whatever path the marker names.
+ *      A copy that cannot name its version (the legacy sidecar) is "version
+ *      unknown", and unknown is stale: the source package is authoritative.
+ *   3. the bytes differ → refreshed.
+ *   4. otherwise the copy is current. A marker whose recorded PATH no longer
+ *      matches is still a stale fact about a current copy, so it is corrected
+ *      — the bytes are left alone.
+ *   5. an entry the store does not hold is `absent`: there is nothing to
+ *      compare, so it is neither current nor stale.
+ *
+ * `options.version` is the version of the package that owns `skills/<name>`
+ * (`package.json#version` of the install root). Without it there is nothing to
+ * compare against and the decision falls back to the bytes alone.
+ *
+ * @param {{ sourcePath: string, name: string, kind: string, root?: string, version?: string, dryRun?: boolean }} options
  */
 export function ensureCanonicalCopy(options) {
   const { sourcePath, name, kind } = options;
+  const version =
+    typeof options.version === 'string' && options.version.length > 0 ? options.version : null;
+  const dryRun = options.dryRun === true;
   assertAssetName(name, kind);
   const kindRoot = resolveKindRoot(kind, options);
   const canonicalPath = join(kindRoot, name);
 
-  if (getPathStats(canonicalPath) && !isManagedEntry(canonicalPath)) {
-    return { canonicalPath, action: 'unmanaged' };
+  const exists = getPathStats(canonicalPath) !== null;
+  if (exists && !isManagedEntry(canonicalPath)) {
+    return { canonicalPath, action: 'unmanaged', state: 'unmanaged', version: null };
   }
-  if (contentMatches(sourcePath, canonicalPath)) {
-    if (readManagedTarget(canonicalPath) !== sourcePath) {
-      writeManagedMarker(canonicalPath, sourcePath);
+
+  const marker = readManagedMarker(canonicalPath);
+  const recordedVersion = marker?.version ?? null;
+  const versionStale = exists && isVersionBehind(recordedVersion, version);
+  const bytesMatch = contentMatches(sourcePath, canonicalPath);
+
+  if (exists && !versionStale && bytesMatch) {
+    if (marker?.path !== sourcePath && !dryRun) {
+      // The version the copy was made from is kept when the source's version is
+      // unknown: a rewrite must not turn a known fact into an unknown one.
+      writeManagedMarker(canonicalPath, sourcePath, version ?? recordedVersion);
     }
-    return { canonicalPath, action: 'unchanged' };
+    return { canonicalPath, action: 'unchanged', state: 'current', version: recordedVersion };
+  }
+
+  // An entry the store does not hold is not stale — it is ABSENT. It is not
+  // current either: "current" says the store holds a copy that is not behind,
+  // and there is no copy to compare. An entry it holds is stale when its version
+  // is behind or its bytes differ.
+  const state = exists ? 'stale' : 'absent';
+  const reason = versionStale ? 'version' : 'content';
+  if (dryRun) {
+    return {
+      canonicalPath,
+      action: 'planned',
+      state,
+      version: recordedVersion,
+      reason: exists ? reason : null
+    };
   }
 
   mkdirSync(kindRoot, { recursive: true });
@@ -243,8 +205,14 @@ export function ensureCanonicalCopy(options) {
     rmSync(tempPath, { recursive: true, force: true });
     throw error;
   }
-  writeManagedMarker(canonicalPath, sourcePath);
-  return { canonicalPath, action: 'installed' };
+  writeManagedMarker(canonicalPath, sourcePath, version);
+  return {
+    canonicalPath,
+    action: 'installed',
+    state,
+    version,
+    reason: exists ? reason : null
+  };
 }
 
 /**
@@ -263,7 +231,11 @@ function isOurLink(linkPath, stats) {
  * link peaks-loop owns is ever replaced; a real directory the user authored is left
  * alone and reported `skipped`. An `unmanaged` copy is never linked TO either.
  *
- * @param {{ sourcePath: string, name: string, kind: string, linkPath?: string, root?: string }} options
+ * With `dryRun`, nothing is written: the copy is planned and the link is
+ * reported `planned`, so a caller can show what a repair WOULD do before it
+ * does it.
+ *
+ * @param {{ sourcePath: string, name: string, kind: string, linkPath?: string, root?: string, version?: string, dryRun?: boolean }} options
  */
 export function reconcileCanonicalEntry(options) {
   const { linkPath } = options;
@@ -276,10 +248,16 @@ export function reconcileCanonicalEntry(options) {
     return { ...copied, linkAction: 'unchanged' };
   }
 
-  let linkAction = 'linked';
   const current = getPathStats(linkPath);
+  if (current && !isOurLink(linkPath, current)) {
+    return { ...copied, linkAction: 'skipped' };
+  }
+  if (options.dryRun === true) {
+    return { ...copied, linkAction: 'planned' };
+  }
+
+  let linkAction = 'linked';
   if (current) {
-    if (!isOurLink(linkPath, current)) return { ...copied, linkAction: 'skipped' };
     unlinkSync(linkPath);
     const markerPath = `${linkPath}${MANAGED_MARKER_SUFFIX}`;
     if (existsSync(markerPath)) unlinkSync(markerPath);

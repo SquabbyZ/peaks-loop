@@ -157,6 +157,18 @@ export type DoctorOptions = {
     ideRoots: ReadonlyArray<{ ide: string; skillsDir: string }>;
   };
   /**
+   * Injected roots/versions for the `skills:store-version` check. When omitted
+   * the check binds `$PEAKS_HOME`/`~/.peaks` and the installed release. Tests
+   * pass a temp store and a temp version here, so no test reads the real home
+   * directory or the real release.
+   */
+  canonicalStoreVersion?: {
+    /** The canonical SKILLS directory (`<root>/skills`). */
+    readonly storeRoot: string;
+    /** The version to compare the store against. */
+    readonly installedVersion: string;
+  };
+  /**
    * root for the L3:l3-memory-health check (defaults to
    * `findProjectRoot(process.cwd())`). Tests use this to point the
    * check at a temp dir without monkey-patching `findProjectRoot`.

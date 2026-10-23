@@ -205,13 +205,15 @@ async function openRun(
   });
   const decision = evaluateAutoCompactDecision({
     ratio: probe.ratio,
-    // Production `inFlightBatch` MUST come from the graph probe. The legacy boolean is
-    // preserved as a TEST-ONLY seam: when `probeInflightBatch` is supplied we call it and
-    // pass an `InFlightBatchProbe`, so the pure decision sees a graph-backed value. The
-    // CLI gates the boolean behind `PEAKS_TEST_SEAM === '1'`.
+    // Production `inFlightBatch` MUST come from the dispatch-ledger probe. The legacy
+    // boolean is preserved as a TEST-ONLY seam: when `probeInflightBatch` is supplied we
+    // call it and pass an `InFlightBatchProbe`, so the pure decision sees a
+    // ledger-backed value. The CLI gates the boolean behind `PEAKS_TEST_SEAM === '1'`.
+    // The session resolved above is the one the probe reads, so the two cannot name
+    // different sessions.
     inFlightBatch:
       input.probeInflightBatch !== undefined
-        ? { hasInFlightBatch: input.probeInflightBatch() }
+        ? { hasInFlightBatch: input.probeInflightBatch(sessionId) }
         : input.inFlightBatch,
     force: input.force,
     bypassRedLine: input.bypassRedLine,

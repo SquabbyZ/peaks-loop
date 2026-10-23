@@ -47,7 +47,7 @@ import {
 } from '../../../src/services/scan/file-size-policy.js';
 import { scanFileSize } from '../../../src/services/scan/file-size-scan.js';
 import { REPO_ROOT, gateModuleText } from '../standards/_file-size-cap-scan.js';
-import { createFixture, fileOf, type Fixture } from './_file-size-hooks-fixture.js';
+import { createFixture, type Fixture } from './_file-size-hooks-fixture.js';
 
 declareDimensions('tests/unit/lint/staged-size-leg.test.ts', [
   'render',
@@ -89,7 +89,7 @@ function fixture(): Fixture {
     );
     // A `tests/` file ALREADY over the 500 cap and committed, so every later arm changes
     // it against a previous size git can read.
-    f.write(SUBJECT, fileOf(FILE_SIZE_CAP_TESTS + 3));
+    f.write(SUBJECT, cleanFileOf(FILE_SIZE_CAP_TESTS + 3));
     f.write(STABLE, '// a fixture file nobody edits\n');
     f.commitAll('fixture: an over-cap test file, tracked in the base');
   }
@@ -109,13 +109,31 @@ function runStaged(args: readonly string[]): GateRun {
   return { code: spawned.status ?? 1, out: `${spawned.stdout ?? ''}${spawned.stderr ?? ''}` };
 }
 
+/**
+ * N raw lines of PRETTIER-CLEAN TypeScript.
+ *
+ * The shared harness helper `fileOf` writes one `x` per line, and prettier
+ * rewrites a bare `x` into `x;` — so a subject built from it is UNFORMATTED, and
+ * the commit path's WIDE formatting leg (which measures the staged files the lint
+ * scope drops — `tests/**` is one of them) would refuse it. That would redden
+ * every arm below for a reason that has nothing to do with the file-size leg,
+ * and this file's own principle is that the size leg must be the ONLY leg that
+ * can redden these arms. The line COUNT is what the size leg measures, so the
+ * content may be anything of that length.
+ */
+function cleanFileOf(lines: number): string {
+  return `${Array.from({ length: Math.max(lines - 1, 1) }, (_, i) => `export const v${i} = ${i};`).join('\n')}\n`;
+}
+
 /** Rewrite the subject at `lines` lines, changing its bytes without changing its size. */
 function rewriteSubject(lines: number): void {
   const abs = join(fixture().root, SUBJECT);
   mkdirSync(dirname(abs), { recursive: true });
-  // A different first byte, so `git diff` reports M on an otherwise identically sized
-  // file — the accept direction's input, which a byte-identical rewrite would not give.
-  writeFileSync(abs, `y${fileOf(lines).slice(1)}`, 'utf8');
+  // A different byte, so `git diff` reports M on an otherwise identically sized
+  // file — the accept direction's input, which a byte-identical rewrite would not
+  // give. The rewrite keeps the file valid AND prettier-clean, for the reason
+  // `cleanFileOf` records.
+  writeFileSync(abs, cleanFileOf(lines).replace('export const v0', 'export const w0'), 'utf8');
 }
 
 /** What the ONE rule says about the subject right now, in this same fixture repo. */
@@ -176,7 +194,7 @@ describe('Scenario: behavior — the commit path refuses growth, on the input it
     { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
     () => {
       const created = 'tests/created-big.test.ts';
-      fixture().write(created, fileOf(FILE_SIZE_CAP_TESTS + 4));
+      fixture().write(created, cleanFileOf(FILE_SIZE_CAP_TESTS + 4));
       const run = runStaged([created]);
 
       expect(run.code, run.out).toBe(1);

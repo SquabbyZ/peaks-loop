@@ -192,6 +192,15 @@ if (
           `(${totalInstalled} total symlinks)\n`
       );
     }
+    // The skills' own `skipped` list was the one bucket the postinstall never
+    // printed: an entry that was left alone — a store copy peaks-loop does not
+    // own, a second live install — looked exactly like a successful install
+    // from the outside. The agents and output styles already say so; the
+    // skills now do too.
+    reportLeftAlone(
+      'skills',
+      perPlatform.flatMap((platform) => platform.skipped ?? [])
+    );
     const outputStylesResult = installBundledOutputStyles();
     // Slice 7/7 — bundled agents (Claude Code sub-agent prompts) ship
     // under `agents/*.md` in the peaks-loop tarball and are auto-installed

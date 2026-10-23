@@ -6788,13 +6788,45 @@ session — none is a guess, and none was carried forward unmeasured.
   needs a project that has actually run `peaks hooks install`, and the sibling's role in that
   environment is exactly what this item settles.
 
+- **IMPLEMENTED 2026-10-23** (slice `§19.1-thin-wrapper`). The sibling is now a **thin wrapper**:
+  it finds the CLI — `peaks` on `PATH`, else the sibling file `pre-tool-code-gate.package-root`
+  the installer writes beside it (the **package root**, which is *installer* information, not
+  project information) — and `exec`s `peaks code-gate [--project <root>]` with the child
+  inheriting stdin, so the payload reaches the command **unchanged** and the wrapper reads none of
+  it. **Measured over 336 rows** (7 bases × 12 spellings × 4 payload shapes; OLD = the committed
+  sibling, NEW = the no-CLI path, CMD = `peaks code-gate`): OLD denies 104, NEW 216, CMD 134.
+  **4 rows move allow-ward** — the MED 2 false deny (a junction base pointing OUTSIDE the project
+  × `SRC/x.ts` / `src\x.ts`), which the **command allows too**, so it is a corrected false deny
+  and not a hole; **116 rows move deny-ward** (accepted false denies).
+- **The duplication is REDUCED, not removed — and that is the honest description.** Mode 1 (a CLI
+  is reachable) is pure plumbing: one implementation, divergence structurally impossible. Mode 2
+  (no CLI reachable) **still carries the bash rule**, and there it disagrees with the command on
+  **130 rows**: 116 false denies (the fallback's refusal) and **14 allow-ward**, all of the **one**
+  shape §19.2 names — an absolute path inside the project, which the fallback cannot relativize.
+  That 14 is **pre-existing and unchanged**; this slice did not create it, and in Mode 1 it does
+  not exist.
+- **The cheaper honest fix was NOT taken, and the reason is on the record.** Reducing Mode 2 to a
+  blanket refusal would close the 14 rows and make "one implementation" literally true — at the
+  price of **denying every edit** (including `.peaks/` and `docs/`) on a machine where no Node
+  CLI is reachable. The owner ruled the fallback's contract point by point, so the fallback stays
+  and the divergence is **measured and recorded** here and in the security audit rather than
+  quietly dropped. **This is an accepted residual, and it is the owner's to revisit.**
+- **Two new LOWs come with the wrapper itself**, and the security audit names them: the CLI is
+  resolved from `PATH` **before** the installer-written pointer, so a stale or shadowed `peaks`
+  is executed in preference to the package that installed the hook; and the pointer's content is
+  used as an exec path with only an existence check on `<root>/bin/peaks.js`.
 ### 19.2 The absolute-path parity row is unsatisfiable with the sibling's current shape
 
-- **Measured** by QA round 2: the two implementations cannot be made to agree on an ABSOLUTE path,
-  because the sibling has no project root to relativize one against and judges an absolute path by
-  its spelling. Pre-existing, and identical before and after the slice.
-- **Why it is still open**: the same shape as 19.1 — the sibling needs the root. Closing 19.1
-  closes this.
+- **NARROWED 2026-10-23** (slice `§19.1-thin-wrapper`): the row is no longer a property of "the
+  sibling". Where a Node CLI is reachable the sibling **delegates**, and the command judges the
+  absolute spelling — so the row does not arise there. It survives **only on the no-CLI fallback
+  path**, where it is **still open** and **measured**: with `file_path = <root>/src/x.ts` the Node
+  command returns `data.action = deny` and the fallback returns **exit 0 (allow)**. Pre-existing,
+  and the shape this entry has always named — the fallback has no project root in the payload's own
+  spelling, so it cannot relativize an absolute path.
+- **The option that would close it** — reduce the fallback to a blanket refusal — was declined in
+  favour of the owner-ruled fallback contract; the residual is recorded in §19.1 and in the security
+  audit, which was re-issued twice for this slice.
 
 ### 19.3 The doc sentence in `hook-payload-cwd.ts` is accurate for the scenario it names, and not as a general statement
 
@@ -7014,3 +7046,481 @@ session — none is a guess, and none was carried forward unmeasured.
 - **What the review could not pin, QA pinned**: a new suite
   `tests/unit/hooks/code-gate-qa-final-verification.test.ts` (8 tests) covers the three shapes
   that had no test.
+
+
+## 21. The 2026-10-23 session — a downstream machine's stale skill, and five smaller holes the same session found (2026-10-23)
+
+### 21.1 The canonical skill store could be frozen at an old version, and nothing could see it (found 2026-10-23, downstream macOS report)
+
+**The report.** A downstream macOS machine: `~/.peaks/skills/peaks-code` exists, but the content
+behind the `~/.claude/skills/peaks-code` symlink is **not fully updated** — the installed
+4.1.16 carried a skill from the 4.1.15 era, and `references/fast-lane-norm.md` was missing.
+
+**The package is not the culprit.** `npm pack peaks-loop@4.1.16` and `@4.1.17` both carry
+`package/skills/peaks-code/references/fast-lane-norm.md` and all **49** reference files, and
+`package.json#files` includes `skills/**`. The published tarball is correct.
+
+**The store is where it breaks, and the mechanism is that nothing records a VERSION.** The store
+entry is a real copy, and its sidecar `~/.peaks/skills/<name>.peaks-managed` recorded **only the
+source path** — a single line. `scripts/canonical-store.mjs` decided ownership from the **presence**
+of the sidecar (`isManagedEntry`), and refreshed a managed entry by **byte-comparing** it against
+the source (`contentMatches`). With no version anywhere, a store frozen at 4.1.15 was
+**indistinguishable from a current one**.
+
+Three routes reach the symptom, and they differ in mechanism:
+
+1. **the postinstall never ran** — npm 12's `allowScripts` cliff skips it without a word unless
+   the user passes `--allow-scripts` (§2.52a's recorded shape, still unmeasured on npm 12); the
+   store is never touched;
+2. **the sidecar went missing** — a partial install, a manual deletion, an older installer — so
+   the store's copy is judged **the user's own** (`unmanaged`) and is **skipped forever**, with the
+   skip reported in a return value **nobody reads**;
+3. **the recorded source path stopped matching** — the global npm prefix moved (a Node version
+   switch, nvm/fnm, a different install root), so the sidecar names a path that no longer exists.
+
+**The reason all three are silent is the same, and it is the defect.** There was no version, so
+there was no **detectable** staleness — not for the installer, not for `peaks doctor`, not for the
+user.
+
+**A fourth route, and the one that made the downstream symptom invisible to the check that was
+already written for it.** `src/services/doctor/doctor-service/checks/skill-reference-parity.ts`
+names the host shape in its own doc comment — *"the canonical store exists while the IDE tree
+does not"* — and compares the store against the **IDE tree**. But the IDE entry on that machine is
+a **symlink into the store**, so the two trees are **the same tree**: they are always in parity,
+and a store frozen at an old version is **perfectly self-consistent**. **Store↔IDE parity cannot
+detect store↔package staleness.** The two comparisons are different axes, and only one of them
+existed.
+
+**The fix (this session).** The sidecar now records **both** facts — the source path **and** the
+package version — in one line of JSON:
+`{"format":"peaks-managed-v2","path":"<source path>","version":"<pkg version>"}`.
+The **legacy** plain-path form is still read, as *ours, version unknown*, and version-unknown is
+**stale** (the current source is authoritative) — a reader that threw on the old format would break
+every existing install. A **legacy JSON** marker (an earlier shape) is read too, and the reader
+still answers the path, so every existing importer is unaffected.
+
+Staleness is now decided by **version**, not only by bytes, so a store whose recorded path no
+longer matches (the npm prefix moved) is still refreshed when the version is behind; and a store
+whose path is stale but whose version matches is **not** re-copied, only its **marker corrected** —
+a marker naming a path that no longer exists is itself a stale fact. **The user-authored protection
+survives unchanged**: a store entry with **no marker at all** is still never overwritten.
+
+**Where the version comes from** — the same code path in both cases, so the comparison means the
+same thing in each: the **package root** of the running installer
+(`<install>/package.json#version`, where `<install>` is the parent of the running
+`scripts/install-skills.mjs`). For a global install that is the global npm package root; for a
+repository checkout it is the checkout. The doctor side compares the store's recorded version
+against **`CLI_VERSION`** — the running build, which `sync-version` keeps in lockstep with the
+package version. A store recorded by a **newer** version is not stale; a dev's store is refreshed
+when the checkout's version moves, and is then reported **current**, not defective.
+
+**The doctor check** is `skills:store-version:store`, and it emits **exactly one row, always** —
+behind ⇒ red with the remedy (`peaks skill sync`), current ⇒ green naming **both** versions, no
+store ⇒ green and informational ("nothing to compare" — a machine with no store is not broken),
+unreadable store ⇒ red with severity `warning`. It never writes. **It compares store↔package,
+not store↔IDE** — that is the whole point (§21.2).
+
+**The repair** is `peaks skill sync`, and it was exercised end to end: install → downgrade the
+store's copy → repair → current. It refreshes a version-behind store whether the marker is
+legacy, v2, or **stale-pathed**. Two further changes came with it: **`--dry-run` now writes
+nothing** (it previously did), and the postinstall now prints the skills' **skipped** list, so the
+"left alone" outcome is visible instead of being a value in a return object nobody read.
+
+**What the downstream user does.** Install the fixed version and run `peaks skill sync`. That is
+the point of the slice: the machine needed a **command**, not a diagnosis.
+
+**Still unmeasured**: backlog §2.52a case 1 — npm 12's `allowScripts` skipping the postinstall
+outright. The repair only happens when *something* runs the installer, and the doctor check is
+what makes that visible now.
+
+**QA's verdict (2026-10-23): `pass-with-notes`.** The three requirements are each **met**, and the
+owner's exact shape was **reconstructed and repaired end to end** in a scratch store: a legacy
+marker + old bytes + a deleted `references/fast-lane-norm.md` ⇒ `peaks doctor` **named it**
+("2 of 23 … peaks-code (no version recorded)") ⇒ `peaks skill sync` ⇒ the file is present, the
+`SKILL.md` is current, the marker is v2/4.1.17. The **user-authored protection survived** the
+repair (a no-marker entry was not overwritten, no sidecar was created, and it was reported as
+"left alone"). The doctor check emits **exactly one row, always** — it did **not** inherit the
+`[]`-when-clean shape. Every lint ceiling held; **0** failures in the files this slice touched.
+
+**The notes QA raised were the slice's own theme one level down** — a report that says something
+false — and they are being fixed in the same session:
+
+- a `--dry-run` **created directories** and reported "totalInstalled: 184 skill symlinks" when
+  **0** links were made — the exact thing `--dry-run` exists to prevent;
+- the store report described only the **package's own** skills, so a user's own skill sitting in
+  the store was invisible and the unmanaged count could read **0** while one existed;
+- the post-repair line still said "2 stale" (the state **as found**) after the repair had fixed
+  them — a legitimate reading, but one that must be **named**;
+- a **dry run against an absent entry** reported the state `current`.
+
+**One more inconsistency QA measured, and it is left open on purpose**: `resolveBundleTargetRoot`'s
+precedence is `targetRoot > ideId profile > envVar`, so **`PEAKS_CLAUDE_SKILLS_DIR` is ignored once
+`ideId` is set** — the **postinstall** fan-out honours it, the **CLI sync** path does not. Two
+paths that install the same thing resolve their target **differently**. That is an open item, not a
+defect of this slice, and it is recorded here rather than quietly fixed inside it.
+
+
+
+### 21.2 A doctor check that returns no row cannot say "clean" — and "clean" is what the doctor most needs to say (found 2026-10-23, measured)
+
+`compareSkillReferenceParity` returns `[]` when every tree is in parity. There is **no clean row**:
+`skills:reference-parity:store` appears only when the store is missing or itself malformed.
+
+Measured on this machine: `peaks doctor --json` produced **88 checks and not one** with a
+`skills:` prefix — the parity check ran, found nothing, and left **no trace**. The report cannot
+distinguish *"the check ran and found nothing"* from *"the check never ran"*, which is the same
+invisibility one level down that §21.1 is about.
+
+**Not fixed in this session** — changing the doctor's report shape (what a clean check emits) is a
+separate decision about every check in the registry, not one slice's business. The store-version
+check added by §21.1 **does** emit a row when it is clean; the parity check still does not.
+
+### 21.3 `peaks hooks install --help` describes an effect the command no longer has (found 2026-10-23, measured)
+
+Two facts about `src/cli/commands/hooks-commands.ts`:
+
+- **`--no-progress` is a no-op.** Its help text says *"skip the progress-start PreToolUse hook
+  entry; install ONLY the gate-enforce entry"* — but the **parent** command's own description
+  says the progress-start entry **is no longer installed** (slice #014). The flag is threaded
+  through four call sites into `resolveHookEntries(ide, _skipProgress)`, whose parameter is
+  **underscore-prefixed and never read**. The flag promises an effect that has not existed since
+  slice #014.
+- **The help text is silent about the install's most consequential side effect.** A **global**
+  install also copies two hook scripts into the **user-global**
+  `~/.claude/skills/peaks-code/hooks/` and writes a **package-root pointer** beside them. The
+  command's own **output** reports this (`codeGateHookCopy`, `bridgeHookCopy`); only `--help` is
+  quiet about it. A user reading `--help` has every reason to believe the command touches the
+  project's `settings.json` and nothing else — and the downstream machine in §21.1 is a machine
+  where that exact command had been run.
+
+**Fixed in this session**: the help text was corrected, the flag was kept (it is published
+surface), and the truth was pinned in **two** ways, deliberately. The **structural** pin: the
+installed set is read **from the code** (`resolveHookEntries`), and a test asserts that each
+description contains **every sentinel** the resolver yields and **not** a legacy-only one — so the
+entry list cannot drift away from the text. The **prose** pin: a *missing-mention* assertion for
+what the structural pin cannot express (the global copy, its target directory, the script names,
+the pointer name), because a missing-mention assertion survives rewording where an exact-string one
+would not. `resolveHookEntries(ide, true) ≡ resolveHookEntries(ide, false)` for every adapter with a
+hook spec — the fact that makes the flag a no-op — is pinned too.
+
+**Behaviour invariance was proved, not asserted**: a before/after snapshot of `hooks install` in
+both scopes with the home redirected to a scratch directory produced **byte-identical** envelopes
+and **byte-identical** `settings.json` / `settings.local.json` (same sha256), with the only
+differences being the log line and the concurrently-edited shell script.
+
+**Two more descriptions of the same class were found while doing this** —
+`hooks-uninstall-command.ts` and `hooks-settings-types.ts` both still said the install emits "only"
+the gate-enforce entry. They are the same defect, in the same feature, and they are fixed in the
+same session.
+
+The follow-up found the truth by **reading the code, not a hand list**: `removeHookInstall` strips
+every hook entry whose command carries a sentinel from `resolveLegacySentinels(ide)` — for
+`claude-code` the 6 live sentinels **plus** the legacy `peaks progress start` — and also the
+Layer-3 `permissions.deny` list. So the uninstall removes **more** than the install's own list
+names, and the description now says so. The pin was extended to the uninstall description and to
+the option type's doc comment, **reading the entry set from the code** rather than from a list
+written twice; and a **behavioural** arm asserts that a live install → uninstall leaves no entry
+behind. Restoring both old texts makes 3 of the 6 new tests red — the control that shows the
+tests bite.
+
+**One thing the uninstall description cannot say, and does not:** the `permissions.deny` entries
+are not hook entries, so a description that listed them among "the hook entries" would be a new
+false statement. They are named separately.
+
+
+
+### 21.4 The commit gate accepted three unformatted files in one slice, and the push gate caught all three (found 2026-10-23, measured)
+
+Three files reached a commit **unformatted** while every gate that runs at commit time was
+**green**. The push gate's format ratchet refused the push, each time.
+
+**The mechanism.** The commit gate is `lint-staged`, and `package.json#lint-staged` routes every
+staged `*.{ts,tsx,mts,cts,mjs,cjs,js}` file to `node .husky/peaks-gate.mjs staged`. Inside
+`.husky/gate/context.mjs`, `outOfScopeNotice` **drops** every staged code file outside the lint
+scope (`src/**` + `packages/*/src/**`, owner decision 2026-10-03) and prints *"N file(s) are
+outside the lint scope and were not compared"*. `tests/**` is outside that scope, so a staged test
+file was **dropped before any check ran**.
+
+**The recorded objection does not apply to the check that was added.** `.husky/pre-commit`'s
+comment block says the wide formatting check is deliberately *not* narrowed to match the hook,
+because the hook is a **per-file ratchet** that needs a baseline row per file. But the wide
+check's allowed set is **`FORMAT_CHECK_BASELINE_FILES = []` — EMPTY** (the debt was collected on
+2026-10-17) and the set may only **shrink**, so the wide rule is literally *"no unformatted file at
+all"* and needs **no per-file row**. The two mechanisms differ in kind.
+
+**Fixed in this session**: a wide-formatting leg in the commit gate, in a **new sibling module**
+(`.husky/gate/wide-format.mjs`) because the two gate modules sit near the 300-line cap. It applies
+to **staged** files outside the lint scope but inside the wide globs, refuses with **exit 1** and
+names the file plus the exact fix (`prettier --write "<file>"`).
+
+- **The scope is sourced, not restated** — the four globs are read from
+  `package.json#scripts['format:check']` **through the same exported reader the CI job uses**
+  (`readCheckGlobs()`), and membership is decided by **picomatch** — the engine fast-glob, and so
+  prettier itself, uses. A second copied glob list cannot drift (§2.28's shape).
+- **The scope is read the way the CI job reads it**, but a read failure at commit time **fails
+  closed in the gate's own voice** rather than exiting silently.
+- **The eslint leg was not widened** and the per-file baseline rows were not touched: the two rules
+  differ in **kind**, and the new leg is applied to exactly the files the lint scope drops.
+- **The messages stay consistent with each other.** The scope notice now names the **axis** — "were
+  not compared **by the per-file ratchet**" — so a file compared by the wide leg is not also
+  reported as "not compared". And the empty-result message distinguishes *"the per-file ratchet
+  compared nothing"* from *"nothing was compared at all"*, so a reader can never flatten "one file
+  was compared and it was unformatted" into "nothing was checked".
+
+**One thing the change exposed, and it is the same shape as the original defect:** the staged
+**file-size** leg's own test fixture was **prettier-dirty** — it wrote bare `x` lines that
+prettier rewrites to `x;` — so with the new leg in place that fixture would have been refused by
+the *other* leg and the size leg's own failure would have been misattributed. The fixture now uses
+a prettier-clean filler of the same line count.
+
+**The CI job's own comment was amended** (`.github/workflows/ci.yml`): it recorded, correctly, that
+the wide check had **no executor** at the commit boundary and that "this job is it". That sentence
+was true when written and is no longer the whole truth — the commit path now has a wide leg too.
+
+
+### 21.5 A gate with nothing to check said exactly what a gate that checked everything said (found 2026-10-23, measured)
+
+`scripts/check-build-integrity.mjs` skips a package with no `.ts` source, so a tree of **zero**
+source-bearing packages produced zero errors and fell through to the same success line a tree of
+twenty verified packages prints: **`build-integrity: OK`**. A reader could not tell *"I checked
+twenty packages and they agree"* from *"I checked nothing"*.
+
+The empty set is **legal**, so the exit code stays **0** — turning it into a red would break the
+`build` and `pretest` chains on a legitimate tree. What changed is the **message**: it is now
+`build-integrity: NOTHING WAS COMPARED — 0 source-bearing package(s) of N package(s) considered
+under …`, and it **deliberately does not contain the all-clear at all** — a message of the form
+`build-integrity: OK (nothing to check)` still *contains* `build-integrity: OK`, and that is
+exactly the flattening the slice exists to prevent. This is the same discipline as
+`.husky/gate/context.mjs`'s `reportEmpty()`, and the other half of the same hole —
+`write-package-dist-stamps.mjs`'s refusal of an empty record — was already closed.
+
+### 21.6 A leaf's scratch directory depended on the cwd, and the rule lived only in the orchestrator's memory (found 2026-10-23, measured)
+
+§2.31's finding: five **zero-byte** `.err` files were committed **at the repository root** because
+a redirect depended on cwd. The recorded remedy had two halves — a convergence audit that sweeps
+by shape, and **"a leaf's brief must pin scratch destinations to an absolute path under the
+session's runtime dir"**. The second half lived **only in prose addressed to the orchestrator**, so
+it was exactly as strong as the orchestrator's memory at 3am.
+
+Measured on this machine: `peaks doctor` reported **8 orphan session(s)** under `.peaks/_runtime/`
+(`diff-proj-1` … `diff-proj-5` …), and each is a **fixture project written into the repository's own
+runtime directory**, with `src/`, `tests/`, `docs/`, a `package.json` and a symlink. Something was
+still creating scratch inside the repo, cwd-relative.
+
+**The fix is the same one this repository already used twice.** The Karpathy block
+(`src/services/dispatch/karpathy-block.ts`) exists because *"an obligation a busy caller can
+forget is not an executor"*, and it is machine-injected into **every** dispatch prompt, with its
+human-facing copy **byte-pinned** by a test so the two cannot drift. A **scratch-path block** now
+does the same: every dispatched sub-agent is told the **absolute** scratch directory for that
+dispatch, and the emitted path is pinned to be independent of `process.cwd()` (a test drives the
+builder from two different working directories and asserts the emitted path is the same).
+
+**The path shape** is `<projectRoot>/.peaks/_runtime/<sid>/<role>/scratch/` — absolute (derived from
+the project root only, never the cwd), under the session runtime dir, which is **gitignored**, so a
+stray capture written there cannot be committed by accident; per role, so two leaves dispatched in
+parallel cannot collide. An unsafe `sid`/`role` falls back to `unknown-sid`/`unknown-role` and
+never escapes the runtime dir.
+
+**One detail that is the whole defect again:** the path is emitted with **forward slashes**, because
+a backslash is an escape character to a POSIX shell — `> D:\repo\x.log` there writes
+`D:repox.log` **into the cwd**. That is the exact leak, reproduced by the "fix" if the fix spelled
+the path the way the platform does.
+
+**The writer of the orphan directories was NOT identified — and that turned out to be the answer.**
+The string `diff-proj` appears **nowhere** in `src/`, `scripts/`, `tests/` or `.husky/`, and the
+fixtures' `link` is a POSIX symlink whose target is an MSYS-style `/d/projects/peaks-loop/...`
+path. So it was not a checked-in test: it was an **ad-hoc bash command from a prior session**,
+writing under the cwd-relative path `.peaks/_runtime/diff-proj-N` from the repo root. **This
+session's own class, produced by the very habit the slice exists to stop** — which is a better
+argument for the machine-injected block than any test would have been. The same tree holds ~170
+other agent scratch files (`_rev_eslint.err` and friends).
+
+**Two dispatch paths carry no block**: `--from-dag` and `--mode detached` do not pass through the
+prompt composer. **Documented, not fixed** — a separate request.
+
+
+### 21.7 §20 — the auto-compact deferral reads the dispatch ledger, and it now fires for the first time (2026-10-23)
+
+**The finding was two layers deep, and the layer the backlog did not know about decided the fix.**
+Layer 1: the probe was given `graphs: []` in production, so `inFlightBatch` was always `false`.
+Layer 2: the graphs could **not** have satisfied it either — the probe wants a node with
+`status === 'running'` **and** a `lastHeartbeat`, and the graph's three writers never produce
+either (a real graph had 14 nodes, all `prepared`, none with a heartbeat). The probe's own
+contract — *"the single source of truth is the set of `status=running && age(lastHeartbeat)<30min`
+nodes"* — had **never been implemented**, on either layer.
+
+**The owner's ruling (2026-10-22): the dispatch ledger is the source of truth.** The graphs were
+ruled out (they cannot work without changing the graph's writers, and they carry no extra
+information); deleting the branch was ruled out (the deferral has a purpose).
+
+**The shape.** The **reader** (I/O) is `src/services/dispatch/dispatch-ledger-reader.ts`; the
+**probe** (pure) is `src/services/workflow/workflow-inflight-probe.ts` and has **zero imports** —
+it never touches the filesystem and never reads a clock. "In flight" = not terminal **and** fresh,
+where freshness is `lastBeatAt ?? createdAt` against the **existing** `FRESH_RUNNING_THRESHOLD_MS`
+(30 min — **reused, not duplicated**). **Every unknown defers**: an unreadable ledger, an
+unreadable record, an unrecognised status, an unparseable freshness signal, an unsupported record
+version, a row escaping the ledger — all six measured, all defer.
+
+**QA's verdict (2026-10-23): `pass-with-notes`.** The deferral **genuinely fires in production**
+now, measured end to end through the real CLI: a ledger 1 minute old ⇒ `"decision":
+"in-flight-batch"`; a ledger 31 minutes old ⇒ compaction dispatched; no ledger ⇒ compaction
+dispatched; an unreadable ledger ⇒ `"decision": "in-flight-batch"`. The red line still overrides
+(measured at 0.96). The reader costs **2.03 ms** warm on a 5-record session.
+
+**One correction QA forced on the RD's own claim.** The RD reported that its own live session's
+ledger said `inFlightBatch=true` (2 of 5 records inside the window). That **does not reproduce
+now**: all 5 records are `queued` and never-beaten, and their 30-minute `createdAt` floor has
+passed. The RD's number was true only **within 30 minutes of those records' creation**. A blast
+radius measured at one instant is not a blast radius.
+
+**Two notes QA raised, and they are this session's own theme:** the CLI read **only**
+`out.inFlightBatch` and discarded the probe's `reason`, `warnings` and `errors`, so an
+**unreadable** ledger and a **genuinely in-flight** batch produced the **identical** envelope — and
+the second is a problem that needs reporting while the first is not. And the unknown-state deferral
+is **unbounded in time** (still true at +6 months), lifted only by the red line or the 6h reaper:
+a permanently corrupt record postpones that session's 0.80-tier compaction. Both are recorded and
+addressed, not dropped.
+
+### 21.8 §19.1 — the bash sibling is a thin wrapper, and the duplication is REDUCED, not removed (2026-10-23)
+
+**The owner's ruling (2026-10-22): 改成 Node CLI 的薄壳（推荐）.** The original wording — *"pass the
+project root as an argument at install time"* — was **not implementable**, and the reason is worth
+keeping: the sibling is copied **once**, into the **user-global** `~/.claude/skills/peaks-code/hooks/`,
+and serves **every** project; the project root is **per-project**. One global file cannot carry a
+per-project root, and nobody noticed until the install path was read.
+
+**What shipped.** The wrapper finds the CLI — `peaks` on `PATH`, else the sibling file
+`pre-tool-code-gate.package-root` the installer writes beside it (the **package root**, which is
+*installer* information, not project information) — and `exec`s `peaks code-gate [--project <root>]`
+with the child inheriting stdin, so the payload arrives **unchanged** and the wrapper reads none of
+it.
+
+**The honest description: the duplication is REDUCED, not removed.** Mode 1 (a CLI is reachable) is
+pure plumbing — one implementation, divergence structurally impossible. **Mode 2 (no CLI reachable)
+still carries the bash rule**, and there it disagrees with the command on **130 rows** of a
+336-row matrix: 116 false denies (the fallback's refusal) and **14 allow-ward**, all of the one
+shape §19.2 names — an absolute path inside the project, which the fallback cannot relativize
+without the root in the payload's own spelling. That 14 is **pre-existing and unchanged**; in
+Mode 1 it does not exist.
+
+**The cheaper honest fix was not taken, and the reason is on the record.** Reducing Mode 2 to a
+blanket refusal would close the 14 rows and make "one implementation" literally true — at the
+price of **denying every edit** (including `.peaks/` and `docs/`) on a machine where no Node CLI
+is reachable. The owner ruled the fallback's contract point by point, so the fallback stays and
+the divergence is **measured and recorded** here and in the security audit rather than quietly
+dropped. **This is an accepted residual, and it is the owner's to revisit.**
+
+**The security audit was re-issued twice** (by the CLI, never by hand — a judged path changed each
+time), and the **second** re-issue exists because **the QA falsified a claim in the first one**.
+The first re-issue's summary asserted that the fallback *"now REFUSES rather than guessing, so the
+escape that let a call running in `<root>/src` write `deep/x.ts` is closed by refusal."* **That was
+false.** The fallback's payload scan was `grep -oE '"cwd":…' | head -n1` over the **whole** payload,
+so a **nested** `cwd` key could win the first match; the guard then did **not** refuse and read
+against `$PWD`, **allowing** a file the Node command **denied**.
+
+**That hole is now closed, and the closure is measured.** The scan is one **depth-aware, string- and
+brace-aware `awk`** program that reads `tool_name`/`tool`/`cwd` at the payload's **top level** and
+`file_path`/`path`/`notebook_path` inside `tool_input`/`input`. A payload it **cannot** read —
+unbalanced braces, a value carrying a line break — is **refused**, not guessed at. The
+orchestrator measured the closure **directly**, against the current code, on QA's own payload:
+**the command denies and the fallback now denies.**
+
+**ONE residual of that shape is still open, and it is recorded rather than claimed away.** The
+fallback cannot relativize an **absolute** path, because it has no project root in the payload's own
+spelling. Measured by the orchestrator: `file_path = <root>/src/x.ts` gives the command
+`data.action = deny` and the fallback **exit 0 (allow)**. **Pre-existing**, and scoped to the
+fallback path.
+
+**Two LOWs come with the wrapper itself**: the CLI is resolved from `PATH` **before** the
+installer-written pointer, so a stale or shadowed `peaks` is executed in preference to the package
+that installed the hook; and the pointer's content is used as an exec path with only an existence
+check on `<root>/bin/peaks.js`.
+
+**And the stale prose this left behind was fixed in the same session** — in
+`skills/peaks-code/SKILL.md`, `skills/peaks-race-code/SKILL.md`, `.claude/HOOKS.md` and
+`.peaks/docs/capability-overview.md` — because a doc that describes the old shape is the same defect
+as a help string that does. **Three comments in the judged files were also making the code look
+like something it is not** ("the shell-script sibling … is the canonical source for the same
+logic"; "the pure decision function … the shell script encodes"; and the fallback's project-root
+claim, which said "this script's own directory" while the code uses **`$PWD`**). All three are
+corrected, and a **drift guard** now asserts they stay corrected.
+
+
+### 21.9 The BDD test-style contract is not gated, and this session's 12 new test files broke it (found 2026-10-23, measured)
+
+`src/services/qa/bdd-test-style-verifier.ts` checks the contract (the first string-literal
+argument reads `when X, should Y`; the body starts with exactly `// given:` / `// when:` /
+`// then:`; `// arrange:` / `// act:` / `// assert:` are **not** the vocabulary here). **No CI gate
+enforces it**, which is why it can rot.
+
+Measured over every test file this session touched: **21 files fail**. The attribution matters:
+**11 of them already failed at HEAD** — the session did not introduce that debt, it merely touched
+those files. **The other 12 are new or renamed in this session**, and those are the session's own.
+
+**The 12 are fixed in this session.** The 11 are recorded here as a **separate, larger change**:
+they are long-standing suites, and a style-only rewrite of eleven large files is not a thing to do
+inside a slice that was about something else. The pattern to break: the contract has a checker and
+**no gate**, so the only thing that makes it true is somebody running it.
+
+
+### 21.10 The QA verdicts, and the one finding they produced (2026-10-23)
+
+**QA's verdicts for this session's slices.**
+
+| Slice | Verdict |
+| --- | --- |
+| the canonical skill store's staleness | **pass-with-notes** |
+| D-1 (the wide formatting leg) | **pass-with-notes** |
+| §2.18 (nothing to check) | **pass** |
+| §2.31 (the scratch-path block) | **pass-with-notes** |
+| D-3 (the hook help text) | **pass-with-notes** |
+| §20 (the ledger deferral) | **pass-with-notes** |
+| §19.1 (the thin wrapper) | **pass-with-notes**, with **one named finding** |
+
+**Every ceiling held** across every slice: eslint 1696/1700, errors 560/561, prettier 0, tsc 0,
+comment dead-refs 0, narrative 22/22, file-size 77/77 and 21935/21935, silent-warning 44/44 and
+60/60.
+
+**The finding — and it is the same shape as everything else in this session.** The §19.1 QA
+measured the no-CLI fallback's payload scan: it is `grep -oE '"cwd":…' | head -n1` over the
+**WHOLE** payload, so a **nested** `cwd` key can win the first match. The fallback then does **not**
+refuse and reads against `$PWD` — so for
+`{"tool":"Edit","input":{"file_path":"deep/x.ts","cwd":"<BASE>"},"cwd":"<BASE>/src"}` the **Node
+command DENIES and the fallback ALLOWS**. The same first-match hole exists on `tool_name` and
+`file_path`. It is **pre-existing** (HEAD allows it too), **Mode-2-only**, and of **narrow
+reachability** (Claude Code's `Edit`/`Write`/`MultiEdit` `input` carries no `cwd`).
+
+**Why it was a finding and not a note.** The slice that just landed **claims** — in the file's own
+comment and in the security audit re-issued for it — that the fallback now **refuses rather than
+guesses** when it cannot place the file. **That claim was false for a payload whose first `"cwd"`
+occurrence is nested.** A comment and an audit that assert a safety property the code does not
+have are the same defect as a help string that lies — which is the theme of this entire session.
+**Fixed in the same session** (a depth-aware `awk` scan), **the closure measured** by the
+orchestrator against the current code on QA's own payload, and **the audit re-issued again**
+afterwards. **The audit is not the last word.**
+
+**And one residual of the same family is still open**, measured rather than asserted: the fallback
+cannot relativize an **absolute** path, so `file_path = <root>/src/x.ts` gives the command
+`data.action = deny` and the fallback **exit 0**. Pre-existing; scoped to the fallback path; and
+**it is the shape §19.2 names.**
+
+**Three more comments this slice made false**, also in judged files, also fixed: `pre-tool-code-gate.ts`
+said *"the shell-script sibling … is the canonical source for the same logic"*; `code-gate-command.ts`
+said *"the pure decision function … the shell script encodes"*; and `pre-tool-code-gate.sh:282` said
+the project root comes from *"this script's own directory"* while the code uses **`$PWD`**. A drift
+guard now asserts they stay corrected.
+
+
+**The numbers QA corrected.** The RD reported that its own live session's ledger said
+`inFlightBatch=true`; QA showed it **does not reproduce** — the 30-minute `createdAt` floor had
+passed. **A blast radius measured at one instant is not a blast radius.** And the §19.1 RD's 336-row
+differential said 14 allow-ward rows; QA re-derived **15** over 448 rows — the same one shape
+(an absolute path inside the project), **pre-existing**, and none of them a regression.
+
+**The BDD style contract, measured.** The verifier exists and **no CI gate enforces it**, which is
+why it can rot. Over the files this session touched, **21 failed**: **11 already failed at HEAD**
+(the session did not introduce that debt — it is recorded here as a separate, larger change) and
+**12 are new**, and those 12 were brought into contract in this session. **The pattern to break:
+the contract has a checker and no gate, so the only thing that makes it true is somebody running
+it.**
+

@@ -17,8 +17,8 @@
 //   - integration: the shell sibling, handed the same bytes
 //   - a11y:       the deny message names the path the tool asked for
 
-import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
+import { runHook as runHookScript } from '../../_setup/code-gate-shell-harness.js';
 
 import { describe, expect, it } from 'vitest';
 
@@ -140,34 +140,15 @@ describe('a11y — the deny message names the path the tool asked for', () => {
 // Integration — the shell sibling, handed the same bytes
 // ---------------------------------------------------------------------------
 
-const HOOK_SCRIPT = resolve(
-  __dirname,
-  '..',
-  '..',
-  '..',
-  '..',
-  'src',
-  'services',
-  'hooks',
-  'pre-tool-code-gate.sh'
-);
-
+/**
+ * The script is a THIN WRAPPER over the Node command: where a command is
+ * reachable it execs it, so a test of the script's own decision has to run it
+ * with NO command reachable. What answers is the conservative path inside it —
+ * the one a harness without Node gets.
+ */
 async function runHook(input: GateInput): Promise<{ exitCode: number; stderr: string }> {
-  return new Promise((resolveFn, reject) => {
-    const child = spawn('bash', [HOOK_SCRIPT], {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      windowsHide: true
-    });
-    let stderr = '';
-    child.stderr.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString('utf8');
-    });
-    child.on('error', (err) => reject(err));
-    child.on('close', (code) => {
-      resolveFn({ exitCode: typeof code === 'number' ? code : -1, stderr: stderr.trim() });
-    });
-    child.stdin.end(JSON.stringify(input));
-  });
+  const run = runHookScript({ payload: JSON.stringify(input), cli: false });
+  return { exitCode: run.status ?? -1, stderr: run.stderr.trim() };
 }
 
 describe('integration — the shell sibling judges the spelling, not the letters', () => {

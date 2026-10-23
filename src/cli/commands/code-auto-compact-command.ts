@@ -4,9 +4,18 @@ import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../
 import { fail } from 'peaks-loop-shared/result';
 import { runAutoCompact } from '../../services/code/auto-compact-orchestrator.js';
 import type { AutoCompactMode } from '../../services/code/auto-compact-modes.js';
-import { probeInFlightBatch } from '../../services/workflow/workflow-inflight-probe.js';
+import {
+  probeInFlightBatch,
+  type ProbeResult
+} from '../../services/workflow/workflow-inflight-probe.js';
+import { readDispatchLedgerFacts } from '../../services/dispatch/dispatch-ledger-reader.js';
 import { readActiveSid } from './code-runtime-session.js';
 import { buildAutoCompactEnvelope } from './code-auto-compact-envelope.js';
+import {
+  describeDeferral,
+  withDeferralDetail,
+  type DeferralDetail
+} from './code-auto-compact-deferral.js';
 
 const AUTO_COMPACT_DESCRIPTION =
   'v2.13.0 AC-4: zero-human-intervention auto-compact. Probes current ' +
@@ -50,38 +59,57 @@ function reportInvalidAutoCompactMode(io: ProgramIO, modeName: string, json?: bo
 }
 
 /**
+ * The probe's last answer, kept so the envelope can report WHICH deferral it was.
+ *
+ * The decision reads a boolean; the REPORT of the decision needs the reason the
+ * probe gave, and the probe is called from inside the orchestrator. This box is
+ * where the answer lands on the way out. It carries no decision of its own.
+ */
+interface ProbeCapture {
+  last: ProbeResult | null;
+}
+
+/**
  * The `runAutoCompact` input object, lifted verbatim: it reads only its two
  * parameters, so it has no ordering dependency on the call site.
  */
-function buildAutoCompactInput(opts: AutoCompactOpts, modeName: AutoCompactMode) {
-  // Slice 4.0.8 (D4d): production `inFlightBatch` MUST come from
-  // the workflow graph probe. The legacy `--in-flight-batch`
-  // boolean CLI flag is a TEST-ONLY seam (gated by
-  // `PEAKS_TEST_SEAM === '1'`). When the env flag is unset
-  // (the production case), we wire `probeInflightBatch` to the
-  // canonical `workflow-inflight-probe.ts` service so the
-  // production decision is graph-backed, not lease-age.
+function buildAutoCompactInput(
+  opts: AutoCompactOpts,
+  modeName: AutoCompactMode,
+  capture: ProbeCapture
+) {
+  // The in-flight signal comes from the session's DISPATCH LEDGER — the
+  // `active-dispatches.json` index and the dispatch records it names. The
+  // workflow graphs never carried the fact (a dispatch node sits at
+  // `prepared` and no writer stamps a heartbeat onto it), so a graph-backed
+  // probe could only ever answer "no" and the deferral was unreachable.
+  //
+  // The legacy `--in-flight-batch` boolean CLI flag is a TEST-ONLY seam
+  // (gated by `PEAKS_TEST_SEAM === '1'`). When the env flag is unset (the
+  // production case), we wire `probeInflightBatch` to the canonical
+  // `workflow-inflight-probe.ts` service fed by the ledger reader, so the
+  // production decision is ledger-backed.
   const isTestSeam = process.env.PEAKS_TEST_SEAM === '1';
+  const projectRoot = opts.project;
   return {
-    projectRoot: opts.project,
+    projectRoot,
     sessionId: opts.sessionId ?? readActiveSid(opts.project) ?? undefined,
     ...(isTestSeam && opts.inFlightBatch === true
       ? { inFlightBatch: { hasInFlightBatch: true } }
       : {}),
     ...(!isTestSeam
       ? {
-          probeInflightBatch: () => {
-            // Synchronous probe: the workflow-inflight-probe
-            // service is pure / synchronous (no I/O). The
-            // empty `graphs` array is the production CLI
-            // default — callers that want a richer fixture
-            // (e.g. `peaks session 24h-mode`) should hand-roll
-            // a probe and pass it via the orchestrator's
-            // input. When no graph is materialized, the
-            // probe returns `inFlightBatch: false`, matching
-            // the 4.0.7 zero-pause contract for stock
-            // projects.
-            const out = probeInFlightBatch({ now: new Date().toISOString(), graphs: [] });
+          probeInflightBatch: (sessionId: string) => {
+            // Synchronous probe: the reader reads files and the
+            // workflow-inflight-probe service is pure / synchronous
+            // (no I/O). The reader gathers the ledger's facts and the
+            // probe decides from them; the reader/probe boundary is
+            // what keeps the decision testable on its own.
+            const ledger = readDispatchLedgerFacts({ projectRoot, sessionId });
+            const out = probeInFlightBatch({ now: new Date().toISOString(), ledger });
+            // The whole answer is kept, not just its boolean: the deferral
+            // reports WHICH deferral it was, and the reason is in here.
+            capture.last = out;
             return out.inFlightBatch === true;
           }
         }
@@ -108,6 +136,23 @@ function reportAutoCompactFailure(io: ProgramIO, err: unknown, json?: boolean): 
   process.exitCode = 1;
 }
 
+/**
+ * The deferral's detail — or null when this run did not defer.
+ *
+ * The code is the gate: `AUTO_COMPACT_WAIT` is the one the orchestrator returns
+ * when the in-flight deferral applied. A run that skipped for another reason, or
+ * that reached the red line (where the deferral does not apply), carries no
+ * detail, because there was no deferral to describe.
+ */
+function deferralDetail(
+  result: Awaited<ReturnType<typeof runAutoCompact>>,
+  probe: ProbeResult | null
+): DeferralDetail | null {
+  if (result.code !== 'AUTO_COMPACT_WAIT') return null;
+  if (probe === null) return null;
+  return describeDeferral(probe);
+}
+
 /** The action body, lifted to a module-level function so both it and the registrar fit in 50 lines. */
 async function runAutoCompactAction(opts: AutoCompactOpts, io: ProgramIO): Promise<void> {
   try {
@@ -117,14 +162,16 @@ async function runAutoCompactAction(opts: AutoCompactOpts, io: ProgramIO): Promi
       reportInvalidAutoCompactMode(io, modeName, opts.json);
       return;
     }
-    const result = await runAutoCompact(buildAutoCompactInput(opts, modeName));
+    const capture: ProbeCapture = { last: null };
+    const result = await runAutoCompact(buildAutoCompactInput(opts, modeName, capture));
     const code = result.code;
     const exitOk = result.ok || code === 'AUTO_COMPACT_SKIP' || code === 'AUTO_COMPACT_WAIT';
     // Adapt AutoCompactResult → ResultEnvelope so printResult's
     // generic accepts it. The orchestrator envelope carries
     // `data` on success-path and `nextActions` on the error
     // path; surface both directly to the user.
-    printResult(io, buildAutoCompactEnvelope(result), opts.json);
+    const envelope = buildAutoCompactEnvelope(result);
+    printResult(io, withDeferralDetail(envelope, deferralDetail(result, capture.last)), opts.json);
     if (!exitOk) process.exitCode = 1;
   } catch (err) {
     reportAutoCompactFailure(io, err, opts.json);

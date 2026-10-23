@@ -220,6 +220,7 @@ export async function runSkillSync(input: SyncServiceInput): Promise<SyncService
         ok: true,
         installed: result.installed,
         skipped: result.skipped,
+        ...(result.entries !== undefined ? { entries: result.entries } : {}),
         durationMs: Date.now() - start
       });
       syncedCount += 1;

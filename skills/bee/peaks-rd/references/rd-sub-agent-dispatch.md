@@ -186,3 +186,22 @@ Run `node scripts/migrate-to-bdd.mjs --dry-run <file>` before writing new tests 
 - first 3 body comments: must match `/^\s*\/\/\s*given\s*:/`, `/^\s*\/\/\s*when\s*:/`, `/^\s*\/\/\s*then\s*:/`
 
 If your tests fail peaks-qa's `bdd-test-style-verifier` (see Slice B), the slice will be returned-to-rd. Fix the violations, do NOT bypass the check.
+
+---
+
+## Scratch path (absolute — never a cwd-relative redirect)
+
+The dispatch CLI machine-injects a scratch-path block into every sub-agent prompt, naming the ABSOLUTE scratch directory for that dispatch: `<projectRoot>/.peaks/_runtime/<sessionId>/<role>/scratch/`. The rule it carries is one line: **never redirect to a cwd-relative path**. The two paths that do NOT pass through that composer — `--from-dag` and `--mode detached` — carry no scratch block, so a caller using either must state the rule itself.
+
+**Why it is a block and not a line in a brief.** The rule used to live only in the orchestrator's brief, which is exactly as strong as the orchestrator's memory at 3am. Measured 2026-10-02, five zero-byte `*.err` captures — the `2> name.err` of five per-file test runs — landed at the repository root and were committed; `git status` stayed clean because the files were tracked, and neither the file-size census nor eslint reads a `.err`.
+
+**Two copies, one pin.** The block below is the canonical text; `src/cli/commands/dispatch-scratch-path-block.ts` holds its machine copy (`SCRATCH_PATH_BLOCK_TEMPLATE`) and `tests/unit/cli/commands/dispatch-scratch-path-block.test.ts` asserts the two are byte-equal, so neither can drift. The path differs for every dispatch, so the placeholder is what this file carries.
+
+```
+Scratch path (REQUIRED — absolute path; never a cwd-relative redirect)
+
+Write every temporary file for this task under this ABSOLUTE path:
+{{scratchDir}}
+
+Never redirect to a path that depends on the working directory — `2> out.err`, `> run.log`, `./scratch/`. A cwd-relative redirect writes wherever the task happens to `cd`: measured 2026-10-02, five zero-byte `*.err` captures landed at the repository root and were committed, and `git status` stayed clean because the files were tracked. Use the absolute path above; it lives under the session's runtime dir, which is gitignored, so nothing written there can be committed by accident.
+```

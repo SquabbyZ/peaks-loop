@@ -8,6 +8,10 @@
 // to reading the path's SPELLING, which never reaches a deny family, and the
 // edit was ALLOWED.
 //
+// The shell sibling is now a THIN WRAPPER over the Node command, so it is run
+// here with NO command reachable: what answers is the conservative path
+// inside it, and that path is what this file compares with the command.
+//
 // The file every row below names is `<real>/src/deep/x.ts`: it is inside
 // `src/`, which is hard-blocked, so every row must DENY.
 //
@@ -38,6 +42,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { decideGateAction } from '~/src/services/hooks/pre-tool-code-gate';
 import { resolveToolCallBaseDir } from '~/src/services/hooks/hook-payload-cwd';
+import { runHook } from '../_setup/code-gate-shell-harness.js';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
@@ -54,7 +59,6 @@ declareDimensions(
 );
 
 const ROOT = resolve(__dirname, '..', '..', '..');
-const HOOK_SCRIPT = resolve(ROOT, 'src', 'services', 'hooks', 'pre-tool-code-gate.sh');
 
 vi.setConfig({ testTimeout: SUBPROCESS_TEST_TIMEOUT_MS });
 
@@ -205,15 +209,23 @@ function runCodeGate(
   return { status: run.status, stdout: run.stdout ?? '' };
 }
 
-/** The shell sibling, run in the directory the call runs in. */
-function runShellSibling(stdin: string, cwd: string): { status: number | null; stderr: string } {
-  const run = spawnSync('bash', [HOOK_SCRIPT], {
-    cwd,
-    encoding: 'utf8',
-    windowsHide: true,
-    input: stdin
-  });
-  return { status: run.status, stderr: run.stderr ?? '' };
+/**
+ * The sibling's OWN decision.
+ *
+ * The sibling is a thin wrapper over the Node command: where a command is
+ * reachable it execs it, so running it against the command would compare the
+ * command with itself. It is therefore run with NO command reachable at all,
+ * and what answers is the conservative path inside it — the one a harness
+ * without Node gets. The project root is passed the way a caller passes it,
+ * so both sides judge the families against the same project.
+ */
+function runShellSibling(
+  root: string,
+  stdin: string,
+  cwd: string
+): { status: number | null; stderr: string } {
+  const run = runHook({ payload: stdin, cwd, args: [root], cli: false });
+  return { status: run.status, stderr: run.stderr };
 }
 
 /** The verdict the Node command reached. */
@@ -388,7 +400,11 @@ describe('integration — the command the hook runs', () => {
       for (const row of SPELLING_ROWS) {
         const stdin = payload('deep/x.ts', baseDir(project, row.base));
         const cli = runCodeGate(rootDir(project, row.root), stdin, baseDir(project, row.base));
-        const shell = runShellSibling(stdin, baseDir(project, row.base));
+        const shell = runShellSibling(
+          rootDir(project, row.root),
+          stdin,
+          baseDir(project, row.base)
+        );
 
         expect(nodeVerdict(cli.stdout), `node: root ${row.root}, base ${row.base}`).toBe('deny');
         expect(shellVerdict(shell.status), `shell: root ${row.root}, base ${row.base}`).toBe(

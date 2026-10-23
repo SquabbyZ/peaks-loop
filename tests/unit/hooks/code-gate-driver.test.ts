@@ -25,6 +25,7 @@ import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { setPresenceLease } from '~/src/services/skills/presence-lease-service';
+import { runHook } from '../_setup/code-gate-shell-harness.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
 const ROOT = resolve(__dirname, '..', '..', '..');
@@ -127,23 +128,22 @@ function runCodeGateLive(root: string, stdin: string): { status: number | null; 
   return { status: run.status, stderr: run.stderr ?? '' };
 }
 
-/** The non-Node sibling the same installer distributes for harnesses that cannot run the command. */
-const SHELL_SIBLING = resolve(ROOT, 'src', 'services', 'hooks', 'pre-tool-code-gate.sh');
-
 /**
- * The shell sibling, run in the SAME project root and fed the SAME bytes as
- * `runCodeGate`. Its cwd is the lease-bearing project on purpose: a sibling that
- * grew a driver lookup would find the lease there and open the family, so running
+ * The sibling's OWN decision.
+ *
+ * The sibling is a thin wrapper over the Node command: where a command is
+ * reachable it execs it, and the comparison below would be the command
+ * against itself. It is therefore run with NO command reachable at all, so
+ * what answers is the conservative path inside it — the one a harness without
+ * Node gets, and the one that takes no caller identity into account.
+ *
+ * Its cwd is the lease-bearing project on purpose: a sibling that grew a
+ * driver lookup would find the lease there and open the family, so running
  * it anywhere else would let this test pass without pinning anything.
  */
 function runShellSibling(root: string, stdin: string): { status: number | null; stderr: string } {
-  const run = spawnSync('bash', [SHELL_SIBLING], {
-    cwd: root,
-    encoding: 'utf8',
-    windowsHide: true,
-    input: stdin
-  });
-  return { status: run.status, stderr: run.stderr ?? '' };
+  const run = runHook({ payload: stdin, cwd: root, args: [root], cli: false });
+  return { status: run.status, stderr: run.stderr };
 }
 
 afterEach(() => {
@@ -329,21 +329,24 @@ describe('peaks code-gate — the exit channel', () => {
 });
 
 // ---------------------------------------------------------------------------
-// The shell sibling — the second gate, and the one axis the two do not share
+// The shell sibling's own path — the second gate, and the one axis the two
+// do not share
 // ---------------------------------------------------------------------------
 //
 // `peaks hooks install --scope global` copies `pre-tool-code-gate.sh` alongside
-// the command's own hook entry (`src/cli/commands/hooks-commands.ts`), so a
-// harness that cannot run the Node command runs THAT gate instead. It takes no
-// driver input: nothing in the script resolves a caller, so it denies the
-// hard-blocked families whatever lease sits on disk. That is a real divergence
-// from the command above, and it is deliberate — the script is the conservative
-// fallback, and teaching it the lease resolution would be a second
-// implementation of the one decision the command layer owns.
+// the command's own hook entry (`src/cli/commands/hooks-commands.ts`), and the
+// script is now a THIN WRAPPER over that command: where a command is reachable
+// it execs it. What is left of the script is the conservative path a harness
+// WITHOUT the command gets, and it takes no driver input: nothing in it
+// resolves a caller, so it denies the hard-blocked families whatever lease
+// sits on disk. That is a real divergence from the command above, and it is
+// deliberate — that path is the conservative fallback, and teaching it the
+// lease resolution would be a second implementation of the one decision the
+// command layer owns.
 //
 // So the divergence is pinned here rather than left to be rediscovered. The two
-// gates are handed ONE payload, in ONE project state, and must disagree; the
-// only input they do not share is the driver, so a change that syncs the script
+// are handed ONE payload, in ONE project state, and must disagree; the only
+// input they do not share is the driver, so a change that syncs the fallback
 // (or quiets the command) reddens this rather than drifting silently.
 
 describe('peaks code-gate vs. the shell sibling — one call, two verdicts', () => {

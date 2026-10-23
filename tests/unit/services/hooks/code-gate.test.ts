@@ -34,8 +34,8 @@ import {
   ALLOW_LISTED_PATH_PATTERNS,
   type GateInput
 } from '~/src/services/hooks/pre-tool-code-gate';
-import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
+import { runHook as runHookScript } from '../../_setup/code-gate-shell-harness.js';
 import { SUBPROCESS_TEST_TIMEOUT_MS } from '../../_setup/subprocess-timeouts.js';
 
 declareDimensions('tests/unit/services/hooks/code-gate.test.ts', [
@@ -312,30 +312,19 @@ interface SpawnResult {
   readonly stderr: string;
 }
 
+/**
+ * The script is a THIN WRAPPER over the Node command: where a command is
+ * reachable it execs it, so a smoke test of the script's own decision has to
+ * run it with NO command reachable. What answers is the conservative path
+ * inside it — the one a harness without Node gets.
+ */
 async function runHook(input: GateInput): Promise<SpawnResult> {
-  return new Promise<SpawnResult>((resolveFn, reject) => {
-    const child = spawn('bash', [HOOK_SCRIPT], {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      windowsHide: true
-    });
-    let stdout = '';
-    let stderr = '';
-    child.stdout.on('data', (chunk: Buffer) => {
-      stdout += chunk.toString('utf8');
-    });
-    child.stderr.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString('utf8');
-    });
-    child.on('error', (err) => reject(err));
-    child.on('close', (code) => {
-      resolveFn({
-        exitCode: typeof code === 'number' ? code : -1,
-        stdout: stdout.trim(),
-        stderr: stderr.trim()
-      });
-    });
-    child.stdin.end(JSON.stringify(input));
-  });
+  const run = runHookScript({ payload: JSON.stringify(input), cli: false });
+  return {
+    exitCode: run.status ?? -1,
+    stdout: run.stdout.trim(),
+    stderr: run.stderr.trim()
+  };
 }
 
 describe('Scenario: integration — shell hook smoke (real child_process)', () => {
@@ -414,30 +403,8 @@ describe('Scenario: integration — shell hook smoke (real child_process)', () =
     'given empty stdin, when hook runs, then exit=0 (tolerate empty payload)',
     { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
     async () => {
-      const result = await new Promise<SpawnResult>((resolveFn, reject) => {
-        const child = spawn('bash', [HOOK_SCRIPT], {
-          stdio: ['pipe', 'pipe', 'pipe'],
-          windowsHide: true
-        });
-        let stdout = '';
-        let stderr = '';
-        child.stdout.on('data', (chunk: Buffer) => {
-          stdout += chunk.toString('utf8');
-        });
-        child.stderr.on('data', (chunk: Buffer) => {
-          stderr += chunk.toString('utf8');
-        });
-        child.on('error', (err) => reject(err));
-        child.on('close', (code) => {
-          resolveFn({
-            exitCode: typeof code === 'number' ? code : -1,
-            stdout: stdout.trim(),
-            stderr: stderr.trim()
-          });
-        });
-        child.stdin.end('');
-      });
-      expect(result.exitCode).toBe(0);
+      const run = runHookScript({ payload: '', cli: false });
+      expect(run.status ?? -1).toBe(0);
     }
   );
 });

@@ -10,7 +10,8 @@
 // were deleted. QA cycle 1 measured the cost of that divergence: the package was
 // walked, recorded with `fileCount: 0`, and read `fresh` over a `dist/` built
 // from sources that no longer existed, while the gate printed
-// `build-integrity: OK`.
+// `build-integrity: OK` (the all-clear a tree with nothing to compare printed
+// then; it has a sentence of its own now — backlog §2.18).
 //
 // So the claim is not re-asserted here, it is checked — and the shape of the
 // check is the point. Every case runs `listPackageRoots` AND a copy of the gate
@@ -175,7 +176,11 @@ describe('Scenario: integration — the gate skips and walks by the same predica
       const skipped = runGate(gate);
 
       expect(skipped.status).toBe(0);
-      expect(skipped.stdout).toContain('build-integrity: OK');
+      // This tree holds NO source-bearing package, so the gate had nothing to
+      // compare and says so in its own sentence (backlog §2.18) — it does NOT
+      // print the all-clear. What this arm pins is the SKIP: the gate did not
+      // walk the package, so it did not call its `dist/index.js` an orphan.
+      expect(skipped.stdout).not.toContain('build-integrity: OK');
       expect(listPackageRoots(root).map((pkg) => pkg.name)).toEqual([]);
 
       writeFileSync(join(root, 'packages', 'a', 'src', 'services', 'loader.ts'), SOURCE_A, 'utf8');

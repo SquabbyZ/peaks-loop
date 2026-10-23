@@ -18,28 +18,24 @@ export type HookInstallOptions = {
    */
   readonly ide?: IdeId;
   /**
-   * Slice #013 (bugfix — peaks hooks install --no-progress): when `true`,
-   * skip emitting the progress-start PreToolUse hook entry while still
-   * installing the gate-enforce entry. The progress-start hook auto-spawns
-   * a new terminal running `peaks progress watch`; with dispatch +
-   * heartbeat (slice #009 + #010) that auto-spawn is dead weight. Default
-   * `false` preserves the pre-slice install shape (both entries). The
-   * sentinel-based install is idempotent: re-running with `skipProgress:
-   * true` over a settings.json that previously had the progress entry
-   * installed will remove that entry. `uninstall` honors the same flag
-   * so it can find and remove both entries when both are present and
-   * only the gate-enforce entry when only the gate-enforce is present.
+   * Slice #013 (bugfix — peaks hooks install --no-progress): the published
+   * flag that skipped the progress-start PreToolUse hook entry. That hook
+   * auto-spawns a new terminal running a progress watcher; with dispatch +
+   * heartbeat (slice #009 + #010) the auto-spawn is dead weight.
    *
-   * Slice #014 (refactor — full removal of legacy progress-start surface):
-   * the field is preserved for API stability, but the underlying
-   * install only ever emits the gate-enforce entry. The progress-start
-   * entry is no longer installed regardless of this flag's value. The
-   * legacy `peaks progress start|watch|close` CLI surface is gone
-   * (replaced by `peaks sub-agent dispatch|heartbeat|share`); the hook
-   * entry would have been pointing at a `peaks progress start` that no
-   * longer exists. The sentinel `peaks progress start` constant is still
-   * exported (some tests + back-compat reads rely on it) but no new
-   * hook entries use it.
+   * The field is retained for API stability and NO LONGER CHANGES WHAT IS
+   * INSTALLED: it defaults to unset and the entry resolver ignores it, so an
+   * install always writes the adapter's whole peaks-managed entry set — for
+   * Claude Code: `peaks gate enforce` (Bash and MCP tool calls),
+   * `peaks code-gate` (Edit|Write|MultiEdit), `peaks outer-cache write`,
+   * `peaks session primer`, `peaks session reinject`, `peaks compact settle`
+   * — plus the Layer-3 `permissions.deny` entries (worktree governance);
+   * the other adapters install their own single hook entry. No code path
+   * writes the legacy progress-start entry any more.
+   *
+   * `uninstall` ignores this field as well: it strips entries by a sentinel
+   * scan over the peaks-managed sentinel set, which covers every entry an
+   * install writes plus the legacy progress-start one.
    */
   readonly skipProgress?: boolean;
 };

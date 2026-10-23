@@ -14,8 +14,14 @@ import { join } from 'node:path';
 import { reconcileCanonicalEntry } from './canonical-store.mjs';
 import { reconcileCanonicalFileEntry } from './canonical-store-link.mjs';
 import { pruneBundledEntries } from './canonical-store-prune.mjs';
-import { createInstallResult } from './install-skills-report.mjs';
-import { createInstallRootValidator, resolvePackageRoot } from './install-skills-fs.mjs';
+import { collectStoreOnlyEntries } from './canonical-store-report.mjs';
+import { createInstallResult, finalizeInstallResult } from './install-skills-report.mjs';
+import {
+  createInstallRootValidator,
+  prepareInstallRoot,
+  readPackageVersion,
+  resolvePackageRoot
+} from './install-skills-fs.mjs';
 import { resolveBundleTargetRoot } from './install-skills-ide.mjs';
 
 /**
@@ -71,6 +77,11 @@ function isSkillSource(sourcePath) {
 export function installBundledSkills(options = {}) {
   const packageRoot = resolvePackageRoot(options);
   const skillsRoot = join(packageRoot, 'skills');
+  // The version of the package that owns `skills/<name>`. It is stamped into
+  // every canonical copy's sidecar, and it is what makes a store frozen at an
+  // old release KNOWABLY stale instead of merely different.
+  const packageVersion = readPackageVersion(packageRoot);
+  const dryRun = options.dryRun === true;
 
   if (process.env.PEAKS_SKIP_SKILL_INSTALL === '1' || !existsSync(skillsRoot)) {
     return createInstallResult();
@@ -88,8 +99,14 @@ export function installBundledSkills(options = {}) {
 
   const installed = [];
   const skipped = [];
-  mkdirSync(targetRoot, { recursive: true });
-  const validateSkillsRoot = createInstallRootValidator(targetRoot, 'Peaks skills');
+  // What the STORE holds per entry, as found — `current`, `stale`, `unmanaged`,
+  // `retired` or `absent`. It is the report the install used to leave in a return
+  // value nobody read, and it is what tells a caller (and a human) which entries are
+  // behind the installed release before anything is repaired.
+  const entries = [];
+  // The install root: a real run creates it and guards it, a dry run does neither —
+  // a dry run that leaves a directory behind is not a dry run.
+  const validateSkillsRoot = prepareInstallRoot(targetRoot, 'Peaks skills', dryRun);
 
   const candidates = collectSkillCandidates(skillsRoot);
 
@@ -111,10 +128,19 @@ export function installBundledSkills(options = {}) {
       kind: 'skills',
       name: skillName,
       sourcePath,
-      linkPath: targetPath
+      linkPath: targetPath,
+      version: packageVersion,
+      dryRun
     });
     validateSkillsRoot();
 
+    entries.push({
+      name: skillName,
+      state: reconciled.state,
+      action: reconciled.action,
+      version: reconciled.version ?? null,
+      reason: reconciled.reason ?? null
+    });
     if (reconciled.linkAction === 'skipped') {
       skipped.push(skillName);
       continue;
@@ -122,17 +148,32 @@ export function installBundledSkills(options = {}) {
     installed.push(skillName);
   }
 
+  // The store holds entries this package does NOT ship: the user's own skills, and
+  // the ones a retired release left behind. The report covers the STORE, not only
+  // the package's slice of it — a user's skill that the report never mentions is a
+  // skill the user cannot see is safe.
+  entries.push(
+    ...collectStoreOnlyEntries({
+      kind: 'skills',
+      knownNames: candidates.map((candidate) => candidate.skillName),
+      dryRun
+    })
+  );
+
   // Slice 3 — PRUNE. The loop above only ever ADDS. A skill removed from the
   // package left its canonical copy, every IDE link and every sidecar on the
   // user's machine forever, because nothing walked the DESTINATIONS. This does,
-  // and deletes only what `isManagedEntry` proves is ours.
-  const { pruned } = pruneBundledEntries({
-    kind: 'skills',
-    keepNames: candidates.map((candidate) => candidate.skillName),
-    linkDirs: [targetRoot]
-  });
+  // and deletes only what `isManagedEntry` proves is ours. A dry run deletes
+  // nothing — a plan that removes files is not a plan.
+  const pruned = dryRun
+    ? []
+    : pruneBundledEntries({
+        kind: 'skills',
+        keepNames: candidates.map((candidate) => candidate.skillName),
+        linkDirs: [targetRoot]
+      }).pruned;
 
-  return { installed, skipped, pruned };
+  return finalizeInstallResult({ installed, skipped, pruned, entries }, dryRun);
 }
 
 /**
@@ -161,6 +202,7 @@ export function installBundledSkills(options = {}) {
 export function installBundledAgents(options = {}) {
   const packageRoot = resolvePackageRoot(options);
   const agentsRoot = join(packageRoot, 'agents');
+  const packageVersion = readPackageVersion(packageRoot);
 
   // Per-IDE env-var override (claude-code only today): PEAKS_CLAUDE_AGENTS_DIR.
   // Universal escape hatch: PEAKS_SKIP_AGENT_INSTALL=1 (parallel to
@@ -207,7 +249,8 @@ export function installBundledAgents(options = {}) {
       name: agentFileName,
       sourcePath,
       linkPath: join(targetRoot, agentFileName),
-      createFileLink: options.createFileLink
+      createFileLink: options.createFileLink,
+      version: packageVersion
     });
     validateAgentsRoot();
 

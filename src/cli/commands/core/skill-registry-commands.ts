@@ -4,10 +4,15 @@
 import type { Command } from 'commander';
 import { runDoctor } from '../../../services/doctor/index.js';
 import { listSkills } from '../../../services/skills/skill-registry.js';
-import { runSkillSync, SYNC_PLATFORMS } from '../../../services/skills/sync-service.js';
+import {
+  runSkillSync,
+  SYNC_PLATFORMS,
+  type SyncServiceResult
+} from '../../../services/skills/sync-service.js';
 import { ok, fail } from 'peaks-loop-shared/result';
 
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../../cli-helpers.js';
+import { renderStoreReport } from './skill-store-report.js';
 
 const PLATFORM_IDS = SYNC_PLATFORMS.join(', ');
 const LIST_DESCRIPTION = 'List skills derived from skills/*/SKILL.md';
@@ -96,6 +101,36 @@ function runSkillDoctor(options: DoctorOptions, io: ProgramIO): Promise<void> {
   });
 }
 
+/**
+ * The canonical store's state, as the install found it: which entries are behind
+ * the installed release, which ones are the user's own, and how many are current.
+ *
+ * WHY IT IS REPORTED HERE. The install's `skipped` list used to be a value in a
+ * return object nobody read — a store entry that is left alone, or a copy that
+ * is behind, both looked exactly like a successful install from the outside.
+ * A dry run is where that report belongs: it says what a repair WOULD do,
+ * before anything is written.
+ *
+ * The FIRST platform's report is the one shown. The canonical store is shared by
+ * every platform, so the first pass sees the state as it was found; the later
+ * passes see what the first one already fixed.
+ */
+function storeReport(result: SyncServiceResult, dryRun: boolean): string | null {
+  const entries = result.perPlatform.find((platform) => platform.entries !== undefined)?.entries;
+  return renderStoreReport(entries, dryRun);
+}
+
+/** The report, as the next action the envelope carries — or none at all. */
+function reportAction(report: string | null): string[] {
+  return report === null ? [] : [report];
+}
+
+/** The human line, for the non-JSON output. The JSON envelope carries it too. */
+function printStoreReport(io: ProgramIO, report: string | null, asJson: boolean): void {
+  if (report === null || asJson === true) return;
+  io.stdout(`  ${report}\n`);
+}
+
 async function runSkillSyncCommand(options: SyncOptions, io: ProgramIO): Promise<void> {
   try {
     const projectRoot = options.project ?? process.cwd();
@@ -106,6 +141,7 @@ async function runSkillSyncCommand(options: SyncOptions, io: ProgramIO): Promise
       ...(options.dryRun === true ? { dryRun: true } : {}),
       ...(options.reconcileJunctions === true ? { reconcileJunctions: true } : {})
     });
+    const report = storeReport(result, options.dryRun === true);
     const envelope = ok(
       'skill.sync',
       result,
@@ -113,12 +149,14 @@ async function runSkillSyncCommand(options: SyncOptions, io: ProgramIO): Promise
       [
         `syncedCount: ${result.syncedCount}/${result.perPlatform.length} platforms`,
         `totalInstalled: ${result.totalInstalled} skill symlinks`,
+        ...reportAction(report),
         result.failedCount > 0
           ? `failedCount: ${result.failedCount} (run \`peaks skill status\` for details)`
           : 'no failures'
       ]
     );
     printResult(io, envelope, options.json);
+    printStoreReport(io, report, options.json === true);
     if (result.failedCount > 0) {
       process.exitCode = 1;
     }

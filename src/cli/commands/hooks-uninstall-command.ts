@@ -1,9 +1,9 @@
 // src/cli/commands/hooks-uninstall-command.ts
 //
-// `peaks hooks uninstall` — remove the peaks-managed gate-enforce hook entry
-// (and any legacy progress-start entry a pre-#014 install left behind). Split
-// out of `hooks-commands.ts`; the verb name, its options and the envelope shape
-// are unchanged.
+// `peaks hooks uninstall` — remove the peaks-managed hook entries (the whole
+// set the install writes, plus a legacy progress-start entry an install from
+// before slice #014 left behind). Split out of `hooks-commands.ts`; the verb
+// name, its options and the envelope shape are unchanged.
 
 import type { Command } from 'commander';
 import {
@@ -57,7 +57,7 @@ export function registerHooksUninstallCommand(hooks: Command, io: ProgramIO): vo
     hooks
       .command('uninstall')
       .description(
-        'Remove the peaks-managed gate-enforce hook entry from the target settings.json. Any legacy progress-start entry that a pre-#014 install left behind is also removed (sentinel-based scan). Third-party hooks are preserved.'
+        'Remove the peaks-managed hook entries from the target settings.json — for Claude Code: peaks gate enforce (Bash and MCP tool calls), peaks code-gate (Edit|Write|MultiEdit), peaks outer-cache write, peaks session primer, peaks session reinject, peaks compact settle — plus the Layer-3 permissions.deny entries (worktree governance); the other adapters remove their own single hook entry. A legacy progress-start entry left behind by an install from before slice #014 is removed too (sentinel-based scan). Third-party hooks are preserved.'
       )
       .option(
         '--global',

@@ -25,6 +25,7 @@ import { readFreshContextBlock } from '../../services/fresh-context/fresh-contex
 import type { ContextPercentProbe } from '../../services/context/auto-compact-types.js';
 import { deprecatedReviewerWarnings, type DispatchOptions } from './sub-agent-shared.js';
 import { buildIsolationBlock, buildMustLsFilesBlock } from './dispatch-prompt-blocks.js';
+import { buildScratchPathInjection } from './dispatch-scratch-path-block.js';
 import {
   ensureArtifactContractBlock,
   readArtifactContractBlock
@@ -264,6 +265,9 @@ export async function composeDispatchPrompt(
     requestId: rid,
     role
   });
+  // The scratch path for this dispatch: an ABSOLUTE directory, so a redirect
+  // into it cannot depend on the cwd the sub-agent happens to be in.
+  const scratch = buildScratchPathInjection({ projectRoot, sid, role });
   // The presence test runs on the ASSEMBLED prompt, not on the caller's draft:
   // this string is what the sub-agent receives as `toolCall.args.prompt` and
   // what the dispatch record stores as `prompt`. A draft that merely names
@@ -271,7 +275,7 @@ export async function composeDispatchPrompt(
   // the canonical block, so the block is added rather than trusted.
   const effectivePrompt = ensureKarpathyBlock(
     ensureArtifactContractBlock(
-      `${memoryAugmentedBody}${isolationBlock}${mustLsFilesBlock}`,
+      `${memoryAugmentedBody}${isolationBlock}${mustLsFilesBlock}${scratch.block}`,
       contractBlock
     )
   );
@@ -283,7 +287,8 @@ export async function composeDispatchPrompt(
   const warnings: string[] = [
     ...decision.warnings,
     ...deprecatedReviewerWarnings(role),
-    ...invocationWarnings
+    ...invocationWarnings,
+    ...(scratch.warning === null ? [] : [scratch.warning])
   ];
 
   return { adapter, effectivePrompt, warnings, mustLsFilesVerification };

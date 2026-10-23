@@ -40,18 +40,17 @@ import {
 import { dirname } from 'node:path';
 
 import {
+  LEGACY_MARKER_KIND,
   MANAGED_MARKER_SUFFIX,
   ensureCanonicalCopy,
   linkResolvesTo,
+  parseLegacyMarker,
   readManagedTarget,
   writeManagedMarker
 } from './canonical-store.mjs';
 
 /** Codes that mean "this host refused to create the link", not "the link is wrong". */
 const LINK_REFUSED_CODES = new Set(['EPERM', 'EACCES', 'UNKNOWN', 'ENOTSUP', 'EINVAL']);
-
-/** The `kind` each family wrote into its pre-canonical-store JSON sidecar. */
-const LEGACY_MARKER_KIND = Object.freeze({ agents: 'agent', 'output-styles': 'output-style' });
 
 /** Scratch prefix for the atomic copy; never a valid asset name (assets start with a letter). */
 const TEMP_PREFIX = '.peaks-tmp-';
@@ -90,23 +89,6 @@ function provenanceNamesCanonicalPath(recorded, canonicalPath) {
   const recordedIdentity = resolveIdentity(recorded);
   const canonicalIdentity = resolveIdentity(canonicalPath);
   return recordedIdentity !== null && recordedIdentity === canonicalIdentity;
-}
-
-/**
- * The sidecar shape written before the canonical store existed: JSON naming the
- * package path the file was copied from, plus a content hash. Parsed, never trusted.
- */
-function parseLegacyMarker(recorded) {
-  if (typeof recorded !== 'string' || !recorded.startsWith('{')) return null;
-  try {
-    const marker = JSON.parse(recorded);
-    const assetName = marker?.agentName ?? marker?.outputStyleName;
-    if (marker?.version !== 1 || typeof marker.kind !== 'string') return null;
-    if (typeof assetName !== 'string' || typeof marker.sourcePath !== 'string') return null;
-    return { kind: marker.kind, assetName, sourcePath: marker.sourcePath };
-  } catch {
-    return null;
-  }
 }
 
 /** A link is ours when it points at the canonical copy, or when it points at nothing. */
@@ -262,16 +244,22 @@ function linkOrCopyEntry({ copied, linkPath, current, createFileLink }) {
  *   name: string,
  *   sourcePath: string,
  *   linkPath?: string,
- *   createFileLink?: (target: string, path: string, type: string) => void
+ *   createFileLink?: (target: string, path: string, type: string) => void,
+ *   version?: string,
+ *   dryRun?: boolean
  * }} options
  *   `createFileLink` exists so the refused-symlink arm can be MEASURED on a host where
  *   symlinks are permitted (this one). Without it the fallback branch would be
  *   unreachable in the test suite, and an unverified branch is an unverified claim.
  *   Defaults to `fs.symlinkSync`.
+ *   `version` is the version of the package that owns the asset; it is stamped
+ *   into the canonical copy's sidecar so a stale copy is knowable. `dryRun`
+ *   plans the entry and writes nothing.
  */
 export function reconcileCanonicalFileEntry(options) {
   const { kind, name, sourcePath, linkPath } = options;
-  const copied = ensureCanonicalCopy({ kind, name, sourcePath });
+  const { version, dryRun } = options;
+  const copied = ensureCanonicalCopy({ kind, name, sourcePath, version, dryRun });
   const skipped = { ...copied, linkAction: 'skipped', fallback: null };
   if (copied.action === 'unmanaged') return skipped;
   if (typeof linkPath !== 'string' || linkPath.length === 0) return skipped;
@@ -286,6 +274,9 @@ export function reconcileCanonicalFileEntry(options) {
     sourcePath
   });
   if (entry.verdict === 'foreign') return skipped;
+  if (options.dryRun === true) {
+    return { ...copied, linkAction: 'planned', fallback: null };
+  }
   if (entry.verdict === 'copy') return settledCopyResult({ copied, entryPath: linkPath });
   return linkOrCopyEntry({
     copied,

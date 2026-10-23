@@ -102,9 +102,12 @@ as the terms of the deal, not as caveats:
   --scope global` also copies `src/services/hooks/pre-tool-code-gate.sh` into the IDE's
   skills directory; a project-scope install copies nothing. Nothing wires that copy up —
   every hook entry the installer writes is a `peaks …` command, and no settings template
-  invokes a `.sh`, so it lies inert until a harness is pointed at it by hand. If one is: it
-  takes no driver input at all and denies the hard-blocked families unconditionally, refused
-  even in this lane, and its refusal will not mention this file. That asymmetry is known and
+  invokes a `.sh`, so it lies inert until a harness is pointed at it by hand. If one is: it is a
+  **thin wrapper** that execs `peaks code-gate` — so where a Node CLI is reachable it takes the
+  driver input and honours the fast lane exactly as the command does, and it refuses rather than
+  guessing when it cannot place the file. Only a machine with **no** Node CLI reachable reaches
+  its **no-CLI fallback**, which denies the hard-blocked families unconditionally, refused even in
+  this lane, and its refusal will not mention this file. That asymmetry is known and
   left conservative on purpose — assigning it is not this skill's job, and teaching the shell
   gate about lanes is not yours.
 
