@@ -615,6 +615,57 @@ jobs:
           TZ: UTC
           PEAKS_CALLER_ID: ci-runner
 
+  # §21.9 — THE BDD TEST-STYLE CONTRACT HAD A CHECKER AND NO EXECUTOR.
+  #
+  # `src/services/qa/bdd-test-style-verifier.ts` checks the contract in
+  # `contracts/test-style-contract.md`: an `it()` / `test()` description must read
+  # `when X, should Y`, and the callback body must start with exactly `// given:`
+  # / `// when:` / `// then:`. The checker was reachable from the peaks-qa
+  # verification path and NOTHING IN CI CALLED IT, which is how it rotted:
+  # measured 2026-10-23 over the tracked `tests/**/*.test.ts` population, 599 of
+  # 691 files violated it — 4996 violating `it()` / `test()` calls. The repo's own
+  # lesson (backlog §14, slice A-F sweep): a checker that is registered but never
+  # called measures nothing.
+  #
+  # THIS JOB IS THE EXECUTOR. It runs the ratchet, and the ratchet runs the
+  # checker over every tracked test file on every push and pull request. The
+  # ratchet is shrink-only: a NEW violating file, a CHANGED violating-call count
+  # and a STALE baseline entry each fail this job, so the debt can only shrink.
+  #
+  # NO `continue-on-error`, NO `|| true`: a step that cannot fail is the defect
+  # this job exists to end.
+  bdd-test-style-ratchet:
+    name: 'bdd test-style ratchet (shrink-only; the BDD contract has an executor)'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm (corepack)
+        # Same reason as every other job here: pnpm/action-setup's
+        # self-installer fails on the runner's default Node 24.
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.11.0 --activate
+          pnpm --version
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run the BDD test-style ratchet
+        # No `npm run build`: the ratchet reads the tracked test files and the
+        # baseline artifact and imports the checker from `src/` — the unit
+        # config's own global preflight builds the workspace packages.
+        run: pnpm exec vitest run tests/unit/standards/bdd-test-style-ratchet.test.ts --reporter=default --reporter=github-actions
+        env:
+          TZ: UTC
+          PEAKS_CALLER_ID: ci-runner
+
   # W2/D2 (rid-038). THE WIDE FORMATTING CHECK HAD NO EXECUTOR, AND THAT IS HOW
   # UNFORMATTED FILES REACHED A COMMIT.
   #

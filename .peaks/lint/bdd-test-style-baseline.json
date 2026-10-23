@@ -1,0 +1,3611 @@
+{
+  "version": 1,
+  "generatedAt": "2026-10-23T12:51:24.095Z",
+  "note": "Shrink-only ratchet for the BDD test-style contract (contracts/test-style-contract.md). Measured 2026-10-23 over the tracked `tests/**/*.test.ts` population: 691 tracked test files at that date, of which 92 conformed and 599 violated the contract. Those three numbers are a DATED measurement and are not read by the gate — the live numbers are in `totals` and `files`. The backlog's §21.9 figure of 11 was measured over the files ONE session happened to touch, not over the tree; this baseline records the repo-wide population. The gate fails on a NEW violating file, a CHANGED violating-call count and a STALE entry. The counts may only go DOWN: fix a file, then shrink or remove its entry here.",
+  "scope": {
+    "dirs": [
+      "tests"
+    ],
+    "pattern": "*.test.ts"
+  },
+  "totals": {
+    "violatingFiles": 599,
+    "violations": 4996
+  },
+  "files": [
+    {
+      "path": "tests/e2e/critical-paths.test.ts",
+      "violations": 5,
+      "reason": "description-no-should-when",
+      "line": 48
+    },
+    {
+      "path": "tests/integration/adapter-dispatch-capability-e2e.test.ts",
+      "violations": 8,
+      "reason": "description-no-should-when",
+      "line": 33
+    },
+    {
+      "path": "tests/integration/adapter-hooks-statusline-e2e.test.ts",
+      "violations": 4,
+      "reason": "description-no-should-when",
+      "line": 181
+    },
+    {
+      "path": "tests/integration/adapter-skill-commands-e2e.test.ts",
+      "violations": 12,
+      "reason": "description-no-should-when",
+      "line": 43
+    },
+    {
+      "path": "tests/integration/asset-crystallize-cli.test.ts",
+      "violations": 4,
+      "reason": "description-no-should-when",
+      "line": 43
+    },
+    {
+      "path": "tests/integration/baseline-4.0.8-frozen.test.ts",
+      "violations": 2,
+      "reason": "description-no-should-when",
+      "line": 11
+    },
+    {
+      "path": "tests/integration/baseline-4.0.8-shape.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 16
+    },
+    {
+      "path": "tests/integration/baseline-cli.test.ts",
+      "violations": 3,
+      "reason": "description-no-should-when",
+      "line": 51
+    },
+    {
+      "path": "tests/integration/binding-store/multi-process.test.ts",
+      "violations": 2,
+      "reason": "description-no-should-when",
+      "line": 121
+    },
+    {
+      "path": "tests/integration/business-capability-e2e.test.ts",
+      "violations": 5,
+      "reason": "description-no-should-when",
+      "line": 99
+    },
+    {
+      "path": "tests/integration/capability-audit/5th-dim-injection.test.ts",
+      "violations": 2,
+      "reason": "description-no-should-when",
+      "line": 52
+    },
+    {
+      "path": "tests/integration/capability-audit/independent-eval.test.ts",
+      "violations": 3,
+      "reason": "missing-given-when-then",
+      "line": 62
+    },
+    {
+      "path": "tests/integration/capability-guard/J01-envelope-arg-shapes.test.ts",
+      "violations": 2,
+      "reason": "description-no-should-when",
+      "line": 13
+    },
+    {
+      "path": "tests/integration/capability-guard/J02-workflow-trace.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 10
+    },
+    {
+      "path": "tests/integration/capability-guard/J03-problem-resolution-flow.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 13
+    },
+    {
+      "path": "tests/integration/capability-guard/J04-audit-goal-binding.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 13
+    },
+    {
+      "path": "tests/integration/capability-guard/J05-final-review-shape.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 13
+    },
+    {
+      "path": "tests/integration/capability-guard/J06-resume-deepest-gate.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 13
+    },
+    {
+      "path": "tests/integration/capability-guard/J07-test-runner-fidelity.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 13
+    },
+    {
+      "path": "tests/integration/capability-guard/J08-asset-roundtrip.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 13
+    },
+    {
+      "path": "tests/integration/capability-guard/J09-sop-register.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 13
+    },
+    {
+      "path": "tests/integration/capability-guard/J10-ide-install-assertion.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 13
+    },
+    {
+      "path": "tests/integration/capability-guard/J11-doctor-cli-snapshot.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 13
+    },
+    {
+      "path": "tests/integration/capability-guard/J12-lease-lifecycle.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 13
+    },
+    {
+      "path": "tests/integration/capability-guard/J13-content-pipeline-trace.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 13
+    },
+    {
+      "path": "tests/integration/capability-guard/J14-issue-orchestrator-trace.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 13
+    },
+    {
+      "path": "tests/integration/capability-guard/J15-spec-coverage.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 13
+    },
+    {
+      "path": "tests/integration/changeset-check.test.ts",
+      "violations": 6,
+      "reason": "description-no-should-when",
+      "line": 48
+    },
+    {
+      "path": "tests/integration/code-context-now-job-mode.test.ts",
+      "violations": 3,
+      "reason": "description-no-should-when",
+      "line": 101
+    },
+    {
+      "path": "tests/integration/code-detect-job-command.test.ts",
+      "violations": 9,
+      "reason": "description-no-should-when",
+      "line": 88
+    },
+    {
+      "path": "tests/integration/code-gate-step-08-hook.test.ts",
+      "violations": 8,
+      "reason": "description-no-should-when",
+      "line": 120
+    },
+    {
+      "path": "tests/integration/code/multi-sub-agent-fanout.test.ts",
+      "violations": 3,
+      "reason": "description-no-should-when",
+      "line": 63
+    },
+    {
+      "path": "tests/integration/config-migrate-cli.test.ts",
+      "violations": 10,
+      "reason": "description-no-should-when",
+      "line": 104
+    },
+    {
+      "path": "tests/integration/context/cross-ide-consistency.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 35
+    },
+    {
+      "path": "tests/integration/context/cross-version-isolation.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 20
+    },
+    {
+      "path": "tests/integration/context/end-to-end.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 30
+    },
+    {
+      "path": "tests/integration/cron-scheduler-detached.test.ts",
+      "violations": 2,
+      "reason": "description-no-should-when",
+      "line": 113
+    },
+    {
+      "path": "tests/integration/cron-scheduler.test.ts",
+      "violations": 3,
+      "reason": "description-no-should-when",
+      "line": 84
+    },
+    {
+      "path": "tests/integration/cross-cutting-e2e.test.ts",
+      "violations": 11,
+      "reason": "description-no-should-when",
+      "line": 51
+    },
+    {
+      "path": "tests/integration/dispatch-isolation-lifecycle.test.ts",
+      "violations": 4,
+      "reason": "description-no-should-when",
+      "line": 118
+    },
+    {
+      "path": "tests/integration/dispatch-merge-and-e2e.e2e.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 22
+    },
+    {
+      "path": "tests/integration/dispatcher-flow.test.ts",
+      "violations": 7,
+      "reason": "description-no-should-when",
+      "line": 67
+    },
+    {
+      "path": "tests/integration/dogfood-loop-engineering-crystallization.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 83
+    },
+    {
+      "path": "tests/integration/evolution-cli.test.ts",
+      "violations": 9,
+      "reason": "description-no-should-when",
+      "line": 35
+    },
+    {
+      "path": "tests/integration/five-new-rids-e2e.test.ts",
+      "violations": 5,
+      "reason": "description-no-should-when",
+      "line": 77
+    },
+    {
+      "path": "tests/integration/full-migration.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 90
+    },
+    {
+      "path": "tests/integration/g7-g8-dogfood.test.ts",
+      "violations": 4,
+      "reason": "description-no-should-when",
+      "line": 35
+    },
+    {
+      "path": "tests/integration/g9-hook-dogfood.test.ts",
+      "violations": 14,
+      "reason": "description-no-should-when",
+      "line": 23
+    },
+    {
+      "path": "tests/integration/hooks-install-preserves-workspace-init.test.ts",
+      "violations": 4,
+      "reason": "description-no-should-when",
+      "line": 64
+    },
+    {
+      "path": "tests/integration/ide-caller-resolution.test.ts",
+      "violations": 2,
+      "reason": "description-no-should-when",
+      "line": 45
+    },
+    {
+      "path": "tests/integration/ide/install-skills-dispatch.test.ts",
+      "violations": 11,
+      "reason": "description-no-should-when",
+      "line": 140
+    },
+    {
+      "path": "tests/integration/job-e2e.test.ts",
+      "violations": 3,
+      "reason": "description-no-should-when",
+      "line": 49
+    },
+    {
+      "path": "tests/integration/job-init-provisional-decision.test.ts",
+      "violations": 10,
+      "reason": "missing-given-when-then",
+      "line": 103
+    },
+    {
+      "path": "tests/integration/lease-metrics.test.ts",
+      "violations": 5,
+      "reason": "description-no-should-when",
+      "line": 105
+    },
+    {
+      "path": "tests/integration/memory-fs-roundtrip.test.ts",
+      "violations": 2,
+      "reason": "description-no-should-when",
+      "line": 159
+    },
+    {
+      "path": "tests/integration/misc-commands-e2e.test.ts",
+      "violations": 30,
+      "reason": "description-no-should-when",
+      "line": 93
+    },
+    {
+      "path": "tests/integration/modify-commands-e2e.test.ts",
+      "violations": 18,
+      "reason": "description-no-should-when",
+      "line": 80
+    },
+    {
+      "path": "tests/integration/mut/end-to-end.test.ts",
+      "violations": 3,
+      "reason": "description-no-should-when",
+      "line": 86
+    },
+    {
+      "path": "tests/integration/openspec-archive-coverage-gate-e2e.test.ts",
+      "violations": 10,
+      "reason": "description-no-should-when",
+      "line": 163
+    },
+    {
+      "path": "tests/integration/orchestration-commands-e2e.test.ts",
+      "violations": 31,
+      "reason": "description-no-should-when",
+      "line": 130
+    },
+    {
+      "path": "tests/integration/orchestrator-memory-preflight-e2e.test.ts",
+      "violations": 2,
+      "reason": "description-no-should-when",
+      "line": 33
+    },
+    {
+      "path": "tests/integration/preferences-cli.test.ts",
+      "violations": 5,
+      "reason": "description-no-should-when",
+      "line": 44
+    },
+    {
+      "path": "tests/integration/rd/ast-gate-cross-version.test.ts",
+      "violations": 1,
+      "reason": "missing-given-when-then",
+      "line": 18
+    },
+    {
+      "path": "tests/integration/rd/end-to-end-split.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 9
+    },
+    {
+      "path": "tests/integration/rd/mut-producer-chain.test.ts",
+      "violations": 1,
+      "reason": "missing-given-when-then",
+      "line": 85
+    },
+    {
+      "path": "tests/integration/readonly-surface/readonly-proof.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 188
+    },
+    {
+      "path": "tests/integration/release-precheck.test.ts",
+      "violations": 7,
+      "reason": "description-no-should-when",
+      "line": 115
+    },
+    {
+      "path": "tests/integration/runtime/auto-compact-flow.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 6
+    },
+    {
+      "path": "tests/integration/runtime/lifecycle-closure.test.ts",
+      "violations": 2,
+      "reason": "description-no-should-when",
+      "line": 8
+    },
+    {
+      "path": "tests/integration/runtime/spawn-detached.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 19
+    },
+    {
+      "path": "tests/integration/scan-commands-e2e.test.ts",
+      "violations": 7,
+      "reason": "description-no-should-when",
+      "line": 202
+    },
+    {
+      "path": "tests/integration/services/mcp/mcp-stdio-e2e.test.ts",
+      "violations": 6,
+      "reason": "missing-given-when-then",
+      "line": 157
+    },
+    {
+      "path": "tests/integration/share-bundle-roundtrip.test.ts",
+      "violations": 3,
+      "reason": "description-no-should-when",
+      "line": 116
+    },
+    {
+      "path": "tests/integration/skill-loop-engineering-readiness-cli.test.ts",
+      "violations": 6,
+      "reason": "description-no-should-when",
+      "line": 58
+    },
+    {
+      "path": "tests/integration/skill-presence-lease-gc.test.ts",
+      "violations": 4,
+      "reason": "description-no-should-when",
+      "line": 49
+    },
+    {
+      "path": "tests/integration/skill-search-cli.test.ts",
+      "violations": 8,
+      "reason": "description-no-should-when",
+      "line": 46
+    },
+    {
+      "path": "tests/integration/slice-ls-cli.test.ts",
+      "violations": 7,
+      "reason": "description-no-should-when",
+      "line": 78
+    },
+    {
+      "path": "tests/integration/slice-topology-e2e.test.ts",
+      "violations": 3,
+      "reason": "description-no-should-when",
+      "line": 109
+    },
+    {
+      "path": "tests/integration/statusline-session-start-init.test.ts",
+      "violations": 4,
+      "reason": "description-no-should-when",
+      "line": 73
+    },
+    {
+      "path": "tests/integration/sub-agent-detached-reachability.test.ts",
+      "violations": 3,
+      "reason": "description-no-should-when",
+      "line": 72
+    },
+    {
+      "path": "tests/integration/sub-agent-dispatch-e2e.test.ts",
+      "violations": 3,
+      "reason": "description-no-should-when",
+      "line": 119
+    },
+    {
+      "path": "tests/integration/sub-agent-graph-binding.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 36
+    },
+    {
+      "path": "tests/integration/sub-agent-graph-heartbeat.test.ts",
+      "violations": 2,
+      "reason": "description-no-should-when",
+      "line": 35
+    },
+    {
+      "path": "tests/integration/super-command-routing.test.ts",
+      "violations": 7,
+      "reason": "description-no-should-when",
+      "line": 41
+    },
+    {
+      "path": "tests/integration/vendor-detect-reachability.test.ts",
+      "violations": 2,
+      "reason": "description-no-should-when",
+      "line": 76
+    },
+    {
+      "path": "tests/integration/workflow-eval-commands-e2e.test.ts",
+      "violations": 21,
+      "reason": "description-no-should-when",
+      "line": 82
+    },
+    {
+      "path": "tests/integration/workflow-node-ack-protocol.test.ts",
+      "violations": 7,
+      "reason": "description-no-should-when",
+      "line": 60
+    },
+    {
+      "path": "tests/integration/workflow-presence-lease-lifecycle.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 44
+    },
+    {
+      "path": "tests/integration/workflow-terminalize-atomicity.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 28
+    },
+    {
+      "path": "tests/integration/workflow/ac8-empirical.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 47
+    },
+    {
+      "path": "tests/integration/workspace-clean-cli.test.ts",
+      "violations": 3,
+      "reason": "description-no-should-when",
+      "line": 53
+    },
+    {
+      "path": "tests/integration/workspace-init-home-guard.test.ts",
+      "violations": 2,
+      "reason": "description-no-should-when",
+      "line": 110
+    },
+    {
+      "path": "tests/integration/workspace-reconcile-presence-leases.test.ts",
+      "violations": 2,
+      "reason": "description-no-should-when",
+      "line": 27
+    },
+    {
+      "path": "tests/integration/workspace-session-start-primer.test.ts",
+      "violations": 4,
+      "reason": "description-no-should-when",
+      "line": 28
+    },
+    {
+      "path": "tests/integration/worktree-lease-lifecycle.test.ts",
+      "violations": 3,
+      "reason": "description-no-should-when",
+      "line": 181
+    },
+    {
+      "path": "tests/lint/readme-parity.test.ts",
+      "violations": 8,
+      "reason": "missing-given-when-then",
+      "line": 142
+    },
+    {
+      "path": "tests/unit/best-practice/catch-gate.test.ts",
+      "violations": 8,
+      "reason": "description-no-should-when",
+      "line": 16
+    },
+    {
+      "path": "tests/unit/best-practice/output-formatter.test.ts",
+      "violations": 9,
+      "reason": "description-no-should-when",
+      "line": 42
+    },
+    {
+      "path": "tests/unit/best-practice/scan-orchestrator.test.ts",
+      "violations": 11,
+      "reason": "missing-given-when-then",
+      "line": 14
+    },
+    {
+      "path": "tests/unit/capability-audit-service/cross-check.test.ts",
+      "violations": 1,
+      "reason": "missing-given-when-then",
+      "line": 33
+    },
+    {
+      "path": "tests/unit/capability-audit-service/independent-checker.test.ts",
+      "violations": 7,
+      "reason": "missing-given-when-then",
+      "line": 58
+    },
+    {
+      "path": "tests/unit/capability-guard-runner/runner.test.ts",
+      "violations": 9,
+      "reason": "missing-given-when-then",
+      "line": 53
+    },
+    {
+      "path": "tests/unit/cli/audit-artifact-write-decision.test.ts",
+      "violations": 10,
+      "reason": "description-no-should-when",
+      "line": 126
+    },
+    {
+      "path": "tests/unit/cli/cli-envelope.test.ts",
+      "violations": 9,
+      "reason": "description-no-should-when",
+      "line": 44
+    },
+    {
+      "path": "tests/unit/cli/cli-helpers.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 117
+    },
+    {
+      "path": "tests/unit/cli/codegraph-affected-context.test.ts",
+      "violations": 7,
+      "reason": "description-no-should-when",
+      "line": 65
+    },
+    {
+      "path": "tests/unit/cli/codegraph-backend-advice.test.ts",
+      "violations": 18,
+      "reason": "description-no-should-when",
+      "line": 159
+    },
+    {
+      "path": "tests/unit/cli/codegraph-config-restore-exit-codes.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 87
+    },
+    {
+      "path": "tests/unit/cli/codegraph-config-restore.test.ts",
+      "violations": 9,
+      "reason": "missing-given-when-then",
+      "line": 107
+    },
+    {
+      "path": "tests/unit/cli/codegraph-hints.test.ts",
+      "violations": 8,
+      "reason": "description-no-should-when",
+      "line": 48
+    },
+    {
+      "path": "tests/unit/cli/codegraph-init-conflict.test.ts",
+      "violations": 8,
+      "reason": "missing-given-when-then",
+      "line": 77
+    },
+    {
+      "path": "tests/unit/cli/codegraph-init-envelopes.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 169
+    },
+    {
+      "path": "tests/unit/cli/codegraph-init-force.test.ts",
+      "violations": 10,
+      "reason": "description-no-should-when",
+      "line": 135
+    },
+    {
+      "path": "tests/unit/cli/codegraph-init-options.test.ts",
+      "violations": 3,
+      "reason": "missing-given-when-then",
+      "line": 126
+    },
+    {
+      "path": "tests/unit/cli/codegraph-repair-note.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 166
+    },
+    {
+      "path": "tests/unit/cli/codegraph-status-index-integrity.test.ts",
+      "violations": 26,
+      "reason": "missing-given-when-then",
+      "line": 148
+    },
+    {
+      "path": "tests/unit/cli/codegraph-status-integrity.test.ts",
+      "violations": 22,
+      "reason": "missing-given-when-then",
+      "line": 204
+    },
+    {
+      "path": "tests/unit/cli/command-option-invariants.test.ts",
+      "violations": 3,
+      "reason": "description-no-should-when",
+      "line": 40
+    },
+    {
+      "path": "tests/unit/cli/commands/audit-failure-carries-warnings.test.ts",
+      "violations": 4,
+      "reason": "description-no-should-when",
+      "line": 108
+    },
+    {
+      "path": "tests/unit/cli/commands/audit-goal-binding.test.ts",
+      "violations": 3,
+      "reason": "missing-given-when-then",
+      "line": 110
+    },
+    {
+      "path": "tests/unit/cli/commands/audit-goal-command.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 86
+    },
+    {
+      "path": "tests/unit/cli/commands/batch-commands.test.ts",
+      "violations": 13,
+      "reason": "missing-given-when-then",
+      "line": 154
+    },
+    {
+      "path": "tests/unit/cli/commands/batch-diagnose-compaction.test.ts",
+      "violations": 3,
+      "reason": "missing-given-when-then",
+      "line": 117
+    },
+    {
+      "path": "tests/unit/cli/commands/batch-report-command.test.ts",
+      "violations": 6,
+      "reason": "missing-given-when-then",
+      "line": 98
+    },
+    {
+      "path": "tests/unit/cli/commands/best-practice-scan-command.test.ts",
+      "violations": 7,
+      "reason": "missing-given-when-then",
+      "line": 117
+    },
+    {
+      "path": "tests/unit/cli/commands/best-practice-scan-envelope.test.ts",
+      "violations": 2,
+      "reason": "missing-given-when-then",
+      "line": 89
+    },
+    {
+      "path": "tests/unit/cli/commands/best-practice-scan-lookup-results.test.ts",
+      "violations": 14,
+      "reason": "missing-given-when-then",
+      "line": 121
+    },
+    {
+      "path": "tests/unit/cli/commands/best-practice-scan-refusals.test.ts",
+      "violations": 12,
+      "reason": "missing-given-when-then",
+      "line": 129
+    },
+    {
+      "path": "tests/unit/cli/commands/code-auto-compact-deferral-reason.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 104
+    },
+    {
+      "path": "tests/unit/cli/commands/code-context-now-mode-parity.test.ts",
+      "violations": 9,
+      "reason": "missing-given-when-then",
+      "line": 77
+    },
+    {
+      "path": "tests/unit/cli/commands/code-context-now-mode-reconciliation.test.ts",
+      "violations": 7,
+      "reason": "missing-given-when-then",
+      "line": 140
+    },
+    {
+      "path": "tests/unit/cli/commands/code-context-now-witness.test.ts",
+      "violations": 10,
+      "reason": "missing-given-when-then",
+      "line": 238
+    },
+    {
+      "path": "tests/unit/cli/commands/code-review-acquire-commands.test.ts",
+      "violations": 6,
+      "reason": "missing-given-when-then",
+      "line": 133
+    },
+    {
+      "path": "tests/unit/cli/commands/code-review-ocr-delegate.test.ts",
+      "violations": 12,
+      "reason": "missing-given-when-then",
+      "line": 124
+    },
+    {
+      "path": "tests/unit/cli/commands/code-review-run-ocr-18.test.ts",
+      "violations": 12,
+      "reason": "missing-given-when-then",
+      "line": 202
+    },
+    {
+      "path": "tests/unit/cli/commands/compact-harness-window.test.ts",
+      "violations": 11,
+      "reason": "missing-given-when-then",
+      "line": 93
+    },
+    {
+      "path": "tests/unit/cli/commands/container-docker-boundary.test.ts",
+      "violations": 6,
+      "reason": "missing-given-when-then",
+      "line": 201
+    },
+    {
+      "path": "tests/unit/cli/commands/cron-exec-timeout.test.ts",
+      "violations": 7,
+      "reason": "description-no-should-when",
+      "line": 92
+    },
+    {
+      "path": "tests/unit/cli/commands/cron-task-tree-kill.test.ts",
+      "violations": 10,
+      "reason": "description-no-should-when",
+      "line": 291
+    },
+    {
+      "path": "tests/unit/cli/commands/dispatch-cli-invocation-check.test.ts",
+      "violations": 20,
+      "reason": "missing-given-when-then",
+      "line": 103
+    },
+    {
+      "path": "tests/unit/cli/commands/dispatch-cli-invocation-scan.test.ts",
+      "violations": 8,
+      "reason": "missing-given-when-then",
+      "line": 49
+    },
+    {
+      "path": "tests/unit/cli/commands/dispatch-from-dag-role-validation.test.ts",
+      "violations": 8,
+      "reason": "missing-given-when-then",
+      "line": 66
+    },
+    {
+      "path": "tests/unit/cli/commands/dispatch-prompt-file-ref.test.ts",
+      "violations": 6,
+      "reason": "missing-given-when-then",
+      "line": 79
+    },
+    {
+      "path": "tests/unit/cli/commands/evidence-commands.test.ts",
+      "violations": 2,
+      "reason": "description-no-should-when",
+      "line": 51
+    },
+    {
+      "path": "tests/unit/cli/commands/final-review-command-provider.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 170
+    },
+    {
+      "path": "tests/unit/cli/commands/final-review-token-usage-emission.test.ts",
+      "violations": 6,
+      "reason": "missing-given-when-then",
+      "line": 177
+    },
+    {
+      "path": "tests/unit/cli/commands/lint-commands.test.ts",
+      "violations": 9,
+      "reason": "missing-given-when-then",
+      "line": 141
+    },
+    {
+      "path": "tests/unit/cli/commands/lint-rules-command.test.ts",
+      "violations": 3,
+      "reason": "missing-given-when-then",
+      "line": 87
+    },
+    {
+      "path": "tests/unit/cli/commands/playwright-terminal-id-constants.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 48
+    },
+    {
+      "path": "tests/unit/cli/commands/playwright-terminal-id-guard.test.ts",
+      "violations": 5,
+      "reason": "description-no-should-when",
+      "line": 65
+    },
+    {
+      "path": "tests/unit/cli/commands/race-commands.test.ts",
+      "violations": 6,
+      "reason": "missing-given-when-then",
+      "line": 122
+    },
+    {
+      "path": "tests/unit/cli/commands/request-init-session-resolution.test.ts",
+      "violations": 7,
+      "reason": "description-no-should-when",
+      "line": 85
+    },
+    {
+      "path": "tests/unit/cli/commands/skill-doctor-severity.test.ts",
+      "violations": 6,
+      "reason": "description-no-should-when",
+      "line": 90
+    },
+    {
+      "path": "tests/unit/cli/commands/strat-tact-commands.test.ts",
+      "violations": 10,
+      "reason": "missing-given-when-then",
+      "line": 59
+    },
+    {
+      "path": "tests/unit/cli/commands/strat-tact-tact-write-failed.test.ts",
+      "violations": 2,
+      "reason": "missing-given-when-then",
+      "line": 65
+    },
+    {
+      "path": "tests/unit/cli/commands/strat-tact-tamper.test.ts",
+      "violations": 19,
+      "reason": "missing-given-when-then",
+      "line": 73
+    },
+    {
+      "path": "tests/unit/cli/commands/sub-agent-await-commands.test.ts",
+      "violations": 7,
+      "reason": "missing-given-when-then",
+      "line": 145
+    },
+    {
+      "path": "tests/unit/cli/commands/sub-agent-finalize-commands.test.ts",
+      "violations": 11,
+      "reason": "missing-given-when-then",
+      "line": 187
+    },
+    {
+      "path": "tests/unit/cli/commands/summary-flag.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 97
+    },
+    {
+      "path": "tests/unit/cli/commands/verdict-aggregate-missing-evidence.test.ts",
+      "violations": 10,
+      "reason": "missing-given-when-then",
+      "line": 130
+    },
+    {
+      "path": "tests/unit/cli/commands/web-commands.test.ts",
+      "violations": 11,
+      "reason": "missing-given-when-then",
+      "line": 552
+    },
+    {
+      "path": "tests/unit/cli/commands/web-lifecycle-commands.test.ts",
+      "violations": 16,
+      "reason": "missing-given-when-then",
+      "line": 259
+    },
+    {
+      "path": "tests/unit/cli/doctor/invoke-from-code.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 13
+    },
+    {
+      "path": "tests/unit/cli/ide-option-help-lists-the-registry.test.ts",
+      "violations": 2,
+      "reason": "description-no-should-when",
+      "line": 30
+    },
+    {
+      "path": "tests/unit/cli/integration-cli-helper-envelope-parity.test.ts",
+      "violations": 2,
+      "reason": "description-no-should-when",
+      "line": 41
+    },
+    {
+      "path": "tests/unit/cli/job-add-slice.test.ts",
+      "violations": 10,
+      "reason": "missing-given-when-then",
+      "line": 170
+    },
+    {
+      "path": "tests/unit/cli/job-checkpoint-commit-sha.test.ts",
+      "violations": 9,
+      "reason": "missing-given-when-then",
+      "line": 142
+    },
+    {
+      "path": "tests/unit/cli/job-codegraph-autorefresh.test.ts",
+      "violations": 9,
+      "reason": "missing-given-when-then",
+      "line": 164
+    },
+    {
+      "path": "tests/unit/cli/job-exit-code.test.ts",
+      "violations": 12,
+      "reason": "description-no-should-when",
+      "line": 271
+    },
+    {
+      "path": "tests/unit/cli/job-json-flag-call-sites.test.ts",
+      "violations": 2,
+      "reason": "description-no-should-when",
+      "line": 207
+    },
+    {
+      "path": "tests/unit/cli/job-json-flag.test.ts",
+      "violations": 7,
+      "reason": "missing-given-when-then",
+      "line": 99
+    },
+    {
+      "path": "tests/unit/cli/job-progress-current-slice.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 133
+    },
+    {
+      "path": "tests/unit/cli/job-progress-next-line.test.ts",
+      "violations": 6,
+      "reason": "missing-given-when-then",
+      "line": 153
+    },
+    {
+      "path": "tests/unit/cli/job-session-addressing.test.ts",
+      "violations": 9,
+      "reason": "missing-given-when-then",
+      "line": 140
+    },
+    {
+      "path": "tests/unit/cli/job-slice-id-resolution.test.ts",
+      "violations": 6,
+      "reason": "missing-given-when-then",
+      "line": 157
+    },
+    {
+      "path": "tests/unit/cli/job-subagent-cleanup.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 106
+    },
+    {
+      "path": "tests/unit/cli/node-floor.test.ts",
+      "violations": 6,
+      "reason": "description-no-should-when",
+      "line": 38
+    },
+    {
+      "path": "tests/unit/cli/outer-cache-atomic-write.test.ts",
+      "violations": 4,
+      "reason": "description-no-should-when",
+      "line": 113
+    },
+    {
+      "path": "tests/unit/cli/peaks-bin-stale-dist.test.ts",
+      "violations": 6,
+      "reason": "missing-given-when-then",
+      "line": 105
+    },
+    {
+      "path": "tests/unit/cli/program.test.ts",
+      "violations": 2,
+      "reason": "missing-given-when-then",
+      "line": 141
+    },
+    {
+      "path": "tests/unit/cli/request-codegraph-autorefresh.test.ts",
+      "violations": 6,
+      "reason": "missing-given-when-then",
+      "line": 188
+    },
+    {
+      "path": "tests/unit/cli/shadcn-commands.test.ts",
+      "violations": 5,
+      "reason": "description-no-should-when",
+      "line": 18
+    },
+    {
+      "path": "tests/unit/cli/skill-presence-batch-reminder.test.ts",
+      "violations": 9,
+      "reason": "missing-given-when-then",
+      "line": 87
+    },
+    {
+      "path": "tests/unit/cli/skill-presence-generated-config-drift.test.ts",
+      "violations": 6,
+      "reason": "description-no-should-when",
+      "line": 67
+    },
+    {
+      "path": "tests/unit/cli/skill-presence-loop-hygiene.test.ts",
+      "violations": 7,
+      "reason": "description-no-should-when",
+      "line": 18
+    },
+    {
+      "path": "tests/unit/cli/statusline-cli-integration.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 1190
+    },
+    {
+      "path": "tests/unit/cli/statusline-witness-capture.test.ts",
+      "violations": 7,
+      "reason": "missing-given-when-then",
+      "line": 132
+    },
+    {
+      "path": "tests/unit/cli/sub-agent-detached.test.ts",
+      "violations": 5,
+      "reason": "description-no-should-when",
+      "line": 50
+    },
+    {
+      "path": "tests/unit/cli/vendor-detect.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 22
+    },
+    {
+      "path": "tests/unit/cli/verify-codegraph-tarball.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 96
+    },
+    {
+      "path": "tests/unit/cli/workflow-init-session-binding.test.ts",
+      "violations": 4,
+      "reason": "description-no-should-when",
+      "line": 79
+    },
+    {
+      "path": "tests/unit/cli/workspace-init-codegraph.test.ts",
+      "violations": 4,
+      "reason": "description-no-should-when",
+      "line": 56
+    },
+    {
+      "path": "tests/unit/code/auto-compact-dispatch-backoff.test.ts",
+      "violations": 15,
+      "reason": "missing-given-when-then",
+      "line": 122
+    },
+    {
+      "path": "tests/unit/code/auto-compact-orchestrator.test.ts",
+      "violations": 16,
+      "reason": "missing-given-when-then",
+      "line": 82
+    },
+    {
+      "path": "tests/unit/code/compact-swallow-invariant.test.ts",
+      "violations": 13,
+      "reason": "missing-given-when-then",
+      "line": 126
+    },
+    {
+      "path": "tests/unit/code/emit-handoff.test.ts",
+      "violations": 24,
+      "reason": "description-no-should-when",
+      "line": 191
+    },
+    {
+      "path": "tests/unit/code/job-shape-provisional.test.ts",
+      "violations": 7,
+      "reason": "missing-given-when-then",
+      "line": 51
+    },
+    {
+      "path": "tests/unit/code/orchestrator-can-do-probe-budgets.test.ts",
+      "violations": 1,
+      "reason": "missing-given-when-then",
+      "line": 11
+    },
+    {
+      "path": "tests/unit/code/orchestrator-can-do.test.ts",
+      "violations": 30,
+      "reason": "missing-given-when-then",
+      "line": 77
+    },
+    {
+      "path": "tests/unit/code/post-compact-detector.test.ts",
+      "violations": 3,
+      "reason": "missing-given-when-then",
+      "line": 120
+    },
+    {
+      "path": "tests/unit/code/step-08-gate-exit-code.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 101
+    },
+    {
+      "path": "tests/unit/code/step-08-gate.test.ts",
+      "violations": 12,
+      "reason": "missing-given-when-then",
+      "line": 153
+    },
+    {
+      "path": "tests/unit/comments/citation-parity.test.ts",
+      "violations": 8,
+      "reason": "description-no-should-when",
+      "line": 153
+    },
+    {
+      "path": "tests/unit/comments/comment-audit.test.ts",
+      "violations": 8,
+      "reason": "description-no-should-when",
+      "line": 23
+    },
+    {
+      "path": "tests/unit/comments/comment-hygiene.test.ts",
+      "violations": 23,
+      "reason": "description-no-should-when",
+      "line": 35
+    },
+    {
+      "path": "tests/unit/comments/comment-prune.test.ts",
+      "violations": 19,
+      "reason": "description-no-should-when",
+      "line": 67
+    },
+    {
+      "path": "tests/unit/comments/comment-scan-parity.test.ts",
+      "violations": 5,
+      "reason": "description-no-should-when",
+      "line": 146
+    },
+    {
+      "path": "tests/unit/comments/repo-path-probe.test.ts",
+      "violations": 8,
+      "reason": "description-no-should-when",
+      "line": 64
+    },
+    {
+      "path": "tests/unit/context/auto-compact-reader.test.ts",
+      "violations": 17,
+      "reason": "missing-given-when-then",
+      "line": 71
+    },
+    {
+      "path": "tests/unit/context/auto-compact-vendor-neutrality.test.ts",
+      "violations": 5,
+      "reason": "description-no-should-when",
+      "line": 71
+    },
+    {
+      "path": "tests/unit/context/context-audit-hint.test.ts",
+      "violations": 15,
+      "reason": "description-no-should-when",
+      "line": 99
+    },
+    {
+      "path": "tests/unit/context/harness-window-config.test.ts",
+      "violations": 51,
+      "reason": "missing-given-when-then",
+      "line": 139
+    },
+    {
+      "path": "tests/unit/doctor/codegraph-capability-fallback.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 107
+    },
+    {
+      "path": "tests/unit/doctor/codegraph-exclude-integrity.test.ts",
+      "violations": 7,
+      "reason": "missing-given-when-then",
+      "line": 143
+    },
+    {
+      "path": "tests/unit/doctor/codegraph-index-integrity.test.ts",
+      "violations": 16,
+      "reason": "missing-given-when-then",
+      "line": 151
+    },
+    {
+      "path": "tests/unit/doctor/codegraph-probe-uses-resolved-root.test.ts",
+      "violations": 6,
+      "reason": "description-no-should-when",
+      "line": 155
+    },
+    {
+      "path": "tests/unit/doctor/doctor-exit-code-warn-only.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 80
+    },
+    {
+      "path": "tests/unit/doctor/ecc-hooks-schema-drift.test.ts",
+      "violations": 21,
+      "reason": "missing-given-when-then",
+      "line": 110
+    },
+    {
+      "path": "tests/unit/doctor/final-summary-severity.test.ts",
+      "violations": 7,
+      "reason": "missing-given-when-then",
+      "line": 56
+    },
+    {
+      "path": "tests/unit/doctor/l3-memory-health-drift.test.ts",
+      "violations": 10,
+      "reason": "missing-given-when-then",
+      "line": 115
+    },
+    {
+      "path": "tests/unit/doctor/l3-orphan-sessions.test.ts",
+      "violations": 11,
+      "reason": "missing-given-when-then",
+      "line": 118
+    },
+    {
+      "path": "tests/unit/doctor/multi-binary-drift-check.test.ts",
+      "violations": 13,
+      "reason": "missing-given-when-then",
+      "line": 89
+    },
+    {
+      "path": "tests/unit/doctor/skill-reference-parity.test.ts",
+      "violations": 19,
+      "reason": "description-no-should-when",
+      "line": 133
+    },
+    {
+      "path": "tests/unit/final-review/final-review-guard-scope.test.ts",
+      "violations": 10,
+      "reason": "description-no-should-when",
+      "line": 238
+    },
+    {
+      "path": "tests/unit/final-review/final-review-guard-teeth.test.ts",
+      "violations": 9,
+      "reason": "description-no-should-when",
+      "line": 143
+    },
+    {
+      "path": "tests/unit/final-review/final-review-partial-delivery.test.ts",
+      "violations": 5,
+      "reason": "description-no-should-when",
+      "line": 90
+    },
+    {
+      "path": "tests/unit/final-review/final-review-service-delivery-judgement.test.ts",
+      "violations": 9,
+      "reason": "description-no-should-when",
+      "line": 74
+    },
+    {
+      "path": "tests/unit/final-review/final-review-service-evidence-budget.test.ts",
+      "violations": 6,
+      "reason": "missing-given-when-then",
+      "line": 69
+    },
+    {
+      "path": "tests/unit/final-review/final-review-service-fact-states-and-guard.test.ts",
+      "violations": 10,
+      "reason": "description-no-should-when",
+      "line": 43
+    },
+    {
+      "path": "tests/unit/final-review/final-review-service-provider-budget.test.ts",
+      "violations": 12,
+      "reason": "missing-given-when-then",
+      "line": 77
+    },
+    {
+      "path": "tests/unit/final-review/final-review-service-whole-or-nothing.test.ts",
+      "violations": 6,
+      "reason": "description-no-should-when",
+      "line": 73
+    },
+    {
+      "path": "tests/unit/final-review/final-review-service.test.ts",
+      "violations": 12,
+      "reason": "description-no-should-when",
+      "line": 48
+    },
+    {
+      "path": "tests/unit/final-review/pre-post-diff.test.ts",
+      "violations": 19,
+      "reason": "description-no-should-when",
+      "line": 134
+    },
+    {
+      "path": "tests/unit/hooks/auto-compact-hook-migration.test.ts",
+      "violations": 3,
+      "reason": "description-no-should-when",
+      "line": 35
+    },
+    {
+      "path": "tests/unit/hooks/code-gate-driver.test.ts",
+      "violations": 11,
+      "reason": "missing-given-when-then",
+      "line": 158
+    },
+    {
+      "path": "tests/unit/hooks/code-gate-path-spelling-cli.test.ts",
+      "violations": 3,
+      "reason": "description-no-should-when",
+      "line": 95
+    },
+    {
+      "path": "tests/unit/hooks/code-gate-relative-base-qa-adversarial.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 277
+    },
+    {
+      "path": "tests/unit/hooks/code-gate-relative-base-shell.test.ts",
+      "violations": 3,
+      "reason": "description-no-should-when",
+      "line": 289
+    },
+    {
+      "path": "tests/unit/hooks/code-gate-relative-base.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 305
+    },
+    {
+      "path": "tests/unit/hooks/code-gate-residual-spellings-cli.test.ts",
+      "violations": 6,
+      "reason": "description-no-should-when",
+      "line": 125
+    },
+    {
+      "path": "tests/unit/hooks/code-gate-undecidable.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 116
+    },
+    {
+      "path": "tests/unit/hooks/commit-ban-caller-scope.test.ts",
+      "violations": 5,
+      "reason": "description-no-should-when",
+      "line": 88
+    },
+    {
+      "path": "tests/unit/hooks/compact-settle-hook.test.ts",
+      "violations": 13,
+      "reason": "missing-given-when-then",
+      "line": 179
+    },
+    {
+      "path": "tests/unit/hooks/external-gate-exemption.test.ts",
+      "violations": 15,
+      "reason": "missing-given-when-then",
+      "line": 115
+    },
+    {
+      "path": "tests/unit/hooks/feedback-promoted-pretool-hooks.test.ts",
+      "violations": 15,
+      "reason": "description-no-should-when",
+      "line": 115
+    },
+    {
+      "path": "tests/unit/hooks/gate-enforce-five-tool-classes.test.ts",
+      "violations": 7,
+      "reason": "missing-given-when-then",
+      "line": 146
+    },
+    {
+      "path": "tests/unit/hooks/gate-enforce-machine-local-shell.test.ts",
+      "violations": 19,
+      "reason": "missing-given-when-then",
+      "line": 90
+    },
+    {
+      "path": "tests/unit/hooks/gate-enforce-template-json-flag.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 72
+    },
+    {
+      "path": "tests/unit/hooks/hooks-uninstall-unsupported-ide.test.ts",
+      "violations": 1,
+      "reason": "missing-given-when-then",
+      "line": 78
+    },
+    {
+      "path": "tests/unit/hooks/mcp-surface-gate.test.ts",
+      "violations": 7,
+      "reason": "missing-given-when-then",
+      "line": 65
+    },
+    {
+      "path": "tests/unit/hooks/pipeline-contract-gate-redirect.test.ts",
+      "violations": 13,
+      "reason": "missing-given-when-then",
+      "line": 190
+    },
+    {
+      "path": "tests/unit/hooks/pipeline-contract-gate-rid-naming.test.ts",
+      "violations": 2,
+      "reason": "missing-given-when-then",
+      "line": 167
+    },
+    {
+      "path": "tests/unit/hooks/pipeline-verify-type-derivation.test.ts",
+      "violations": 2,
+      "reason": "missing-given-when-then",
+      "line": 244
+    },
+    {
+      "path": "tests/unit/hooks/piping-hook-stage-one-runner.test.ts",
+      "violations": 6,
+      "reason": "description-no-should-when",
+      "line": 69
+    },
+    {
+      "path": "tests/unit/hooks/post-compact-reinject-hook.test.ts",
+      "violations": 10,
+      "reason": "missing-given-when-then",
+      "line": 122
+    },
+    {
+      "path": "tests/unit/hooks/pre-tool-superpowers-bridge.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 66
+    },
+    {
+      "path": "tests/unit/hooks/presence-marker-detector.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 121
+    },
+    {
+      "path": "tests/unit/ide/adapter-declared-shape.test.ts",
+      "violations": 17,
+      "reason": "description-no-should-when",
+      "line": 182
+    },
+    {
+      "path": "tests/unit/ide/adapter-runtime-surfaces.test.ts",
+      "violations": 18,
+      "reason": "missing-given-when-then",
+      "line": 86
+    },
+    {
+      "path": "tests/unit/ide/canonical-store.test.ts",
+      "violations": 1,
+      "reason": "missing-given-when-then",
+      "line": 108
+    },
+    {
+      "path": "tests/unit/ide/claude-code-adapter-compact.test.ts",
+      "violations": 38,
+      "reason": "missing-given-when-then",
+      "line": 160
+    },
+    {
+      "path": "tests/unit/ide/install-skills-postinstall-convergence.test.ts",
+      "violations": 7,
+      "reason": "description-no-should-when",
+      "line": 121
+    },
+    {
+      "path": "tests/unit/ide/zcode-adapter-probe.test.ts",
+      "violations": 16,
+      "reason": "missing-given-when-then",
+      "line": 89
+    },
+    {
+      "path": "tests/unit/lint/baseline-monotonicity-coupled-rise.test.ts",
+      "violations": 14,
+      "reason": "missing-given-when-then",
+      "line": 189
+    },
+    {
+      "path": "tests/unit/lint/baseline-monotonicity-generator.test.ts",
+      "violations": 7,
+      "reason": "missing-given-when-then",
+      "line": 335
+    },
+    {
+      "path": "tests/unit/lint/baseline-monotonicity-head-anchor.test.ts",
+      "violations": 11,
+      "reason": "missing-given-when-then",
+      "line": 301
+    },
+    {
+      "path": "tests/unit/lint/baseline-monotonicity-seeding.test.ts",
+      "violations": 7,
+      "reason": "missing-given-when-then",
+      "line": 322
+    },
+    {
+      "path": "tests/unit/lint/baseline-monotonicity.test.ts",
+      "violations": 18,
+      "reason": "missing-given-when-then",
+      "line": 192
+    },
+    {
+      "path": "tests/unit/lint/baseline-rescope-guard.test.ts",
+      "violations": 4,
+      "reason": "description-no-should-when",
+      "line": 128
+    },
+    {
+      "path": "tests/unit/lint/baseline-rescope-leg-scope.test.ts",
+      "violations": 4,
+      "reason": "description-no-should-when",
+      "line": 139
+    },
+    {
+      "path": "tests/unit/lint/baseline-scope-growth-vs-shrink.test.ts",
+      "violations": 8,
+      "reason": "description-no-should-when",
+      "line": 116
+    },
+    {
+      "path": "tests/unit/lint/baseline-scope-population-set.test.ts",
+      "violations": 9,
+      "reason": "description-no-should-when",
+      "line": 125
+    },
+    {
+      "path": "tests/unit/lint/baseline-split-anchor.test.ts",
+      "violations": 3,
+      "reason": "description-no-should-when",
+      "line": 72
+    },
+    {
+      "path": "tests/unit/lint/baseline-split-equivalence.test.ts",
+      "violations": 7,
+      "reason": "description-no-should-when",
+      "line": 311
+    },
+    {
+      "path": "tests/unit/lint/baseline-split.test.ts",
+      "violations": 6,
+      "reason": "description-no-should-when",
+      "line": 89
+    },
+    {
+      "path": "tests/unit/lint/comment-hygiene-gate-leg.test.ts",
+      "violations": 5,
+      "reason": "description-no-should-when",
+      "line": 130
+    },
+    {
+      "path": "tests/unit/lint/coverage-ratchet-runner.test.ts",
+      "violations": 7,
+      "reason": "description-no-should-when",
+      "line": 69
+    },
+    {
+      "path": "tests/unit/lint/coverage-ratchet-wiring.test.ts",
+      "violations": 6,
+      "reason": "description-no-should-when",
+      "line": 136
+    },
+    {
+      "path": "tests/unit/lint/coverage-ratchet.test.ts",
+      "violations": 29,
+      "reason": "description-no-should-when",
+      "line": 91
+    },
+    {
+      "path": "tests/unit/lint/eslint-ceiling-derivation.test.ts",
+      "violations": 10,
+      "reason": "missing-given-when-then",
+      "line": 201
+    },
+    {
+      "path": "tests/unit/lint/eslint-rules-config-coverage.test.ts",
+      "violations": 11,
+      "reason": "description-no-should-when",
+      "line": 220
+    },
+    {
+      "path": "tests/unit/lint/file-size-excess-gate-leg.test.ts",
+      "violations": 12,
+      "reason": "missing-given-when-then",
+      "line": 179
+    },
+    {
+      "path": "tests/unit/lint/file-size-gate-leg.test.ts",
+      "violations": 13,
+      "reason": "missing-given-when-then",
+      "line": 183
+    },
+    {
+      "path": "tests/unit/lint/file-size-hooks-gate-leg.test.ts",
+      "violations": 12,
+      "reason": "missing-given-when-then",
+      "line": 151
+    },
+    {
+      "path": "tests/unit/lint/file-size-hooks-scope-leg.test.ts",
+      "violations": 8,
+      "reason": "description-no-should-when",
+      "line": 136
+    },
+    {
+      "path": "tests/unit/lint/file-size-hooks-seeding.test.ts",
+      "violations": 7,
+      "reason": "missing-given-when-then",
+      "line": 144
+    },
+    {
+      "path": "tests/unit/lint/file-size-hooks-zero-floor.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 76
+    },
+    {
+      "path": "tests/unit/lint/findings-table-row-guard.test.ts",
+      "violations": 6,
+      "reason": "missing-given-when-then",
+      "line": 97
+    },
+    {
+      "path": "tests/unit/lint/findings-table.test.ts",
+      "violations": 14,
+      "reason": "missing-given-when-then",
+      "line": 147
+    },
+    {
+      "path": "tests/unit/lint/format-check-ratchet.test.ts",
+      "violations": 7,
+      "reason": "description-no-should-when",
+      "line": 251
+    },
+    {
+      "path": "tests/unit/lint/gate-changed-axis-wording.test.ts",
+      "violations": 3,
+      "reason": "missing-given-when-then",
+      "line": 138
+    },
+    {
+      "path": "tests/unit/lint/gate-empty-result-exit-codes.test.ts",
+      "violations": 4,
+      "reason": "description-no-should-when",
+      "line": 117
+    },
+    {
+      "path": "tests/unit/lint/gate-module-staging.test.ts",
+      "violations": 3,
+      "reason": "missing-given-when-then",
+      "line": 48
+    },
+    {
+      "path": "tests/unit/lint/gate-scope-exemption.test.ts",
+      "violations": 5,
+      "reason": "description-no-should-when",
+      "line": 137
+    },
+    {
+      "path": "tests/unit/lint/generator-determinism.test.ts",
+      "violations": 10,
+      "reason": "description-no-should-when",
+      "line": 183
+    },
+    {
+      "path": "tests/unit/lint/lint-file-list-parity.test.ts",
+      "violations": 12,
+      "reason": "missing-given-when-then",
+      "line": 319
+    },
+    {
+      "path": "tests/unit/lint/lint-scope-rule.test.ts",
+      "violations": 8,
+      "reason": "description-no-should-when",
+      "line": 67
+    },
+    {
+      "path": "tests/unit/lint/monotonic-split.test.ts",
+      "violations": 5,
+      "reason": "description-no-should-when",
+      "line": 95
+    },
+    {
+      "path": "tests/unit/lint/rescope-projection-bounded.test.ts",
+      "violations": 10,
+      "reason": "description-no-should-when",
+      "line": 174
+    },
+    {
+      "path": "tests/unit/lint/scan-coverage.test.ts",
+      "violations": 13,
+      "reason": "missing-given-when-then",
+      "line": 108
+    },
+    {
+      "path": "tests/unit/lint/session-path-swallow-census.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 213
+    },
+    {
+      "path": "tests/unit/lint/shadow-move-warning.test.ts",
+      "violations": 15,
+      "reason": "description-no-should-when",
+      "line": 147
+    },
+    {
+      "path": "tests/unit/lint/silent-warning-gate-leg.test.ts",
+      "violations": 2,
+      "reason": "missing-given-when-then",
+      "line": 261
+    },
+    {
+      "path": "tests/unit/lint/silent-warning-grace-marker.test.ts",
+      "violations": 6,
+      "reason": "missing-given-when-then",
+      "line": 108
+    },
+    {
+      "path": "tests/unit/lint/silent-warning-scope-leg.test.ts",
+      "violations": 7,
+      "reason": "description-no-should-when",
+      "line": 131
+    },
+    {
+      "path": "tests/unit/lint/staged-size-leg.test.ts",
+      "violations": 14,
+      "reason": "missing-given-when-then",
+      "line": 174
+    },
+    {
+      "path": "tests/unit/lint/worktree-census.test.ts",
+      "violations": 8,
+      "reason": "missing-given-when-then",
+      "line": 79
+    },
+    {
+      "path": "tests/unit/mode/confirm-gate-noninteractive.test.ts",
+      "violations": 14,
+      "reason": "missing-given-when-then",
+      "line": 151
+    },
+    {
+      "path": "tests/unit/mode/h3-24h-threshold-wiring.test.ts",
+      "violations": 12,
+      "reason": "missing-given-when-then",
+      "line": 117
+    },
+    {
+      "path": "tests/unit/mode/mode-consolidation.test.ts",
+      "violations": 16,
+      "reason": "missing-given-when-then",
+      "line": 105
+    },
+    {
+      "path": "tests/unit/prd/auto-trigger-best-practice.test.ts",
+      "violations": 9,
+      "reason": "description-no-should-when",
+      "line": 126
+    },
+    {
+      "path": "tests/unit/prd/gate-evidence-derivation.test.ts",
+      "violations": 21,
+      "reason": "description-no-should-when",
+      "line": 171
+    },
+    {
+      "path": "tests/unit/prd/handoff-frontmatter-doc-contract.test.ts",
+      "violations": 9,
+      "reason": "missing-given-when-then",
+      "line": 76
+    },
+    {
+      "path": "tests/unit/prd/handoff-gate-evidence-render.test.ts",
+      "violations": 7,
+      "reason": "missing-given-when-then",
+      "line": 69
+    },
+    {
+      "path": "tests/unit/prd/handoff-gate-evidence.test.ts",
+      "violations": 22,
+      "reason": "description-no-should-when",
+      "line": 96
+    },
+    {
+      "path": "tests/unit/publish-tag-strict.test.ts",
+      "violations": 5,
+      "reason": "description-no-should-when",
+      "line": 36
+    },
+    {
+      "path": "tests/unit/publish/capability-audit-gate-diagnostic.test.ts",
+      "violations": 10,
+      "reason": "description-no-should-when",
+      "line": 162
+    },
+    {
+      "path": "tests/unit/publish/files-entries-resolve.test.ts",
+      "violations": 9,
+      "reason": "missing-given-when-then",
+      "line": 156
+    },
+    {
+      "path": "tests/unit/publish/lockstep-three-packages.test.ts",
+      "violations": 2,
+      "reason": "description-no-should-when",
+      "line": 36
+    },
+    {
+      "path": "tests/unit/rd/reviewer-dispatch-policy.test.ts",
+      "violations": 6,
+      "reason": "description-no-should-when",
+      "line": 19
+    },
+    {
+      "path": "tests/unit/refactor/bdd-migration-roundtrip.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 70
+    },
+    {
+      "path": "tests/unit/release/bump-version-ac7.test.ts",
+      "violations": 1,
+      "reason": "missing-given-when-then",
+      "line": 264
+    },
+    {
+      "path": "tests/unit/release/release-done.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 94
+    },
+    {
+      "path": "tests/unit/release/release-hotfix-no-dead-stage.test.ts",
+      "violations": 11,
+      "reason": "missing-given-when-then",
+      "line": 81
+    },
+    {
+      "path": "tests/unit/release/release-state-stage-validation.test.ts",
+      "violations": 9,
+      "reason": "missing-given-when-then",
+      "line": 73
+    },
+    {
+      "path": "tests/unit/release/version-parity-gate.test.ts",
+      "violations": 15,
+      "reason": "description-no-should-when",
+      "line": 61
+    },
+    {
+      "path": "tests/unit/release/version-precheck-missing-package-json.test.ts",
+      "violations": 4,
+      "reason": "description-no-should-when",
+      "line": 34
+    },
+    {
+      "path": "tests/unit/release/version-precheck-quote-tolerance.test.ts",
+      "violations": 6,
+      "reason": "description-no-should-when",
+      "line": 36
+    },
+    {
+      "path": "tests/unit/reporters/bdd-reporter.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 121
+    },
+    {
+      "path": "tests/unit/runtime/auto-compact-adapter.test.ts",
+      "violations": 7,
+      "reason": "description-no-should-when",
+      "line": 5
+    },
+    {
+      "path": "tests/unit/runtime/cli-version-lockstep.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 29
+    },
+    {
+      "path": "tests/unit/runtime/dispatch-result-child.test.ts",
+      "violations": 3,
+      "reason": "description-no-should-when",
+      "line": 36
+    },
+    {
+      "path": "tests/unit/runtime/dispatch.test.ts",
+      "violations": 3,
+      "reason": "description-no-should-when",
+      "line": 18
+    },
+    {
+      "path": "tests/unit/runtime/guards/resource-budget.test.ts",
+      "violations": 3,
+      "reason": "description-no-should-when",
+      "line": 5
+    },
+    {
+      "path": "tests/unit/runtime/lifecycle.test.ts",
+      "violations": 2,
+      "reason": "description-no-should-when",
+      "line": 16
+    },
+    {
+      "path": "tests/unit/runtime/no-runtime-input-guard-rule-d-controls.test.ts",
+      "violations": 7,
+      "reason": "description-no-should-when",
+      "line": 39
+    },
+    {
+      "path": "tests/unit/runtime/no-runtime-input-guard-rule-d.test.ts",
+      "violations": 6,
+      "reason": "description-no-should-when",
+      "line": 28
+    },
+    {
+      "path": "tests/unit/runtime/no-runtime-input-guard.test.ts",
+      "violations": 20,
+      "reason": "description-no-should-when",
+      "line": 121
+    },
+    {
+      "path": "tests/unit/runtime/process-supervisor-in-shell.test.ts",
+      "violations": 5,
+      "reason": "description-no-should-when",
+      "line": 71
+    },
+    {
+      "path": "tests/unit/runtime/process-supervisor.test.ts",
+      "violations": 3,
+      "reason": "missing-given-when-then",
+      "line": 45
+    },
+    {
+      "path": "tests/unit/runtime/prompt-builder.test.ts",
+      "violations": 3,
+      "reason": "description-no-should-when",
+      "line": 7
+    },
+    {
+      "path": "tests/unit/runtime/runtime-root-seam.test.ts",
+      "violations": 7,
+      "reason": "description-no-should-when",
+      "line": 31
+    },
+    {
+      "path": "tests/unit/runtime/status-protocol.test.ts",
+      "violations": 3,
+      "reason": "description-no-should-when",
+      "line": 9
+    },
+    {
+      "path": "tests/unit/runtime/vendor-adapter-layer.test.ts",
+      "violations": 6,
+      "reason": "missing-given-when-then",
+      "line": 75
+    },
+    {
+      "path": "tests/unit/runtime/vendor-neutral-identity-guard-ac1.test.ts",
+      "violations": 4,
+      "reason": "description-no-should-when",
+      "line": 54
+    },
+    {
+      "path": "tests/unit/runtime/vendor-neutral-identity-guard-fold-controls.test.ts",
+      "violations": 8,
+      "reason": "description-no-should-when",
+      "line": 29
+    },
+    {
+      "path": "tests/unit/runtime/vendor-neutral-identity-guard-scope-controls.test.ts",
+      "violations": 6,
+      "reason": "description-no-should-when",
+      "line": 213
+    },
+    {
+      "path": "tests/unit/runtime/vendor-neutral-identity-guard.test.ts",
+      "violations": 8,
+      "reason": "description-no-should-when",
+      "line": 275
+    },
+    {
+      "path": "tests/unit/runtime/vendor/claude-adapter.test.ts",
+      "violations": 4,
+      "reason": "description-no-should-when",
+      "line": 7
+    },
+    {
+      "path": "tests/unit/runtime/vendor/codex-adapter.test.ts",
+      "violations": 4,
+      "reason": "description-no-should-when",
+      "line": 6
+    },
+    {
+      "path": "tests/unit/runtime/vendor/copilot-adapter.test.ts",
+      "violations": 4,
+      "reason": "description-no-should-when",
+      "line": 6
+    },
+    {
+      "path": "tests/unit/scripts/check-build-integrity.test.ts",
+      "violations": 1,
+      "reason": "missing-given-when-then",
+      "line": 118
+    },
+    {
+      "path": "tests/unit/scripts/dist-freshness.test.ts",
+      "violations": 13,
+      "reason": "missing-given-when-then",
+      "line": 139
+    },
+    {
+      "path": "tests/unit/scripts/generate-readonly-whitelist.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 104
+    },
+    {
+      "path": "tests/unit/scripts/packages-build-lock.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 141
+    },
+    {
+      "path": "tests/unit/scripts/packages-build-prerequisite.test.ts",
+      "violations": 34,
+      "reason": "description-no-should-when",
+      "line": 126
+    },
+    {
+      "path": "tests/unit/scripts/packages-build-stamp-write.test.ts",
+      "violations": 6,
+      "reason": "missing-given-when-then",
+      "line": 106
+    },
+    {
+      "path": "tests/unit/scripts/test-changed-git-env.test.ts",
+      "violations": 5,
+      "reason": "description-no-should-when",
+      "line": 204
+    },
+    {
+      "path": "tests/unit/scripts/test-changed-nul-paths.test.ts",
+      "violations": 3,
+      "reason": "missing-given-when-then",
+      "line": 311
+    },
+    {
+      "path": "tests/unit/services/artifacts/artifact-contract-block-dispatch.test.ts",
+      "violations": 6,
+      "reason": "missing-given-when-then",
+      "line": 117
+    },
+    {
+      "path": "tests/unit/services/artifacts/artifact-contract-block.test.ts",
+      "violations": 19,
+      "reason": "missing-given-when-then",
+      "line": 150
+    },
+    {
+      "path": "tests/unit/services/artifacts/artifact-lint-metadata.test.ts",
+      "violations": 9,
+      "reason": "missing-given-when-then",
+      "line": 61
+    },
+    {
+      "path": "tests/unit/services/artifacts/audit-artifact-rid-scoping.test.ts",
+      "violations": 19,
+      "reason": "description-no-should-when",
+      "line": 85
+    },
+    {
+      "path": "tests/unit/services/artifacts/backcompat-acceptance-seed.test.ts",
+      "violations": 8,
+      "reason": "missing-given-when-then",
+      "line": 79
+    },
+    {
+      "path": "tests/unit/services/artifacts/backcompat-expiry-commit-gate.test.ts",
+      "violations": 23,
+      "reason": "missing-given-when-then",
+      "line": 148
+    },
+    {
+      "path": "tests/unit/services/artifacts/bug-analysis-rid-scoping.test.ts",
+      "violations": 15,
+      "reason": "description-no-should-when",
+      "line": 150
+    },
+    {
+      "path": "tests/unit/services/artifacts/judged-declaration-refusal-names-unmet.test.ts",
+      "violations": 10,
+      "reason": "missing-given-when-then",
+      "line": 180
+    },
+    {
+      "path": "tests/unit/services/artifacts/legacy-path-doc-contract.test.ts",
+      "violations": 16,
+      "reason": "description-no-should-when",
+      "line": 160
+    },
+    {
+      "path": "tests/unit/services/artifacts/lint-gate-names-finding.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 184
+    },
+    {
+      "path": "tests/unit/services/artifacts/prd-capsule-rid-scoping.test.ts",
+      "violations": 15,
+      "reason": "missing-given-when-then",
+      "line": 159
+    },
+    {
+      "path": "tests/unit/services/artifacts/prereq-unmet-kind.test.ts",
+      "violations": 11,
+      "reason": "missing-given-when-then",
+      "line": 126
+    },
+    {
+      "path": "tests/unit/services/artifacts/qa-initiated-marker.test.ts",
+      "violations": 6,
+      "reason": "missing-given-when-then",
+      "line": 94
+    },
+    {
+      "path": "tests/unit/services/artifacts/qa-template-openspec-section.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 48
+    },
+    {
+      "path": "tests/unit/services/artifacts/request-artifact-slug-case.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 48
+    },
+    {
+      "path": "tests/unit/services/artifacts/request-artifact-state-authority.test.ts",
+      "violations": 18,
+      "reason": "missing-given-when-then",
+      "line": 98
+    },
+    {
+      "path": "tests/unit/services/artifacts/request-transition-state-order.test.ts",
+      "violations": 2,
+      "reason": "missing-given-when-then",
+      "line": 147
+    },
+    {
+      "path": "tests/unit/services/artifacts/request-type-visibility.test.ts",
+      "violations": 24,
+      "reason": "missing-given-when-then",
+      "line": 72
+    },
+    {
+      "path": "tests/unit/services/artifacts/security-review-rid-scoping.test.ts",
+      "violations": 14,
+      "reason": "description-no-should-when",
+      "line": 140
+    },
+    {
+      "path": "tests/unit/services/artifacts/third-party-review-rid-scoping.test.ts",
+      "violations": 4,
+      "reason": "description-no-should-when",
+      "line": 77
+    },
+    {
+      "path": "tests/unit/services/artifacts/type-corroboration-gate.test.ts",
+      "violations": 11,
+      "reason": "missing-given-when-then",
+      "line": 127
+    },
+    {
+      "path": "tests/unit/services/artifacts/unit-tests-marker-idiom.test.ts",
+      "violations": 7,
+      "reason": "description-no-should-when",
+      "line": 199
+    },
+    {
+      "path": "tests/unit/services/audit-independent/handoff-missing-refusal.test.ts",
+      "violations": 8,
+      "reason": "description-no-should-when",
+      "line": 96
+    },
+    {
+      "path": "tests/unit/services/audit-independent/judged-declaration.test.ts",
+      "violations": 18,
+      "reason": "description-no-should-when",
+      "line": 106
+    },
+    {
+      "path": "tests/unit/services/audit/active-skill-resolver.test.ts",
+      "violations": 5,
+      "reason": "description-no-should-when",
+      "line": 70
+    },
+    {
+      "path": "tests/unit/services/audit/audit-goal-service.test.ts",
+      "violations": 8,
+      "reason": "missing-given-when-then",
+      "line": 52
+    },
+    {
+      "path": "tests/unit/services/audit/code-ban.test.ts",
+      "violations": 6,
+      "reason": "description-no-should-when",
+      "line": 22
+    },
+    {
+      "path": "tests/unit/services/audit/enforcer-liveness.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 43
+    },
+    {
+      "path": "tests/unit/services/audit/prose-ratio-calculator.test.ts",
+      "violations": 6,
+      "reason": "missing-given-when-then",
+      "line": 27
+    },
+    {
+      "path": "tests/unit/services/audit/rd-handoff-artifact.test.ts",
+      "violations": 7,
+      "reason": "missing-given-when-then",
+      "line": 51
+    },
+    {
+      "path": "tests/unit/services/batch/batch-active-batch.test.ts",
+      "violations": 13,
+      "reason": "missing-given-when-then",
+      "line": 59
+    },
+    {
+      "path": "tests/unit/services/batch/batch-context-reminder.test.ts",
+      "violations": 12,
+      "reason": "missing-given-when-then",
+      "line": 64
+    },
+    {
+      "path": "tests/unit/services/batch/batch-diagnosis-finding.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 47
+    },
+    {
+      "path": "tests/unit/services/batch/batch-diagnosis-report-store.test.ts",
+      "violations": 8,
+      "reason": "missing-given-when-then",
+      "line": 74
+    },
+    {
+      "path": "tests/unit/services/batch/batch-diagnosis-summary.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 35
+    },
+    {
+      "path": "tests/unit/services/batch/batch-diagnosis.test.ts",
+      "violations": 8,
+      "reason": "missing-given-when-then",
+      "line": 53
+    },
+    {
+      "path": "tests/unit/services/batch/batch-entry.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 26
+    },
+    {
+      "path": "tests/unit/services/batch/batch-fix-scoped-test.test.ts",
+      "violations": 8,
+      "reason": "missing-given-when-then",
+      "line": 127
+    },
+    {
+      "path": "tests/unit/services/batch/batch-fix.test.ts",
+      "violations": 11,
+      "reason": "missing-given-when-then",
+      "line": 102
+    },
+    {
+      "path": "tests/unit/services/batch/batch-phase-advance.test.ts",
+      "violations": 9,
+      "reason": "missing-given-when-then",
+      "line": 78
+    },
+    {
+      "path": "tests/unit/services/batch/batch-progress-recovery.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 63
+    },
+    {
+      "path": "tests/unit/services/batch/batch-progress-store.test.ts",
+      "violations": 13,
+      "reason": "missing-given-when-then",
+      "line": 79
+    },
+    {
+      "path": "tests/unit/services/batch/batch-verify.test.ts",
+      "violations": 17,
+      "reason": "missing-given-when-then",
+      "line": 123
+    },
+    {
+      "path": "tests/unit/services/code-review/ecc-bridge-cache-backed.test.ts",
+      "violations": 15,
+      "reason": "missing-given-when-then",
+      "line": 26
+    },
+    {
+      "path": "tests/unit/services/code/batch-compaction-point.test.ts",
+      "violations": 13,
+      "reason": "missing-given-when-then",
+      "line": 36
+    },
+    {
+      "path": "tests/unit/services/code/compact-event-settle.test.ts",
+      "violations": 26,
+      "reason": "missing-given-when-then",
+      "line": 109
+    },
+    {
+      "path": "tests/unit/services/codegraph/codegraph-autorefresh.test.ts",
+      "violations": 17,
+      "reason": "missing-given-when-then",
+      "line": 107
+    },
+    {
+      "path": "tests/unit/services/codegraph/codegraph-config-repair.test.ts",
+      "violations": 10,
+      "reason": "missing-given-when-then",
+      "line": 167
+    },
+    {
+      "path": "tests/unit/services/codegraph/codegraph-dir-containment.test.ts",
+      "violations": 9,
+      "reason": "missing-given-when-then",
+      "line": 179
+    },
+    {
+      "path": "tests/unit/services/codegraph/codegraph-exclude-integrity.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 67
+    },
+    {
+      "path": "tests/unit/services/codegraph/codegraph-exclude-reconciler.test.ts",
+      "violations": 34,
+      "reason": "description-no-should-when",
+      "line": 162
+    },
+    {
+      "path": "tests/unit/services/codegraph/codegraph-exclude-repair-atomic-write.test.ts",
+      "violations": 9,
+      "reason": "missing-given-when-then",
+      "line": 101
+    },
+    {
+      "path": "tests/unit/services/codegraph/codegraph-exclude-repair-hardening.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 103
+    },
+    {
+      "path": "tests/unit/services/codegraph/codegraph-exclude-repair.test.ts",
+      "violations": 20,
+      "reason": "missing-given-when-then",
+      "line": 189
+    },
+    {
+      "path": "tests/unit/services/codegraph/codegraph-index-integrity.test.ts",
+      "violations": 28,
+      "reason": "missing-given-when-then",
+      "line": 89
+    },
+    {
+      "path": "tests/unit/services/codegraph/codegraph-index-path-exists.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 213
+    },
+    {
+      "path": "tests/unit/services/codegraph/codegraph-preflight.test.ts",
+      "violations": 11,
+      "reason": "missing-given-when-then",
+      "line": 142
+    },
+    {
+      "path": "tests/unit/services/codegraph/codegraph-project-config.test.ts",
+      "violations": 8,
+      "reason": "missing-given-when-then",
+      "line": 66
+    },
+    {
+      "path": "tests/unit/services/codegraph/codegraph-shared-input-seam.test.ts",
+      "violations": 11,
+      "reason": "missing-given-when-then",
+      "line": 165
+    },
+    {
+      "path": "tests/unit/services/compact-visibility/compact-visibility.test.ts",
+      "violations": 10,
+      "reason": "missing-given-when-then",
+      "line": 525
+    },
+    {
+      "path": "tests/unit/services/compact/decision-tables.test.ts",
+      "violations": 1,
+      "reason": "missing-given-when-then",
+      "line": 175
+    },
+    {
+      "path": "tests/unit/services/context/build-dispatch-system-prompt.fresh-context.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 35
+    },
+    {
+      "path": "tests/unit/services/context/build-dispatch-system-prompt.test.ts",
+      "violations": 8,
+      "reason": "missing-given-when-then",
+      "line": 76
+    },
+    {
+      "path": "tests/unit/services/context/codegraph-preflight-dispatch-seam.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 102
+    },
+    {
+      "path": "tests/unit/services/context/collector.test.ts",
+      "violations": 7,
+      "reason": "missing-given-when-then",
+      "line": 57
+    },
+    {
+      "path": "tests/unit/services/context/context-audit.test.ts",
+      "violations": 15,
+      "reason": "missing-given-when-then",
+      "line": 78
+    },
+    {
+      "path": "tests/unit/services/context/dispatch-capsule-pointer.test.ts",
+      "violations": 6,
+      "reason": "missing-given-when-then",
+      "line": 45
+    },
+    {
+      "path": "tests/unit/services/context/dispatch-codegraph-unavailable-reason.test.ts",
+      "violations": 6,
+      "reason": "missing-given-when-then",
+      "line": 89
+    },
+    {
+      "path": "tests/unit/services/context/dispatch-fact-force-gate.test.ts",
+      "violations": 6,
+      "reason": "missing-given-when-then",
+      "line": 72
+    },
+    {
+      "path": "tests/unit/services/context/dispatch-l1-worktree-block-invocations.test.ts",
+      "violations": 11,
+      "reason": "missing-given-when-then",
+      "line": 300
+    },
+    {
+      "path": "tests/unit/services/context/dispatch-report-cap.test.ts",
+      "violations": 8,
+      "reason": "description-no-should-when",
+      "line": 61
+    },
+    {
+      "path": "tests/unit/services/context/dispatch-role-scope-and-compression.test.ts",
+      "violations": 7,
+      "reason": "missing-given-when-then",
+      "line": 83
+    },
+    {
+      "path": "tests/unit/services/context/harness-context-witness-file-state.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 143
+    },
+    {
+      "path": "tests/unit/services/context/harness-context-witness-sharpness.test.ts",
+      "violations": 3,
+      "reason": "missing-given-when-then",
+      "line": 95
+    },
+    {
+      "path": "tests/unit/services/context/harness-context-witness.test.ts",
+      "violations": 36,
+      "reason": "missing-given-when-then",
+      "line": 226
+    },
+    {
+      "path": "tests/unit/services/context/memory-preflight-retrieval.test.ts",
+      "violations": 18,
+      "reason": "missing-given-when-then",
+      "line": 86
+    },
+    {
+      "path": "tests/unit/services/context/post-compact-reinjection.test.ts",
+      "violations": 10,
+      "reason": "missing-given-when-then",
+      "line": 66
+    },
+    {
+      "path": "tests/unit/services/context/summary-view.test.ts",
+      "violations": 8,
+      "reason": "missing-given-when-then",
+      "line": 46
+    },
+    {
+      "path": "tests/unit/services/dispatch/detached-record-fields.test.ts",
+      "violations": 4,
+      "reason": "description-no-should-when",
+      "line": 63
+    },
+    {
+      "path": "tests/unit/services/dispatch/dispatch-ledger-reader.test.ts",
+      "violations": 10,
+      "reason": "missing-given-when-then",
+      "line": 112
+    },
+    {
+      "path": "tests/unit/services/dispatch/dispatch-record-writer.test.ts",
+      "violations": 3,
+      "reason": "missing-given-when-then",
+      "line": 37
+    },
+    {
+      "path": "tests/unit/services/dispatch/file-overlap-wave-planner.test.ts",
+      "violations": 9,
+      "reason": "missing-given-when-then",
+      "line": 38
+    },
+    {
+      "path": "tests/unit/services/dispatch/isolation-lease.test.ts",
+      "violations": 6,
+      "reason": "description-no-should-when",
+      "line": 79
+    },
+    {
+      "path": "tests/unit/services/dispatch/karpathy-block.test.ts",
+      "violations": 10,
+      "reason": "missing-given-when-then",
+      "line": 64
+    },
+    {
+      "path": "tests/unit/services/dispatch/leak-detector.test.ts",
+      "violations": 2,
+      "reason": "missing-given-when-then",
+      "line": 94
+    },
+    {
+      "path": "tests/unit/services/dispatch/ledger-reaper.test.ts",
+      "violations": 16,
+      "reason": "missing-given-when-then",
+      "line": 171
+    },
+    {
+      "path": "tests/unit/services/dispatch/sub-agent-dispatcher-timeouts.test.ts",
+      "violations": 5,
+      "reason": "description-no-should-when",
+      "line": 117
+    },
+    {
+      "path": "tests/unit/services/dispatch/sub-agent-dispatchers.test.ts",
+      "violations": 17,
+      "reason": "description-no-should-when",
+      "line": 100
+    },
+    {
+      "path": "tests/unit/services/distribution/mcp-install.test.ts",
+      "violations": 3,
+      "reason": "missing-given-when-then",
+      "line": 227
+    },
+    {
+      "path": "tests/unit/services/ecc/ecc-materialize.test.ts",
+      "violations": 11,
+      "reason": "description-no-should-when",
+      "line": 61
+    },
+    {
+      "path": "tests/unit/services/ecc/ecc-package-source.test.ts",
+      "violations": 4,
+      "reason": "description-no-should-when",
+      "line": 41
+    },
+    {
+      "path": "tests/unit/services/feedback/feedback-promotion-artifact.test.ts",
+      "violations": 28,
+      "reason": "description-no-should-when",
+      "line": 126
+    },
+    {
+      "path": "tests/unit/services/feedback/feedback-promotion-layer-b-locations.test.ts",
+      "violations": 9,
+      "reason": "description-no-should-when",
+      "line": 80
+    },
+    {
+      "path": "tests/unit/services/fresh-context/trigger-scan.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 30
+    },
+    {
+      "path": "tests/unit/services/fs-error-classification.test.ts",
+      "violations": 3,
+      "reason": "description-no-should-when",
+      "line": 49
+    },
+    {
+      "path": "tests/unit/services/hooks/code-gate-case-variant.test.ts",
+      "violations": 10,
+      "reason": "missing-given-when-then",
+      "line": 53
+    },
+    {
+      "path": "tests/unit/services/hooks/code-gate-dot-dot-segment.test.ts",
+      "violations": 16,
+      "reason": "missing-given-when-then",
+      "line": 52
+    },
+    {
+      "path": "tests/unit/services/hooks/code-gate-path-spelling.test.ts",
+      "violations": 15,
+      "reason": "missing-given-when-then",
+      "line": 52
+    },
+    {
+      "path": "tests/unit/services/hooks/code-gate.test.ts",
+      "violations": 42,
+      "reason": "missing-given-when-then",
+      "line": 54
+    },
+    {
+      "path": "tests/unit/services/job/job-checkpoint-input-schema.test.ts",
+      "violations": 7,
+      "reason": "missing-given-when-then",
+      "line": 77
+    },
+    {
+      "path": "tests/unit/services/job/job-commit-verification.test.ts",
+      "violations": 7,
+      "reason": "missing-given-when-then",
+      "line": 50
+    },
+    {
+      "path": "tests/unit/services/job/job-next-slice-line.test.ts",
+      "violations": 9,
+      "reason": "missing-given-when-then",
+      "line": 73
+    },
+    {
+      "path": "tests/unit/services/karpathy-cost/karpathy-cost-check-service.test.ts",
+      "violations": 2,
+      "reason": "missing-given-when-then",
+      "line": 128
+    },
+    {
+      "path": "tests/unit/services/lint/detect-eslint.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 45
+    },
+    {
+      "path": "tests/unit/services/lint/detect-ocr-18.test.ts",
+      "violations": 7,
+      "reason": "missing-given-when-then",
+      "line": 139
+    },
+    {
+      "path": "tests/unit/services/lint/eslint-runner-baseline-roots.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 60
+    },
+    {
+      "path": "tests/unit/services/lint/eslint-runner-population.test.ts",
+      "violations": 7,
+      "reason": "missing-given-when-then",
+      "line": 38
+    },
+    {
+      "path": "tests/unit/services/lint/eslint-runner.test.ts",
+      "violations": 16,
+      "reason": "missing-given-when-then",
+      "line": 46
+    },
+    {
+      "path": "tests/unit/services/lint/no-magic-numbers-config.test.ts",
+      "violations": 7,
+      "reason": "description-no-should-when",
+      "line": 33
+    },
+    {
+      "path": "tests/unit/services/lint/ocr-18-acquire-shell.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 56
+    },
+    {
+      "path": "tests/unit/services/lint/ocr-18-acquire.test.ts",
+      "violations": 16,
+      "reason": "missing-given-when-then",
+      "line": 128
+    },
+    {
+      "path": "tests/unit/services/lint/ocr-18-delegate-packet.test.ts",
+      "violations": 10,
+      "reason": "missing-given-when-then",
+      "line": 136
+    },
+    {
+      "path": "tests/unit/services/lint/ocr-18-delegate-payload.test.ts",
+      "violations": 15,
+      "reason": "missing-given-when-then",
+      "line": 98
+    },
+    {
+      "path": "tests/unit/services/lint/ocr-18-delegate-record.test.ts",
+      "violations": 22,
+      "reason": "missing-given-when-then",
+      "line": 75
+    },
+    {
+      "path": "tests/unit/services/lint/ocr-18-language-routing.test.ts",
+      "violations": 8,
+      "reason": "missing-given-when-then",
+      "line": 98
+    },
+    {
+      "path": "tests/unit/services/lint/ocr-18-multi.test.ts",
+      "violations": 11,
+      "reason": "missing-given-when-then",
+      "line": 110
+    },
+    {
+      "path": "tests/unit/services/lint/ocr-multilang-adapter.test.ts",
+      "violations": 13,
+      "reason": "missing-given-when-then",
+      "line": 70
+    },
+    {
+      "path": "tests/unit/services/lint/rule-pre-read.test.ts",
+      "violations": 23,
+      "reason": "missing-given-when-then",
+      "line": 92
+    },
+    {
+      "path": "tests/unit/services/llm/anthropic-runner.test.ts",
+      "violations": 17,
+      "reason": "missing-given-when-then",
+      "line": 55
+    },
+    {
+      "path": "tests/unit/services/loop/loop-bee-relation-integrity.test.ts",
+      "violations": 4,
+      "reason": "description-no-should-when",
+      "line": 129
+    },
+    {
+      "path": "tests/unit/services/loop/loop-observability-emission.test.ts",
+      "violations": 7,
+      "reason": "missing-given-when-then",
+      "line": 147
+    },
+    {
+      "path": "tests/unit/services/mcp/cli-executor.test.ts",
+      "violations": 6,
+      "reason": "missing-given-when-then",
+      "line": 47
+    },
+    {
+      "path": "tests/unit/services/mcp/mcp-server.test.ts",
+      "violations": 12,
+      "reason": "missing-given-when-then",
+      "line": 74
+    },
+    {
+      "path": "tests/unit/services/mcp/mcp-tools.test.ts",
+      "violations": 10,
+      "reason": "missing-given-when-then",
+      "line": 81
+    },
+    {
+      "path": "tests/unit/services/mcp/mcp-vendor-neutrality.test.ts",
+      "violations": 3,
+      "reason": "missing-given-when-then",
+      "line": 126
+    },
+    {
+      "path": "tests/unit/services/memory/memory-block-drop-diagnostics.test.ts",
+      "violations": 19,
+      "reason": "description-no-should-when",
+      "line": 110
+    },
+    {
+      "path": "tests/unit/services/memory/memory-ingest.test.ts",
+      "violations": 12,
+      "reason": "description-no-should-when",
+      "line": 81
+    },
+    {
+      "path": "tests/unit/services/memory/memory-kind-llm-surfaces.test.ts",
+      "violations": 7,
+      "reason": "description-no-should-when",
+      "line": 138
+    },
+    {
+      "path": "tests/unit/services/memory/memory-kind-vocabulary.test.ts",
+      "violations": 7,
+      "reason": "description-no-should-when",
+      "line": 90
+    },
+    {
+      "path": "tests/unit/services/memory/memory-marker-prefix.test.ts",
+      "violations": 10,
+      "reason": "description-no-should-when",
+      "line": 52
+    },
+    {
+      "path": "tests/unit/services/memory/memory-metadata-sensitive-value.test.ts",
+      "violations": 7,
+      "reason": "missing-given-when-then",
+      "line": 72
+    },
+    {
+      "path": "tests/unit/services/memory/memory-name-fallback.test.ts",
+      "violations": 10,
+      "reason": "missing-given-when-then",
+      "line": 53
+    },
+    {
+      "path": "tests/unit/services/memory/memory-path-missing-vs-escape.test.ts",
+      "violations": 4,
+      "reason": "description-no-should-when",
+      "line": 43
+    },
+    {
+      "path": "tests/unit/services/memory/memory-reindex.test.ts",
+      "violations": 7,
+      "reason": "description-no-should-when",
+      "line": 69
+    },
+    {
+      "path": "tests/unit/services/memory/memory-rotate.test.ts",
+      "violations": 14,
+      "reason": "description-no-should-when",
+      "line": 67
+    },
+    {
+      "path": "tests/unit/services/memory/memory-title-sensitive-scan.test.ts",
+      "violations": 6,
+      "reason": "missing-given-when-then",
+      "line": 352
+    },
+    {
+      "path": "tests/unit/services/memory/memory-write-skip-reporting.test.ts",
+      "violations": 14,
+      "reason": "description-no-should-when",
+      "line": 99
+    },
+    {
+      "path": "tests/unit/services/memory/session-scan-failure-diagnostics.test.ts",
+      "violations": 6,
+      "reason": "description-no-should-when",
+      "line": 96
+    },
+    {
+      "path": "tests/unit/services/polyrepo/polyrepo-dispatcher-sid-guard.test.ts",
+      "violations": 3,
+      "reason": "description-no-should-when",
+      "line": 80
+    },
+    {
+      "path": "tests/unit/services/prd/handoff-auto-regen.test.ts",
+      "violations": 12,
+      "reason": "missing-given-when-then",
+      "line": 90
+    },
+    {
+      "path": "tests/unit/services/prd/handoff-writer-gate-convergence.test.ts",
+      "violations": 12,
+      "reason": "missing-given-when-then",
+      "line": 162
+    },
+    {
+      "path": "tests/unit/services/prd/project-scan-bootstrap-service.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 72
+    },
+    {
+      "path": "tests/unit/services/qa/bdd-test-style-verifier.test.ts",
+      "violations": 17,
+      "reason": "missing-given-when-then",
+      "line": 98
+    },
+    {
+      "path": "tests/unit/services/race/gate2-evaluator.test.ts",
+      "violations": 16,
+      "reason": "missing-given-when-then",
+      "line": 73
+    },
+    {
+      "path": "tests/unit/services/race/pilot-gate-store.test.ts",
+      "violations": 16,
+      "reason": "missing-given-when-then",
+      "line": 72
+    },
+    {
+      "path": "tests/unit/services/recommendations/installed-capability-detector.test.ts",
+      "violations": 6,
+      "reason": "missing-given-when-then",
+      "line": 44
+    },
+    {
+      "path": "tests/unit/services/reviewer/reviewer-artifacts.test.ts",
+      "violations": 2,
+      "reason": "description-no-should-when",
+      "line": 81
+    },
+    {
+      "path": "tests/unit/services/scan/archetype-nested-backend-evidence.test.ts",
+      "violations": 8,
+      "reason": "missing-given-when-then",
+      "line": 38
+    },
+    {
+      "path": "tests/unit/services/scan/archetype-service.test.ts",
+      "violations": 15,
+      "reason": "missing-given-when-then",
+      "line": 59
+    },
+    {
+      "path": "tests/unit/services/scan/file-size-ratchet.test.ts",
+      "violations": 9,
+      "reason": "missing-given-when-then",
+      "line": 86
+    },
+    {
+      "path": "tests/unit/services/scan/file-size-scan.test.ts",
+      "violations": 19,
+      "reason": "missing-given-when-then",
+      "line": 107
+    },
+    {
+      "path": "tests/unit/services/scan/frontend-evidence.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 18
+    },
+    {
+      "path": "tests/unit/services/scan/hook-convention-service.test.ts",
+      "violations": 27,
+      "reason": "missing-given-when-then",
+      "line": 25
+    },
+    {
+      "path": "tests/unit/services/scan/type-corroboration.test.ts",
+      "violations": 9,
+      "reason": "missing-given-when-then",
+      "line": 107
+    },
+    {
+      "path": "tests/unit/services/scan/type-sanity-service.test.ts",
+      "violations": 8,
+      "reason": "missing-given-when-then",
+      "line": 70
+    },
+    {
+      "path": "tests/unit/services/sediment/pool-read-semantics.test.ts",
+      "violations": 2,
+      "reason": "missing-given-when-then",
+      "line": 114
+    },
+    {
+      "path": "tests/unit/services/session/get-session-dir.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 54
+    },
+    {
+      "path": "tests/unit/services/session/session-dir-canonical.test.ts",
+      "violations": 7,
+      "reason": "missing-given-when-then",
+      "line": 256
+    },
+    {
+      "path": "tests/unit/services/skills/resume-detector-evidence-paths.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 69
+    },
+    {
+      "path": "tests/unit/services/skills/resume-detector-state.test.ts",
+      "violations": 3,
+      "reason": "missing-given-when-then",
+      "line": 72
+    },
+    {
+      "path": "tests/unit/services/skills/skill-statusline-dual-skill.test.ts",
+      "violations": 1,
+      "reason": "missing-given-when-then",
+      "line": 378
+    },
+    {
+      "path": "tests/unit/services/skills/skill-statusline-marquee.test.ts",
+      "violations": 2,
+      "reason": "missing-given-when-then",
+      "line": 40
+    },
+    {
+      "path": "tests/unit/services/skills/skill-statusline-renderer.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 352
+    },
+    {
+      "path": "tests/unit/services/skills/workflow-id-caller-derivation.test.ts",
+      "violations": 8,
+      "reason": "description-no-should-when",
+      "line": 101
+    },
+    {
+      "path": "tests/unit/services/sop/sop-check-command-windows-hide.test.ts",
+      "violations": 1,
+      "reason": "missing-given-when-then",
+      "line": 36
+    },
+    {
+      "path": "tests/unit/services/sqlite/sqlite-driver.test.ts",
+      "violations": 13,
+      "reason": "description-no-should-when",
+      "line": 73
+    },
+    {
+      "path": "tests/unit/services/web/browser-session-manager.test.ts",
+      "violations": 2,
+      "reason": "missing-given-when-then",
+      "line": 267
+    },
+    {
+      "path": "tests/unit/services/web/daemon-registry.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 281
+    },
+    {
+      "path": "tests/unit/services/web/playwright-loader.test.ts",
+      "violations": 7,
+      "reason": "missing-given-when-then",
+      "line": 136
+    },
+    {
+      "path": "tests/unit/services/web/web-daemon-browser-teardown.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 132
+    },
+    {
+      "path": "tests/unit/services/web/web-daemon-health-oracle.test.ts",
+      "violations": 1,
+      "reason": "missing-given-when-then",
+      "line": 178
+    },
+    {
+      "path": "tests/unit/services/web/web-daemon-race.test.ts",
+      "violations": 1,
+      "reason": "missing-given-when-then",
+      "line": 322
+    },
+    {
+      "path": "tests/unit/services/web/web-daemon-service.test.ts",
+      "violations": 13,
+      "reason": "missing-given-when-then",
+      "line": 106
+    },
+    {
+      "path": "tests/unit/services/web/web-fallback.test.ts",
+      "violations": 3,
+      "reason": "missing-given-when-then",
+      "line": 84
+    },
+    {
+      "path": "tests/unit/services/web/web-install-lock-race.test.ts",
+      "violations": 2,
+      "reason": "missing-given-when-then",
+      "line": 135
+    },
+    {
+      "path": "tests/unit/services/web/web-install-service.test.ts",
+      "violations": 10,
+      "reason": "missing-given-when-then",
+      "line": 253
+    },
+    {
+      "path": "tests/unit/services/web/web-login-profile-guard.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 59
+    },
+    {
+      "path": "tests/unit/services/web/web-login-profile.test.ts",
+      "violations": 38,
+      "reason": "missing-given-when-then",
+      "line": 70
+    },
+    {
+      "path": "tests/unit/services/web/web-login-publish.test.ts",
+      "violations": 7,
+      "reason": "missing-given-when-then",
+      "line": 52
+    },
+    {
+      "path": "tests/unit/services/web/web-open-profile.test.ts",
+      "violations": 11,
+      "reason": "missing-given-when-then",
+      "line": 162
+    },
+    {
+      "path": "tests/unit/services/web/web-spawn-hardening.test.ts",
+      "violations": 14,
+      "reason": "missing-given-when-then",
+      "line": 234
+    },
+    {
+      "path": "tests/unit/services/web/web-status-report.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 94
+    },
+    {
+      "path": "tests/unit/services/workflow/pipeline-verify-contract-drift.test.ts",
+      "violations": 17,
+      "reason": "missing-given-when-then",
+      "line": 184
+    },
+    {
+      "path": "tests/unit/services/workflow/pipeline-verify-rd-gates.test.ts",
+      "violations": 9,
+      "reason": "missing-given-when-then",
+      "line": 81
+    },
+    {
+      "path": "tests/unit/services/workflow/provision-dispatch-node.test.ts",
+      "violations": 5,
+      "reason": "missing-given-when-then",
+      "line": 25
+    },
+    {
+      "path": "tests/unit/services/workflow/request-type-is-derived.test.ts",
+      "violations": 1,
+      "reason": "missing-given-when-then",
+      "line": 327
+    },
+    {
+      "path": "tests/unit/services/workflow/skip-allowlist-is-qa-free.test.ts",
+      "violations": 17,
+      "reason": "missing-given-when-then",
+      "line": 132
+    },
+    {
+      "path": "tests/unit/services/workflow/type-tables-armed.test.ts",
+      "violations": 2,
+      "reason": "missing-given-when-then",
+      "line": 119
+    },
+    {
+      "path": "tests/unit/services/workspace/generated-artifacts-stamp.test.ts",
+      "violations": 8,
+      "reason": "description-no-should-when",
+      "line": 73
+    },
+    {
+      "path": "tests/unit/services/workspace/gitignore-snippet-convergence.test.ts",
+      "violations": 5,
+      "reason": "description-no-should-when",
+      "line": 65
+    },
+    {
+      "path": "tests/unit/services/workspace/workspace-init-binding-guard.test.ts",
+      "violations": 3,
+      "reason": "missing-given-when-then",
+      "line": 101
+    },
+    {
+      "path": "tests/unit/session/caller-binding-primary-source.test.ts",
+      "violations": 11,
+      "reason": "description-no-should-when",
+      "line": 133
+    },
+    {
+      "path": "tests/unit/session/caller-binding-slice-9-edge-cases.test.ts",
+      "violations": 14,
+      "reason": "description-no-should-when",
+      "line": 195
+    },
+    {
+      "path": "tests/unit/session/caller-binding-staleness.test.ts",
+      "violations": 10,
+      "reason": "missing-given-when-then",
+      "line": 175
+    },
+    {
+      "path": "tests/unit/session/ensure-session-meta-coverage.test.ts",
+      "violations": 7,
+      "reason": "description-no-should-when",
+      "line": 116
+    },
+    {
+      "path": "tests/unit/session/get-current-outer-session-id.test.ts",
+      "violations": 10,
+      "reason": "description-no-should-when",
+      "line": 95
+    },
+    {
+      "path": "tests/unit/session/rebind-updates-caller-binding.test.ts",
+      "violations": 8,
+      "reason": "missing-given-when-then",
+      "line": 149
+    },
+    {
+      "path": "tests/unit/session/rotation-guards-tightening.test.ts",
+      "violations": 11,
+      "reason": "description-no-should-when",
+      "line": 108
+    },
+    {
+      "path": "tests/unit/session/session-manager-path-canonicalize.test.ts",
+      "violations": 1,
+      "reason": "missing-given-when-then",
+      "line": 198
+    },
+    {
+      "path": "tests/unit/shared/incrementing-number-prefix-family.test.ts",
+      "violations": 10,
+      "reason": "missing-given-when-then",
+      "line": 86
+    },
+    {
+      "path": "tests/unit/skills/caller-first-session-resolution.test.ts",
+      "violations": 8,
+      "reason": "missing-given-when-then",
+      "line": 142
+    },
+    {
+      "path": "tests/unit/skills/clearStalePresenceRotation.test.ts",
+      "violations": 6,
+      "reason": "missing-given-when-then",
+      "line": 111
+    },
+    {
+      "path": "tests/unit/skills/g11-5-title-lock.test.ts",
+      "violations": 5,
+      "reason": "description-no-should-when",
+      "line": 65
+    },
+    {
+      "path": "tests/unit/skills/karpathy-injection.test.ts",
+      "violations": 6,
+      "reason": "description-no-should-when",
+      "line": 103
+    },
+    {
+      "path": "tests/unit/skills/loop-hygiene-block.test.ts",
+      "violations": 7,
+      "reason": "description-no-should-when",
+      "line": 65
+    },
+    {
+      "path": "tests/unit/skills/micro-cycle-lint-leg.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 42
+    },
+    {
+      "path": "tests/unit/skills/peaks-status-mcp-surface.test.ts",
+      "violations": 1,
+      "reason": "missing-given-when-then",
+      "line": 90
+    },
+    {
+      "path": "tests/unit/skills/periodic-checkpoint-cadence.test.ts",
+      "violations": 5,
+      "reason": "description-no-should-when",
+      "line": 52
+    },
+    {
+      "path": "tests/unit/skills/race-batch-mode-surface.test.ts",
+      "violations": 9,
+      "reason": "missing-given-when-then",
+      "line": 68
+    },
+    {
+      "path": "tests/unit/skills/skill-statusline-empty-render-and-short-sid-suffix.test.ts",
+      "violations": 7,
+      "reason": "description-no-should-when",
+      "line": 142
+    },
+    {
+      "path": "tests/unit/skills/skill-statusline-sid-only-marker.test.ts",
+      "violations": 20,
+      "reason": "description-no-should-when",
+      "line": 150
+    },
+    {
+      "path": "tests/unit/skills/superpowers-deny-list.test.ts",
+      "violations": 3,
+      "reason": "description-no-should-when",
+      "line": 36
+    },
+    {
+      "path": "tests/unit/slice/llm-arbitrator.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 71
+    },
+    {
+      "path": "tests/unit/slice/slice-check-service.test.ts",
+      "violations": 8,
+      "reason": "missing-given-when-then",
+      "line": 189
+    },
+    {
+      "path": "tests/unit/spawn-windows-hide-guard.test.ts",
+      "violations": 20,
+      "reason": "description-no-should-when",
+      "line": 784
+    },
+    {
+      "path": "tests/unit/standards/capability-glossary.test.ts",
+      "violations": 2,
+      "reason": "missing-given-when-then",
+      "line": 24
+    },
+    {
+      "path": "tests/unit/standards/doc-command-claims.test.ts",
+      "violations": 6,
+      "reason": "description-no-should-when",
+      "line": 165
+    },
+    {
+      "path": "tests/unit/standards/esm-relative-import-extension.test.ts",
+      "violations": 18,
+      "reason": "description-no-should-when",
+      "line": 153
+    },
+    {
+      "path": "tests/unit/standards/expired-grace-ratchet.test.ts",
+      "violations": 13,
+      "reason": "description-no-should-when",
+      "line": 137
+    },
+    {
+      "path": "tests/unit/standards/fast-lane-norm-single-source.test.ts",
+      "violations": 6,
+      "reason": "description-no-should-when",
+      "line": 52
+    },
+    {
+      "path": "tests/unit/standards/file-size-cap.test.ts",
+      "violations": 23,
+      "reason": "description-no-should-when",
+      "line": 123
+    },
+    {
+      "path": "tests/unit/standards/gate-module-set.test.ts",
+      "violations": 3,
+      "reason": "missing-given-when-then",
+      "line": 49
+    },
+    {
+      "path": "tests/unit/standards/gratuitous-async-guard.test.ts",
+      "violations": 17,
+      "reason": "description-no-should-when",
+      "line": 236
+    },
+    {
+      "path": "tests/unit/standards/loop-engineering-guidelines.test.ts",
+      "violations": 8,
+      "reason": "missing-given-when-then",
+      "line": 78
+    },
+    {
+      "path": "tests/unit/standards/no-ai-co-author-trailer.test.ts",
+      "violations": 7,
+      "reason": "description-no-should-when",
+      "line": 170
+    },
+    {
+      "path": "tests/unit/standards/no-esm-require-mixing.test.ts",
+      "violations": 9,
+      "reason": "missing-given-when-then",
+      "line": 137
+    },
+    {
+      "path": "tests/unit/standards/no-mcp-source-import.test.ts",
+      "violations": 19,
+      "reason": "missing-given-when-then",
+      "line": 68
+    },
+    {
+      "path": "tests/unit/standards/no-proof-suite-skip.test.ts",
+      "violations": 6,
+      "reason": "description-no-should-when",
+      "line": 135
+    },
+    {
+      "path": "tests/unit/standards/repo-citation-integrity.test.ts",
+      "violations": 33,
+      "reason": "missing-given-when-then",
+      "line": 811
+    },
+    {
+      "path": "tests/unit/standards/scope-shadow-coverage.test.ts",
+      "violations": 5,
+      "reason": "description-no-should-when",
+      "line": 54
+    },
+    {
+      "path": "tests/unit/standards/vitest-worker-cap.test.ts",
+      "violations": 13,
+      "reason": "description-no-should-when",
+      "line": 79
+    },
+    {
+      "path": "tests/unit/vendor/windows-patnext-detect.test.ts",
+      "violations": 1,
+      "reason": "description-no-should-when",
+      "line": 26
+    },
+    {
+      "path": "tests/unit/vitest-concurrency-guard.test.ts",
+      "violations": 7,
+      "reason": "missing-given-when-then",
+      "line": 80
+    },
+    {
+      "path": "tests/unit/workspace/active-skill-json-cleanup.test.ts",
+      "violations": 3,
+      "reason": "missing-given-when-then",
+      "line": 145
+    },
+    {
+      "path": "tests/unit/workspace/gitignore-snippet-matches.test.ts",
+      "violations": 9,
+      "reason": "description-no-should-when",
+      "line": 52
+    },
+    {
+      "path": "tests/unit/workspace/home-directory-is-not-a-project-root.test.ts",
+      "violations": 6,
+      "reason": "missing-given-when-then",
+      "line": 34
+    },
+    {
+      "path": "tests/unit/workspace/runtime-layout-drift-guard.test.ts",
+      "violations": 14,
+      "reason": "description-no-should-when",
+      "line": 275
+    },
+    {
+      "path": "tests/unit/workspace/settings-local-hooks-entry-ownership.test.ts",
+      "violations": 12,
+      "reason": "missing-given-when-then",
+      "line": 130
+    },
+    {
+      "path": "tests/unit/workspace/settings-local-preserves-user-keys.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 63
+    },
+    {
+      "path": "tests/unit/workspace/top-level-change-id-guard.test.ts",
+      "violations": 4,
+      "reason": "missing-given-when-then",
+      "line": 123
+    }
+  ]
+}
