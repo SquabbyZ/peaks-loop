@@ -48,6 +48,8 @@
  * decision made the same way.
  */
 
+import { isValidSessionId as canonicalIsValidSessionId } from './sid-naming-guard.js';
+
 /**
  * `dir` entries are scanned by `L3:l3-orphan-sessions` and must not be
  * flagged. `file` entries are never flagged by that check — it only reads
@@ -165,6 +167,12 @@ export const RUNTIME_SYSTEM_ENTRIES: readonly RuntimeSystemEntry[] = [
     name: '.rebuild-binding.lock',
     kind: 'file',
     purpose: 'binding-store rebuild lock (session/binding-store.ts)'
+  },
+  {
+    name: 'classify-audit.jsonl',
+    kind: 'file',
+    purpose:
+      "append-only classify audit log at the runtime root (cli/commands/classify-signals.ts); the path is built dynamically, so the drift guard's AST scan never saw it as a child — the census is what catches it"
   }
 ];
 
@@ -175,3 +183,101 @@ export const RUNTIME_SYSTEM_ENTRIES: readonly RuntimeSystemEntry[] = [
 export const RUNTIME_SYSTEM_SUBDIRS: ReadonlySet<string> = new Set(
   RUNTIME_SYSTEM_ENTRIES.filter((entry) => entry.kind === 'dir').map((entry) => entry.name)
 );
+
+// ---------------------------------------------------------------------------
+// THE CENSUS
+// ---------------------------------------------------------------------------
+//
+// WHY THE REGISTRY WAS NOT ENOUGH. The registry is a list of NAMES the code
+// writes at the runtime root. Until now, only ONE of the two guards could see
+// the tree it governs:
+//
+//   - `L3:l3-orphan-sessions` reads DIRECTORIES only. It could never see a
+//     stray FILE at the root, so unregistered files accumulated unbounded
+//     (204 of them on 2026-10-24) with no product check able to name them.
+//   - `tests/unit/workspace/runtime-layout-drift-guard.test.ts` walks `src/**`,
+//     not the working tree. It proved the CODE does not write an unregistered
+//     child — it said nothing about what is actually sitting on disk.
+//
+// The census below closes the gap: it reads the REAL tree, compares it with
+// the registry above, and reports every top-level entry that is neither a
+// session dir nor a registered system entry — files included.
+//
+// IT IS PURE ON PURPOSE. The caller reads the entries off disk and hands them
+// in; this module does no IO. That is what makes the decision unit-testable
+// without a filesystem, and it keeps the registry module a registry.
+
+/**
+ * Every registered top-level name — dirs AND files.
+ *
+ * Derived from the registry above so the census and the registry cannot
+ * disagree about what "registered" means.
+ */
+export const RUNTIME_SYSTEM_ENTRY_NAMES: ReadonlySet<string> = new Set(
+  RUNTIME_SYSTEM_ENTRIES.map((entry) => entry.name)
+);
+
+/** One top-level entry under the runtime root, as the census sees it. */
+export interface RuntimeRootEntry {
+  /** The exact top-level name. */
+  readonly name: string;
+  /** `dir` for a directory, `file` for everything else. */
+  readonly kind: RuntimeEntryKind;
+}
+
+/** One top-level entry that is neither a session dir nor a registered system entry. */
+export interface RuntimeRootViolation {
+  readonly name: string;
+  readonly kind: RuntimeEntryKind;
+}
+
+/**
+ * What a read of the runtime root produced.
+ *
+ * `unreadable` is a first-class outcome, not an exception: a sweep that cannot
+ * look must not report "clean" — the one answer it is not entitled to give
+ * (see `services/audit/enforcers/root-scratch-artifacts.ts`).
+ */
+export type RuntimeRootRead =
+  | { readonly status: 'read'; readonly entries: readonly RuntimeRootEntry[] }
+  | { readonly status: 'unreadable'; readonly reason: string };
+
+/**
+ * The census verdict. `clean` is reachable ONLY for a tree that was read.
+ */
+export type RuntimeRootCensus =
+  | { readonly status: 'clean'; readonly entryCount: number }
+  | { readonly status: 'violations'; readonly violations: readonly RuntimeRootViolation[] }
+  | { readonly status: 'undetermined'; readonly reason: string };
+
+/**
+ * The census: every top-level entry of the runtime root that is neither a
+ * session dir nor a registered system entry.
+ *
+ * Three classes, in this order:
+ *
+ *   1. a DIRECTORY whose name is a valid session id — legal. A FILE wearing a
+ *      session-shaped name is NOT legal: only a directory can be a session
+ *      home, so such a file is a stray.
+ *   2. a name in `RUNTIME_SYSTEM_ENTRIES` — legal, whatever its kind. The
+ *      registry is the authority on which names may sit at the root.
+ *   3. everything else — a violation, reported with its name AND its kind.
+ */
+export function censusRuntimeRoot(input: {
+  readonly read: RuntimeRootRead;
+  /** Defaults to the canonical validator; the doctor injects its own. */
+  readonly isValidSessionId?: (sid: string) => boolean;
+}): RuntimeRootCensus {
+  if (input.read.status === 'unreadable') {
+    return { status: 'undetermined', reason: input.read.reason };
+  }
+  const isValidSessionId = input.isValidSessionId ?? canonicalIsValidSessionId;
+  const violations = input.read.entries
+    .filter((entry) => !RUNTIME_SYSTEM_ENTRY_NAMES.has(entry.name))
+    .filter((entry) => !(entry.kind === 'dir' && isValidSessionId(entry.name)))
+    .map((entry) => ({ name: entry.name, kind: entry.kind }));
+  if (violations.length > 0) {
+    return { status: 'violations', violations };
+  }
+  return { status: 'clean', entryCount: input.read.entries.length };
+}

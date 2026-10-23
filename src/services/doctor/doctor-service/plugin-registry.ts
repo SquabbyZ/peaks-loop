@@ -54,6 +54,7 @@ import { check as eccHooksSchemaDrift } from './checks/ecc-hooks-schema-drift.js
 import { check as checkIdSchema } from './checks/check-id-schema.js';
 import { check as backcompatAcceptance } from './checks/backcompat-acceptance.js';
 import { check as l3OrphanSessions } from './checks/l3-orphan-sessions.js';
+import { check as l3RuntimeRootCensus } from './checks/l3-runtime-root-census.js';
 import { check as l3MemoryHealth } from './checks/l3-memory-health.js';
 import type { DoctorCheckPlugin } from './types.js';
 
@@ -88,5 +89,6 @@ export const PLUGINS: ReadonlyArray<DoctorCheckPlugin> = [
   backcompatAcceptance, // id "config:backcompat-acceptance"
   checkIdSchema, // id "doctor-self:check-id-pattern"
   l3OrphanSessions, // id "L3:l3-orphan-sessions"
+  l3RuntimeRootCensus, // id "L3:l3-runtime-root-census"
   l3MemoryHealth // id "L3:l3-memory-health"
 ];
