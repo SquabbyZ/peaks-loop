@@ -138,7 +138,7 @@
 - [widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything](widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything.md) — A2 deliberately declined to widen the citation guard to bare non-test paths, and recorded the cost as "50 findings, n...
 - [workspace-underscore-convention](workspace-underscore-convention.md) — Under , any top-level directory whose name starts with  is **ephemeral** and is automatically gitignored by the  rule...
 
-## convention (39)
+## convention (41)
 
 - [a-ci-job-with-no-timeout-waits-six-hours](a-ci-job-with-no-timeout-waits-six-hours.md) — GitHub Actions applies a 360-minute default to a job with no .
 - [a-marker-writer-should-be-o-excl-and-shared](a-marker-writer-should-be-o-excl-and-shared.md) — The marker is created with ; an existing marker returns  and its bytes are untouched.
@@ -159,6 +159,7 @@
 - [never-quote-a-vitest-selector-glob](never-quote-a-vitest-selector-glob.md) — A quoted  is a vitest filter string, not a shell glob, so it matches nothing and the run is green over zero files.
 - [not-comparable-is-not-distinct](not-comparable-is-not-distinct.md) — returned true for a  third-party family — and after that arm was fixed, still returned true when the KARPATHY side wa...
 - [nothing-to-clean-must-not-read-as-cleaned](nothing-to-clean-must-not-read-as-cleaned.md) — An absent batch now returns , and the CLI exits 1 with , naming the ledger path.
+- [on-this-host-the-full-suite-cannot-pass-and-bash-is-the-wsl-launcher](on-this-host-the-full-suite-cannot-pass-and-bash-is-the-wsl-launcher.md) — Measured 2026-10-23 on the Windows dev host for .
 - [one-type-line-two-readers-and-the-parity-corpus](one-type-line-two-readers-and-the-parity-corpus.md) — is the canonical  reader (trim; hyphen bullet; whole value; ; LAST usable line wins).
 - [peaks-ide-skill-is-the-skill-first-pattern-5-step-flow-uses-existing-cli-primitives](peaks-ide-skill-is-the-skill-first-pattern-5-step-flow-uses-existing-cli-primitives.md) — The  skill () is the canonical example of the dev-preference red line "skill is primary, CLI is auxiliary".
 - [peaks-loop-forgiving-cli-filters-kind-type-outcome-fall-through-to-unfiltered-on-unknown](peaks-cli-forgiving-cli-filters-kind-type-outcome-fall-through-to-unfiltered-on-unknown.md) — peaks-loop CLI subcommands that accept a structured filter (, , , etc.) should treat unknown values as "no filter" ra...
@@ -173,6 +174,7 @@
 - [share-the-warm-paths-rule-not-a-second-vocabulary](share-the-warm-paths-rule-not-a-second-vocabulary.md) — The DAG path imports the same  the warm path uses.
 - [stage-new-files-before-regenerating-the-baseline](stage-new-files-before-regenerating-the-baseline.md) — The gate baseline must be regenerated AFTER -ing any new file it should count.
 - [sub-agent-scratch-belongs-under-peaks-runtime-sessionid-rd-scratch-and-the-reason-is-functional](sub-agent-scratch-belongs-under-peaks-runtime-sessionid-rd-scratch-and-the-reason-is-functional.md) — Sub-agent scratch files belong under , never at a path outside the repository.
+- [the-judged-declaration-resolves-its-paths-against-the-repository-root-not-the-session-directory](the-judged-declaration-resolves-its-paths-against-the-repository-root-not-the-session-directory.md) — carries a  JSON block whose  entries are resolved by  as  — the **REPOSITORY ROOT**.
 - [the-scope-scanner-reads-backticked-paths-outside-the-in-scope-list](the-scope-scanner-reads-backticked-paths-outside-the-in-scope-list.md) — parses  for backticked paths.
 - [trae-install-inherits-slice-1-s-registry-driven-code-path-no-install-code-was-added](trae-install-inherits-slice-1-s-registry-driven-code-path-no-install-code-was-added.md) — Slice #2's Trae support is purely "fill the table" —  for Trae users uses the same registry-driven install path as Cl...
 - [use-the-readers-own-locator-in-the-lint](use-the-readers-own-locator-in-the-lint.md) — calls  — the same locator the transition uses — rather than a second regex over the body.
@@ -188,7 +190,7 @@
 - [src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior](src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior.md) — The  module is the single source of truth for IDE-aware behavior.
 - [src-services-session-canonical-workspace-resolver](src-services-session-canonical-workspace-resolver.md) — is the canonical home for the per-session workspace.
 
-## lesson (163)
+## lesson (169)
 
 - [2026-06-26-unknown-sid-root-cause](archived/2026-06-26-unknown-sid-root-cause.md) — Root cause + remediation log for the  and  orphan session dirs.
 - [2026-07-28-rid-034-handoff-no-sediment-block](2026-07-28-rid-034-handoff-no-sediment-block.md) — rid-034 收尾遇 sediment 反向 — no peaks-memory:start/end 闭合块 **Date:** 2026-07-28 **Rid:** 2026-07-28-rid-034-v2-13-0-clea...
@@ -208,12 +210,14 @@
 - [a-create-then-write-lock-is-observable-mid-write](a-create-then-write-lock-is-observable-mid-write.md) — is an exclusive CREATE followed by a WRITE, not an atomic create-with-content.
 - [a-degradation-that-carries-no-reason-is-indistinguishable-from-a-success](a-degradation-that-carries-no-reason-is-indistinguishable-from-a-success.md) — built the sub-agent prompt's codegraph block as .
 - [a-dependency-whose-backend-was-replaced-must-be-checked-for-ability-not-for-the-label](a-dependency-whose-backend-was-replaced-must-be-checked-for-ability-not-for-the-label.md) — (2026-10-05) removed  from peaks-loop's own dependencies and from 's , as part of moving peaks-loop's own stores to .
+- [a-difference-between-two-artifacts-is-not-a-change-between-two-versions](a-difference-between-two-artifacts-is-not-a-change-between-two-versions.md) — Measured 2026-10-23 (T1 backlog campaign, ).
 - [a-digest-that-proves-the-source-side-does-not-prove-the-emit-side](a-digest-that-proves-the-source-side-does-not-prove-the-emit-side.md) — A staleness guard that digests  and compares against a recorded stamp proves only that the sources have not moved.
 - [a-dimensional-header-is-not-a-set-of-assertions](a-dimensional-header-is-not-a-set-of-assertions.md) — The guard's header listed four dimensions — render, behavior, integration, a11y — but every test matched strings in .
 - [a-filename-scoping-change-owes-an-upgrade-path](a-filename-scoping-change-owes-an-upgrade-path.md) — Changing a prerequisite path to -scoped also changes the commit-leg acceptance key ().
 - [a-flag-can-govern-one-side-of-a-read-write-pair](a-flag-can-govern-one-side-of-a-read-write-pair.md) — passed the flag only to ; the read side () was built without it and silently used the default .
 - [a-gate-bound-to-the-active-session-verifies-nothing](a-gate-bound-to-the-active-session-verifies-nothing.md) — The last slice of job  was resumed from a **fresh** session while its six rid carriers lived under the session that p...
 - [a-gate-invoked-with-no-file-arguments-passes-vacuously-and-exits-0](a-gate-invoked-with-no-file-arguments-passes-vacuously-and-exits-0.md) — with zero in-scope files prints  and **returns 0** (, ).
+- [a-green-gate-on-the-working-tree-is-not-evidence-about-the-commit](a-green-gate-on-the-working-tree-is-not-evidence-about-the-commit.md) — Measured 2026-10-23 (T1 backlog campaign, orchestrator, at the commit gate).
 - [a-green-over-an-empty-population-is-not-a-measurement](a-green-over-an-empty-population-is-not-a-measurement.md) — reported "File ignored by default" and exit 0.
 - [a-guard-keyed-on-a-file-path-shrinks-silently-when-you-split-that-file](a-guard-keyed-on-a-file-path-shrinks-silently-when-you-split-that-file.md) — Three independent guards in this repo decide what to measure by PATH, so moving code into a sibling removes it from c...
 - [a-guard-named-for-a-rule-but-written-as-a-list-cannot-see-the-next-case](a-guard-named-for-a-rule-but-written-as-a-list-cannot-see-the-next-case.md) — 是 npm 的发布白名单，而**仓库里没有任何东西读它**。漏加一个  导入的模块，后果是**每个用户**在  后 ， 而**全仓 4238 条测试全绿**。本 session 在同一个地方栽了两次（、）。 第三次时，一条守卫被加上了...
@@ -241,13 +245,16 @@
 - [a-refusal-needs-a-machine-shape-not-only-prose](a-refusal-needs-a-machine-shape-not-only-prose.md) — already said "N unmet requirement(s)" and the CLI already said , but  still listed a PRESENT file under a field named...
 - [a-refusal-path-can-throw-instead-of-refusing](a-refusal-path-can-throw-instead-of-refusing.md) — 's refusal builds its message with .
 - [a-registry-or-behaviour-hash-cannot-see-a-function-body-and-cannot-see-a-dropped-re-export](a-registry-or-behaviour-hash-cannot-see-a-function-body-and-cannot-see-a-dropped-re-export.md) — Five batches each "proved" behaviour-preserving refactors by hashing the rendered command registry before and after.
+- [a-scanner-s-reported-offset-is-not-the-offset-of-the-thing-you-quote](a-scanner-s-reported-offset-is-not-the-offset-of-the-thing-you-quote.md) — Measured 2026-10-23 (T1 backlog campaign, ).
 - [a-second-entry-path-bypasses-the-shared-validator](a-second-entry-path-bypasses-the-shared-validator.md) — returned from  before , which is where the warm single-dispatch path runs .
 - [a-self-check-whose-file-set-comes-from-the-diff-covers-neither-agent-s-window](a-self-check-whose-file-set-comes-from-the-diff-covers-neither-agent-s-window.md) — An RD reported "eslint + prettier --check clean **on the new test file**" — singular.
 - [a-side-effect-on-a-success-path-has-no-in-order-alternative](a-side-effect-on-a-success-path-has-no-in-order-alternative.md) — was written only as a side effect of , and that command refuses when the QA artifact already exists.
 - [a-silent-push-on-this-repo-is-the-pre-push-hook-running-the-full-suite](a-silent-push-on-this-repo-is-the-pre-push-hook-running-the-full-suite.md) — On 2026-09-25,  produced **zero bytes of output for over two minutes**.
 - [a-single-measurement-of-a-host-sensitive-command-is-not-a-fact-about-the-command](a-single-measurement-of-a-host-sensitive-command-is-not-a-fact-about-the-command.md) — Four measurements of one  on this repo spread **8.89 s – 14.2 s** (~60 %): , from three different agents.
+- [a-slice-that-contradicts-a-published-decision-must-put-that-diff-in-front-of-the-owner](a-slice-that-contradicts-a-published-decision-must-put-that-diff-in-front-of-the-owner.md) — Measured 2026-10-23 (rid ).
 - [a-slice-whose-core-behaviour-no-artifact-specifies-costs-multiples-of-its-peers](a-slice-whose-core-behaviour-no-artifact-specifies-costs-multiples-of-its-peers.md) — S1, S2 and S3 of  each needed **one** repair pass.
 - [a-spent-flag-stops-protecting-what-it-named](a-spent-flag-stops-protecting-what-it-named.md) — was invented so that redrawing the lint scope had to be **stated**: the guard refuses a scope change, the operator pa...
+- [a-split-that-satisfies-a-lint-ceiling-must-be-proved-by-a-byte-identical-output](a-split-that-satisfies-a-lint-ceiling-must-be-proved-by-a-byte-identical-output.md) — Measured 2026-10-23 (T1 backlog campaign, ).
 - [a-success-value-can-be-the-never-did-anything-branch](a-success-value-can-be-the-never-did-anything-branch.md) — returned  when the batch was NOT in its in-memory set, and a fresh CLI process always had an empty set.
 - [a-test-whose-verdict-depends-on-the-working-tree-is-not-a-test](a-test-whose-verdict-depends-on-the-working-tree-is-not-a-test.md) — passed on a clean tree and failed when the tree held only : its non-empty branch asserted  even when no changed file ...
 - [a-typed-field-from-json-is-unvalidated](a-typed-field-from-json-is-unvalidated.md) — is typed , but it comes out of a JSON file and  cast the parse.
@@ -307,6 +314,7 @@
 - [real-cmdline-regression-test-for-spawn](real-cmdline-regression-test-for-spawn.md) — For any  call on Windows that goes through , assertion-only dogfood (e.g.
 - [refactoring-a-guard-into-pieces-needs-an-arm-that-can-see-the-difference](refactoring-a-guard-into-pieces-needs-an-arm-that-can-see-the-difference.md) — Three slices of wave 9 split the ratchet's own files (gate entry 1019 → 102 + 8 modules; monotonicity 672 → 125 6; ge...
 - [registry-check-after-publish-hits-subpackage-lag](registry-check-after-publish-hits-subpackage-lag.md) — 的 dependencies 对四个子包版本做**精确 pin**。发布后立刻查 registry， /  可能仍显示旧版本（表现为 MISSING）；而 pin 指向的新版本尚不存在时， 会直接失败。等待数十秒后重查即恢复正常 ——...
+- [resolve-the-gate-that-refuses-you-and-do-not-call-the-bypass-a-decision](resolve-the-gate-that-refuses-you-and-do-not-call-the-bypass-a-decision.md) — Measured 2026-10-23 (T1 backlog campaign, rid ).
 - [rid-001 redo fake-green recovery closure — 9 文件 commit landed e8fb5ed9](2026-08-11-rid-001-redo-fake-green-recovery-closure.md) — rid-001 redo closure — fake-green recovery 完整 cycle > **优先级**：项目级 hard lesson。任何 "新增 CLI 表面" slice 都必须按本 sediment 的 a...
 - [satisfy-a-gate-s-invariant-at-the-producer-and-make-the-printed-remedy-run-verbatim](satisfy-a-gate-s-invariant-at-the-producer-and-make-the-printed-remedy-run-verbatim.md) — A gate that refuses a state is not the place to fix the state.
 - [security-perf-plan-result-split](security-perf-plan-result-split.md) — Security + Perf plan/result split (slice 025) > Source: project-local lesson, captured 2026-06-10 from slice 025.

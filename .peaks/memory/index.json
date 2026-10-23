@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-22T15:11:05.609Z",
+  "updatedAt": "2026-10-23T15:58:08.169Z",
   "hot": {
     "rule": [
       {
@@ -1063,7 +1063,7 @@
         "description": "The backlog's OPEN markers are not machine-checked.",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\backlog-open-markers-need-a-head-measurement.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff.md",
-        "updatedAt": "2026-10-18"
+        "updatedAt": "2026-10-23"
       },
       {
         "name": "comparing-counts-across-rounds-guarantees-a-false-regression-report",
@@ -1144,6 +1144,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\nothing-to-clean-must-not-read-as-cleaned.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff-cleanup.md",
         "updatedAt": "2026-10-18"
+      },
+      {
+        "name": "on-this-host-the-full-suite-cannot-pass-and-bash-is-the-wsl-launcher",
+        "kind": "convention",
+        "description": "Measured 2026-10-23 on the Windows dev host for .",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\on-this-host-the-full-suite-cannot-pass-and-bash-is-the-wsl-launcher.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-22-session-b0e6e2/txt/handoff-t1-backlog-2026-10-23.md",
+        "updatedAt": "2026-10-23"
       },
       {
         "name": "one-type-line-two-readers-and-the-parity-corpus",
@@ -1256,6 +1264,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\sub-agent-scratch-belongs-under-peaks-runtime-sessionid-rd-scratch-and-the-reason-is-functional.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-10-session-062f74/txt/handoff.md",
         "updatedAt": "2026-10-10"
+      },
+      {
+        "name": "the-judged-declaration-resolves-its-paths-against-the-repository-root-not-the-session-directory",
+        "kind": "convention",
+        "description": "carries a  JSON block whose  entries are resolved by  as  — the **REPOSITORY ROOT**.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-judged-declaration-resolves-its-paths-against-the-repository-root-not-the-session-directory.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-22-session-b0e6e2/txt/handoff-t1-backlog-2026-10-23.md",
+        "updatedAt": "2026-10-23"
       },
       {
         "name": "the-scope-scanner-reads-backticked-paths-outside-the-in-scope-list",
@@ -1494,6 +1510,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "a-difference-between-two-artifacts-is-not-a-change-between-two-versions",
+        "kind": "lesson",
+        "description": "Measured 2026-10-23 (T1 backlog campaign, ).",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-difference-between-two-artifacts-is-not-a-change-between-two-versions.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-22-session-b0e6e2/txt/handoff-t1-backlog-2026-10-23.md",
+        "updatedAt": "2026-10-23"
+      },
+      {
         "name": "a-digest-that-proves-the-source-side-does-not-prove-the-emit-side",
         "kind": "lesson",
         "description": "A staleness guard that digests  and compares against a recorded stamp proves only that the sources have not moved.",
@@ -1540,6 +1564,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-gate-invoked-with-no-file-arguments-passes-vacuously-and-exits-0.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-24-session-b714c7/txt/handoff.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "a-green-gate-on-the-working-tree-is-not-evidence-about-the-commit",
+        "kind": "lesson",
+        "description": "Measured 2026-10-23 (T1 backlog campaign, orchestrator, at the commit gate).",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-green-gate-on-the-working-tree-is-not-evidence-about-the-commit.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-22-session-b0e6e2/txt/handoff-t1-backlog-2026-10-23.md",
+        "updatedAt": "2026-10-23"
       },
       {
         "name": "a-green-over-an-empty-population-is-not-a-measurement",
@@ -1758,6 +1790,14 @@
         "updatedAt": "2026-10-10"
       },
       {
+        "name": "a-scanner-s-reported-offset-is-not-the-offset-of-the-thing-you-quote",
+        "kind": "lesson",
+        "description": "Measured 2026-10-23 (T1 backlog campaign, ).",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-scanner-s-reported-offset-is-not-the-offset-of-the-thing-you-quote.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-22-session-b0e6e2/txt/handoff-t1-backlog-2026-10-23.md",
+        "updatedAt": "2026-10-23"
+      },
+      {
         "name": "a-second-entry-path-bypasses-the-shared-validator",
         "kind": "lesson",
         "description": "returned from  before , which is where the warm single-dispatch path runs .",
@@ -1798,6 +1838,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "a-slice-that-contradicts-a-published-decision-must-put-that-diff-in-front-of-the-owner",
+        "kind": "lesson",
+        "description": "Measured 2026-10-23 (rid ).",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-slice-that-contradicts-a-published-decision-must-put-that-diff-in-front-of-the-owner.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-22-session-b0e6e2/txt/handoff-t1-backlog-2026-10-23.md",
+        "updatedAt": "2026-10-23"
+      },
+      {
         "name": "a-slice-whose-core-behaviour-no-artifact-specifies-costs-multiples-of-its-peers",
         "kind": "lesson",
         "description": "S1, S2 and S3 of  each needed **one** repair pass.",
@@ -1812,6 +1860,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-spent-flag-stops-protecting-what-it-named.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-29-session-b7cf21/rd/requests/w11b-scope-growth-vs-shrink.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "a-split-that-satisfies-a-lint-ceiling-must-be-proved-by-a-byte-identical-output",
+        "kind": "lesson",
+        "description": "Measured 2026-10-23 (T1 backlog campaign, ).",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-split-that-satisfies-a-lint-ceiling-must-be-proved-by-a-byte-identical-output.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-22-session-b0e6e2/txt/handoff-t1-backlog-2026-10-23.md",
+        "updatedAt": "2026-10-23"
       },
       {
         "name": "a-success-value-can-be-the-never-did-anything-branch",
@@ -2284,6 +2340,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\registry-check-after-publish-hits-subpackage-lag.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-12-session-e37ef0/txt/handoff-4-0-45.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "resolve-the-gate-that-refuses-you-and-do-not-call-the-bypass-a-decision",
+        "kind": "lesson",
+        "description": "Measured 2026-10-23 (T1 backlog campaign, rid ).",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\resolve-the-gate-that-refuses-you-and-do-not-call-the-bypass-a-decision.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-22-session-b0e6e2/txt/handoff-t1-backlog-2026-10-23.md",
+        "updatedAt": "2026-10-23"
       },
       {
         "name": "rid-001 redo fake-green recovery closure — 9 文件 commit landed e8fb5ed9",
