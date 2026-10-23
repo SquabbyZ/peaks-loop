@@ -189,6 +189,56 @@ describe('peaks bee export / loop export — share bundle round-trip (P2-D cross
 // peaks skill sync — cross-platform dry-run for claude-code + trae
 // ============================================================================
 
+/**
+ * One platform's row in a `skill.sync` result, as the envelope carries it.
+ * `installed` is what the run DID; `entries` is the PLAN — one row per skill
+ * the installer would touch, each carrying the action it would take.
+ */
+interface SyncPlatformRow {
+  platform?: string;
+  ok?: boolean;
+  installed?: readonly string[];
+  entries?: ReadonlyArray<{ name?: string; action?: string }>;
+}
+
+/**
+ * The actions a dry run may report for a row. `planned` — the installer would
+ * copy/repair/link it; `unchanged` — the store already holds it, current;
+ * `unmanaged` — it has no marker beside it, so it is the user's own.
+ *
+ * `installed` is NOT in this set, and that is the point: a dry run writes
+ * nothing, so it must never report an action only a real run can take.
+ */
+const DRY_RUN_ACTIONS = ['planned', 'unchanged', 'unmanaged'] as const;
+
+/**
+ * The contract a dry run's per-platform result must satisfy: NOTHING was
+ * installed, and the PLAN is still visible.
+ *
+ * WHY. A dry run writes nothing — no symlink, no canonical copy, no directory
+ * — so a result reporting "23 skill symlinks installed" describes a run that
+ * did not happen. That false report is the defect the dry-run rule exists to
+ * remove (backlog §21.1: a `--dry-run` "reported 'totalInstalled: 184 skill
+ * symlinks' when 0 links were made"). The plan is not lost by reporting it
+ * honestly: every skill the installer would touch is a row in `entries`.
+ *
+ * Both halves are asserted, and neither can pass by accident: `installed` must
+ * be EMPTY (a run that installed something fails here) and `entries` must
+ * carry the plan (a run that reported nothing at all fails there).
+ */
+function expectDryRunPlan(platform: SyncPlatformRow): void {
+  expect(Array.isArray(platform.installed)).toBe(true);
+  expect(platform.installed).toHaveLength(0);
+  expect(Array.isArray(platform.entries)).toBe(true);
+  const entries = platform.entries ?? [];
+  expect(entries.length).toBeGreaterThan(0);
+  for (const entry of entries) {
+    expect(typeof entry.name).toBe('string');
+    expect((entry.name ?? '').length).toBeGreaterThan(0);
+    expect(DRY_RUN_ACTIONS).toContain(entry.action as (typeof DRY_RUN_ACTIONS)[number]);
+  }
+}
+
 describe('peaks skill sync --platform cross-platform dry-run (P2-D cross-cutting e2e)', () => {
   test('claude-code sync returns a structured perPlatform array under dry-run (no ~/.claude writes)', () => {
     const result = runCli(
@@ -203,22 +253,21 @@ describe('peaks skill sync --platform cross-platform dry-run (P2-D cross-cutting
       applied?: boolean;
       dryRun?: boolean;
       projectRoot?: string;
-      perPlatform?: ReadonlyArray<{
-        platform?: string;
-        ok?: boolean;
-        installed?: readonly string[];
-      }>;
+      totalInstalled?: number;
+      perPlatform?: ReadonlyArray<SyncPlatformRow>;
     };
     expect(data.dryRun).toBe(true);
     expect(data.applied).toBe(false);
+    // The envelope's own count agrees with the per-platform rows: a dry run
+    // installed nothing, so it reports zero.
+    expect(data.totalInstalled).toBe(0);
     expect(Array.isArray(data.perPlatform)).toBe(true);
     expect((data.perPlatform ?? []).length).toBe(1);
     const first = data.perPlatform?.[0];
     expect(first).toBeDefined();
     expect(first!.platform).toBe('claude-code');
     expect(first!.ok).toBe(true);
-    expect(Array.isArray(first!.installed)).toBe(true);
-    expect((first!.installed ?? []).length).toBeGreaterThan(0);
+    expectDryRunPlan(first!);
   });
 
   test('trae sync returns a structured perPlatform array under dry-run (no ~/.trae writes)', () => {
@@ -233,22 +282,19 @@ describe('peaks skill sync --platform cross-platform dry-run (P2-D cross-cutting
     const data = envelope.data as {
       dryRun?: boolean;
       applied?: boolean;
-      perPlatform?: ReadonlyArray<{
-        platform?: string;
-        ok?: boolean;
-        installed?: readonly string[];
-      }>;
+      totalInstalled?: number;
+      perPlatform?: ReadonlyArray<SyncPlatformRow>;
     };
     expect(data.dryRun).toBe(true);
     expect(data.applied).toBe(false);
+    expect(data.totalInstalled).toBe(0);
     expect(Array.isArray(data.perPlatform)).toBe(true);
     expect((data.perPlatform ?? []).length).toBe(1);
     const first = data.perPlatform?.[0];
     expect(first).toBeDefined();
     expect(first!.platform).toBe('trae');
     expect(first!.ok).toBe(true);
-    expect(Array.isArray(first!.installed)).toBe(true);
-    expect((first!.installed ?? []).length).toBeGreaterThan(0);
+    expectDryRunPlan(first!);
   });
 });
 

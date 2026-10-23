@@ -7524,3 +7524,38 @@ why it can rot. Over the files this session touched, **21 failed**: **11 already
 the contract has a checker and no gate, so the only thing that makes it true is somebody running
 it.**
 
+
+
+### 21.11 The integration suite caught a regression that nothing local could see (found 2026-10-23, by CI)
+
+**`main` went red on one job** right after 4.1.18: `integration suite (tests/integration,
+ubuntu-only)`. The other eight jobs were green.
+
+**The cause, established.** This session added `finalizeInstallResult(result, dryRun)` to
+`scripts/install-skills-report.mjs`, which empties `installed` under a dry run and carries the
+**plan** in `entries`. The intent is §21.1's own: a dry run that reported *"totalInstalled: 184
+skill symlinks"* when it made **none** is the false report the slice set out to remove. But
+`tests/integration/cross-cutting-e2e.test.ts` asserted the **old** shape
+(`installed.length > 0`) — and the same session's own unit suite
+(`tests/unit/ide/skill-sync-dry-run-side-effects.test.ts`) already pinned
+`installed === []`. **The integration test contradicted its own suite.**
+
+**Why nothing local could see it.** `tests/integration/**` is covered by **neither** the default
+vitest config **nor** the push gate — so the pre-push gate ran the whole unit suite, all green,
+while the job that was actually red is one the local run does not execute. **A green local run is
+not evidence about a suite you did not run.** The remedy is the explicit invocation:
+`npx vitest run --config vitest.config.integration.ts <file>`.
+
+**The decision, stated.** The **test** moves to the new shape; the product was right. Under a dry
+run: `installed` is **empty**, `entries` is **non-empty**, and every row's action is in
+{planned, unchanged, unmanaged} — **`installed` is excluded**. Neither half can pass by accident.
+The **mutation control**: restoring the old product behaviour makes both tests red
+(*"expected 23 to be +0"*), and reverting makes them green again. **No product file was changed.**
+
+**What is still red, and why it is not this session's.** 13 further failures in
+`tests/integration/` are `SyntaxError: Unexpected non-whitespace character after JSON` — Node's
+`ExperimentalWarning: SQLite is an experimental feature` lands on **stderr after** the envelope,
+so the parser cannot read it. They occur **only on Windows**; CI (ubuntu) never sees them, and the
+SQLite warning landed on **2026-10-05**, well before this session. **Pre-existing, CI-blind, and
+left alone** — but recorded here, because "CI is green" and "the suite is green" are two different
+sentences.
