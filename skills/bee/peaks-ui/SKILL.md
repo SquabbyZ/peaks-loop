@@ -71,7 +71,7 @@ UI inherits `peaks-qa`'s hard-block contract: `AskUserQuestion` with three optio
 When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` from `peaks-code`, these sections are **suspended** for the sub-agent run:
 
 - **Session id** — use parent's sid (`.peaks/_runtime/session.json` or `--session-id <parent-sid>`). Do NOT spawn your own session; `peaks session info --active` reads the canonical binding.
-- **Skill presence** — do NOT call `peaks skill presence:set peaks-ui`; Code owns `.peaks/.active-skill.json`. Marker file at `.peaks/_runtime/<session-id>/system/sub-agent-ui.json` only.
+- **Skill presence** — do NOT call `peaks skill presence:set peaks-ui`; Code owns the presence lease (`.peaks/_runtime/<session-id>/leases/presence-*.json`). Marker file at `.peaks/_runtime/<session-id>/system/sub-agent-ui.json` only.
 - **Workspace initialization** — Code ran `peaks workspace init` before fan-out; do not re-run.
 - **Mode selection** — Code chose the mode.
 - **Statusline install** — done by Code at startup.
@@ -99,7 +99,7 @@ What the sub-agent **MUST** still do:
 **Hard prohibitions** (sub-agent context):
 
 - Do NOT call `Skill(skill="...")`.
-- Do NOT call `peaks skill presence:set` — Code owns active-skill.
+- Do NOT call `peaks skill presence:set` — Code owns the presence lease.
 - Do NOT modify application code. UI is design-direction only.
 - Do NOT install MCP servers. If Playwright MCP is missing and headed browser is required, return `{"status":"blocked","blockedReason":"playwright-mcp-unavailable"}` for Code escalation. (peaks-loop no longer manages MCP install — user runs `claude mcp add playwright -- npx @playwright/mcp@latest` in Claude Code.)
 - Do NOT commit, push, install hooks, or apply settings.json mutations.

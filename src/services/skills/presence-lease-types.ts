@@ -9,12 +9,59 @@
 
 import type { LeaseStatus, TerminalReason } from '../workflow/workflow-graph-types.js';
 
+/**
+ * The time primitives the two stale windows are built from.
+ *
+ * The repo's existing lease-TTL idiom (`container-lease.ts`,
+ * `worktree-lease.ts`, `dispatch-record-types.ts`): the minute/hour math
+ * lives in named constants, so the `no-magic-numbers` rule has nothing left
+ * to flag in the windows themselves.
+ */
+const MINUTES_PER_HOUR = 60;
+const MS_PER_MINUTE = MINUTES_PER_HOUR * 1_000;
+const HOURS_PER_DAY = 24;
+const STALE_STARTED_BUFFER_MINUTES = 30;
+
+/**
+ * The lease heartbeat-stale window (1h) — the canonical lease-GC
+ * heartbeat predicate. Also the window the presence READ uses to decide
+ * that a lease is no longer driving the work.
+ */
+export const STALE_HEARTBEAT_MS = MINUTES_PER_HOUR * MS_PER_MINUTE;
+
+/**
+ * The lease start-stale window (24h30m) — the canonical lease-GC start
+ * predicate. RD §3 calls for >24h; the +30m buffer disambiguates leases
+ * that started in the 24-25h window so only leases older than 24h30m are
+ * GC'd. It is also the window a `mode: '24h'` lease is held to: a 24h
+ * run must not lose its presence after one hour just because nothing
+ * refreshes the lease heartbeat while the run is in flight.
+ */
+export const STALE_STARTED_AFTER_MS =
+  HOURS_PER_DAY * MINUTES_PER_HOUR * MS_PER_MINUTE + STALE_STARTED_BUFFER_MINUTES * MS_PER_MINUTE;
+
 export interface SkillPresenceLease {
   readonly callerId: string;
   readonly workflowId: string;
   readonly graphRef: string;
   readonly skill: string;
   readonly parentWorkflowId?: string;
+  /**
+   * Execution mode recorded on the lease (`full-auto` | `assisted` |
+   * `strict` | `24h`). Optional: leases written before the mode was
+   * stamped carry no `mode` field.
+   */
+  readonly mode?: string;
+  /**
+   * The gate the presence is parked on (`startup`, `swarm-fan-out`, …).
+   *
+   * Optional and additive: a lease written by an older release carries
+   * no `gate` field and still loads. The field is what makes the middle
+   * cell of the status header
+   * (`Peaks-Loop Skill: <skill> | Peaks-Loop Gate: <gate> | Next: …`)
+   * a machine fact instead of model-invented prose.
+   */
+  readonly gate?: string;
   readonly depth: number;
   readonly startedAt: string;
   readonly lastHeartbeat: string;

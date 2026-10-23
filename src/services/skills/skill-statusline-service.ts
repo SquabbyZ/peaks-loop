@@ -41,14 +41,14 @@ export { parseStatusLineStdin, read24hOverlay } from './skill-statusline-model.j
  * and survives context compaction.
  *
  * This module is intentionally READ-ONLY. Unlike getSkillPresence in
- * skill-presence-service.ts, it never deletes or rewrites the presence file:
- * the statusLine runs on every turn and must have zero side effects.
+ * skill-presence-service.ts, it never deletes or rewrites the presence
+ * lease: the statusLine runs on every turn and must have zero side effects.
  *
- * back to the project-level `.peaks/_runtime/active-skill.json` (or its
- * legacy `.peaks/.active-skill.json`). The canonical lease projection is
- * the only source. When `callerId === null` (non-IDE caller), the read
- * picks the most recent in-flight lease across all callers; this is the
- * documented back-compat path.
+ * The canonical lease projection is the only source — there is no fallback
+ * to the removed project-level `.peaks/_runtime/active-skill.json` (or its
+ * legacy `.peaks/.active-skill.json`). When `callerId === null` (non-IDE
+ * caller), the read picks the most recent in-flight lease across all
+ * callers; this is the documented back-compat path.
  */
 
 import { normalizeSkillPresenceMode } from './skill-presence-service.js';

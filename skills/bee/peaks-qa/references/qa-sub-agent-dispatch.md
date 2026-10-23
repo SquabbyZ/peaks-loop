@@ -25,7 +25,7 @@ If the upstream superpowers chain suggests raw `git worktree add`:
 3. Continue with `peaks worktree spawn` (or the auth-grant fallback)
 
 - **Session id** — use the parent's sid (read `.peaks/_runtime/session.json` or pass `--session-id <parent-sid>` to any session-creating CLI). Do NOT spawn your own session. The new `peaks session info --active` reads the canonical binding for you.
-- **Skill presence (MANDATORY first action)** — do NOT call `peaks skill presence:set peaks-qa`. The sub-agent must not overwrite `.peaks/.active-skill.json`; the main Code loop owns that file. If you need to mark your own state, write a marker file at `.peaks/_runtime/<sessionId>/system/sub-agent-qa.json` and only that.
+- **Skill presence (MANDATORY first action)** — do NOT call `peaks skill presence:set peaks-qa`. The sub-agent must not overwrite the main presence lease; the main Code loop owns it. If you need to mark your own state, write a marker file at `.peaks/_runtime/<sessionId>/system/sub-agent-qa.json` and only that.
 - **Workspace initialization** — Code has already run `peaks workspace init` before fan-out. Do not re-run it.
 - **Mode selection** — Code has already chosen the mode.
 - **Statusline install** — already done by Code at session startup.
@@ -52,7 +52,7 @@ What the sub-agent **MUST** still do:
 **Hard prohibitions** (sub-agent context):
 
 - Do NOT call `Skill(skill="...")`.
-- Do NOT call `peaks skill presence:set` — Code owns the active-skill file.
+- Do NOT call `peaks skill presence:set` — Code owns the presence lease.
 - Do NOT run the actual test suite, do NOT execute security/perf tools, do NOT open a browser — those are the **QA validation** phase, not the Swarm planning phase.
 - Do NOT commit, push, install hooks, or apply settings.json mutations.
 - Do NOT ask the user interactive questions. If you need clarification, return `{"status":"blocked","blockedReason":"<text>"}`.

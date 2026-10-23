@@ -5,7 +5,7 @@
 // G4 gives the project a stamp and `detectStaleGeneratedArtifacts` gives a
 // decidable answer, but a detector nobody calls is a comment. The brief's D1
 // requirement is "let the stale config be discoverable" — and the channel
-// chosen is `peaks skill presence`, because CLAUDE.md makes it the one peaks
+// chosen is `peaks skill presence`, because AGENTS.md makes it the one peaks
 // call the LLM makes at the start of EVERY response. A rule that lives only in
 // a SKILL.md body is compacted away; a warning riding the per-turn tool output
 // is not (`.peaks/memory/per-turn-obligations-belong-in-per-turn-output.md`).

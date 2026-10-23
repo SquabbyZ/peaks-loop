@@ -69,7 +69,11 @@ function input(
     graphRef: 'graphs/wf-rotation-compat.json',
     skill: 'peaks-code',
     depth: 0,
-    now: '2026-08-12T10:00:00.000Z',
+    // A FRESH timestamp on purpose: the presence read treats a lease
+    // whose heartbeat is older than the stale window (1h) as not
+    // active, so a fixture pinned to a past date would read as "no
+    // presence" and this suite would exercise the wrong branch.
+    now: new Date().toISOString(),
     ...overrides
   };
 }

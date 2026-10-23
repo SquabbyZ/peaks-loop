@@ -80,7 +80,10 @@ function writeLease(projectRoot: string, mode: string, workflowId = 'wf-mode-tes
     graphRef: `graphs/${workflowId}.json`,
     skill: 'peaks-code',
     mode,
-    now: '2026-09-09T10:00:00.000Z'
+    // FRESH timestamp on purpose: the presence read treats a lease whose
+    // heartbeat is older than the stale window (1h) as not active, so a
+    // fixture pinned to a past date would read back as "no presence".
+    now: new Date().toISOString()
   });
 }
 

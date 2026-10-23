@@ -1,6 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { findProjectRoot } from '../config/config-safety.js';
 import { tryParseJson } from '../../shared/json-parse.js';
 import { ensureMemoryBootstrap } from '../memory/project-memory-service.js';
 import { getSessionId, getSessionMeta } from '../session/session-manager.js';
@@ -12,8 +11,12 @@ import { SessionIdentitySchema } from '../session/session-file-schema.js';
 // read paths stays cheap. The static imports below are reserved for
 // the migration window and are referenced through the dynamic
 // `leaseMod.*` accessor at runtime.
-import { listPresenceLeases } from './presence-lease-service.js';
 import type { SetPresenceLeaseResult } from './presence-lease-service.js';
+// Slice 4.0.17 (presence cross-session): the cross-session read and
+// the pure SELECTION RULES live in sibling modules (this file is over the
+// repository's 300-line cap, which may only go down).
+import { resolvePresenceLease, resolveProjectRoot } from './presence-lease-resolver.js';
+import { normalizePresenceGate, readPresenceGate } from './presence-gate.js';
 // Re-export the 4.0.8 compat surface so legacy callers
 // (`presence-service` consumers in `code-mode-gate-commands.ts`,
 // `mode-enforcement.ts`, `code-job-shape-commands.ts`, etc.) keep
@@ -124,11 +127,6 @@ function getCurrentOuterSessionId(): string | undefined {
 const SESSION_FILE = join('.peaks', '_runtime', 'session.json');
 const SESSION_FILE_LEGACY = '.peaks/.session.json';
 
-function resolveProjectRoot(override?: string): string {
-  if (override) return resolve(override);
-  return findProjectRoot(process.cwd()) ?? process.cwd();
-}
-
 /**
  * Resolve the active peaks session id.
  *
@@ -184,32 +182,30 @@ export function getCurrentSessionId(projectRootOverride?: string): string | null
  * is lossy (the lease does not carry `outerSessionId`; `setAt`
  * maps to `startedAt`; `lastHeartbeat` is reused as `lastHeartbeat`).
  *
- * Returns `null` when the bound session has no in-flight leases
- * (`running` or `preparing`); terminalized leases are ignored so
- * the read does not resurrect a stale skill on a fresh session.
+ * Slice 4.0.17 (presence cross-session): the read no longer
+ * looks at ONE tree — it reads EVERY session tree of the project and
+ * selects the lease that is actually driving peaks.
+ *
+ * Returns `null` when no tree holds an eligible lease; terminalized and
+ * stale leases are ignored so the read does not resurrect a stale skill.
  */
 function readSkillPresenceFromLease(projectRootOverride?: string): SkillPresence | null {
-  const projectRoot = resolveProjectRoot(projectRootOverride);
-  const sessionId = getSessionId(projectRoot);
-  if (sessionId === null) return null;
-  const leases = listPresenceLeases(projectRoot, sessionId);
-  const inFlight = leases.filter((l) => l.status === 'running' || l.status === 'preparing');
-  if (inFlight.length === 0) return null;
-  inFlight.sort((a, b) => b.lastHeartbeat.localeCompare(a.lastHeartbeat));
-  const lease = inFlight[0];
-  if (lease === undefined) return null;
+  const selection = resolvePresenceLease(resolveProjectRoot(projectRootOverride));
+  if (selection === null) return null;
+  const lease = selection.lease;
   // The lease carries `callerId` (the adapter / harness session id),
   // not the legacy `outerSessionId` field. Project it for back-compat
   // with `clearStalePresenceOnRotation`'s outer-mismatch check.
-  //
-  // silently dropped before, which made `getSkillPresence().mode` always
-  // undefined and left every `presence.mode` consumer dead). Normalize on
-  // read so a legacy `'swarm'` lease surfaces as `'full-auto'`.
-  const leaseMode = normalizeSkillPresenceMode((lease as { mode?: string | undefined }).mode);
+  // Normalize on read so a legacy `'swarm'` lease surfaces as
+  // `'full-auto'`.
+  const leaseMode = normalizeSkillPresenceMode(lease.mode);
+  // The gate is the machine fact behind the status header's middle cell.
+  const gate = readPresenceGate(lease.gate);
   return {
     skill: lease.skill,
     ...(leaseMode !== undefined ? { mode: leaseMode } : {}),
-    sessionId,
+    ...(gate !== undefined ? { gate } : {}),
+    sessionId: selection.sessionId,
     outerSessionId: lease.callerId,
     setAt: lease.startedAt,
     lastHeartbeat: lease.lastHeartbeat
@@ -239,26 +235,14 @@ function getBoundOuterSessionId(projectRootOverride?: string): string | undefine
 }
 
 /**
- * Snapshot of the previous peaks session's outer session id, read
- * straight off the active-skill marker *before* we overwrite it.
- * Used to detect "the LLM just opened a fresh outer session" — if
- * the previously-recorded outer session id differs from the one we
- * are about to stamp, the user probably closed the previous outer
- * session and is now driving peaks from a new one.
+ * The outer session id recorded on the presence that is about to be
+ * overwritten. It powers the informational `outerSessionMismatch` field on
+ * the presence envelope: when the recorded id differs from the one about to
+ * be stamped, the harness probably opened a fresh session.
  *
- * is `ensureSessionWithRotation`'s job, not this one. The presence
- * service still emits the structured `outerSessionMismatch` field on
- * the presence envelope (useful for the statusline to render a stale
- * marker and for the QA / log consumers to know an outer-session swap
- * promise — `peaks-code`'s Step 0 no longer needs to surface an
- * AskUserQuestion, because the rotation already fired by the time the
- * skill is invoked.
- *
- * `getPreviousOuterSessionId` keeps its read-side role: it powers the
- * informational `outerSessionMismatch` field below and the legacy
- * `claudeSessionId` back-compat. Reads from
- * `.peaks/_runtime/active-skill.json` first; falls back to the
- * legacy `.peaks/.active-skill.json` for one minor release.
+ * The value comes from the canonical lease projection
+ * (`.peaks/_runtime/<sid>/leases/presence-*.json`). The project-level
+ * single-slot marker files were removed in 4.0.11 and are NOT read here.
  */
 function getPreviousOuterSessionId(projectRootOverride?: string): string | undefined {
   const result = readSkillPresenceFromLease(projectRootOverride);
@@ -272,26 +256,17 @@ function getPreviousOuterSessionId(projectRootOverride?: string): string | undef
 // ============================================================================
 // ============================================================================
 //
-// Today's per-project active-skill marker (`.peaks/_runtime/active-skill.json`)
-// races when multiple Claude Code windows (or different platforms) drive the
-// `.peaks/_runtime/<peakSid>/active-skill-<callerId>.json` (D6). Two callers
-// bound to the same peak session never clobber each other.
-//
-// The single-file marker is RETAINED for one minor release as read-only
-// back-compat (M1, M4). The new write path is `setSkillPresenceForCaller`;
-// the legacy `setSkillPresence` is now a thin wrapper that synthesises a
-// legacy callerId from `process.env.CLAUDE_CODE_SESSION_ID` (or
-// `projectRoot` for the truly-anonymous case) and delegates.
+// The canonical presence write path is the sid-scoped lease
+// (`.peaks/_runtime/<sid>/leases/presence-<callerId>-<workflowId>.json`).
+// The project-level single-slot markers (`.peaks/_runtime/active-skill.json`
+// and the legacy `.peaks/.active-skill.json`) were removed in 4.0.11 and
+// are neither written nor read from here.
 
 /**
- * Write the per-caller active-skill marker to
- * `.peaks/_runtime/<peakSid>/active-skill-<callerId>.json` (D6). Returns
- * the written presence with the `callerId` field set.
- *
- * The caller is responsible for resolving the `callerId` (via
- * `resolveCallerId` from `src/services/session/resolve-caller-id.ts`)
- * and the `peakSessionId` (via `getCallerBinding` then reading
- * `peakSessionId`, OR via `ensureSession` for the first-time case).
+ * Write the LEGACY per-caller marker
+ * `.peaks/_runtime/<peakSid>/active-skill-<callerId>.json` (D6). This path
+ * was superseded by the sid-scoped lease; it stays for the audit enforcer,
+ * which still reads those files. New code calls `setPresenceLease` instead.
  */
 export function setSkillPresenceForCaller(
   projectRootOverride: string,
@@ -345,12 +320,26 @@ function getActiveSkillFileForCallerPath(
   return resolve(projectRoot, '.peaks', '_runtime', peakSessionId, `active-skill-${callerId}.json`);
 }
 
+/**
+ * The optional inputs of `setSkillPresence`. They travel as ONE object so
+ * the function stays inside the repository's 4-parameter cap: the caller id
+ * override is the escape hatch a non-Claude-Code host uses, and the project
+ * root override is what the CLI passes so the read and the write agree on
+ * which project they are talking about.
+ */
+export interface SetSkillPresenceOptions {
+  readonly projectRootOverride?: string | undefined;
+  readonly callerIdOverride?: string | undefined;
+}
+
 export function setSkillPresence(
   skill: string,
   mode?: string,
   gate?: string,
-  projectRootOverride?: string
+  options?: SetSkillPresenceOptions
 ): SkillPresence {
+  const projectRootOverride = options?.projectRootOverride;
+  const callerIdOverride = options?.callerIdOverride;
   // Slice 4.0.8 compat wrapper: the canonical write path is
   // `presence-lease-service.setPresenceLease`. The legacy
   // `setSkillPresence` is retained as a thin shim so callers that
@@ -359,14 +348,18 @@ export function setSkillPresence(
   //   1. resolves the canonical session id (legacy file
   //      `.peaks/_runtime/session.json` -> canonical
   //      `.peaks/_runtime/session.json` + caller binding);
-  //   2. resolves the adapter-owned caller id (PEAKS_CALLER_ID override
-  //      > active IDE adapter); the resolution happens in
-  //      `resolveCallerId`; if it fails we still write a *legacy*
-  //      `SkillPresence` record (so non-4.0.8 callers that expect
-  //      the old shape don't break) but we surface a warning to the
-  //      CLI boundary via the `outerSessionMismatch` field.
+  //   2. uses the caller id the caller already resolved
+  //      (`--caller-id` > `PEAKS_CALLER_ID` > active IDE adapter — the
+  //      chain lives in `resolve-caller-id.ts`); when none is supplied it
+  //      resolves one itself, and if that fails we still write a *legacy*
+  //      `SkillPresence` record (so non-4.0.8 callers that expect the old
+  //      shape don't break) but we surface a warning to the CLI boundary
+  //      via the `outerSessionMismatch` field;
   //   3. delegates the canonical write to `setPresenceLease`.
   const validatedMode = normalizeSkillPresenceMode(mode);
+  // The gate is normalized ONCE, here, so the in-memory envelope and the
+  // persisted lease can never disagree about what gate was recorded.
+  const validatedGate = normalizePresenceGate(gate);
   const sessionId = getCurrentSessionId(projectRootOverride);
   const outerSessionId = getCurrentOuterSessionId();
   const previousOuterSessionId = getPreviousOuterSessionId(projectRootOverride);
@@ -381,7 +374,7 @@ export function setSkillPresence(
   const presence: SkillPresence = {
     skill,
     ...(validatedMode ? { mode: validatedMode } : {}),
-    ...(gate ? { gate } : {}),
+    ...(validatedGate !== undefined ? { gate: validatedGate } : {}),
     ...(sessionId ? { sessionId } : {}),
     outerSessionId: outerSessionId ?? '',
     setAt: now,
@@ -430,29 +423,24 @@ export function setSkillPresence(
           import('../session/resolve-caller-id.js'),
           import('./presence-lease-service.js')
         ]);
-        const projection = resolveCallerProjection({ projectRoot, env: process.env });
-        // shim's workflowId from `projection.callerId` (caller-keyed,
-        // matching the 4.0.8 caller-binding direction) instead of
-        // `sessionId` (sid-keyed, pre-4.0.8). `slice(0, 189)` caps the
-        // callerId to 189 chars so the resulting workflowId
-        // (`wf-` + callerId + `-compat`) stays under the 200-char
-        // `WORKFLOW_ID_REGEX = /^[a-zA-Z0-9._-]{1,200}$/` cap. The
-        // truncation is loss-free for regex purposes — callerId is
-        // already regex-conformant before the slice. Existing 4.0.14
-        // leases with `wf-<sid>-compat` become orphans and are GC'd
-        // by the 24h30m stale-started GC at
-        // presence-lease-service.ts:42.
-        const workflowId = `wf-${projection.callerId.slice(0, 189)}-compat`;
+        // The caller id the CLI already resolved wins; without one the shim
+        // resolves its own (and throws when that is impossible, which the
+        // catch below turns into the legacy write). `slice(0, 189)` caps the
+        // callerId so the resulting workflowId (`wf-` + callerId +
+        // `-compat`) stays under the 200-char `WORKFLOW_ID_REGEX` cap.
+        const callerId =
+          callerIdOverride ?? resolveCallerProjection({ projectRoot, env: process.env }).callerId;
+        const workflowId = `wf-${callerId.slice(0, 189)}-compat`;
         const result: SetPresenceLeaseResult = leaseMod.setPresenceLease({
           projectRoot,
           sessionId,
-          callerId: projection.callerId,
+          callerId,
           workflowId,
           graphRef: `graphs/${workflowId}.json`,
           skill,
           now,
           ...(validatedMode !== undefined ? { mode: validatedMode } : {}),
-          ...(gate !== undefined ? { gate } : {})
+          ...(validatedGate !== undefined ? { gate: validatedGate } : {})
         });
         // Suppress unused-import warnings for inputs reserved for the
         // migration window.
@@ -554,10 +542,16 @@ export function checkStalePresence(opts?: {
   currentOuter?: string | undefined;
 }): StalenessCheck {
   const result = readSkillPresenceFromLease(opts?.projectRootOverride);
-  // `opts?.currentOuter === undefined` is the omitted-key case. A
-  // falsy string `''` is an explicit "no signal" (used by tests to
-  // simulate a CLI run with no harness env vars).
-  const current = opts && 'currentOuter' in opts ? opts.currentOuter : getCurrentOuterSessionId();
+  // `opts?.currentOuter === undefined` is the omitted-key case. A falsy
+  // string `''` is an explicit "no signal" (used by tests to simulate a
+  // CLI run with no harness env vars). The env signal wins; the bound
+  // session's recorded outer-session id is the fallback, so a presence
+  // written with an explicit caller id (no harness env var) is still
+  // recognised as belonging to the current session.
+  const current =
+    opts && 'currentOuter' in opts
+      ? opts.currentOuter
+      : (getCurrentOuterSessionId() ?? getBoundOuterSessionId(opts?.projectRootOverride));
   if (result === null) {
     return {
       stale: true,

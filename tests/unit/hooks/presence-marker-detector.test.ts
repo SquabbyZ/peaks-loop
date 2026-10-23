@@ -99,6 +99,10 @@ function writeLease(
 ): void {
   const leaseDir = join(projectRoot, '.peaks', '_runtime', sessionId, 'leases');
   mkdirSync(leaseDir, { recursive: true });
+  // FRESH timestamps on purpose: the detector now shares the presence
+  // read's stale rule, so a fixture pinned to a past date would read as
+  // "no active lease" and this suite would exercise the wrong branch.
+  const now = new Date();
   writeFileSync(
     join(leaseDir, `presence-${callerId}-${workflowId}.json`),
     JSON.stringify({
@@ -107,8 +111,8 @@ function writeLease(
       graphRef: `graphs/${workflowId}.json`,
       skill,
       depth: 0,
-      startedAt: '2026-08-05T11:55:00.000Z',
-      lastHeartbeat: '2026-08-05T11:59:00.000Z',
+      startedAt: new Date(now.getTime() - 4 * 60 * 1000).toISOString(),
+      lastHeartbeat: now.toISOString(),
       status,
       schemaVersion: 1
     }),

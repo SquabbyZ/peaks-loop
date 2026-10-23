@@ -1,5 +1,5 @@
-import { getSessionId } from '../session/session-manager.js';
-import { listPresenceLeases } from '../skills/presence-lease-service.js';
+import { resolvePresenceLease } from '../skills/presence-lease-resolver.js';
+import { readPresenceGate } from '../skills/presence-gate.js';
 
 /**
  *
@@ -49,6 +49,9 @@ export type DetectPresenceMarkerInput = {
 export type DetectPresenceMarkerResult = {
   active: boolean;
   skill?: string;
+  /** The gate the active presence is parked on — the machine fact behind
+   * the status header's middle cell. Absent when the lease carries none. */
+  gate?: string;
   markerFound: boolean;
   warning?: string;
 };
@@ -61,22 +64,22 @@ export const PRESENCE_MARKER_WARNING = [
 
 /**
  * Slice 4.0.11 statusline-sid-scoped-lease C: read the canonical
- * sid-scoped lease projection. Returns the in-flight lease with the
- * most recent `lastHeartbeat`, or null when no leases exist for the
- * bound session. Picked the most-recent-in-flight lease (mirrors the
- * statusline `callerId === null` back-compat path).
+ * sid-scoped lease projection.
+ *
+ * Slice 4.0.17 (presence cross-session): the read goes through
+ * the SAME resolver the `peaks skill presence` CLI uses — the lease that
+ * is eligible across EVERY session tree, not just the bound one. The
+ * two readers must not disagree: the CLI says "peaks-code is running"
+ * and the hook says "no presence" is not a state a user can act on.
+ *
+ * Returns the freshest eligible lease (freshest `lastHeartbeat` wins,
+ * with a total tie-break), or null when no tree holds one.
  */
-function readCanonicalLease(projectRoot: string): { skill: string } | null {
-  const sessionId = getSessionId(projectRoot);
-  if (sessionId === null) return null;
-  const leases = listPresenceLeases(projectRoot, sessionId);
-  const inFlight = leases.filter((l) => l.status === 'running' || l.status === 'preparing');
-  if (inFlight.length === 0) return null;
-  // Sort by lastHeartbeat desc, return the freshest.
-  inFlight.sort((a, b) => b.lastHeartbeat.localeCompare(a.lastHeartbeat));
-  const freshest = inFlight[0];
-  if (freshest === undefined) return null;
-  return { skill: freshest.skill };
+function readCanonicalLease(projectRoot: string): { skill: string; gate?: string } | null {
+  const selection = resolvePresenceLease(projectRoot);
+  if (selection === null) return null;
+  const gate = readPresenceGate(selection.lease.gate);
+  return { skill: selection.lease.skill, ...(gate !== undefined ? { gate } : {}) };
 }
 
 /**
@@ -118,6 +121,7 @@ export function detectPresenceMarker(input: DetectPresenceMarkerInput): DetectPr
   if (presence === null) {
     return { active: false, markerFound: false };
   }
+  const gateField = presence.gate !== undefined ? { gate: presence.gate } : {};
 
   const brokenGraph = tryDetectBrokenGraph(project);
   const markerFound = messageHasMarker(message);
@@ -126,16 +130,18 @@ export function detectPresenceMarker(input: DetectPresenceMarkerInput): DetectPr
       return {
         active: true,
         skill: presence.skill,
+        ...gateField,
         markerFound: true,
         warning: `Peaks presence active but graph is broken (${brokenGraph}); run \`peaks workspace reconcile\` to repair.`
       };
     }
-    return { active: true, skill: presence.skill, markerFound: true };
+    return { active: true, skill: presence.skill, ...gateField, markerFound: true };
   }
   if (brokenGraph !== null) {
     return {
       active: true,
       skill: presence.skill,
+      ...gateField,
       markerFound: false,
       warning: `Peaks presence active but graph is broken (${brokenGraph}); run \`peaks workspace reconcile\` to repair.`
     };
@@ -143,6 +149,7 @@ export function detectPresenceMarker(input: DetectPresenceMarkerInput): DetectPr
   return {
     active: true,
     skill: presence.skill,
+    ...gateField,
     markerFound: false,
     warning: PRESENCE_MARKER_WARNING[0]
   };

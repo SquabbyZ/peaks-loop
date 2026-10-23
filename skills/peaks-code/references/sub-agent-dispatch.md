@@ -418,7 +418,7 @@ The role's required artefact paths (also see peaks-ui/rd/qa SKILL.md and `swarm-
 **Hard prohibitions on sub-agents** (also passed in each dispatch prompt):
 
 - Do NOT call `Skill(skill="...")` — sub-agents must not recursively activate skills, that defeats the fan-out.
-- Do NOT call `peaks skill presence:set` — only the main Code loop owns `.peaks/.active-skill.json`. Sub-agents write to a per-agent marker file `.peaks/_runtime/<sessionId>/system/sub-agent-<role>.json` if they need to record state, but never the main presence file.
+- Do NOT call `peaks skill presence:set` — only the main Code loop owns the presence lease. Sub-agents write to a per-agent marker file `.peaks/_runtime/<sessionId>/system/sub-agent-<role>.json` if they need to record state, but never the main presence lease.
 - Do NOT open interactive user prompts. If a sub-agent needs clarification, it must return a `blocked` verdict in its return string and let Code handle the user message.
 - Do NOT commit, push, install hooks, or apply settings.json mutations. Only Code holds those permissions.
   - **Reinforced (2026-06-28 incident):** an RD sub-agent silently auto-committed its own diff during a fix-callerid-leak dispatch (commit `bff4dff`). The orchestrator caught the unauthorized commit on the next turn but the user had to manually re-approve. **Every dispatch prompt MUST copy the verbatim block below into its `--prompt` argument** so the sub-agent sees the rule with full weight:

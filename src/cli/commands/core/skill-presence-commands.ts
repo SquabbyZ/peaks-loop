@@ -1,18 +1,19 @@
 // Split out of `core/skill-command.ts`:
 // `skill presence` and `skill presence:set`. The envelope builders are
-// separate functions so each one stays inside the 50-code-line function cap
-// (the presence action was 54, presence:set 67).
+// separate functions so each one stays inside the 50-code-line function cap.
+// `skill presence:set` lives in the sibling `skill-presence-set-command.ts`.
 import type { Command } from 'commander';
 import {
-  setSkillPresence,
   getSkillPresence,
-  isSkillPresenceMode,
   checkStalePresence
 } from '../../../services/skills/skill-presence-service.js';
+import {
+  diagnosePresence,
+  resolveProjectRoot
+} from '../../../services/skills/presence-lease-resolver.js';
+import type { PresenceInactiveDiagnostic } from '../../../services/skills/presence-lease-selection.js';
 import { findProjectRoot } from '../../../services/config/config-safety.js';
-import { getSessionId, setSessionMeta } from '../../../services/session/session-manager.js';
-import { resolveCallerProjection } from '../../../services/session/resolve-caller-id.js';
-import { fail, ok } from 'peaks-loop-shared/result';
+import { ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, printResult, type ProgramIO } from '../../cli-helpers.js';
 import {
@@ -20,23 +21,18 @@ import {
   generatedConfigNotice
 } from './skill-generated-config-notice.js';
 import { contextVerdict } from './skill-context-verdict.js';
+import { registerSkillPresenceSetCommand } from './skill-presence-set-command.js';
 
 const PRESENCE_DESCRIPTION = 'Show the currently active Peaks skill (alias: presence:get)';
 const PRESENCE_CHECK_STALE_HELP =
   'slice 002 (v2.15.0): also report whether the recorded outer session id still matches the current one. Default false (back-compat).';
 const PRESENCE_PROJECT_HELP = 'project root (default: cwd)';
-const PRESENCE_SET_DESCRIPTION =
-  'Set the currently active Peaks skill for session-wide visibility. Slice 4.0.8: requires a bound session and an adapter-resolved caller id (fail-closed); raw unlink is rejected.';
-const PRESENCE_SET_MODE_HELP = 'execution mode';
-const PRESENCE_SET_GATE_HELP = 'current gate';
-const PRESENCE_SET_PROJECT_HELP = 'project root path (auto-detected from cwd when omitted)';
 
 type GeneratedConfig = ReturnType<typeof generatedConfigNotice>;
 type ContextVerdict = ReturnType<typeof contextVerdict>;
 
 type PresenceParts = { verdict: ContextVerdict; generatedConfig: GeneratedConfig };
 type PresenceOptions = { json?: boolean; checkStale?: boolean; project?: string };
-type PresenceSetOptions = { mode?: string; gate?: string; project?: string; json?: boolean };
 
 function presenceActiveData(
   presence: Record<string, unknown>,
@@ -45,9 +41,18 @@ function presenceActiveData(
   return {
     active: true,
     ...presence,
+    gate: readGateField(presence.gate),
     ...(parts.verdict.context !== null ? { context: parts.verdict.context } : {}),
     ...parts.generatedConfig.field
   };
+}
+
+/**
+ * The gate cell of the status header. `null` when the active lease records
+ * no gate (a lease written before the gate was persisted).
+ */
+function readGateField(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
 function presenceStaleData(
@@ -58,12 +63,37 @@ function presenceStaleData(
   return {
     active: true,
     ...presence,
+    gate: readGateField(presence.gate),
     stale: staleness.stale,
     staleReason: staleness.reason,
     currentOuterSessionId: staleness.currentOuterSessionId,
     recordedOuterSessionId: staleness.recordedOuterSessionId,
     ...(parts.verdict.context !== null ? { context: parts.verdict.context } : {}),
     ...parts.generatedConfig.field
+  };
+}
+
+/**
+ * The INACTIVE envelope. Without `--check-stale` it stays exactly
+ * `{ active: false }` — an optimistic default is not allowed. With it, the
+ * caller asked "why is nothing active?", so the diagnostic is attached.
+ */
+function presenceInactiveData(
+  generatedConfig: GeneratedConfig,
+  diagnostic: PresenceInactiveDiagnostic
+): Record<string, unknown> {
+  return {
+    active: false,
+    stale: true,
+    staleReason: 'no-presence',
+    presenceInactive: {
+      reason: diagnostic.reason,
+      leaseCount: diagnostic.leaseCount,
+      terminalCount: diagnostic.terminalCount,
+      staleCount: diagnostic.staleCount,
+      eligibleCount: diagnostic.eligibleCount
+    },
+    ...generatedConfig.field
   };
 }
 
@@ -74,21 +104,20 @@ function runSkillPresence(options: PresenceOptions, io: ProgramIO): void {
   );
   const presence = getSkillPresence(projectOption);
   if (presence === null) {
-    printResult(
-      io,
-      ok('skill.presence', { active: false, ...generatedConfig.field }, generatedConfig.warnings),
-      options.json
-    );
+    // Without `--check-stale` the envelope stays exactly `{ active: false }`.
+    const data =
+      options.checkStale === true
+        ? presenceInactiveData(generatedConfig, diagnosePresence(resolveProjectRoot(projectOption)))
+        : { active: false, ...generatedConfig.field };
+    printResult(io, ok('skill.presence', data, generatedConfig.warnings), options.json);
     return;
   }
   // Loop-hygiene verdict: attached to every ACTIVE read, so the
-  // zero-pause contract travels with the one call every skill already
-  // makes — in every mode and every consumer project.
+  // zero-pause contract travels with the one call every skill makes.
   const verdict = contextVerdict(projectOption ?? process.cwd());
   const parts = { verdict, generatedConfig };
-  // `--check-stale` lets callers (peaks-code Step 1, statusline) get both
-  // pieces of info from a single CLI invocation. The presence is returned
-  // UNCHANGED — it is a read-only flag, not a clear.
+  // `--check-stale` gives both pieces of info in one invocation; the
+  // presence itself is returned UNCHANGED — it is a read-only flag.
   const data =
     options.checkStale === true
       ? presenceStaleData(
@@ -104,103 +133,6 @@ function runSkillPresence(options: PresenceOptions, io: ProgramIO): void {
   );
 }
 
-function printInvalidMode(io: ProgramIO, options: PresenceSetOptions, name: string): void {
-  printResult(
-    io,
-    fail(
-      'skill.presence:set',
-      'INVALID_MODE',
-      `Invalid mode: ${options.mode} (expected one of: full-auto, assisted, strict, 24h)`,
-      { name, mode: options.mode },
-      ['Use a valid mode: full-auto, assisted, strict, or 24h']
-    ),
-    options.json
-  );
-  process.exitCode = 1;
-}
-
-function printSessionNotBound(
-  io: ProgramIO,
-  options: PresenceSetOptions,
-  name: string,
-  projectRoot: string
-): void {
-  printResult(
-    io,
-    fail(
-      'skill.presence:set',
-      'PEAKS_SESSION_NOT_BOUND',
-      'No canonical peaks session is bound for this project (RD §3 D1).',
-      { projectRoot, name },
-      ['Run `peaks workspace init --project <p>` first, then re-run `peaks skill presence:set`.']
-    ),
-    options.json
-  );
-  process.exitCode = 1;
-}
-
-function printCallerNotResolved(
-  io: ProgramIO,
-  options: PresenceSetOptions,
-  target: { name: string; projectRoot: string },
-  err: unknown
-): void {
-  const message = err instanceof Error ? err.message : String(err);
-  printResult(
-    io,
-    fail(
-      'skill.presence:set',
-      'PEAKS_CALLER_NOT_RESOLVED',
-      `Active IDE adapter could not resolve a callerId (RD §3 D1): ${message}`,
-      target,
-      [
-        'Ensure the active IDE is detected by `peaks` and the IDE session variable is set.',
-        'Or set PEAKS_CALLER_ID=<id> in the environment for scripted usage.'
-      ]
-    ),
-    options.json
-  );
-  process.exitCode = 1;
-}
-
-function runSkillPresenceSet(name: string, options: PresenceSetOptions, io: ProgramIO): void {
-  const projectOption = canonicalizeProjectOption(options.project);
-  const projectRoot = projectOption ?? findProjectRoot(process.cwd()) ?? process.cwd();
-  if (options.mode !== undefined && !isSkillPresenceMode(options.mode)) {
-    printInvalidMode(io, options, name);
-    return;
-  }
-  // Slice 4.0.8 (D1 + D2): `presence:set` is fail-closed. We refuse
-  // any write when (a) no peaks session is bound, or (b) the active
-  // IDE adapter cannot resolve a valid callerId. Both failures
-  // surface BEFORE any filesystem write. The legacy
-  // `setSkillPresence` wrapper is kept as a compat shim for tests
-  // and CLI flows that intentionally do not need a session — but
-  // production CLI traffic must go through this gate.
-  const boundSessionId = getSessionId(projectRoot);
-  if (boundSessionId === null) {
-    printSessionNotBound(io, options, name, projectRoot);
-    return;
-  }
-  try {
-    resolveCallerProjection({ projectRoot });
-  } catch (err) {
-    printCallerNotResolved(io, options, { name, projectRoot }, err);
-    return;
-  }
-  const presence = setSkillPresence(name, options.mode, options.gate, projectOption);
-  // Session metadata is updated when a session is bound (read-only
-  // path: `getSessionId`). We do not auto-spawn a session.
-  if (boundSessionId !== null) {
-    setSessionMeta(projectRoot, boundSessionId, {
-      skill: name,
-      ...(options.mode ? { mode: options.mode } : {}),
-      ...(options.gate ? { gate: options.gate } : {})
-    });
-  }
-  printResult(io, ok('skill.presence:set', { active: true, ...presence }), options.json);
-}
-
 export function registerSkillPresenceCommands(skill: Command, io: ProgramIO): void {
   addJsonOption(
     skill
@@ -210,12 +142,5 @@ export function registerSkillPresenceCommands(skill: Command, io: ProgramIO): vo
       .option('--project <path>', PRESENCE_PROJECT_HELP)
   ).action((options: PresenceOptions) => runSkillPresence(options, io));
 
-  addJsonOption(
-    skill
-      .command('presence:set <name>')
-      .description(PRESENCE_SET_DESCRIPTION)
-      .option('--mode <mode>', PRESENCE_SET_MODE_HELP)
-      .option('--gate <gate>', PRESENCE_SET_GATE_HELP)
-      .option('--project <path>', PRESENCE_SET_PROJECT_HELP)
-  ).action((name: string, options: PresenceSetOptions) => runSkillPresenceSet(name, options, io));
+  registerSkillPresenceSetCommand(skill, io);
 }

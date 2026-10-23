@@ -37,7 +37,7 @@ Return a compact JSON envelope — do not write prose.
 
 ## Hard prohibitions
 - Do NOT call Skill(skill="..."). You are the role.
-- Do NOT call `peaks skill presence:set` — the main loop owns .peaks/.active-skill.json.
+- Do NOT call `peaks skill presence:set` — the main loop owns the presence lease.
   If you need to record state, write to .peaks/_runtime/<session-id>/system/sub-agent-<role>.json.
 - Do NOT commit, push, install hooks, or apply settings.json mutations.
 - Do NOT ask the user interactive questions. If you need clarification, return
@@ -45,7 +45,7 @@ Return a compact JSON envelope — do not write prose.
 
 ## Runtime arguments (provided by Code)
 - project: <repo>            (git repo root, NOT a sub-package)
-- session-id: <sid>          (from .peaks/.active-skill.json or .peaks/.session.json)
+- session-id: <sid>          (from `peaks session info --active --json`; the on-disk binding is .peaks/_runtime/session.json)
 - request-id: <rid>          (PRD id)
 - type: <type>               (feature | bugfix | refactor | config | docs | chore)
 - mode: <mode>               (full-auto | assisted | strict | 24h)
@@ -182,9 +182,9 @@ After all sub-agent dispatch calls return and the LLM has invoked the toolCalls,
 
 ## 5. Presence restoration (single-shot)
 
-Sub-agents are explicitly forbidden from calling `peaks skill presence:set`. That means `.peaks/.active-skill.json` does not move during the fan-out. Code sets it to `gate=swarm-fan-out` before fan-out and to `gate=swarm-converged` once after all Tasks return. The status header (the `Peaks-Loop Skill: peaks-code | Peaks-Loop Gate: <gate>` line) therefore reads consistently across the fan-out window.
+Sub-agents are explicitly forbidden from calling `peaks skill presence:set`. That means the presence lease does not move during the fan-out. Code sets it to `gate=swarm-fan-out` before fan-out and to `gate=swarm-converged` once after all Tasks return. The status header (the `Peaks-Loop Skill: peaks-code | Peaks-Loop Gate: <gate>` line) therefore reads consistently across the fan-out window.
 
-If a sub-agent is misbehaving and writes to `.peaks/.active-skill.json` anyway, the next Code presence-set (after fan-out) overwrites it — the bug self-heals on the next gate advance, but the swarm-phase display may be off. The hard prohibition is there to prevent this; Code should still treat the file as a single-writer resource.
+If a sub-agent is misbehaving and writes its own presence lease anyway, the next Code presence-set (after fan-out) overwrites it — the bug self-heals on the next gate advance, but the swarm-phase display may be off. The hard prohibition is there to prevent this; Code should still treat the lease as a single-writer resource.
 
 ## 6. Why not a `peaks-swarm` skill?
 
@@ -237,7 +237,7 @@ Sub-agent presence in this list = Code launched a Task for it. Absence = the rol
 | `assisted`  | `AskUserQuestion` with three options: (a) Full — UI + RD(planning) + QA(test-cases); (b) Backend-only — RD(planning) + QA(test-cases); (c) Sequential — run RD first, then QA, skip UI | Use the user's choice as the plan                                                                             |
 | `strict`    | Same as `assisted` (the question is informational; strict still enforces confirmation gates later)                                                                                     | Same as `assisted`                                                                                            |
 
-In all modes, **the plan must be written to `sc/swarm-plan.json` before any Task call.** Code updates `.peaks/.active-skill.json` to `gate=swarm-fan-out` at this point.
+In all modes, **the plan must be written to `sc/swarm-plan.json` before any Task call.** Code updates the presence lease to `gate=swarm-fan-out` at this point.
 
 ### Degradation when swarm roles fail or are absent
 

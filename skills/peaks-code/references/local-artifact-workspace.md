@@ -17,24 +17,23 @@ peaks workspace init --project <repo> --json
 The workspace initialization creates this structure under `.peaks/`:
 
 ```
-# Canonical home for all per-project ephemeral state (active-skill
-# marker, session binding, sop-state). All writes go here; reads also
-# tolerate the legacy paths (`.peaks/.active-skill.json`,
-# `.peaks/.session.json` — read-only back-compat for one minor release,
-# `.peaks/sop-state/`) for one minor release so a fresh upgrade does
-# not break in-flight workflows. Older trees are auto-migrated by
-# `peaks workspace reconcile --apply`. Skills and sub-agents MUST
-# NOT `cat` any of these files directly — use `peaks session info
-# --active --json` (and the matching read-only primitives for the
-# other two) to discover session-id / active-skill / sop-state.
+# Canonical home for all per-project ephemeral state (presence leases,
+# session binding, sop-state). All writes go here; reads also tolerate
+# the legacy paths (`.peaks/.session.json` — read-only back-compat for
+# one minor release, `.peaks/sop-state/`) so a fresh upgrade does not
+# break in-flight workflows. Older trees are auto-migrated by
+# `peaks workspace reconcile --apply`. Skills and sub-agents MUST NOT
+# `cat` any of these files directly — use `peaks session info --active
+# --json` (and `peaks skill presence --json` for the presence lease) to
+# discover session-id / presence / sop-state.
 .peaks/_runtime/
-├── active-skill.json   # orchestrator presence marker (peaks-code / -rd / -qa / -ui / -sc / -sop / -txt)
 ├── session.json        # project → session binding (the only single-session source of truth)
 └── sop-state/          # current phase + history; definitions live globally in ~/.peaks
 
 # Per-slice artifact dirs (auto-generated, one per session). Files
 # inside ARE tracked by the 提交中间产物 convention.
 .peaks/_runtime/<sessionId>/
+leases/           # presence leases (presence-<callerId>-<workflowId>.json) — read with `peaks skill presence --json`
 prd/source/      # PRD source documents (Feishu exports, pasted content)
 prd/requests/    # PRD request artifacts (goals, non-goals, acceptance, frontend delta)
 ui/requests/     # UI request artifacts (visual direction, taste reports)

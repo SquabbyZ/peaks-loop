@@ -18,7 +18,9 @@ peaks statusline install --project <repo>   # idempotent; skips if already insta
 
 Then display the compact status header: `Peaks-Loop Skill: peaks-code | Peaks-Loop Gate: startup | Next: <one short action>`. Display this header on EVERY turn while the skill is active.
 
-Update with `peaks skill presence:set peaks-code --project <repo> --mode <mode> --gate <gate>` when gates change. The presence file persists across the full workflow lifecycle — clear is owned by workflow terminalize; follow-up workflows re-claim via new workflow init.
+Update with `peaks skill presence:set peaks-code --project <repo> --mode <mode> --gate <gate>` when gates change. The presence lease persists across the full workflow lifecycle — it lives at `.peaks/_runtime/<session-id>/leases/presence-*.json` (the canonical path; the project-level `active-skill.json` single-slot files were removed in 4.0.11) — clear is owned by workflow terminalize; follow-up workflows re-claim via new workflow init.
+
+Read the live presence back with `peaks skill presence --json`. It reports the active skill, its mode and its gate, and it resolves the lease across the session trees of the project — when the bound tree holds no lease, another tree's live lease is reported instead. Add `--check-stale` to learn WHY nothing is active (`presenceInactive.reason`: `no-leases`, `all-terminal`, `all-stale`, `terminal-and-stale`).
 
 ## Step 2.5a — Set session title
 

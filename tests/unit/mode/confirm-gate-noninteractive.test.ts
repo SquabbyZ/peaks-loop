@@ -82,7 +82,10 @@ function writeLease(projectRoot: string, mode: string): void {
     graphRef: 'graphs/wf-confirm-gate.json',
     skill: 'peaks-code',
     mode,
-    now: '2026-09-09T10:00:00.000Z'
+    // FRESH timestamp on purpose: the confirm gate reads the recorded
+    // mode off the presence lease, and the presence read treats a lease
+    // whose heartbeat is older than the stale window (1h) as not active.
+    now: new Date().toISOString()
   });
 }
 

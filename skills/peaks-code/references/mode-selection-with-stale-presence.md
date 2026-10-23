@@ -9,10 +9,10 @@
 Defect A (from PRD-002, 2026-06-28 session 88b27d):
 
 1. session A runs in `full-auto` → `peaks skill presence:set peaks-code --mode full-auto --gate startup` stamps
-   `.peaks/_runtime/active-skill.json` with `outerSessionId=outer-A`.
+   the presence lease (`.peaks/_runtime/<sid>/leases/presence-*.json`) with `outerSessionId=outer-A`.
 2. session A closes (Claude window quit).
 3. session B opens (a new Claude window, `outerSessionId=outer-B`).
-4. `peaks skill presence:get --project <path>` still returns `mode=full-auto` because the file is on disk.
+4. `peaks skill presence:get --project <path>` still returns `mode=full-auto` because the lease is on disk.
 5. peaks-code Step 1 reads the presence, sees `mode=full-auto`, **skips** AskUserQuestion.
 6. The user never picked `full-auto` for THIS session — the mode was sticky from the previous one.
 
@@ -119,6 +119,6 @@ peaks skill presence:set peaks-code --mode full-auto --gate startup
 
 ## ACL — what NOT to do
 
-- **NEVER** skip Step 1 just because `.peaks/_runtime/active-skill.json` shows a `mode` field. Run `presence:check-stale` first.
+- **NEVER** skip Step 1 just because `peaks skill presence --json` shows a `mode` field. Run `presence:check-stale` first.
 - **NEVER** call `peaks skill presence:clear` from peaks-code to "fix" a stale mode. The auto-clear path is `peaks workspace init`'s job; manual clears destroy user-explicit mode choices that may belong to another live outer session.
 - **NEVER** set the presence `mode` field from inside a sub-agent (peaks-rd, peaks-qa, etc.). Sub-agents may read presence to honour the user's chosen mode but the write authority for Step 1 belongs to the peaks-code driver.
