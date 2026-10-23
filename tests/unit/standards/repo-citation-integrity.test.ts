@@ -14,11 +14,10 @@
 //     from".
 // Nothing in the suite could notice any of them. This guard is the notice.
 //
-// SCOPE (deliberately bounded). Corpus: `CLAUDE.md`, `.peaks/PROJECT.md`,
-// `README.md`, every `*.md` under `.peaks/standards/`, and every `*.md` under
-// `skills/`. Not in scope: memory files and `CHANGELOG.md`-style prose — those
-// describe historical state, so a repo-root resolution would report false
-// positives and the guard would be trained away.
+// SCOPE (deliberately bounded). Corpus: `AGENTS.md`, `CLAUDE.md`, `.peaks/PROJECT.md`,
+// `README.md`, every `*.md` under `.peaks/standards/`, and every `*.md` under `skills/`.
+// Not in scope: memory files and `CHANGELOG.md`-style prose — those describe historical state,
+// so a repo-root resolution would report false positives and the guard would be trained away.
 //
 // `skills/**` joined the corpus after `de0872b7` moved nine skills into
 // `skills/bee/` without updating the paths that pointed at them: the citations
@@ -239,6 +238,7 @@ const REPO_ROOT = resolve(__dirname, '..', '..', '..');
  *     of convenience.
  */
 const CORPUS_ENTRIES = [
+  'AGENTS.md',
   'CLAUDE.md',
   '.peaks/PROJECT.md',
   'README.md',
@@ -428,10 +428,9 @@ const HYPOTHETICAL_CUE =
  * Each entry needs a reason; an allowlist without one is how a guard dies.
  */
 const OPTIONAL_RUNTIME_PATHS = new Set([
-  // Legacy fallback location of the active-skill marker. `.peaks/PROJECT.md`
-  // and `CLAUDE.md` both document the lookup as canonical-first; the canonical
-  // path is `.peaks/_runtime/active-skill.json`, so this one is absent in a
-  // clean clone by design.
+  // Legacy fallback location of the active-skill marker. The canonical lookup
+  // is the session-scoped presence lease (`AGENTS.md` documents it), so this
+  // flat fallback is absent in a clean clone by design.
   '.peaks/.active-skill.json',
   // Legacy fallback location of the session binding file — the same shape as
   // the entry above. `peaks session` reads the canonical
@@ -1271,6 +1270,7 @@ describe('Scenario: integration — the real corpus resolves on the real tree', 
     );
 
     // then: the documents the brief names as normative are all present
+    expect(ids).toContain('AGENTS.md');
     expect(ids).toContain('CLAUDE.md');
     expect(ids).toContain('.peaks/PROJECT.md');
     expect(ids).toContain('README.md');

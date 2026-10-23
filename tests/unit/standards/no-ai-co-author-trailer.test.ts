@@ -1,6 +1,6 @@
 // tests/unit/standards/no-ai-co-author-trailer.test.ts
 //
-// The enforcement behind the red rule `CLAUDE.md` states as
+// The enforcement behind the red rule `AGENTS.md` states as
 // "effective 2026-07-01, no exceptions":
 //
 //   No commit message in this repository may contain `Co-Authored-By: Claude`,
@@ -91,7 +91,10 @@ const AI_ATTRIBUTION_EMAIL = /@(?:anthropic|openai)\.com\b/i;
  * A trailer whose value is a parenthesised NOTE rather than an identity is not
  * an attribution, whatever it mentions.
  *
- * This is the rule that keeps the guard off `CLAUDE.md` in its own history.
+ * This is the rule that keeps the guard off the repo's own history. The
+ * `CLAUDE.md` spelling below is the rule's file name BEFORE the constitution
+ * moved to `AGENTS.md` — and a commit message is history, so it keeps the name
+ * it was written with:
  * `Co-Authored-By: (omitted per CLAUDE.md red rule)` and
  * `Co-Authored-By: (none — per dev-preference.md rule 3)` are real commit
  * trailers in this repo — written by the owner to say "I deliberately did not
@@ -167,7 +170,7 @@ function describeFindings(
 }
 
 describe('behavior — the trailer checker', () => {
-  it('flags the two forms CLAUDE.md names', () => {
+  it('flags the two forms AGENTS.md names', () => {
     const messages = [
       'fix: something\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n',
       'fix: something else\n\nCo-Authored-By: Anthropic\n'
@@ -238,7 +241,7 @@ describe('integration — the real commit history', () => {
       expect(
         findings,
         `AI-attribution trailer(s) in commit history:\n${describeFindings(findings, messages)}\n` +
-          'Rewriting the offending commit before it is pushed is the remedy; see the red rule in CLAUDE.md.'
+          'Rewriting the offending commit before it is pushed is the remedy; see the red rule in AGENTS.md.'
       ).toEqual([]);
     },
     SUBPROCESS_TEST_TIMEOUT_MS

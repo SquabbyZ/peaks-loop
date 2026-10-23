@@ -217,7 +217,7 @@ describe('Scenario: integration — the root .gitignore still blocks a date-stam
     //       The comment-stripping is the same defect as the `.gitignore`
     //       case above: a citation wrapped in `<!-- -->` is still a
     //       substring, and a reader is still told nothing.
-    for (const doc of ['CLAUDE.md', join('.peaks', 'PROJECT.md')]) {
+    for (const doc of ['AGENTS.md', join('.peaks', 'PROJECT.md')]) {
       expect(withoutHtmlComments(readFileSync(join(REPO_ROOT, doc), 'utf8')), doc).toContain(
         DEFENSE_RULE
       );
