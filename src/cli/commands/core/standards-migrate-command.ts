@@ -12,7 +12,7 @@ type MigrateOptions = {
   json?: boolean;
 };
 
-/** `--from-claude-rules`: thin `.claude/rules/` to pointers, scaffold `.peaks/standards/`. */
+/** `--from-claude-rules`: thin `.claude/rules/` to pointers, scaffold `.peaks/standards/` + the constitution. */
 function runMigrateClaudeRules(io: ProgramIO, options: MigrateOptions, projectRoot: string): void {
   try {
     const result = migrateClaudeRules({ projectRoot, apply: options.apply === true });
@@ -32,6 +32,7 @@ function runMigrateClaudeRules(io: ProgramIO, options: MigrateOptions, projectRo
           backupPath: null,
           thinnedFiles: [],
           scaffoldedFiles: [],
+          scaffoldedConstitutionFiles: [],
           preservedFiles: [],
           wouldChange: false,
           applied: false,
@@ -45,7 +46,7 @@ function runMigrateClaudeRules(io: ProgramIO, options: MigrateOptions, projectRo
   }
 }
 
-/** Default branch: rewrite the legacy heartbeat block in CLAUDE.md. */
+/** Default branch: rewrite the legacy heartbeat block in the project's constitution file. */
 function runMigrateLegacy(io: ProgramIO, options: MigrateOptions, projectRoot: string): void {
   try {
     const result = migrateStandards({ project: projectRoot, apply: options.apply === true });
@@ -83,13 +84,13 @@ export function registerStandardsMigrateCommand(standards: Command, io: ProgramI
     standards
       .command('migrate')
       .description(
-        'Rewrite a consumer project CLAUDE.md to drop the legacy heartbeat block (slice 028). Dry-run by default; pass --apply to write. With --from-claude-rules, thins the 1.x .claude/rules/ tree to 2-line pointers and scaffolds .peaks/standards/ (slice 2026-06-12-standards-migrate-claude-rules).'
+        'Rewrite a consumer project constitution file (AGENTS.md, or CLAUDE.md in a 1.x tree) to drop the legacy heartbeat block (slice 028). Dry-run by default; pass --apply to write. With --from-claude-rules, thins the 1.x .claude/rules/ tree to 2-line pointers and scaffolds .peaks/standards/ plus the AGENTS.md + CLAUDE.md constitution (slice 2026-06-12-standards-migrate-claude-rules).'
       )
       .option('--project <path>', 'target project root')
       .option('--apply', 'rewrite the legacy block in place; default is dry-run')
       .option(
         '--from-claude-rules',
-        'thin .claude/rules/ to pointers and scaffold .peaks/standards/'
+        'thin .claude/rules/ to pointers and scaffold .peaks/standards/ + the constitution files'
       )
   ).action((options: MigrateOptions) => {
     const projectRoot = options.project ?? process.cwd();

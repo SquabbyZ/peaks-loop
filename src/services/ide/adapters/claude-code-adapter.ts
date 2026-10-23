@@ -626,20 +626,18 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
     resolveTranscriptPath: (outerSessionId: string) => resolveClaudeTranscriptPath(outerSessionId)
   },
   // Slice #011: standards profile. Claude Code reads its constitution at
-  // CLAUDE.md + module-level rules under .claude/rules/**. The values mirror
-  // the hardcoded paths in `src/services/standards/project-standards-service.ts`
-  // (line 147 = '.claude', line 417/421 = 'CLAUDE.md' + '.claude/rules/...')
-  // and the postinstall target in `scripts/install-skills.mjs` (line 427 =
-  // '~/.claude/skills'). Filling the profile here makes the dispatch layer
-  // route to the SAME paths, so byte-stability on `peaks standards init` for
-  // Claude Code projects is preserved.
+  // CLAUDE.md and its module-level rules under .claude/rules/**. The
+  // `rootFile` value is what the standards writer branches on: a
+  // `CLAUDE.md` root means the writer emits the shared cross-tool body
+  // (AGENTS.md) AND a CLAUDE.md pointer that imports it, because Claude
+  // Code reads CLAUDE.md, not AGENTS.md, unless it is configured to.
   standardsProfile: {
     rootFile: 'CLAUDE.md',
     rulesDir: '.claude/rules',
     rulesFileGlob: '**/*.md',
     autoLoaded: true,
     format: 'markdown',
-    migrationHint: 'Standards live at CLAUDE.md + .claude/rules/** for Claude Code.'
+    migrationHint: 'Standards live at AGENTS.md (body) + CLAUDE.md (pointer) for Claude Code.'
   },
   // Slice #011: skill install profile. The postinstall script symlinks
   // bundled skills to `~/.claude/skills` and writes output-styles to

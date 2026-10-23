@@ -233,6 +233,9 @@ describe('peaks standards init (P2-B.2 modify e2e)', () => {
     // No real writes must have happened on disk during dry-run
     expect(envelope.data.writtenFiles).toHaveLength(0);
     expect(existsSync(join(project, 'CLAUDE.md'))).toBe(false);
+    // The shared cross-tool body is planned too — and written by neither dry-run.
+    expect(existsSync(join(project, 'AGENTS.md'))).toBe(false);
+    expect(envelope.data.plannedWrites.map((write) => write.relativePath)).toContain('AGENTS.md');
   });
 });
 

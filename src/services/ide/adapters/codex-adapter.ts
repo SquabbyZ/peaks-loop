@@ -104,12 +104,28 @@ export const CODEX_ADAPTER: IdeAdapter = {
     };
     err.code = 'PEAKS_CALLER_NOT_RESOLVED';
     throw err;
+  },
+  // Standards profile: Codex CLI reads `AGENTS.md` natively — it is one of
+  // the tools the AGENTS.md standard (OpenAI's AGENTS.md, now under the
+  // Linux Foundation's Agentic AI Foundation) is adopted by. So the shared
+  // cross-tool body IS Codex's project-instructions file, and no CLAUDE.md
+  // pointer is needed next to it.
+  //
+  // `rulesDir` stays `null`: where Codex looks for MODULE-level rules is
+  // still unverified (see slice #013+ for the real-install dogfood), so the
+  // profile claims only the root file.
+  standardsProfile: {
+    rootFile: 'AGENTS.md',
+    rulesDir: null,
+    rulesFileGlob: '**/*.md',
+    autoLoaded: true,
+    format: 'markdown',
+    migrationHint: 'Codex reads AGENTS.md directly; no CLAUDE.md pointer is written.'
   }
-  // Standards: UNVERIFIED — see slice #013+ (Codex real-install dogfood for
-  // the `standardsProfile` and `skillInstall` fields). Until then, `peaks
-  // standards init` on a Codex-detected project falls back to the Claude
-  // Code path (CLAUDE.md + .claude/rules/**) with a stderr warning, and the
-  // postinstall script writes skills + output-styles to the legacy
-  // `~/.claude/{skills,output-styles}` paths with a stderr warning. Users
-  // who want Codex-specific paths must move the files manually.
+  // Standards: the ROOT file is verified above (AGENTS.md); the `rulesDir`
+  // and `skillInstall` fields remain UNVERIFIED pending slice #013+
+  // (Codex real-install dogfood). Until then the postinstall script writes
+  // skills + output-styles to the legacy `~/.claude/{skills,output-styles}`
+  // paths with a stderr warning. Users who want Codex-specific paths must
+  // move the files manually.
 };

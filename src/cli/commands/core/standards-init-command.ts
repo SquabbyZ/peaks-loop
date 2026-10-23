@@ -7,12 +7,21 @@ import {
   executeProjectStandardsInitIdeAware,
   executeProjectStandardsUpdateIdeAware
 } from '../../../services/standards/ide-aware-standards-service.js';
+import type { IdeId } from '../../../services/ide/ide-types.js';
+import { listAdapterIds } from '../../../services/ide/ide-registry.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../../cli-helpers.js';
 
-/** The IDE ids the ide-aware executor accepts. */
-type IdeId = 'claude-code' | 'trae' | 'codex' | 'cursor' | 'qoder' | 'tongyi-lingma';
+/**
+ * The registered IDE ids `--ide` accepts.
+ *
+ * Read from the registry rather than re-typed here: a hand-written list of
+ * ids is a second copy of the registry, and the copy that shipped with this
+ * command was missing `hermes`, `openclaw` and `zcode` — so `--ide zcode`
+ * used to reach `getAdapter()` and throw instead of being accepted.
+ */
+const SUPPORTED_IDE_IDS: readonly IdeId[] = listAdapterIds();
 
 type InitOptions = {
   project: string;
@@ -28,17 +37,34 @@ function withWriteFlags(cmd: Command, applyHelp: string): Command {
   return cmd
     .requiredOption('--project <path>', 'target project root')
     .option('--language <language>', 'standards language pack')
-    .option('--ide <id>', 'override IDE detection (e.g. claude-code, trae)')
+    .option(
+      '--ide <id>',
+      `override IDE detection; the IDE's standards profile decides which instruction files are written (${SUPPORTED_IDE_IDS.join(
+        ' | '
+      )})`
+    )
     .option('--dry-run', 'preview writes without changing files')
     .option('--apply', applyHelp);
 }
 
+/**
+ * The `--ide` value, validated against the registry.
+ *
+ * `null` means "not a registered IDE" — the caller refuses with a
+ * structured envelope instead of letting the value reach `getAdapter()`,
+ * where an unknown id throws an unhandled error.
+ */
+function resolveIdeId(value: string | undefined): IdeId | null {
+  if (value === undefined) return null;
+  return SUPPORTED_IDE_IDS.find((id) => id === value) ?? null;
+}
+
 /** The ide-aware request both verbs build from the same flag set. */
-function buildIdeAwareRequest(options: InitOptions) {
+function buildIdeAwareRequest(options: InitOptions, ideId: IdeId | null) {
   return {
     projectRoot: options.project,
     ...(options.language !== undefined ? { language: options.language } : {}),
-    ...(options.ide !== undefined ? { ideId: options.ide as IdeId } : {}),
+    ...(ideId !== null ? { ideId } : {}),
     apply: options.apply === true
   };
 }
@@ -68,6 +94,29 @@ function refuseConflictingFlags(
   return true;
 }
 
+/** Refuse an `--ide` value no adapter is registered under. */
+function refuseUnknownIde(
+  io: ProgramIO,
+  options: InitOptions,
+  command: string,
+  ideId: IdeId | null
+): boolean {
+  if (options.ide === undefined || ideId !== null) return false;
+  printResult(
+    io,
+    fail(
+      command,
+      'UNKNOWN_IDE',
+      `Unknown IDE '${options.ide}'.`,
+      { ide: options.ide, supportedIdeIds: SUPPORTED_IDE_IDS },
+      [`Pass one of: ${SUPPORTED_IDE_IDS.join(', ')}.`]
+    ),
+    options.json
+  );
+  process.exitCode = 1;
+  return true;
+}
+
 function runStandardsInit(io: ProgramIO, options: InitOptions): void {
   const refused = refuseConflictingFlags(io, options, {
     command: 'standards.init',
@@ -77,8 +126,10 @@ function runStandardsInit(io: ProgramIO, options: InitOptions): void {
     ]
   });
   if (refused) return;
+  const ideId = resolveIdeId(options.ide);
+  if (refuseUnknownIde(io, options, 'standards.init', ideId)) return;
   try {
-    const result = executeProjectStandardsInitIdeAware(buildIdeAwareRequest(options));
+    const result = executeProjectStandardsInitIdeAware(buildIdeAwareRequest(options, ideId));
     printResult(
       io,
       ok('standards.init', summarizeProjectStandardsInitResult(result)),
@@ -105,8 +156,10 @@ function runStandardsUpdate(io: ProgramIO, options: InitOptions): void {
     ]
   });
   if (refused) return;
+  const ideId = resolveIdeId(options.ide);
+  if (refuseUnknownIde(io, options, 'standards.update', ideId)) return;
   try {
-    const result = executeProjectStandardsUpdateIdeAware(buildIdeAwareRequest(options));
+    const result = executeProjectStandardsUpdateIdeAware(buildIdeAwareRequest(options, ideId));
     const summary = summarizeProjectStandardsUpdateResult(result);
     const response =
       summary.reviewSuggestions.length > 0
@@ -126,7 +179,7 @@ function runStandardsUpdate(io: ProgramIO, options: InitOptions): void {
     printResult(
       io,
       fail('standards.update', 'STANDARDS_UPDATE_FAILED', getErrorMessage(error), {}, [
-        'Check the project path, CLAUDE.md contents, and existing .claude/rules directory before retrying'
+        'Check the project path, AGENTS.md contents, and existing .claude/rules directory before retrying'
       ]),
       options.json
     );
@@ -139,7 +192,9 @@ export function registerStandardsInitCommands(standards: Command, io: ProgramIO)
     withWriteFlags(
       standards
         .command('init')
-        .description('Initialize project-local coding standards for Peaks skill preflight'),
+        .description(
+          'Initialize project-local coding standards for Peaks skill preflight (AGENTS.md body + the CLAUDE.md pointer that imports it)'
+        ),
       'write missing standards into the target project'
     )
   ).action((options: InitOptions) => runStandardsInit(io, options));
@@ -149,7 +204,7 @@ export function registerStandardsInitCommands(standards: Command, io: ProgramIO)
       standards
         .command('update')
         .description(
-          'Append managed standards metadata to an existing CLAUDE.md without rewriting the body'
+          'Append managed standards metadata to the existing AGENTS.md / CLAUDE.md without rewriting their bodies'
         ),
       'append managed metadata to the target project'
     )

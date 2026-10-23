@@ -1,12 +1,11 @@
 /**
  * IDE-aware wrapper for `peaks standards init` / `peaks standards update`.
  *
- * `executeProjectStandardsInit` / `executeProjectStandardsUpdate` always
- * wrote to `CLAUDE.md` + `.claude/rules/**` regardless of which IDE
- * the user was running. This wrapper dispatches on the IDE detected
- * (or explicitly requested via `--ide`) and falls back to the legacy
- * Claude Code path with a stderr warning when the detected IDE has
- * no `standardsProfile` declared (Trae in slice 1.3.2).
+ * `--ide` USED TO BE DETECTION-ONLY: it picked the adapter, the adapter's
+ * `standardsProfile` was looked up, and then every branch called the SAME
+ * writer — the profile was read and never used. This module is where that
+ * gap is closed: the profile's `rootFile` now decides which instruction
+ * files are emitted.
  *
  * Two entry points:
  *
@@ -19,17 +18,14 @@
  * Detection precedence:
  *   1. Explicit `options.ideId` (CLI `--ide` flag)
  *   2. `IdeRegistry.detect()` from cwd (or the `projectRoot` if given)
- *   3. `null` (no IDE detected) → fall back to the legacy Claude Code path
+ *   3. `null` (no IDE detected) → the default cross-tool constitution
  *
  * Fallback behavior: when the resolved IDE has no `standardsProfile`
- * declared, the wrapper STILL calls the legacy Claude Code writer
- * (so the user gets the files they would have gotten before slice #011)
- * and emits a stderr warning with the IDE id and the fact that the
- * adapter is UNVERIFIED for the standards profile. This keeps the
- * "Trae is UNVERIFIED, ship a working file tree, surface the gap"
- * contract intact.
+ * declared, the wrapper writes the DEFAULT shape — the shared body plus the
+ * pointer that imports it — and emits a stderr warning naming the IDE and
+ * the fact that its standards profile is undeclared.
  */
-import type { IdeId } from '../ide/ide-types.js';
+import type { IdeId, IdeStandardsProfile } from '../ide/ide-types.js';
 import { detectAllResourceTargets, getStandardsProfile } from '../ide/resource-profile.js';
 import {
   type ProjectStandardsInitOptions,
@@ -38,6 +34,7 @@ import {
   executeProjectStandardsInit,
   executeProjectStandardsUpdate
 } from './project-standards-service.js';
+import { DEFAULT_CONSTITUTION, type StandardsConstitution } from './standards-constitution.js';
 import { detectInstalledIde } from '../ide/ide-detector.js';
 
 export type { ProjectStandardsInitResult, ProjectStandardsUpdateResult };
@@ -56,19 +53,43 @@ export type ProjectStandardsUpdateIdeAwareOptions = ProjectStandardsInitOptions 
   readonly ideId?: IdeId;
 };
 
+/**
+ * The constitution shape an IDE's standards profile implies.
+ *
+ * THE RULE. `IdeStandardsProfile.rootFile` names the file the IDE reads as
+ * its project instructions:
+ *   - `AGENTS.md` → the IDE reads the shared body directly, so NO pointer
+ *     file is emitted.
+ *   - `CLAUDE.md` → the IDE reads its own file, so a pointer that imports
+ *     the body is emitted beside it.
+ *   - `null` (or any other name) → the IDE has no equivalent of the body,
+ *     so only the body is emitted.
+ *
+ * A profile the registry does not declare falls back to the default shape —
+ * body plus pointer — because that is the shape that covers EVERY reader:
+ * the body for the AGENTS-native tools, the pointer for Claude Code.
+ */
+export function resolveStandardsConstitution(
+  profile: IdeStandardsProfile | null
+): StandardsConstitution {
+  if (profile === null) return DEFAULT_CONSTITUTION;
+  if (profile.rootFile === 'CLAUDE.md') return DEFAULT_CONSTITUTION;
+  return { bodyFile: DEFAULT_CONSTITUTION.bodyFile, pointerFile: null };
+}
+
 function warnUnregisteredIde(ideId: IdeId, projectRoot: string): void {
   process.stderr.write(
     `peaks standards: IDE '${ideId}' has no standardsProfile declared; ` +
-      `falling back to the legacy Claude Code path (CLAUDE.md + .claude/rules/**) ` +
-      `for project '${projectRoot}'. This is a slice #011 follow-up gap; ` +
-      `see .peaks/memory/ide-adapter-resource-profile-framework.md.\n`
+      `writing the default cross-tool constitution (AGENTS.md + the CLAUDE.md pointer that imports it) ` +
+      `for project '${projectRoot}'. ` +
+      `See .peaks/memory/ide-adapter-resource-profile-framework.md.\n`
   );
 }
 
 function warnNoIdeDetected(projectRoot: string): void {
   process.stderr.write(
     `peaks standards: no IDE detected in '${projectRoot}'; ` +
-      `writing to the 2.0 canonical path (CLAUDE.md + .peaks/standards/**). ` +
+      `writing the 2.0 canonical layout (AGENTS.md + the CLAUDE.md pointer that imports it + .peaks/standards/**). ` +
       `Projects with a legacy 1.x thick .claude/rules/ tree keep that layout ` +
       `(use \`peaks standards migrate --from-claude-rules\` to converge to 2.0). ` +
       `Pass --ide <id> to bypass detection.\n`
@@ -79,7 +100,7 @@ function warnNoIdeDetected(projectRoot: string): void {
  * Resolve the active IDE id for a standards call. Order of precedence:
  *   1. explicit `options.ideId`
  *   2. `IdeRegistry.detect()` from `options.projectRoot`
- *   3. `null` (no detected IDE — caller falls back to legacy)
+ *   3. `null` (no detected IDE — caller falls back to the default shape)
  */
 export function resolveStandardsIdeId(options: {
   readonly projectRoot: string;
@@ -94,12 +115,8 @@ export function resolveStandardsIdeId(options: {
 /**
  * Run `peaks standards init` with IDE-aware dispatch.
  *
- * When the resolved IDE has a `standardsProfile`, the call still
- * delegates to the existing `executeProjectStandardsInit` (the
- * profile maps to the Claude Code path; future per-IDE writers
- * plug in here). When the IDE is unregistered for the standards
- * profile, the call delegates to the legacy path + emits a stderr
- * warning.
+ * The resolved IDE's `standardsProfile.rootFile` decides whether the writer
+ * emits the pointer file beside the shared body.
  */
 export function executeProjectStandardsInitIdeAware(
   options: ProjectStandardsIdeAwareOptions
@@ -114,10 +131,10 @@ export function executeProjectStandardsInitIdeAware(
     warnUnregisteredIde(ideId, options.projectRoot);
     return executeProjectStandardsInit(options);
   }
-  // Claude Code path: profile matches the legacy writer. Future per-IDE
-  // writers (markdown+frontmatter, multiple rule roots, etc.) plug in
-  // here by branching on `profile.format` / `profile.rulesDir`.
-  return executeProjectStandardsInit(options);
+  return executeProjectStandardsInit({
+    ...options,
+    constitution: resolveStandardsConstitution(profile)
+  });
 }
 
 /**
@@ -138,13 +155,17 @@ export function executeProjectStandardsUpdateIdeAware(
     warnUnregisteredIde(ideId, options.projectRoot);
     return executeProjectStandardsUpdate(options);
   }
-  return executeProjectStandardsUpdate(options);
+  return executeProjectStandardsUpdate({
+    ...options,
+    constitution: resolveStandardsConstitution(profile)
+  });
 }
 
 /**
  * Test seam + integration-test helper: returns the resolved IDE id
- * for the call, plus the active standards profile. Exported for
- * to assert the dispatch decision without running the full write.
+ * for the call, plus the active standards profile and the constitution
+ * shape that profile implies. Exported for callers that need to assert the
+ * dispatch decision without running the full write.
  */
 export function inspectStandardsDispatch(options: {
   readonly projectRoot: string;
@@ -152,12 +173,14 @@ export function inspectStandardsDispatch(options: {
 }): {
   readonly ideId: IdeId | null;
   readonly profile: ReturnType<typeof getStandardsProfile>;
+  readonly constitution: StandardsConstitution;
 } {
   const ideId = resolveStandardsIdeId(options);
   if (ideId === null) {
-    return { ideId: null, profile: null };
+    return { ideId: null, profile: null, constitution: DEFAULT_CONSTITUTION };
   }
-  return { ideId, profile: getStandardsProfile(ideId) };
+  const profile = getStandardsProfile(ideId);
+  return { ideId, profile, constitution: resolveStandardsConstitution(profile) };
 }
 
 /**

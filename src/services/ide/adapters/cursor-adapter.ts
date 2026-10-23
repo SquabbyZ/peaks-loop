@@ -73,13 +73,29 @@ export const CURSOR_ADAPTER: IdeAdapter = {
     // that can host peaks statusline output, so opt in to the capability.
     statusline: true
   },
-  // Standards: UNVERIFIED — see slice #012+ (Cursor real-install dogfood for
-  // the `standardsProfile` and `skillInstall` fields). Until then, `peaks
-  // standards init` on a Cursor-detected project falls back to the Claude
-  // Code path (CLAUDE.md + .claude/rules/**) with a stderr warning, and the
-  // postinstall script writes skills + output-styles to the legacy
-  // `~/.claude/{skills,output-styles}` paths with a stderr warning. Users
-  // who want Cursor-specific paths must move the files manually.
+  // Standards profile: Cursor reads `AGENTS.md` natively — it is one of the
+  // tools the AGENTS.md standard (OpenAI's AGENTS.md, now under the Linux
+  // Foundation's Agentic AI Foundation) is adopted by. So the shared
+  // cross-tool body IS Cursor's project-instructions file, and no CLAUDE.md
+  // pointer is needed next to it.
+  //
+  // `rulesDir` stays `null`: where Cursor looks for MODULE-level rules is
+  // still unverified (see slice #012+ for the real-install dogfood), so the
+  // profile claims only the root file.
+  standardsProfile: {
+    rootFile: 'AGENTS.md',
+    rulesDir: null,
+    rulesFileGlob: '**/*.md',
+    autoLoaded: true,
+    format: 'markdown',
+    migrationHint: 'Cursor reads AGENTS.md directly; no CLAUDE.md pointer is written.'
+  },
+  // Standards: the ROOT file is verified above (AGENTS.md); the `rulesDir`
+  // and `skillInstall` fields remain UNVERIFIED pending slice #012+
+  // (Cursor real-install dogfood). Until then the postinstall script writes
+  // skills + output-styles to the legacy `~/.claude/{skills,output-styles}`
+  // paths with a stderr warning. Users who want Cursor-specific paths must
+  // move the files manually.
   // Slice 4.0.8 RD §5: Cursor vendor signal is unverified; reserve-only resolver.
   resolveCallerId: (env?: NodeJS.ProcessEnv): string => {
     const e = env ?? process.env;

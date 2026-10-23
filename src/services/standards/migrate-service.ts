@@ -1,6 +1,28 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 
+import { PRESENCE_CONTRACT_TEXT } from './standards-render-common.js';
+
+/**
+ * The constitution files a legacy block can live in, newest layout first.
+ *
+ * `AGENTS.md` carries the body today. `CLAUDE.md` is still checked because a
+ * 1.x-era consumer tree has only that one — migrating it is the whole point
+ * of this command.
+ */
+const CONSTITUTION_CANDIDATES = ['AGENTS.md', 'CLAUDE.md'] as const;
+
+/**
+ * The file to migrate: the first constitution file that exists, or `null`.
+ */
+function resolveMigrationTarget(projectRoot: string): string | null {
+  for (const name of CONSTITUTION_CANDIDATES) {
+    const path = resolve(projectRoot, name);
+    if (existsSync(path)) return path;
+  }
+  return null;
+}
+
 /**
  * project's `CLAUDE.md` to drop the legacy heartbeat block.
  *
@@ -30,8 +52,7 @@ import { isAbsolute, resolve } from 'node:path';
  *   - Legacy block not present → `foundOldBlock: false`, no write.
  */
 
-export const NEW_TEMPLATE_TEXT =
-  'Active Peaks-Loop skill presence: at the start of every response, run `peaks skill presence --json` to read the active skill marker. The CLI handles canonical-path resolution (`.peaks/_runtime/active-skill.json` with back-compat fallback to `.peaks/.active-skill.json`); do not read those files directly. When the response includes a valid skill name, display the compact status header: `Peaks-Loop Skill: <skill> | Peaks-Loop Gate: <gate> | Next: <one short action>`. Display the header on every turn while the CLI returns an active skill; omit when the CLI returns no active skill.';
+export const NEW_TEMPLATE_TEXT = PRESENCE_CONTRACT_TEXT;
 
 const LEGACY_BLOCK_OPENER_LINE = 'Peaks-Loop 心跳检测 (heartbeat check)';
 const LEGACY_BLOCK_CLOSER =
@@ -136,11 +157,11 @@ export function rewriteLegacyBlock(
 export function migrateStandards(input: MigrateStandardsInput): MigrateStandardsResult {
   const project = input.project;
   const projectRoot = isAbsolute(project) ? project : resolve(project);
-  const filePath = resolve(projectRoot, 'CLAUDE.md');
+  const filePath = resolveMigrationTarget(projectRoot);
   const apply = input.apply === true;
   const dryRun = input.dryRun === true || apply === false;
 
-  if (!existsSync(filePath)) {
+  if (filePath === null) {
     return {
       ok: true,
       data: {
@@ -150,7 +171,7 @@ export function migrateStandards(input: MigrateStandardsInput): MigrateStandards
         applied: false,
         before: null,
         after: null,
-        nextActions: ['CLAUDE.md does not exist; nothing to migrate']
+        nextActions: ['AGENTS.md does not exist; nothing to migrate']
       },
       warnings: []
     };
@@ -170,7 +191,7 @@ export function migrateStandards(input: MigrateStandardsInput): MigrateStandards
           applied: false,
           before: { lines: original.split('\n').length },
           after: null,
-          nextActions: ['CLAUDE.md is already up to date']
+          nextActions: ['AGENTS.md is already up to date']
         },
         warnings: []
       };
@@ -184,7 +205,7 @@ export function migrateStandards(input: MigrateStandardsInput): MigrateStandards
         applied: false,
         before: { lines: original.split('\n').length },
         after: null,
-        nextActions: ['CLAUDE.md has no peaks-loop block; nothing to migrate']
+        nextActions: ['AGENTS.md has no peaks-loop block; nothing to migrate']
       },
       warnings: []
     };
@@ -211,7 +232,7 @@ export function migrateStandards(input: MigrateStandardsInput): MigrateStandards
   }
 
   writeFileSync(filePath, rewritten, 'utf8');
-  nextActions.push('CLAUDE.md rewritten; no further action required');
+  nextActions.push('AGENTS.md rewritten; no further action required');
   return {
     ok: true,
     data: {

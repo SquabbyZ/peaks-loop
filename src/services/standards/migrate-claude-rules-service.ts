@@ -23,6 +23,10 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
+import { detectLanguage } from './project-standards-service.js';
+import { detectProjectScripts } from './project-scripts.js';
+import { DEFAULT_CONSTITUTION, scaffoldConstitutionFiles } from './standards-constitution.js';
+
 export interface MigrateClaudeRulesInput {
   readonly projectRoot: string;
   readonly apply?: boolean;
@@ -32,6 +36,12 @@ export interface MigrateClaudeRulesData {
   readonly backupPath: string | null;
   readonly thinnedFiles: readonly string[];
   readonly scaffoldedFiles: readonly string[];
+  /**
+   * The constitution files this migration created — `AGENTS.md` (the shared
+   * cross-tool body) and the `CLAUDE.md` pointer that imports it. A file
+   * that already existed is never overwritten.
+   */
+  readonly scaffoldedConstitutionFiles: readonly string[];
   readonly preservedFiles: readonly string[];
   readonly wouldChange: boolean;
   readonly applied: boolean;
@@ -164,6 +174,7 @@ export function migrateClaudeRules(input: MigrateClaudeRulesInput): MigrateClaud
   const thinnedFiles: string[] = [];
   const scaffoldedFiles: string[] = [];
   const preservedFiles: string[] = [];
+  const scaffoldedConstitutionFiles: string[] = [];
   // wouldChange is true iff there is at least one thick file to
   // thin. An empty .claude/rules/ is NOT a wouldChange (no-op).
   const wouldChange = hasThickFiles;
@@ -220,6 +231,18 @@ export function migrateClaudeRules(input: MigrateClaudeRulesInput): MigrateClaud
         );
       }
     }
+    // Step 4: scaffold the constitution — `AGENTS.md` (the shared
+    // cross-tool body) and the `CLAUDE.md` pointer that imports it.
+    // Existing files are never overwritten.
+    scaffoldedConstitutionFiles.push(
+      ...scaffoldConstitutionFiles({
+        projectRoot,
+        constitution: DEFAULT_CONSTITUTION,
+        language: detectLanguage(projectRoot),
+        scripts: detectProjectScripts(projectRoot),
+        rulesRoot: canonicalRelPath.replace(/\/$/, '')
+      })
+    );
   }
 
   if (thinnedFiles.length > 0) {
@@ -230,6 +253,11 @@ export function migrateClaudeRules(input: MigrateClaudeRulesInput): MigrateClaud
   if (scaffoldedFiles.length > 0) {
     nextActions.push(
       `Scaffolded ${scaffoldedFiles.length} 2.0 canonical rule(s) at .peaks/standards/.`
+    );
+  }
+  if (scaffoldedConstitutionFiles.length > 0) {
+    nextActions.push(
+      `Scaffolded constitution file(s): ${scaffoldedConstitutionFiles.join(', ')} (AGENTS.md carries the body; CLAUDE.md imports it).`
     );
   }
   if (preservedFiles.length > 0) {
@@ -250,6 +278,7 @@ export function migrateClaudeRules(input: MigrateClaudeRulesInput): MigrateClaud
       backupPath,
       thinnedFiles,
       scaffoldedFiles,
+      scaffoldedConstitutionFiles,
       preservedFiles,
       wouldChange,
       applied: apply && hasThickFiles,
