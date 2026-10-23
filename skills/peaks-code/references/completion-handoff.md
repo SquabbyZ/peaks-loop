@@ -4,7 +4,7 @@
 
 After final validation, refresh project-local standards via `peaks standards init/update` (never hand-write). Merge scan-backed changes incrementally; preserve hand-maintained content unless user confirms deletion.
 
-Use Peaks-Loop TXT for the compact handoff capsule: mode, validated decisions, artifact paths, standards deltas (`CLAUDE.md` and `.claude/rules/**` statuses), open questions, next action. Do not restate the full workflow log.
+Use Peaks-Loop TXT for the compact handoff capsule: mode, validated decisions, artifact paths, standards deltas (the `AGENTS.md` body, the optional `CLAUDE.md` pointer, and the rules-tree file statuses under `.peaks/standards/**` or `.claude/rules/**`), open questions, next action. Do not restate the full workflow log.
 
 ## Workflow completion (no auto-exit)
 

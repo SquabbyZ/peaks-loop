@@ -148,7 +148,7 @@ ls .peaks/_runtime/<sessionId>/qa/requests/<rid>.md
 find .peaks/_runtime/<sessionId>/ -type f | sort
 # Verify: files from gates A-D all appear in this list.
 # Any mandatory file missing → NOT complete. Do not emit TXT.
-# Peaks-Loop Gate G (CLAUDE.md + .claude/rules/**) must ALSO pass before TXT is emitted.
+# Peaks-Loop Gate G (standards bundle — AGENTS.md body + rules tree) must ALSO pass before TXT is emitted.
 ```
 
 **Peaks-Loop Gate F — Root pollution check (BLOCKING before completion):**
@@ -170,18 +170,44 @@ find . -maxdepth 1 -name "*.png" -o -name "*.jpg" -o -name "qa-*.js" -o -name "m
 
 **Peaks-Loop Gate G — Project standards present (BLOCKING before workflow completion):**
 ```bash
-# After `peaks standards init/update --apply`, verify the files actually landed
-# at the project root. The CLAUDE.md and rules files are required so that
-# subsequent peaks-rd / peaks-qa / peaks-code runs perform the project-local
-# preflight described in CLAUDE.md (read coding-style.md, code-review.md, security.md).
-ls <repo>/CLAUDE.md
+# After `peaks standards init/update --apply`, verify the files actually landed.
+# The file set is decided by the CLI — never hard-code a rules path here:
+peaks standards init --project <repo> --dry-run --json
+# → data.plannedWrites[] = [{ relativePath, status }, ...]
+#   init reports TWO states: planned (absent → will be created) | existing (present on
+#     disk — init does not compare content, so a stale file still reads 'existing').
+#   The four-state view of the body file comes from
+#     `peaks standards update --project <repo> --dry-run --json`:
+#     planned | appended (managed block missing) | existing
+#     (managed block matches) | review (managed block differs → a human decides; that
+#     command exits 1 with code STANDARDS_UPDATE_REVIEW_REQUIRED). The four states cover
+#     AGENTS.md and, when the IDE profile writes one, CLAUDE.md; rules-tree files are
+#     planned | existing in both commands.
+# → data.skippedFiles[] = the entries already present on disk
+#
+# The bundle has three parts, and only the first has a fixed name:
+#   BODY    = AGENTS.md — always written, in every layout.
+#   POINTER = CLAUDE.md — written ONLY when the IDE profile needs it; a profile that reads
+#     AGENTS.md directly (e.g. `--ide codex`) writes no pointer at all, so its ABSENCE
+#     from plannedWrites is NOT a failure and must not be reported as BLOCKED.
+#   RULES   = the rules tree under .peaks/standards/** (2.0 canonical layout) or
+#     .claude/rules/** (legacy 1.x project still carrying a thick .claude/rules/ tree).
+#     The relativePaths in plannedWrites tell you which one this project uses.
+#
+# Verify the body landed:
+ls <repo>/AGENTS.md
 # "No such file" → BLOCKED. Run `peaks standards init --project <repo> --apply --json`
 # (first time) or `peaks standards update --project <repo> --apply --json` (existing).
-ls <repo>/.claude/rules/common/coding-style.md \
-   <repo>/.claude/rules/common/code-review.md \
-   <repo>/.claude/rules/common/security.md
-# Any "No such file" → BLOCKED. The standards apply step did not complete; re-run
-# standards init/update with --apply and re-verify.
+#
+# Judge the result from the JSON, not from a hard-coded path list:
+#   BLOCKED when plannedWrites is empty, or when any entry has status 'planned'
+#     (that required standards file is absent).
+#   PASS otherwise. `init` never reports 'appended' / 'review' — when the update
+#   dry-run does, report each one as a follow-up:
+#     'appended' → `peaks standards update --project <repo> --apply` adds the managed block;
+#     'review'  → the managed block differs; a human decides (see `peaks standards update`).
+#
+# Any 'planned' entry → BLOCKED. Re-run standards init/update with --apply and re-verify.
 # Skipping Peaks-Loop Gate G (e.g. because the user did not explicitly authorize writes) is
 # only acceptable in `assisted`/`strict` modes where the user actively declined; in
 # `full-auto`/`24h` the absence of these files is a workflow violation.

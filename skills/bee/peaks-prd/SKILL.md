@@ -308,7 +308,7 @@ PRD must not mark the product artifact ready for RD if the frontend change point
 
 ## Standards dry-run coordination
 
-For code repository workflows, PRD may run or consume `peaks standards init --project <path> --dry-run` and `peaks standards update --project <path> --dry-run` so downstream scope can reference the expected `CLAUDE.md` and `.claude/rules/**` standards state. PRD records this as preflight status only. RD remains responsible for applying standards mutations when authorized.
+For code repository workflows, PRD may run or consume `peaks standards init --project <path> --dry-run` and `peaks standards update --project <path> --dry-run` so downstream scope can reference the expected standards state — the `AGENTS.md` body, the optional `CLAUDE.md` pointer (written only when the IDE profile needs it), and the rules tree under `.peaks/standards/**` (2.0 canonical layout) or `.claude/rules/**` (legacy 1.x project). PRD records this as preflight status only. RD remains responsible for applying standards mutations when authorized.
 
 ## Matt Pocock skills integration
 

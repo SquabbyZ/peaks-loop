@@ -131,7 +131,7 @@ Closes #<NNNNN>
 ```
 
 - **Author identity** = local gitconfig `user.name` / `user.email`. Must NOT be overridden to an AI name.
-- **No** `Co-Authored-By: Claude / Anthropic / MiniMax` trailer — CLAUDE.md red rule.
+- **No** `Co-Authored-By: Claude / Anthropic / MiniMax` trailer — AGENTS.md red rule (the repo's root constitution file; `CLAUDE.md` is only the `@AGENTS.md` pointer).
 - Tests: if the touched area has a test, run it before commit; if not, add one. Capture test output in the per-issue PR body.
 
 ### 6. Relocate commits to per-issue branches
@@ -304,7 +304,7 @@ What this skill MUST NOT do:
 - **Edit upstream history** (no interactive rebase, no `git filter-branch`, no commit signing on someone else's behalf).
 - **Write to security-critical paths** (OAuth, secrets, agent loop, model router, prompt cache — see RL-2).
 - **Change the user identity** in git (no `git config user.name "Claude"`, no `git -c user.email=...` override).
-- **Add `Co-Authored-By: <AI>` trailers** — CLAUDE.md red rule.
+- **Add `Co-Authored-By: <AI>` trailers** — AGENTS.md red rule (the repo's root constitution file; `CLAUDE.md` is only the `@AGENTS.md` pointer).
 - **Hand-author JSON or SKILL.md on the user's behalf** when the user is just describing a target.
 - **Create a `loop_release` / `bee_release` / `crystallization_event`** in peaks-loop's own SkillHub (this is a non-crystallizing orchestrator; see "Loop Engineering role").
 

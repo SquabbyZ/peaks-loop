@@ -38,13 +38,57 @@ ls <every-single-directory-path-in-tech-doc> 2>&1 | grep -c "No such file"
 # breaks the implementation, and forces the user to correct the engineer.
 ```
 
-**Peaks-Loop Gate A3 — Before implementation: project standards files exist (CLAUDE.md + .claude/rules/):**
+**Peaks-Loop Gate A3 — Before implementation: the project's standards files are in place:**
+
+The standards bundle has three parts, and only the first has a fixed name:
+
+- `AGENTS.md` — the **body** (the cross-tool constitution). Always written, in every layout.
+- `CLAUDE.md` — the **pointer** (`@AGENTS.md`). Written ONLY when the IDE profile needs it.
+  A profile that reads `AGENTS.md` directly (e.g. `--ide codex`) writes no pointer at all,
+  so its absence is NOT a failure.
+- the **rules tree** — `.peaks/standards/**` for the 2.0 canonical layout, `.claude/rules/**`
+  for a legacy 1.x project that still carries a thick `.claude/rules/` tree.
+
+Never hard-code a path in this gate: ask the CLI which files this project actually uses.
+
 ```bash
-ls CLAUDE.md .claude/rules/common/coding-style.md .claude/rules/common/code-review.md .claude/rules/common/security.md 2>&1 | grep -c "No such file"
-# Expected: 0 (all four files exist)
-# Any missing → BLOCKED. Run `peaks standards init --project .` to generate them FIRST.
+# 1) The CLI decides the file set. Never hard-code a rules path here.
+peaks standards init --project . --dry-run --json
+# → data.plannedWrites[] = [{ relativePath, status }, ...]
+#   init reports TWO states: planned (absent → will be created) | existing (present on
+#     disk — init does not compare content, so a stale file still reads 'existing').
+#   The four-state view of the body file comes from
+#     `peaks standards update --project . --dry-run --json`:
+#     planned | appended (managed block missing) | existing (managed
+#     block matches) | review (managed block differs → a human decides; that command exits
+#     1 with code STANDARDS_UPDATE_REVIEW_REQUIRED). The four states cover AGENTS.md and,
+#     when the IDE profile writes one, CLAUDE.md; rules-tree files are planned | existing
+#     in both commands.
+# → data.skippedFiles[] = the entries already present on disk
+#
+# 2) The body file is invariant — it is in plannedWrites in every layout. Verify it landed:
+ls AGENTS.md
+# "No such file" → BLOCKED
+#
+# 3) Judge the rest from the JSON, not from a hard-coded path list:
+#    BLOCKED when plannedWrites is empty, or when any entry has status 'planned'
+#    (that required standards file is absent).
+#    PASS otherwise. `init` never reports 'appended' / 'review' — when the update
+#    dry-run does, report each one as a follow-up:
+#    'appended' → `peaks standards update --project . --apply` adds the managed block;
+#    'review'  → the managed block differs; a human decides (see `peaks standards update`).
+#
+# The layout is read off the paths themselves:
+#    .peaks/standards/** → 2.0 canonical layout
+#    .claude/rules/**    → legacy 1.x layout
+# CLAUDE.md is listed only when the IDE profile needs a pointer — its ABSENCE from
+# plannedWrites is NOT a failure and must not be reported as BLOCKED.
+#
+# Any 'planned' entry → BLOCKED. Run `peaks standards init --project . --apply` (first
+# time) or `peaks standards update --project . --apply` (existing) FIRST, then re-run the
+# dry-run until no entry is 'planned'.
 # Do not write a single line of implementation code without standards files in place.
-# Without CLAUDE.md and .claude/rules/, code review and security review triggers won't fire.
+# Without the standards body + rules tree, code review and security review triggers won't fire.
 ```
 
 **Peaks-Loop Gate B — Before QA handoff:**

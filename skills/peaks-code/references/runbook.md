@@ -37,10 +37,10 @@ peaks scan existing-system --project <repo> --json
 
 # 1. Peaks-Loop Standards preflight + apply
 #    Run dry-run first to inspect deltas, then APPLY. In full-auto and 24h modes,
-#    --apply is the default — Standards files (CLAUDE.md, .claude/rules/**) live INSIDE
-#    the target project and are required for downstream skill preflight, so producing
-#    them is part of completing the workflow. Assisted/Strict modes pause for [CONFIRM]
-#    between dry-run and apply (AskUserQuestion → re-run with --confirm; no terminal prompt).
+#    --apply is the default — Standards files (AGENTS.md body, optional CLAUDE.md pointer,
+#    rules tree under .peaks/standards/** or .claude/rules/**) live INSIDE the target
+#    project and are required for downstream skill preflight, so producing them is part of
+#    completing the workflow. Assisted/Strict modes pause for [CONFIRM] between dry-run and apply (AskUserQuestion → re-run with --confirm; no terminal prompt).
 peaks standards init   --project <repo> --dry-run --json
 # or: peaks standards update --project <repo> --dry-run --json
 peaks standards init   --project <repo> --apply --json

@@ -154,7 +154,7 @@ Gate index: A (test-cases), A2 (tests executed), A3 (security reference — v2.1
 
 ## Project standards preflight
 
-Before QA verification in a code repository, call `peaks standards init --project <path> --dry-run` and `peaks standards update --project <path> --dry-run`. Apply only when write authorization exists.
+Before QA verification in a code repository, call `peaks standards init --project <path> --dry-run` and `peaks standards update --project <path> --dry-run` — the bundle is the `AGENTS.md` body, the optional `CLAUDE.md` pointer (written only when the IDE profile needs it), and the rules tree under `.peaks/standards/**` or `.claude/rules/**`. Apply only when write authorization exists.
 
 → see `references/qa-standards-preflight.md` for the full preflight contract.
 

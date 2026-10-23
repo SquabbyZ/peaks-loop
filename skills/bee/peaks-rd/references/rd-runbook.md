@@ -161,8 +161,17 @@ peaks codegraph affected --project <repo> <changed-files...> --json
 #     → `peaks request transition --state qa-handoff` returns `code: PREREQUISITES_MISSING`.
 #     Escape hatch (assisted mode): `--allow-incomplete --confirm`.
 
-# 6.6 BEFORE implementation: verify CLAUDE.md + .claude/rules/ exist (Peaks-Loop Gate A3)
-#     Missing standards files → run `peaks standards init --project .` first
+# 6.6 BEFORE implementation: verify the standards files are in place (Peaks-Loop Gate A3)
+#     The file set is decided by the CLI — never hard-code it:
+#     peaks standards init --project . --dry-run --json
+#     → data.plannedWrites[] = [{relativePath, status}]; status 'planned' = that file is absent.
+#     BODY    = AGENTS.md (always written).
+#     POINTER = CLAUDE.md (written only when the IDE profile needs it; its absence from
+#              plannedWrites is NOT a failure).
+#     RULES   = .peaks/standards/** (2.0 canonical) or .claude/rules/** (legacy 1.x project).
+#     BLOCKED when plannedWrites is empty or any status is 'planned'.
+#     Missing standards files → run `peaks standards init --project . --apply` (first time)
+#     or `peaks standards update --project . --apply` (existing) first, then re-check.
 #     Without project rules, security review and code review triggers won't fire.
 
 # 7. AFTER implementation, BEFORE QA handoff — RUN THESE GATES:
