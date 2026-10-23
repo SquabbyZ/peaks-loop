@@ -7,8 +7,11 @@
 // canonical store (`~/.peaks/skills/peaks-code/references/fast-lane-norm.md`)
 // and is absent at an existing IDE skill root. The check must name it, warn
 // (never block), and point at the LLM-run repair instead of a typed CLI verb.
-// It must also stay silent for identical trees and for a fresh host with no
-// canonical store, and it must never write.
+//
+// IT ALWAYS EMITS A ROW. Identical trees produce a GREEN
+// `skills:reference-parity:store` row (the comparison ran and found nothing);
+// the SAME id goes RED when the store could not be compared at all — absent,
+// or present but not a readable directory. It must never write.
 //
 // The comparator is injected with temp roots in every case, so this file
 // never reads or writes the real home directory.
@@ -142,13 +145,33 @@ describe('(render) skill-reference-parity output shape', () => {
     expect(check.message.length).toBeGreaterThan(0);
   });
 
-  it('emits skills:reference-parity:store when the canonical store is absent', () => {
+  it('the clean row id goes red when the canonical store is absent (control arm)', () => {
     const missingStore = join(makeTempRoot('render-store'), 'skills');
     const check = only(compareSkillReferenceParity(missingStore, []));
 
     expect(check.id).toBe('skills:reference-parity:store');
-    expect(check.ok).toBe(true);
-    expect(check.severity).toBeUndefined();
+    expect(check.ok).toBe(false);
+    expect(check.severity).toBe('warning');
+    expect(check.message).toContain(missingStore);
+    expect(check.message).toContain('were not compared');
+  });
+
+  it('emits one green skills:reference-parity:store row when the trees are in parity', () => {
+    // given: a canonical store and an IDE root holding the same file set
+    // when: the comparison runs
+    // then: exactly ONE row is emitted, it carries the store id, and it is ok
+    const canonical = makeTempRoot('render-clean-canonical');
+    const ide = makeTempRoot('render-clean-ide');
+    writeFile(canonical, 'peaks-code/SKILL.md');
+    writeFile(ide, 'peaks-code/SKILL.md');
+
+    const checks = compareSkillReferenceParity(canonical, [{ ide: IDE, skillsDir: ide }]);
+
+    expect(checks).toHaveLength(1);
+    expect(checks[0]?.id).toBe('skills:reference-parity:store');
+    expect(checks[0]?.ok).toBe(true);
+    expect(checks[0]?.severity).toBeUndefined();
+    expect(checks[0]?.message).toContain('in parity');
   });
 
   it('is registered in the doctor plugin list, at the end of the skill group', () => {
@@ -212,7 +235,7 @@ describe('(behavior) skill-reference-parity verdicts', () => {
     expect(check.message).not.toContain('missing:');
   });
 
-  it('passes silently when both trees hold the same files', () => {
+  it('reports clean when both trees hold the same files', () => {
     const canonical = makeTempRoot('behavior-equal-canonical');
     const ide = makeTempRoot('behavior-equal-ide');
     for (const root of [canonical, ide]) {
@@ -220,19 +243,27 @@ describe('(behavior) skill-reference-parity verdicts', () => {
       writeFile(root, 'peaks-code/references/fast-lane-norm.md');
     }
 
-    expect(
+    const check = only(
       compareSkillReferenceParity(canonical, [{ ide: 'claude-code', skillsDir: ide }])
-    ).toEqual([]);
+    );
+
+    expect(check.id).toBe('skills:reference-parity:store');
+    expect(check.ok).toBe(true);
+    expect(check.message).toContain('in parity');
   });
 
-  it('skips an IDE root that does not exist', () => {
+  it('skips an IDE root that does not exist, and still says what it compared', () => {
     const canonical = makeTempRoot('behavior-absent-ide-canonical');
     writeFile(canonical, 'peaks-code/SKILL.md');
     const absent = join(makeTempRoot('behavior-absent-ide'), 'never-created');
 
-    expect(compareSkillReferenceParity(canonical, [{ ide: 'trae', skillsDir: absent }])).toEqual(
-      []
+    const check = only(
+      compareSkillReferenceParity(canonical, [{ ide: 'trae', skillsDir: absent }])
     );
+
+    expect(check.id).toBe('skills:reference-parity:store');
+    expect(check.ok).toBe(true);
+    expect(check.message).toContain('nothing to compare');
   });
 
   it('ignores .peaks-managed and .peaks-tmp- names at the root and inside a skill tree', () => {
@@ -246,12 +277,15 @@ describe('(behavior) skill-reference-parity verdicts', () => {
       writeFile(root, '.peaks-tmp-store-scratch');
     }
 
-    expect(
+    const check = only(
       compareSkillReferenceParity(canonical, [{ ide: 'claude-code', skillsDir: ide }])
-    ).toEqual([]);
+    );
+
+    expect(check.id).toBe('skills:reference-parity:store');
+    expect(check.ok).toBe(true);
   });
 
-  it('warns when the canonical store path exists but is not a directory', () => {
+  it('the clean row id goes red when the store is malformed (control arm)', () => {
     const store = join(makeTempRoot('behavior-store-file'), 'skills');
     writeFileSync(store, 'not a directory\n', 'utf8');
 
@@ -262,6 +296,7 @@ describe('(behavior) skill-reference-parity verdicts', () => {
     expect(check.severity).toBe('warning');
     expect(check.message).toContain(store);
     expect(check.message).toContain('is not a directory');
+    expect(check.message).toContain('were not compared');
   });
 
   it('leaves a user-authored skill that exists only on the IDE side alone', () => {
@@ -271,9 +306,12 @@ describe('(behavior) skill-reference-parity verdicts', () => {
     writeFile(ide, 'peaks-code/SKILL.md');
     writeFile(ide, 'user-skill/SKILL.md');
 
-    expect(
+    const check = only(
       compareSkillReferenceParity(canonical, [{ ide: 'claude-code', skillsDir: ide }])
-    ).toEqual([]);
+    );
+
+    expect(check.id).toBe('skills:reference-parity:store');
+    expect(check.ok).toBe(true);
   });
 
   it('normalises every emitted id into the doctor-report schema alphabet', () => {
@@ -311,9 +349,12 @@ describe('(integration) skill-reference-parity against real temp trees', () => {
       process.platform === 'win32' ? 'junction' : 'dir'
     );
 
-    expect(
+    const check = only(
       compareSkillReferenceParity(canonical, [{ ide: 'claude-code', skillsDir: ide }])
-    ).toEqual([]);
+    );
+
+    expect(check.id).toBe('skills:reference-parity:store');
+    expect(check.ok).toBe(true);
   });
 
   it('never writes: both trees hold the same names after a diverged run', () => {
@@ -343,9 +384,11 @@ describe('(integration) skill-reference-parity against real temp trees', () => {
 
     // Without the visited set the canonical tree grows loop/SKILL.md,
     // loop/loop/SKILL.md, … and every one is reported missing.
-    expect(
+    const check = only(
       compareSkillReferenceParity(canonical, [{ ide: 'claude-code', skillsDir: ide }])
-    ).toEqual([]);
+    );
+
+    expect(check.ok).toBe(true);
   });
 
   it('the plugin wrapper compares the injected roots instead of the real home', () => {

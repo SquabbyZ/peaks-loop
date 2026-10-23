@@ -11,6 +11,12 @@
  * repairs, rewrites, or deletes. A mismatch is a warning — a skill missing one
  * reference still runs — and the message names the LLM-run repair.
  *
+ * IT ALWAYS EMITS A ROW. A check that stays silent when it finds nothing
+ * cannot be told apart from one that never ran, so this one says "clean" out
+ * loud: `skills:reference-parity:store` with `ok: true` when every tree is in
+ * parity, or when there was nothing to compare. The SAME id goes red when
+ * the store could not be compared at all (absent or unreadable).
+ *
  * The canonical store is the anchor: only skills present under
  * `<PEAKS_HOME or ~/.peaks>/skills` are compared, so a user-authored skill that
  * exists only in an IDE root is not reported as drift.
@@ -189,61 +195,75 @@ function toCheck(issue: SkillParityIssue, canonicalRoot: string): DoctorCheck {
   };
 }
 
+/** The store-level RED row: one id and one severity for both failure arms. */
+function storeWarningRow(message: string): DoctorCheck {
+  return { id: 'skills:reference-parity:store', ok: false, severity: 'warning', message };
+}
+
 /**
- * Pure comparator. `canonicalRoot` is the canonical skills store
- * (`<PEAKS_HOME or ~/.peaks>/skills`); `ideRoots` are the IDE-side skills
- * directories to compare against it. Roots that do not exist are skipped, so
- * the wrapper may pass every adapter that declares `skillInstall`.
- *
- * Identical trees emit no check at all: the absence of a parity finding is the
- * pass, which keeps the doctor report exactly as long as its findings. A store
- * that exists but cannot be read is a warning, never silence.
+ * The store-level RED row when the canonical store cannot be compared, or null
+ * when it can: both failure arms share one id and one `severity: 'warning'`.
  */
-export function compareSkillReferenceParity(
+function storeFailureRow(canonicalRoot: string): DoctorCheck | null {
+  if (!existsSync(canonicalRoot)) {
+    return storeWarningRow(
+      `Canonical skill store not found at ${canonicalRoot}; IDE skill roots were not compared`
+    );
+  }
+  const problem = storeProblem(canonicalRoot);
+  if (problem === null) return null;
+  return storeWarningRow(
+    `Canonical skill store at ${canonicalRoot} ${problem}; IDE skill roots were not compared`
+  );
+}
+
+/** The divergence rows for every IDE skill root, or the GREEN store row. */
+function compareIdeSkillTrees(
   canonicalRoot: string,
   ideRoots: ReadonlyArray<{ ide: string; skillsDir: string }>
 ): DoctorCheck[] {
-  if (!existsSync(canonicalRoot)) {
-    return [
-      {
-        id: 'skills:reference-parity:store',
-        ok: true,
-        message: `Canonical skill store not found at ${canonicalRoot}; nothing to compare`
-      }
-    ];
-  }
-
-  const problem = storeProblem(canonicalRoot);
-  if (problem !== null) {
-    return [
-      {
-        id: 'skills:reference-parity:store',
-        ok: false,
-        severity: 'warning',
-        message: `Canonical skill store at ${canonicalRoot} ${problem}; IDE skill roots were not compared`
-      }
-    ];
-  }
-
   const canonicalSkills = new Map<string, Set<string>>();
   for (const skill of listSkillNames(canonicalRoot)) {
     canonicalSkills.set(skill, listRelativeFiles(join(canonicalRoot, skill)));
   }
 
   const checks: DoctorCheck[] = [];
+  let compared = 0;
   for (const { ide, skillsDir } of ideRoots) {
     if (!existsSync(skillsDir)) continue;
-    for (const skill of [...canonicalSkills.keys()].sort()) {
-      const issue = diffSkillTrees(
-        ide,
-        skill,
-        canonicalSkills.get(skill) ?? new Set<string>(),
-        listRelativeFiles(join(skillsDir, skill))
-      );
+    for (const [skill, files] of canonicalSkills) {
+      compared += 1;
+      const issue = diffSkillTrees(ide, skill, files, listRelativeFiles(join(skillsDir, skill)));
       if (issue !== null) checks.push(toCheck(issue, canonicalRoot));
     }
   }
-  return checks;
+  if (checks.length > 0) return checks;
+  const clean =
+    compared === 0
+      ? `No skill tree to compare with the canonical store at ${canonicalRoot}; nothing to compare`
+      : `Every IDE skill tree is in parity with the canonical store at ${canonicalRoot} (${compared} skill trees compared)`;
+  return [{ id: 'skills:reference-parity:store', ok: true, message: clean }];
+}
+
+/**
+ * Pure comparator. `canonicalRoot` is the canonical skills store
+ * (`<PEAKS_HOME or ~/.peaks>/skills`); `ideRoots` are the IDE-side skills
+ * directories to compare against it. Roots that do not exist are skipped, so
+ * the wrapper may pass every adapter that declares `skillInstall`.
+ *
+ * IT ALWAYS EMITS A ROW. The store-level row `skills:reference-parity:store`
+ * has FOUR outcomes: GREEN in parity (the comparison ran and every tree
+ * matched), GREEN with nothing to compare (no IDE skill root exists), RED
+ * when the store is absent, and RED when the store is not a readable
+ * directory. A diverging tree reports its own `<ide>:<skill>` row instead.
+ */
+export function compareSkillReferenceParity(
+  canonicalRoot: string,
+  ideRoots: ReadonlyArray<{ ide: string; skillsDir: string }>
+): DoctorCheck[] {
+  const failure = storeFailureRow(canonicalRoot);
+  if (failure !== null) return [failure];
+  return compareIdeSkillTrees(canonicalRoot, ideRoots);
 }
 
 function canonicalSkillsStore(): string {
