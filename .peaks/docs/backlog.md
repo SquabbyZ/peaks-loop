@@ -23,8 +23,9 @@
 > only the **top level** of `src/`, so **19 of 37 sources** are invisible to it — the §2.11 shape one
 > directory down, because a nested emit _is_ imported. It is **pre-existing** (`bef907a4`, 2026-07-30,
 > proven with `git log -S`), so it must not be attributed to §2.11. §2.13 is the root-`dist/` axis:
-> **two** files rather than the one an earlier pass claimed, and one of the two fails _without_ any
-> remediation text. Note also that three competent measurements of the same import count (190 / 192 / 195)
+> **two** files rather than the one an earlier pass claimed, and one of the two failed _without_ any
+> remediation text **— as that pass measured it on 2026-09-24, before §2.13's 2026-10-19 fix; the failure is
+> directed now (§2.13, §18.3)**. Note also that three competent measurements of the same import count (190 / 192 / 195)
 > disagree, which is why those numbers were dropped rather than pinned — a permanently-reproducible wrong
 > number is worse than no number. The same disease appears on a _timing_: four measurements of one
 > `pnpm build` spread **8.89 s – 14.2 s**, and that spread is host variance, so §2.13 carries a range.
@@ -654,7 +655,8 @@ it.
 - **Where**: the repo-root `dist/`, **not** `packages/*/dist`. `src/` is tested as TS through the vitest
   alias, but the root `dist/cli/index.js` is spawned by exactly one unit file
   (`tests/unit/cli/_statusline-rpc-helper.mjs` → `../../../dist/cli/program.js`).
-- **Measured** with the root `dist/` moved aside: **`Test Files 2 failed (2)`**,
+- **Measured 2026-09-24** with the root `dist/` moved aside — the state **before** the 2026-10-19 fix (see
+  the FIXED block below): **`Test Files 2 failed (2)`**,
   `Tests 1 failed | 2 passed (3)`.
   - `tests/unit/cli/statusline-cli-integration.test.ts` — **loud and directed**; it throws
     `Run "pnpm build" in the repo root before running this test`.
@@ -6151,11 +6153,23 @@ The reusable reading: **a slice whose purpose is "replace the fake with somethin
 
 The repair the brief asked for was "test structurally"; the RD **deleted the test** — a refusal now never overwrites *any* existing file — on the measured grounds that any body test is forgeable by a caller-supplied **newline**, which shifts every later line. **Removing a check is usually the weaker move; here it is the stronger one, and it was chosen for a reason rather than for convenience.** The generalisable rule: when the validator and the validator's *subject* are both caller-supplied, a predicate over the subject's content is not a control.
 
-### 12.3 Two intents colliding at the slug cap still lose a recommendation silently, and the PRD credited the guard with preventing it (found 2026-10-15 by QA; **recorded as an open residual**)
+### 12.3 Two intents colliding at the slug cap still lose a recommendation silently, and the PRD credited the guard with preventing it (found 2026-10-15 by QA — recorded as an open residual; **FIXED 2026-10-23 — rid `rid-t1-slug-collision`**)
 
 The artifact path keys on `(date, slug)` with the slug capped at 32 characters. Two distinct intents agreeing in their first 32 slug characters — `…best-practice-scan` and `…best-practice-xyz` — land on one file; **both exit 0 and the second silently overwrites the first.** PRD R4 attributed the protection to AC-7's guard, which covers **refusals only**: neither of these writes is a refusal, so no branch inspects the existing file. R4 is corrected and the collision recorded as a residual (the path scheme is pinned by `best-practice-scan-command.test.ts:217-221`, so changing it is its own request).
 
 Same class as §10.8 and §11.6 — but note the direction here: the *guard* was sound and the *claim about it* was too wide. A control's documentation is part of the control.
+
+**FIXED 2026-10-23 (rid `rid-t1-slug-collision`).** Two intents that land on the same 32-character slug no
+longer overwrite each other silently. The artifact carries its **owner's marker line**, so a later intent
+that lands on the same slug is **refused** — loudly and **without writing**: exit 1 with
+`BEST_PRACTICE_SCAN_SLUG_COLLISION`, and the existing artifact's bytes are untouched. The path scheme did
+not move: **ten of ten** artifact paths match an independent reimplementation of the previous function, and
+the 32-character cap still binds. A caller that embeds the owner's marker text in its own intent still does
+not skip the refusal. Residuals, all measured: an artifact written **before** this change carries no
+marker, so it is unattributable and the refusal is unconditional until the operator deletes it; an intent
+longer than **64 KiB** puts the marker past the read limit, so that artifact is unattributable too — it
+fails closed; and the slice's mutation kill rate is **0.6613**, below the repository's 0.8 floor, which the
+repository's own tool graded **soft** and no CI job enforces.
 
 ### 12.4 One slice spent the file budgets of two modules, and left one line (found 2026-10-15; **ACCEPTED 2026-10-19 — the cost stands under the §7.8 ratchet decision**)
 
@@ -6720,15 +6734,34 @@ from this repository's own release).** Consumer: a fresh directory **outside** t
   **not** a live IDE refusal — no IDE was launched, and the hook's own runtime working directory is
   still unmeasured (see §19.5).
 
-### 18.3 A claim this session carried into its notes **without measuring** — and it was false
+### 18.3 A claim this session carried into its notes **without measuring** — and it was false (measured and guarded 2026-10-23 — rid `rid-t1-doc-claim-corrections`)
 
-- **The claim**: that in a unit suite, `tests/unit/cli/verify-codegraph-tarball.test.ts` "fails as a
-  bare assertion with no remediation text" when the root `dist/` is missing.
+- **The claim — HISTORICAL, and measured false on 2026-10-23**: that in a unit suite,
+  `tests/unit/cli/verify-codegraph-tarball.test.ts` "fails as a bare assertion with no remediation text" when
+  the root `dist/` is missing. It is recorded here as the claim that was carried, not as the state of the tree.
 - **Where it came from**: §2.13's own description of the state **before** its 2026-10-19 fix
   (`rid-root-dist-prereq`). The fix is in place: `verify-codegraph-tarball.test.ts:96` calls
   `assertBuiltPath(projectRoot, CODEGRAPH_BUILD_DIR)` from
   `tests/unit/_setup/root-dist-prerequisite.ts`, and line 161 has a test that **asserts** the message
   contains `Prerequisite missing:`. So the failure is **directed**, and the claim was stale.
+- **MEASURED 2026-10-23** — the measurement this entry was missing, taken with the root `dist/` renamed aside
+  (`dist` → `dist.__moved_rdt1`, restored in the same command, no residue):
+  `node node_modules/vitest/vitest.mjs run tests/unit/cli/verify-codegraph-tarball.test.ts
+  tests/unit/cli/statusline-cli-integration.test.ts` → **`Test Files 2 failed (2)`**, `Tests 1 failed | 4 passed (5)`,
+  exit 1. The tarball file's failure is
+  `Error: Prerequisite missing: <repo>\dist\services\codegraph does not exist. This test reads the repo-root build
+  output, not `src/`. Run "pnpm build" in the repo root before running this test.` (`<repo>` is the absolute
+  repository root on the measuring host) — a **directed** message naming the missing path and the build command.
+  **No `AssertionError: expected 1 to be +0` appears anywhere in the run.** The statusline file still fails at
+  collection with its own directed sentence (`Could not resolve dist/cli/index.js from …`). Baseline with `dist/`
+  present: `Test Files 2 passed (2)`, `Tests 29 passed (29)`, exit 0. This matches §2.13's own post-fix
+  measurement, so the claim was stale in exactly the way §2.13 said it was.
+- **Where the claim was repeated, and what changed (2026-10-23)**: it was repeated as a CURRENT fact in
+  `tests/_global-setup/packages-build.ts` (a code comment asserting the bare assertion) and in this document's
+  2026-09-24 preamble (a summary line saying one of the two files "fails _without_ any remediation text"). All
+  three now carry the measurement above rather than the stale claim: the code comment states the pre-fix shape as
+  history and the current directed failure, the preamble line is marked as that pass's measurement, and §2.13's
+  own bullet is dated.
 - **Why it matters here, more than the claim itself**: it was carried into a session note and into
   conversation **as if it had been measured**, when it had not been. §2.13's *own* residue list is
   where the live state is recorded. This is the defect shape this document exists to prevent — "a
@@ -6736,6 +6769,14 @@ from this repository's own release).** Consumer: a fresh directory **outside** t
 - **The rule that follows**: before writing down a behavioural claim about a test, **run it**. If the
   claim is a *description of someone else's* measurement, **cite the source and its date**, and say
   whether it was re-measured. §2.13 already did this, and this session did not.
+
+**GUARDED 2026-10-23 (rid `rid-t1-doc-claim-corrections`).** The measurement recorded above is now pinned by
+a test — `tests/unit/standards/doc-claim-corrections.test.ts` (8 arms) — so the two code-side claims (the
+directed missing-build failure and the scoped `cwd` sentence) go **red** when they drift. The suite was
+proved real by restoring each pre-change shape: it goes red on each (`Tests 2 failed | 6 passed (8)`) and
+green again after a byte-identical restore (`Tests 8 passed (8)`). Residuals: the guard pins the **code-side**
+claims only; the four **prose** sites in this document are not pinned by any test, so a prose regression here
+would not turn the suite red.
 
 ---
 
@@ -6838,6 +6879,29 @@ session — none is a guess, and none was carried forward unmeasured.
   the opposite error appears (below).
 - **Not edited** by the slice — production code was out of QA's scope. The sentence should say the
   property holds *while the gate process runs in the call's directory*.
+- **IMPLEMENTED 2026-10-23** (slice `rid-t1-doc-claim-corrections`): the sentence in
+  `src/services/hooks/hook-payload-cwd.ts` was reworded **as a comment** — no code, no behaviour, one
+  paragraph — at **lines 95-103**, inside the `resolveToolCallBaseDir` doc block at **lines 79-110** (measured
+  2026-10-23). The one-directional claim is now scoped to *the base the path is read against IS the call's own
+  directory*, and the comment states that this is **not a general property of the fallback**: when the base is
+  the gate's own working directory and the call runs somewhere else, the call's relative path is read against a
+  tree that is not the call's, and a file that really is inside a hard-blocked family can be ALLOWED.
+  **Re-measured 2026-10-23** against the working tree (temp fixtures only, no repository mutation):
+  - the scenario the sentence names — the call OUTSIDE the named project, the gate process running in the
+    call's own directory: the payload `cwd` is rejected, the base is the gate's working directory, `src/x.ts`
+    is **denied** (`src/ (orchestrator's hard-blocked path family)`) and `notes.md` is **allowed** — the
+    false-deny direction only;
+  - the general case — the call INSIDE the project (`<root>/src`), the gate process spawned from the project
+    root, the payload `cwd` unusable, so the base is the gate's working directory: the call's relative
+    spelling `deep/x.ts` is **allowed** — the other way round, which is §19.4's residual; the same file
+    spelled `src/deep/x.ts`, or written absolutely, is **denied**;
+  - control — the payload `cwd` usable and naming the call's own directory: the base IS the call's directory
+    and `deep/x.ts` is **denied**.
+
+**GUARDED 2026-10-23 (rid `rid-t1-doc-claim-corrections`).** The reworded paragraph above is now pinned by
+`tests/unit/standards/doc-claim-corrections.test.ts`, which reads the scoped sentence and goes red if it
+drifts. The suite was proved real by restoring the pre-change doc block: `Tests 2 failed | 6 passed (8)`,
+exit 1, and green again after a byte-identical restore.
 
 ### 19.4 The residual configuration: an unusable payload `cwd` AND a gate that is not running in the call's directory
 
@@ -6851,7 +6915,7 @@ session — none is a guess, and none was carried forward unmeasured.
 - **Not a regression**: the pre-change code resolved a relative path against the named project
   root and allowed the same case — verified on the HEAD snapshot (allow before, allow after).
 
-### 19.5 The top-level payload `cwd` — MEASURED for Claude Code, still unmeasured for the other IDEs
+### 19.5 The top-level payload `cwd` — MEASURED for Claude Code, still unmeasured for the other IDEs (measured 2026-10-22; **RE-MEASURED 2026-10-23 for Claude Code 2.1.309 — rid `rid-t1-ide-payload-cwd`; the other 8 adapters remain UNMEASURED**)
 
 - **The fact**: the fix does **not** depend on it — the six unusable-`cwd` shapes and the
   *absence* of a `cwd` all deny — but the payload path is the one the ruling names first.
@@ -6884,6 +6948,48 @@ session — none is a guess, and none was carried forward unmeasured.
   fallback is the one that decides.
 - **Why it is still written down**: the fallback is what makes the fix safe, and a future reader
   must not mistake the Claude Code measurement for a measurement of every IDE.
+
+**RE-MEASURED 2026-10-23 (rid `rid-t1-ide-payload-cwd`).** The Claude Code installed on this host is
+**2.1.309**, not the 2.1.308 recorded above — measured two ways on 2026-10-23 at 22:47 local:
+`claude --version` prints `2.1.309 (Claude Code)`, and the installed package's own `package.json` reads
+`2.1.309`. The binary read is
+`C:\Users\small\AppData\Local\Author Software\nvm\installs\v24.12.0\node_modules\@anthropic-ai\claude-code\bin\claude.exe`,
+**298,624,160 bytes**, last written 2026-10-23 19:13:33. The 2026-10-22 measurement above stands — it was
+taken against 2.1.308, and it was true of 2.1.308.
+
+**There is NO 2.1.308 → 2.1.309 delta, and the key list above is unchanged.** Measured on 2026-10-23
+against BOTH binaries (2.1.308 taken from this host's own npm cache,
+`@anthropic-ai/claude-code-win32-x64@2.1.308`, 297,376,928 bytes):
+
+- the **declared** base hook-input schema literal is **byte-identical** in 2.1.308 and 2.1.309 —
+  **1,525 bytes**, sha256 `331a86f1afd387ba62c7e80243c6e33160c5356a5a409dc655f4ace578e716f4` in both. It
+  names **neither** `scratchpad_dir` **nor** `served_call` **nor** `caller_session_id` in **either** version.
+- the **top-level key list** that bullet 1 above prints is **byte-identical** in the two versions —
+  **170 bytes**, sha256 `7d48c684bdb5a422481ed33d165af9c69322eaa0151689c77259dd10c41e14d3` in both
+  (byte 249,107,284 in 2.1.308; byte 249,937,082 in 2.1.309) — and that list **does** name all three.
+- `scratchpad_dir` is built into the **session base object** in **both** versions.
+
+So a reader must **not** be told the top-level key list changed: it did not, and such a sentence would be
+false against both binaries. `cwd` is present and **REQUIRED** in both versions.
+
+**One adapter of nine is answered.** Section 19.5 is ANSWERED for `claude-code` and NOT for the other
+eight; the eight carry no value because the IDE is not installed on this host, and **no cell is inferred
+from the Claude Code row**.
+
+| adapter id | cwd present? | absolute? | names an existing directory inside the project? | how it was measured |
+|---|---|---|---|---|
+| `claude-code` | YES — top-level key, JSON string | YES — `D:\projects\peaks-loop` | YES — it is the project root in the capture | LIVE capture of a real Claude Code 2.1.309 `PreToolUse` payload on this host, plus a byte scan of the installed binary, plus the repository's own reader run against that captured payload |
+| `trae` | UNMEASURED | UNMEASURED | UNMEASURED | not measurable on this host — Trae is not installed (see AC-2) |
+| `cursor` | UNMEASURED | UNMEASURED | UNMEASURED | not measurable on this host — Cursor is not installed (see AC-2) |
+| `codex` | UNMEASURED | UNMEASURED | UNMEASURED | not measurable on this host — the Codex CLI is not installed (see AC-2) |
+| `hermes` | UNMEASURED | UNMEASURED | UNMEASURED | not measurable on this host — Hermes is not installed (see AC-2) |
+| `openclaw` | UNMEASURED | UNMEASURED | UNMEASURED | not measurable on this host — OpenClaw is not installed (see AC-2) |
+| `qoder` | UNMEASURED | UNMEASURED | UNMEASURED | not measurable on this host — Qoder is not installed (see AC-2) |
+| `tongyi-lingma` | UNMEASURED | UNMEASURED | UNMEASURED | not measurable on this host — Tongyi Lingma is not installed (see AC-2) |
+| `zcode` | UNMEASURED | UNMEASURED | UNMEASURED | not measurable on this host — z-code is not installed (see AC-2) |
+
+The next host with one of those IDEs installed can close one row using the method in
+`qa/test-cases/rid-t1-ide-payload-cwd.md` (TC-B1 to TC-B5) without re-deriving anything.
 
 ### 19.6 Two things the §18.2 verification found that are not yet recorded anywhere else
 
@@ -7161,7 +7267,7 @@ defect of this slice, and it is recorded here rather than quietly fixed inside i
 
 
 
-### 21.2 A doctor check that returns no row cannot say "clean" — and "clean" is what the doctor most needs to say (found 2026-10-23, measured)
+### 21.2 A doctor check that returns no row cannot say "clean" — and "clean" is what the doctor most needs to say (found 2026-10-23, measured; **FIXED 2026-10-23 — rid `rid-t1-doctor-clean-row`**)
 
 `compareSkillReferenceParity` returns `[]` when every tree is in parity. There is **no clean row**:
 `skills:reference-parity:store` appears only when the store is missing or itself malformed.
@@ -7174,6 +7280,15 @@ invisibility one level down that §21.1 is about.
 **Not fixed in this session** — changing the doctor's report shape (what a clean check emits) is a
 separate decision about every check in the registry, not one slice's business. The store-version
 check added by §21.1 **does** emit a row when it is clean; the parity check still does not.
+
+**FIXED 2026-10-23 (rid `rid-t1-doctor-clean-row`).** The doctor now emits **90 checks** and **2 `skills:`
+rows** (was 89 and 1), and `skills:reference-parity:store` is **green** when the store and the IDE skill
+root actually agree. The report's shape is otherwise unchanged: `summary.ok` / `failed` / `warnings` and the
+doctor's exit code are the same as before. **This moves a recorded trade-off:** a *missing* store now reads
+as a **red** row with severity `warning` instead of a green one — the exit code does not move. The schema
+description (`schemas/doctor-report.schema.json`) and the check's doc comment now name the same **four**
+outcomes the code can emit — in parity, nothing to compare, absent, unreadable — and the schema's `pattern`
+is byte-identical to its previous value.
 
 ### 21.3 `peaks hooks install --help` describes an effect the command no longer has (found 2026-10-23, measured)
 
@@ -7294,7 +7409,7 @@ exactly the flattening the slice exists to prevent. This is the same discipline 
 `.husky/gate/context.mjs`'s `reportEmpty()`, and the other half of the same hole —
 `write-package-dist-stamps.mjs`'s refusal of an empty record — was already closed.
 
-### 21.6 A leaf's scratch directory depended on the cwd, and the rule lived only in the orchestrator's memory (found 2026-10-23, measured)
+### 21.6 A leaf's scratch directory depended on the cwd, and the rule lived only in the orchestrator's memory (found 2026-10-23, measured; **FIXED 2026-10-23 — rid `rid-t1-leaf-scratch-path`**)
 
 §2.31's finding: five **zero-byte** `.err` files were committed **at the repository root** because
 a redirect depended on cwd. The recorded remedy had two halves — a convergence audit that sweeps
@@ -7337,6 +7452,12 @@ other agent scratch files (`_rev_eslint.err` and friends).
 
 **Two dispatch paths carry no block**: `--from-dag` and `--mode detached` do not pass through the
 prompt composer. **Documented, not fixed** — a separate request.
+
+**FIXED 2026-10-23 (rid `rid-t1-leaf-scratch-path`).** The rule that lived only in the orchestrator's memory
+is now an **enforcer**: `src/services/audit/enforcers/root-scratch-artifacts.ts` refuses a scratch artifact
+written at the **repository root**, wired into the audit runner and the static service. Five refusal shapes
+are covered, each with its own failing arm, and the dispatch entry points report the blocked paths instead
+of leaving them on disk.
 
 
 ### 21.7 §20 — the auto-compact deferral reads the dispatch ledger, and it now fires for the first time (2026-10-23)
@@ -7446,7 +7567,7 @@ claim, which said "this script's own directory" while the code uses **`$PWD`**).
 corrected, and a **drift guard** now asserts they stay corrected.
 
 
-### 21.9 The BDD test-style contract is not gated, and this session's 12 new test files broke it (found 2026-10-23, measured)
+### 21.9 The BDD test-style contract is not gated, and this session's 12 new test files broke it (found 2026-10-23, measured; **GATED 2026-10-23 — rid `rid-t1-bdd-style-gate`**)
 
 `src/services/qa/bdd-test-style-verifier.ts` checks the contract (the first string-literal
 argument reads `when X, should Y`; the body starts with exactly `// given:` / `// when:` /
@@ -7461,6 +7582,17 @@ those files. **The other 12 are new or renamed in this session**, and those are 
 they are long-standing suites, and a style-only rewrite of eleven large files is not a thing to do
 inside a slice that was about something else. The pattern to break: the contract has a checker and
 **no gate**, so the only thing that makes it true is somebody running it.
+
+**GATED 2026-10-23 (rid `rid-t1-bdd-style-gate`).** `tests/unit/standards/bdd-test-style-ratchet.test.ts`
+runs the repository's own checker (`src/services/qa/bdd-test-style-verifier.ts`, contract
+`src/services/qa/bdd-test-style-contract.ts`) over every **tracked** test file and fails when the debt
+grows; the debt may only shrink. The measured population is **691 tracked test files — 92 compliant, 599
+not, 4,996 offending call sites**; the "12 new test files" in the heading is this session's own count, not
+the population. The measured debt lives in `.peaks/lint/bdd-test-style-baseline.json`, so the baseline is
+data rather than a constant buried in the test. The CI job `bdd-test-style-ratchet` is a plain `jobs:` entry
+with **no** `continue-on-error`. Residuals: the ratchet only sees **tracked** files, so an untracked new
+test file is invisible until it is committed; the contract counts a keyword comment plus its
+hanging-indented continuation lines as ONE comment, and a **fourth** leading comment is refused.
 
 
 ### 21.10 The QA verdicts, and the one finding they produced (2026-10-23)
