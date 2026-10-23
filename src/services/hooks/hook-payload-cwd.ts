@@ -90,10 +90,17 @@ function isInsideProject(root: string, dir: string): boolean {
  * The rule ASSUMES the tool call runs inside the named project, which is
  * where the gate is installed. When it does not, the payload `cwd` is
  * rejected and the path is read against the gate's own working directory
- * instead — a different tree — and the error is one-directional: a file that
- * lies outside every family can be denied. It is never the other way round,
- * and that is the trade the gate makes everywhere else: a wrongly allowed
- * edit is a hole, a wrongly refused one is an inconvenience.
+ * instead — a different tree.
+ *
+ * While the base the path is read against IS the call's own directory, the
+ * error stays one-directional: a file that lies outside every family can be
+ * denied, and never the other way round — a wrongly allowed edit is a hole,
+ * a wrongly refused one is an inconvenience. That direction is NOT a general
+ * property of the fallback: when the base is the gate's own working
+ * directory and the call runs somewhere else, the call's relative path is
+ * read against a tree that is not the call's, and a file that really is
+ * inside a hard-blocked family can be ALLOWED.
+ * Measured 2026-10-23; backlog §19.3.
  *
  * The fallback is the gate process's own working directory: that is where the
  * hook runs, and in the normal invocation it IS the tool call's directory.

@@ -52,12 +52,18 @@
 // and only one of them is the shape that made this decision tolerable —
 // `tests/unit/cli/statusline-cli-integration.test.ts` throws from module load
 // naming the file and telling the reader to run `pnpm build`. The other,
-// `tests/unit/cli/verify-codegraph-tarball.test.ts`, fails as a bare
-// `expected 1 to be +0` with no remediation text at all. That is the
-// misleading shape this file exists to remove, arriving by a second route, and
-// leaving the axis alone is a scope decision that does not describe it. It is
-// recorded in the slice handoff's backlog section rather than widened here
-// (that would make the heavier root `tsc` build implicit on every test run).
+// `tests/unit/cli/verify-codegraph-tarball.test.ts`, USED TO fail as a bare
+// `expected 1 to be +0` with no remediation text at all — the misleading
+// shape, arriving by a second route. That was FIXED on 2026-10-19 (rid
+// `rid-root-dist-prereq`, backlog §2.13): the tarball file now calls the
+// shared `assertBuiltPath` first, so a missing root build reads as
+// `Prerequisite missing: … Run "pnpm build" in the repo root before running
+// this test.` Measured again on 2026-10-23 with `dist/` renamed aside:
+// `Test Files 2 failed (2)`, `Tests 1 failed | 4 passed (5)`, and the failure
+// IS that directed message — not the bare assertion. Leaving the axis alone
+// is a scope decision that does not describe it. It is recorded in the slice
+// handoff's backlog section rather than widened here (that would make the
+// heavier root `tsc` build implicit on every test run).
 
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
