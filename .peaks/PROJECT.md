@@ -32,7 +32,7 @@
   regression; (3) source-code redirect in
   `src/services/workspace/workspace-service.ts` — `initWorkspace` uses
   `lstatSync` to refuse legacy sibling dirs
-  (`LegacyChangeIdSiblingError`); (4) `CLAUDE.md` "Hard ban" section
+  (`LegacyChangeIdSiblingError`); (4) `AGENTS.md` "Hard ban" section
   tells future AI sessions never to create the pattern. Originating
   incident: a 2.8.0-era `peaks workspace init --change-id ...` flow left
   a 4-file orphan at
