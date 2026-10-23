@@ -22,6 +22,7 @@
  */
 
 import { runRedLinesAudit } from './red-lines-service.js';
+import { withRootScratchFindings } from './enforcers/root-scratch-artifacts.js';
 import { loadPreferences } from '../preferences/preferences-service.js';
 import { computeProseRatio, type ProseRatioResult } from './prose-ratio-calculator.js';
 import type { EnforcerFinding, RedLineAudit } from './types.js';
@@ -87,10 +88,9 @@ export function runStaticAudit(input: StaticAuditInput): StaticAuditResult {
 
   // Always run the peaks-loop lint layer; no ECC findings merged.
   const peaksResult = runRedLinesAudit({ projectRoot: input.projectRoot });
-  const mergedAudit: RedLineAudit = {
-    ...peaksResult.audit,
-    enforcerFindings: [...peaksResult.audit.enforcerFindings]
-  };
+  // The root scratch sweep rides in this envelope too, so the two audit
+  // surfaces report the same findings.
+  const mergedAudit: RedLineAudit = withRootScratchFindings(peaksResult.audit, input.projectRoot);
 
   const state: AgentShieldState = {
     spawned: false,

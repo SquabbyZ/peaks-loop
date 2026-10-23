@@ -8,6 +8,7 @@
 
 import { fail, ok, type ResultEnvelope } from 'peaks-loop-shared/result';
 import { runRedLinesAudit } from '../../services/audit/red-lines-service.js';
+import { withRootScratchFindings } from '../../services/audit/enforcers/root-scratch-artifacts.js';
 import type { RedLineAudit } from '../../services/audit/types.js';
 import { getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import {
@@ -58,11 +59,15 @@ export function runRedLines(options: RedLinesOptions, io: ProgramIO): void {
 
   try {
     const result = runRedLinesAudit({ projectRoot: validation.projectRoot });
+    // The root scratch sweep rides in this envelope: a capture at the project
+    // root is the shape that reaches a commit, because a tracked file leaves
+    // `git status` clean and no other gate reads it.
+    const audit = withRootScratchFindings(result.audit, validation.projectRoot);
     const envelope: ResultEnvelope<RedLineAudit> = ok(
       'audit.red-lines',
-      result.audit,
+      audit,
       result.warnings.map((w) => `${w.file}: ${w.message}`),
-      redLinesNextActions(result.audit)
+      redLinesNextActions(audit)
     );
     printResult(io, envelope, options.json);
   } catch (error) {

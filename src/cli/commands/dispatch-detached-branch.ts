@@ -5,6 +5,7 @@ import { fail, getErrorMessage, ok } from 'peaks-loop-shared/result';
 import { printResult, type ProgramIO } from '../cli-helpers.js';
 import type { DispatchOptions } from './sub-agent-shared.js';
 import type { dispatch as detachedDispatchType } from './sub-agent/detached.js';
+import { buildScratchPathInjection } from './dispatch-scratch-path-block.js';
 
 function resolveMaxConcurrent(options: DispatchOptions): number | undefined {
   return typeof options.maxConcurrent === 'string' && options.maxConcurrent.length > 0
@@ -67,6 +68,24 @@ function reportDetachedError(io: ProgramIO, role: string, error: unknown, asJson
   process.exitCode = 1;
 }
 
+/**
+ * The brief the vendor CLI receives: the caller's prompt plus the scratch
+ * block.
+ *
+ * The scratch path is pinned HERE, in the brief itself: the detached path does
+ * not pass through the prompt composer, so without this the leaf would pick its
+ * own redirect target, and a cwd-relative one lands at the repository root. The
+ * session id is resolved the way the detached handler resolves it, so both name
+ * one directory.
+ */
+function detachedBrief(options: DispatchOptions, role: string): string {
+  const projectRoot = options.project ?? process.cwd();
+  const sid = process.env.PEAKS_SESSION_ID ?? 'local';
+  const scratch = buildScratchPathInjection({ projectRoot, sid, role });
+  const prompt = typeof options.prompt === 'string' ? options.prompt : '';
+  return `${prompt}\n\n${scratch.block}`;
+}
+
 export async function runDetachedDispatch(
   io: ProgramIO,
   role: string,
@@ -79,7 +98,7 @@ export async function runDetachedDispatch(
     const maxConcurrent = resolveMaxConcurrent(options);
     const result = await detachedDispatch({
       role,
-      prompt: typeof options.prompt === 'string' ? options.prompt : '',
+      prompt: detachedBrief(options, role),
       requestId: options.requestId ?? 'unknown-rid',
       mode: 'detached',
       ...(typeof options.vendor === 'string' ? { vendor: options.vendor } : {}),

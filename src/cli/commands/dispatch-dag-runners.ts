@@ -8,6 +8,7 @@ import type {
 import type { SliceDag } from '../../services/dispatch/slice-dag.js';
 import type { DispatchSpec, SliceOutcome } from '../../services/code/dag-orchestrator.js';
 import type { SliceContract, WriteContractInput } from '../../services/dispatch/contract-store.js';
+import { buildScratchPathInjection } from './dispatch-scratch-path-block.js';
 
 /** What the CLI runner collected while `runLayeredDag` walked the levels. */
 export type DagEmissions = {
@@ -54,14 +55,23 @@ export function planFirstLevelWaves(dag: SliceDag, levelArr: readonly (readonly 
 export function makeCliRunner(args: {
   firstLevelIds: ReadonlySet<string>;
   dispatcher: SubAgentDispatcher;
-  ids: { readonly rid: string; readonly sid: string };
+  ids: { readonly rid: string; readonly sid: string; readonly projectRoot: string };
   emissions: DagEmissions;
 }): (spec: DispatchSpec) => Promise<SliceOutcome> {
   const { firstLevelIds, dispatcher, ids, emissions } = args;
   return async (spec: DispatchSpec): Promise<SliceOutcome> => {
+    // The scratch path is pinned HERE, in the brief the leaf receives: the DAG
+    // path does not pass through the prompt composer, so without this the leaf
+    // would pick its own redirect target, and a cwd-relative one lands at the
+    // repository root.
+    const scratch = buildScratchPathInjection({
+      projectRoot: ids.projectRoot,
+      sid: ids.sid,
+      role: spec.role
+    });
     const toolCall = dispatcher.buildToolCall({
       role: spec.role,
-      prompt: spec.prompt,
+      prompt: `${spec.prompt}\n\n${scratch.block}`,
       requestId: ids.rid,
       sessionId: ids.sid
     });
