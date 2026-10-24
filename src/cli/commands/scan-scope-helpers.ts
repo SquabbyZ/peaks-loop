@@ -46,13 +46,13 @@ export function printAcceptanceCoverageLookupFailure(
   const code = result.kind === 'prd-not-found' ? 'PRD_NOT_FOUND' : 'TEST_CASES_NOT_FOUND';
   const message =
     result.kind === 'prd-not-found'
-      ? `PRD artifact for requestId=${options.rid} not found`
+      ? result.message
       : `QA test-cases file not found at ${result.expectedPath}`;
   printResult(
     io,
     fail('scan.acceptance-coverage', code, message, { requestId: options.rid }, [
       result.kind === 'prd-not-found'
-        ? 'Run `peaks request init --role prd --id <rid> --apply --type <type>` first.'
+        ? 'Produce the PRD for this slice: `peaks request init --role prd --id <rid> --apply --type <type>` writes prd/requests/<rid>.md, and a handoff capsule at prd/handoff-<rid>.md is read as the fallback.'
         : 'Generate qa/test-cases/<rid>.md before running this check.'
     ]),
     options.json
