@@ -2,7 +2,11 @@
 // `--project` canonicalization plus the D1 generated-config staleness notice
 // that rides the per-turn `peaks skill presence` read.
 import { stableRealPath } from '../../../shared/path-utils.js';
-import { detectStaleGeneratedArtifacts } from '../../../services/workspace/generated-artifacts-stamp.js';
+import {
+  detectStaleGeneratedArtifacts,
+  type GeneratedArtifactsStaleness
+} from '../../../services/workspace/generated-artifacts-stamp.js';
+import type { GeneratedArtifactDrift } from '../../../services/workspace/generated-artifacts-content.js';
 
 /**
  * Canonicalize a user-supplied `--project <path>` value.
@@ -48,6 +52,11 @@ export function canonicalizeProjectOption(project: string | undefined): string |
  * The field is additive and present only when stale, so no existing consumer
  * of the envelope changes shape. `null` projectRoot means the caller had no
  * project to inspect — skipped, not assumed stale.
+ *
+ * WHAT THE WARNING SAYS. It names the FILE that no longer matches and WHAT
+ * about it, because "the version numbers differ" does not tell a reader which
+ * file to open. The remedy (`peaks workspace init`) is in the message: the
+ * reader is an LLM that must be able to act without guessing a command.
  */
 export function generatedConfigNotice(projectRoot: string | undefined): {
   field: Record<string, unknown>;
@@ -56,21 +65,52 @@ export function generatedConfigNotice(projectRoot: string | undefined): {
   if (projectRoot === undefined) return { field: {}, warnings: [] };
   const staleness = detectStaleGeneratedArtifacts(projectRoot);
   if (!staleness.stale) return { field: {}, warnings: [] };
-  const onDiskVersion = staleness.onDisk?.packageVersion ?? '(unstamped)';
   return {
     field: {
       generatedArtifacts: {
         stale: true,
         reasons: staleness.reasons,
         onDiskPackageVersion: staleness.onDisk?.packageVersion ?? null,
-        installedPackageVersion: staleness.expected.packageVersion
+        installedPackageVersion: staleness.expected.packageVersion,
+        drift: staleness.drift
       }
     },
-    warnings: [
-      `Generated config at '${projectRoot}' was produced by peaks-loop ${onDiskVersion} ` +
-        `but ${staleness.expected.packageVersion} is installed (${staleness.reasons.join(', ')}). ` +
-        `Re-run \`peaks workspace init\` ` +
-        `to regenerate .claude/settings.local.json and the offline template copy.`
-    ]
+    warnings: [stalenessWarning(projectRoot, staleness)]
   };
+}
+
+/**
+ * The one sentence the reader gets.
+ *
+ * The drift detail is appended only when there IS one: a verdict driven by the
+ * stamp alone (`unstamped`, `stamp-unreadable`, `template-changed`) has no
+ * file to point at, and inventing one would be a claim about a file nobody
+ * compared.
+ *
+ * The details are GROUPED per artifact, so a file that differs in two ways is
+ * named once with both of its differences — a warning that repeats the same
+ * path twice reads as two files.
+ */
+function stalenessWarning(projectRoot: string, staleness: GeneratedArtifactsStaleness): string {
+  const onDiskVersion = staleness.onDisk?.packageVersion ?? '(unstamped)';
+  const head =
+    `Generated config at '${projectRoot}' was produced by peaks-loop ${onDiskVersion} ` +
+    `but ${staleness.expected.packageVersion} is installed (${staleness.reasons.join(', ')}). ` +
+    `Re-run \`peaks workspace init\` ` +
+    `to regenerate .claude/settings.local.json and the offline template copy.`;
+  if (staleness.drift.length === 0) return head;
+  return `${head} Inconsistent: ${groupDriftDetails(staleness.drift)}.`;
+}
+
+/** The drift details, one clause per artifact. */
+function groupDriftDetails(drift: ReadonlyArray<GeneratedArtifactDrift>): string {
+  const grouped = new Map<string, string[]>();
+  for (const entry of drift) {
+    const details = grouped.get(entry.artifact) ?? [];
+    details.push(entry.detail);
+    grouped.set(entry.artifact, details);
+  }
+  return [...grouped.entries()]
+    .map(([artifact, details]) => `${artifact}: ${details.join('; ')}`)
+    .join(' | ');
 }
