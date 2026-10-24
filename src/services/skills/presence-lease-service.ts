@@ -36,6 +36,7 @@ import {
   PEAKS_CALLER_NOT_RESOLVED,
   PEAKS_GRAPH_REF_BROKEN
 } from '../workflow/workflow-graph-store.js';
+import { ensureGraphExists } from '../workflow/workflow-graph-ensure.js';
 
 // The path helpers and the atomic IO primitives live in
 // `presence-lease-store.ts` (this file was already over the repository's
@@ -178,6 +179,9 @@ export function setPresenceLease(input: SetPresenceLeaseInput): SetPresenceLease
   };
 
   const leasePath = leaseFilePath(input.projectRoot, sessionId, callerId, workflowId);
+  // The lease names a graph the terminalize path requires, so the graph is
+  // written before the lease: no lease is left pointing at a missing graph.
+  ensureGraphExists({ projectRoot: input.projectRoot, sessionId, workflowId, skill: input.skill });
   writeAtomic(leasePath, JSON.stringify(lease, null, 2));
 
   const index: PresenceIndex = {
@@ -192,12 +196,9 @@ export function setPresenceLease(input: SetPresenceLeaseInput): SetPresenceLease
   const indexPath = callerIndexPath(input.projectRoot, sessionId, callerId);
   writeAtomic(indexPath, JSON.stringify(index, null, 2));
 
-  // Return shape: tests read both `result.lease.status` AND top-level
-  // `lease.workflowId`. We spread the inner lease fields at the top
-  // level so destructuring like `const lease = await api.setPresenceLease(...)`
-  // yields a record with `.workflowId`, `.status`, etc. (test seam),
-  // while `result.lease` and `result.index` and `result.gc` remain intact
-  // for the production consumers.
+  // Return shape: the inner lease fields are spread at the top level so a
+  // test seam destructuring `const lease = await api.setPresenceLease(...)`
+  // gets `.workflowId` / `.status`; `result.lease` / `index` / `gc` stay intact.
   return {
     ...lease,
     lease,
@@ -257,11 +258,10 @@ export function readPresenceLease(input: ReadPresenceLeaseInput): PresenceProjec
   }
   // Graph file existence is OPTIONAL on the read path: the lease is the
   // source of truth for the lease lifecycle, and the graph store separately
-  // validates its own corruption. Forcing a strict graph-existence check
-  // here would break test seams that materialize leases without writing a
-  // graph (e.g. the TC-SM-07 multi-caller fixture). The graph-backed
-  // 24h probe and the inFlightBatch contract still consult the graph
-  // explicitly; the read-side projection here stays a thin lookup.
+  // validates its own corruption. The write path creates the graph before
+  // the lease, but a read must not fail on a lease whose graph was not
+  // materialized: the graph-backed 24h probe and the inFlightBatch contract
+  // consult the graph explicitly, and this projection stays a thin lookup.
   const graphPath = join(sessionRuntimeRoot(input.projectRoot, sessionId), input.graphRef);
   const graphExists = existsSync(graphPath);
   void graphExists;

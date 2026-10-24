@@ -5,24 +5,32 @@ import { ensureMemoryBootstrap } from '../memory/project-memory-service.js';
 import { getSessionId, getSessionMeta } from '../session/session-manager.js';
 import { SessionIdentitySchema } from '../session/session-file-schema.js';
 // Slice 4.0.8 compat shim: the canonical write path lives in
-// `presence-lease-service.ts`. The legacy shim dynamically imports
-// it inside `setSkillPresence` so the cold path of the legacy
-// `getSkillPresence` / `checkStalePresence` / `clearStalePresenceOnRotation`
-// read paths stays cheap. The static imports below are reserved for
-// the migration window and are referenced through the dynamic
-// `leaseMod.*` accessor at runtime.
-import type { SetPresenceLeaseResult } from './presence-lease-service.js';
+// `presence-lease-service.ts`, and the WRITE ITSELF is owned by
+// `skill-presence-write.ts` — the awaited, fail-closed write. The legacy
+// shim calls it so the cold path of the legacy `getSkillPresence` /
+// `checkStalePresence` / `clearStalePresenceOnRotation` read paths stays
+// cheap: the write module imports the lease service and the caller-id
+// resolver DYNAMICALLY, so a read-only command never pulls the canonical
+// lease and adapter machinery into module load.
+//
+// WHAT MOVED AND WHY. The canonical write used to live here, inside a
+// non-awaited `void (async () => { ... catch {} })()`. That shape made a
+// failed write invisible: the failure was swallowed, and the caller was
+// handed a success-shaped envelope anyway. The write now lives in
+// `skill-presence-write.ts`, where it is awaited and its failure escapes.
+//
 // Slice 4.0.17 (presence cross-session): the cross-session read and
 // the pure SELECTION RULES live in sibling modules (this file is over the
 // repository's 300-line cap, which may only go down).
 import { resolvePresenceLease, resolveProjectRoot } from './presence-lease-resolver.js';
 import { normalizePresenceGate, readPresenceGate } from './presence-gate.js';
-// Re-export the 4.0.8 compat surface so legacy callers
-// (`presence-service` consumers in `code-mode-gate-commands.ts`,
-// `mode-enforcement.ts`, `code-job-shape-commands.ts`, etc.) keep
-// their `setSkillPresence` / `getSkillPresence` / etc. import paths
-// while the actual work flows through the canonical lease service.
-void (null as unknown as SetPresenceLeaseResult | null);
+import { presenceRoleTier, type PresenceRoleTier } from './presence-role.js';
+import { writeCanonicalPresenceLease } from './skill-presence-write.js';
+// The 4.0.8 compat surface (`setSkillPresence` / `getSkillPresence` / …)
+// keeps its import path for the legacy consumers
+// (`code-mode-gate-commands.ts`, `mode-enforcement.ts`,
+// `code-job-shape-commands.ts`, the dashboard, the statusline) while the
+// actual work flows through the canonical lease service.
 
 export type SkillPresenceMode = 'full-auto' | 'assisted' | 'strict' | '24h';
 
@@ -63,6 +71,8 @@ export type SkillPresence = {
   skill: string;
   mode?: SkillPresenceMode;
   gate?: string;
+  /** The skill's role tier (`orchestrator` | `bee`; `null` for an unknown skill). */
+  role?: PresenceRoleTier | null;
   sessionId?: string;
   /**
    * Identifier of the *outer* session — the Claude Code / Cursor /
@@ -174,20 +184,16 @@ export function getCurrentSessionId(projectRootOverride?: string): string | null
 }
 
 /**
- * Slice 4.0.11 statusline-sid-scoped-lease C: read the canonical
- * sid-scoped lease projection and project the freshest in-flight
- * lease into the legacy `SkillPresence` shape that the public
- * `getSkillPresence` / `checkStalePresence` /
- * `clearStalePresenceOnRotation` consumers expect. The projection
- * is lossy (the lease does not carry `outerSessionId`; `setAt`
- * maps to `startedAt`; `lastHeartbeat` is reused as `lastHeartbeat`).
+ * Read the canonical sid-scoped lease projection and project the freshest
+ * in-flight lease into the legacy `SkillPresence` shape the public consumers
+ * expect. The projection is lossy (the lease does not carry `outerSessionId`;
+ * `setAt` maps to `startedAt`; `lastHeartbeat` is reused as `lastHeartbeat`).
  *
- * Slice 4.0.17 (presence cross-session): the read no longer
- * looks at ONE tree — it reads EVERY session tree of the project and
- * selects the lease that is actually driving peaks.
- *
- * Returns `null` when no tree holds an eligible lease; terminalized and
- * stale leases are ignored so the read does not resurrect a stale skill.
+ * The read spans EVERY session tree of the project and selects the lease that
+ * is actually driving peaks; terminalized and stale leases are ignored so
+ * the read does not resurrect a stale skill. The `role` tier comes from the
+ * lease's skill, so the header's Role cell is read from the tier lists
+ * rather than written by the model.
  */
 function readSkillPresenceFromLease(projectRootOverride?: string): SkillPresence | null {
   const selection = resolvePresenceLease(resolveProjectRoot(projectRootOverride));
@@ -205,6 +211,7 @@ function readSkillPresenceFromLease(projectRootOverride?: string): SkillPresence
     skill: lease.skill,
     ...(leaseMode !== undefined ? { mode: leaseMode } : {}),
     ...(gate !== undefined ? { gate } : {}),
+    role: presenceRoleTier(lease.skill),
     sessionId: selection.sessionId,
     outerSessionId: lease.callerId,
     setAt: lease.startedAt,
@@ -332,37 +339,80 @@ export interface SetSkillPresenceOptions {
   readonly callerIdOverride?: string | undefined;
 }
 
-export function setSkillPresence(
+/**
+ * Record the informational outer-session mismatch on the presence envelope.
+ *
+ * It powers the `outerSessionMismatch` field: when the recorded id differs
+ * from the one about to be stamped, the harness probably opened a fresh
+ * session. The field is INFORMATIONAL — it tells the statusline and any
+ * log / observability consumer that an outer-session swap was observed on
+ * the previous heartbeat. It does NOT rotate anything: the actual binding
+ * rotation is the session layer's business, and by the time the skill is
+ * invoked the rotation has already happened.
+ *
+ * The previous outer session id comes from the canonical lease projection
+ * (`.peaks/_runtime/<sid>/leases/presence-*.json`). The project-level
+ * single-slot marker files were removed in 4.0.11 and are NOT read here.
+ *
+ * The bound session's own recorded outer id is the second signal: when it
+ * matches the id about to be stamped, the swap is a re-connect of the SAME
+ * outer session and no mismatch is recorded.
+ */
+function markOuterSessionMismatch(
+  presence: SkillPresence,
+  sessionId: string | null,
+  outerSessionId: string | undefined,
+  projectRootOverride: string | undefined
+): void {
+  if (outerSessionId === undefined) return;
+  const previousOuterSessionId = getPreviousOuterSessionId(projectRootOverride);
+  const boundOuterSessionId = getBoundOuterSessionId(projectRootOverride);
+  const outerChanged = previousOuterSessionId !== outerSessionId;
+  const boundOuterMatches = boundOuterSessionId === outerSessionId;
+  const hasOuterSignal = previousOuterSessionId !== undefined || boundOuterSessionId !== undefined;
+  if (!hasOuterSignal || !outerChanged || boundOuterMatches || sessionId === null) return;
+  presence.outerSessionMismatch = {
+    ...(previousOuterSessionId !== undefined ? { previous: previousOuterSessionId } : {}),
+    current: outerSessionId,
+    boundSessionId: sessionId,
+    ...(boundOuterSessionId !== undefined ? { boundOuterSessionId } : {})
+  };
+}
+
+/**
+ * Set the presence for the current skill.
+ *
+ * ASYNC, AND AWAITED. The canonical write — the graph the lease names, the
+ * lease itself, the caller index — is awaited here, so a caller that awaits
+ * this function KNOWS whether the presence landed. It used to run inside a
+ * non-awaited `void (async () => { ... catch {} })()`: a graph that could
+ * not be built, or a lease that could not be written, was swallowed and the
+ * caller was handed a success-shaped envelope anyway. That failure now
+ * ESCAPES, and the CLI turns it into a fail-closed envelope.
+ *
+ * The compat shim (slice 4.0.8) still holds:
+ *   1. the canonical session id is resolved (caller binding first, then the
+ *      project-global `.peaks/_runtime/session.json`);
+ *   2. the caller id the caller already resolved wins (`--caller-id` >
+ *      `PEAKS_CALLER_ID` > active IDE adapter — the chain lives in
+ *      `resolve-caller-id.ts`); when none is supplied the write resolves one
+ *      itself and fails closed when that is impossible;
+ *   3. the canonical write is delegated to `setPresenceLease`, AWAITED.
+ */
+export async function setSkillPresence(
   skill: string,
   mode?: string,
   gate?: string,
   options?: SetSkillPresenceOptions
-): SkillPresence {
+): Promise<SkillPresence> {
   const projectRootOverride = options?.projectRootOverride;
   const callerIdOverride = options?.callerIdOverride;
-  // Slice 4.0.8 compat wrapper: the canonical write path is
-  // `presence-lease-service.setPresenceLease`. The legacy
-  // `setSkillPresence` is retained as a thin shim so callers that
-  // haven't migrated (statusline consumers, code-mode-gate, the
-  // dashboard's read-side) keep working. The compat shim:
-  //   1. resolves the canonical session id (legacy file
-  //      `.peaks/_runtime/session.json` -> canonical
-  //      `.peaks/_runtime/session.json` + caller binding);
-  //   2. uses the caller id the caller already resolved
-  //      (`--caller-id` > `PEAKS_CALLER_ID` > active IDE adapter — the
-  //      chain lives in `resolve-caller-id.ts`); when none is supplied it
-  //      resolves one itself, and if that fails we still write a *legacy*
-  //      `SkillPresence` record (so non-4.0.8 callers that expect the old
-  //      shape don't break) but we surface a warning to the CLI boundary
-  //      via the `outerSessionMismatch` field;
-  //   3. delegates the canonical write to `setPresenceLease`.
   const validatedMode = normalizeSkillPresenceMode(mode);
   // The gate is normalized ONCE, here, so the in-memory envelope and the
   // persisted lease can never disagree about what gate was recorded.
   const validatedGate = normalizePresenceGate(gate);
   const sessionId = getCurrentSessionId(projectRootOverride);
   const outerSessionId = getCurrentOuterSessionId();
-  const previousOuterSessionId = getPreviousOuterSessionId(projectRootOverride);
   const now = new Date().toISOString();
 
   // as `''`) when no harness env var is set. Without this, the JSON
@@ -384,74 +434,24 @@ export function setSkillPresence(
   // Outer-session-mismatch detection. Same logic as the 4.0.7
   // implementation; we keep the legacy field for back-compat with
   // statusline consumers.
-  if (outerSessionId !== undefined) {
-    const boundOuterSessionId = getBoundOuterSessionId(projectRootOverride);
-    const outerChanged = previousOuterSessionId !== outerSessionId;
-    const boundOuterMatches = boundOuterSessionId === outerSessionId;
-    const hasOuterSignal =
-      previousOuterSessionId !== undefined || boundOuterSessionId !== undefined;
-    if (hasOuterSignal && outerChanged && !boundOuterMatches && sessionId !== null) {
-      presence.outerSessionMismatch = {
-        ...(previousOuterSessionId !== undefined ? { previous: previousOuterSessionId } : {}),
-        current: outerSessionId,
-        boundSessionId: sessionId,
-        ...(boundOuterSessionId !== undefined ? { boundOuterSessionId } : {})
-      };
-    }
-  }
+  markOuterSessionMismatch(presence, sessionId, outerSessionId, projectRootOverride);
 
-  // Canonical lease write — when a session is bound and we can derive
-  // a (callerId, workflowId, graphRef) tuple, we route through
-  // `setPresenceLease`. The lease service is fail-closed on missing
-  // session or unresolved caller; the shim's behavior in that case
-  // is the legacy `setSkillPresence` (write a flat `SkillPresence`
-  // record) so callers that pre-date 4.0.8 keep their shape contract.
+  // Canonical lease write — when a session is bound we route through
+  // `setPresenceLease`, which writes the graph the lease names BEFORE the
+  // lease: no lease is ever left pointing at a missing graph. The write is
+  // AWAITED and its failure ESCAPES — a presence that was not written is
+  // not a presence that was set.
   const projectRoot = resolveProjectRoot(projectRootOverride);
   if (sessionId !== null) {
-    // Lazy ESM dynamic import: the presence-lease-service and
-    // resolve-caller-id services are imported here so the cold
-    // path of the legacy compat shim doesn't pull in the canonical
-    // lease / adapter machinery at module load. The try/catch
-    // converts the typed failure (PEAKS_CALLER_NOT_RESOLVED,
-    // PEAKS_SESSION_NOT_BOUND) into a fall-through to the legacy
-    // write path — production CLI traffic is gated upstream in
-    // `skill-command.ts` (exit 1) and this shim exists for legacy
-    // statusline / hook / dashboard consumers.
-    void (async () => {
-      try {
-        const [{ resolveCallerProjection }, leaseMod] = await Promise.all([
-          import('../session/resolve-caller-id.js'),
-          import('./presence-lease-service.js')
-        ]);
-        // The caller id the CLI already resolved wins; without one the shim
-        // resolves its own (and throws when that is impossible, which the
-        // catch below turns into the legacy write). `slice(0, 189)` caps the
-        // callerId so the resulting workflowId (`wf-` + callerId +
-        // `-compat`) stays under the 200-char `WORKFLOW_ID_REGEX` cap.
-        const callerId =
-          callerIdOverride ?? resolveCallerProjection({ projectRoot, env: process.env }).callerId;
-        const workflowId = `wf-${callerId.slice(0, 189)}-compat`;
-        const result: SetPresenceLeaseResult = leaseMod.setPresenceLease({
-          projectRoot,
-          sessionId,
-          callerId,
-          workflowId,
-          graphRef: `graphs/${workflowId}.json`,
-          skill,
-          now,
-          ...(validatedMode !== undefined ? { mode: validatedMode } : {}),
-          ...(validatedGate !== undefined ? { gate: validatedGate } : {})
-        });
-        // Suppress unused-import warnings for inputs reserved for the
-        // migration window.
-        void (leaseMod.readPresenceLease as unknown);
-        void (leaseMod.markPresenceLost as unknown);
-        void (leaseMod.listPresenceLeases as unknown);
-        void result;
-      } catch {
-        /* fall through to legacy write */
-      }
-    })();
+    await writeCanonicalPresenceLease({
+      projectRoot,
+      sessionId,
+      skill,
+      now,
+      ...(callerIdOverride !== undefined ? { callerId: callerIdOverride } : {}),
+      ...(validatedMode !== undefined ? { mode: validatedMode } : {}),
+      ...(validatedGate !== undefined ? { gate: validatedGate } : {})
+    });
   }
 
   // Slice 4.0.11 statusline-sid-scoped-lease A: the canonical write

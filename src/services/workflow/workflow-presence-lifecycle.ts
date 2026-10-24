@@ -14,8 +14,6 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { type WorkflowGraph, type WorkflowId, TERMINAL_REASONS } from './workflow-graph-types.js';
 import {
-  emptyGraph,
-  readGraph,
   writeGraph,
   validateGraph,
   graphPathFor,
@@ -24,6 +22,7 @@ import {
   PEAKS_TERMINALIZE_ATOMICITY_FAILED,
   PEAKS_TERMINAL_REASON_INVALID
 } from './workflow-graph-store.js';
+import { newWorkflowGraph, readGraphOrRepair } from './workflow-graph-ensure.js';
 import {
   setPresenceLease,
   readPresenceLease,
@@ -68,12 +67,11 @@ export async function initWorkflow(input: InitWorkflowInput): Promise<InitWorkfl
       `graphRef must normalize to graphs/${workflowId}.json; got ${graphRef}`
     );
   }
-  const graph = emptyGraph({
+  const graph = newWorkflowGraph({
     workflowId,
     rootSkill: input.skill,
     ...(input.parentWorkflowId ? { parentWorkflowId: input.parentWorkflowId } : {})
   });
-  validateGraph(graph);
 
   // Phase 1: write graph first.
   writeGraph({
@@ -133,12 +131,28 @@ export async function terminalizeWorkflow(
   let successEventCount = 0;
 
   try {
-    // Phase 1: read graph (fail closed if missing/corrupt).
-    const graph = readGraph({
+    // Phase 0: the lease IS the workflow's identity. It is read before the
+    // graph so a terminalize aimed at a workflow this lease does not carry
+    // is refused before anything is written, and so the repair below can
+    // take the lease's own skill as the graph's rootSkill.
+    const currentLease = readPresenceLease({
       projectRoot: input.projectRoot,
       sessionId: input.sessionId,
+      callerId: input.callerId,
+      workflowId: input.workflowId,
+      graphRef: input.graphRef
+    });
+
+    // Phase 1: read the graph. A graph that was never written is repaired —
+    // the same graph the write path creates — while a graph that is on disk
+    // but CORRUPT keeps failing closed (PEAKS_GRAPH_CORRUPTED is rethrown
+    // untouched).
+    const graph = readGraphOrRepair({
+      projectRoot: input.projectRoot,
+      sessionId: input.sessionId,
+      workflowId: input.workflowId,
       graphRef: input.graphRef,
-      workflowId: input.workflowId
+      skill: currentLease.skill
     });
 
     // Phase 2: check unconsumed envelopes (RD §4 terminalize contract).

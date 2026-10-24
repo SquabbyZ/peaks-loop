@@ -8,7 +8,8 @@
 import type { Command } from 'commander';
 import {
   setSkillPresence,
-  isSkillPresenceMode
+  isSkillPresenceMode,
+  type SkillPresence
 } from '../../../services/skills/skill-presence-service.js';
 import { resolvePresenceCallerId } from '../../../services/skills/presence-caller-id.js';
 import {
@@ -18,7 +19,7 @@ import {
 import { canonicalizeProjectOption } from './skill-generated-config-notice.js';
 import { findProjectRoot } from '../../../services/config/config-safety.js';
 import { getSessionId, setSessionMeta } from '../../../services/session/session-manager.js';
-import { fail, ok } from 'peaks-loop-shared/result';
+import { fail, getErrorMessage, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, printResult, type ProgramIO } from '../../cli-helpers.js';
 
@@ -34,6 +35,16 @@ const PRESENCE_SET_CALLER_ID_HELP =
 // not match the D1 regex (EX_DATAERR). 64 is the "nothing usable" code.
 const CALLER_ID_INVALID_EXIT_CODE = 65;
 const CALLER_ID_UNRESOLVED_EXIT_CODE = 1;
+
+/**
+ * The code a FAILED canonical write is reported under. It is the code
+ * `peaks workflow init` already uses for the same write (graph + lease +
+ * index), so the two commands report one failure one way. A typed
+ * `PEAKS_*` code the service already raised (e.g. `PEAKS_GRAPH_LOCK_HELD`)
+ * is kept as-is; a raw filesystem error (ENOTDIR, EACCES, ...) is reported
+ * as the write failure it is.
+ */
+const PRESENCE_WRITE_FAILED_CODE = 'PEAKS_GRAPH_WRITE_FAILED';
 
 export type PresenceSetOptions = {
   mode?: string;
@@ -168,11 +179,55 @@ function resolveSetCallerId(
   return null;
 }
 
-export function runSkillPresenceSet(
+/**
+ * The error code a failed canonical write is reported under. A typed
+ * `PEAKS_*` code the service already raised is kept, so a graph lock
+ * (`PEAKS_GRAPH_LOCK_HELD`) does not read as a generic write failure; a raw
+ * filesystem error is reported as the write failure it is.
+ */
+function presenceWriteFailureCode(error: unknown): string {
+  const code = (error as { code?: unknown }).code;
+  return typeof code === 'string' && code.startsWith('PEAKS_') ? code : PRESENCE_WRITE_FAILED_CODE;
+}
+
+/**
+ * The canonical write FAILED — the graph the lease names could not be
+ * built, or the lease itself could not be written. The command FAILS here:
+ * a presence that was not written is not a presence that was set, and
+ * reporting success would leave the operator believing the skill is active
+ * when no lease exists.
+ *
+ * This branch is distinct from the two refusals above it: those are
+ * "nothing was even attempted" (no session bound, no caller id), this one
+ * is "the write was attempted and failed". The codes say which.
+ */
+function printWriteFailure(
+  io: ProgramIO,
+  options: PresenceSetOptions,
+  target: { name: string; projectRoot: string },
+  error: unknown
+): void {
+  printResult(
+    io,
+    fail(
+      'skill.presence:set',
+      presenceWriteFailureCode(error),
+      `Could not write the canonical presence lease (graph + lease): ${getErrorMessage(error)}`,
+      { name: target.name, projectRoot: target.projectRoot },
+      [
+        'Check that the session runtime directory is writable, then re-run `peaks skill presence:set`.'
+      ]
+    ),
+    options.json
+  );
+  process.exitCode = 1;
+}
+
+export async function runSkillPresenceSet(
   name: string,
   options: PresenceSetOptions,
   io: ProgramIO
-): void {
+): Promise<void> {
   const projectOption = canonicalizeProjectOption(options.project);
   const projectRoot = projectOption ?? findProjectRoot(process.cwd()) ?? process.cwd();
   if (!validateSetFields(io, options, name)) return;
@@ -188,10 +243,19 @@ export function runSkillPresenceSet(
   }
   const callerId = resolveSetCallerId(io, options, { name, projectRoot });
   if (callerId === null) return;
-  const presence = setSkillPresence(name, options.mode, options.gate, {
-    projectRootOverride: projectOption,
-    callerIdOverride: callerId
-  });
+  // The canonical write is AWAITED: the command has to know whether the
+  // lease (and the graph it names) actually landed BEFORE it reports
+  // success. A failure here is reported as a failure.
+  let presence: SkillPresence;
+  try {
+    presence = await setSkillPresence(name, options.mode, options.gate, {
+      projectRootOverride: projectOption,
+      callerIdOverride: callerId
+    });
+  } catch (error: unknown) {
+    printWriteFailure(io, options, { name, projectRoot }, error);
+    return;
+  }
   // Session metadata is updated when a session is bound (read-only path:
   // `getSessionId`). We do not auto-spawn a session. The resolved callerId
   // is recorded as the session's outer-session id so a later read can tell
