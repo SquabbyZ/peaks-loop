@@ -18,6 +18,31 @@ Measured on the Windows dev host for `D:\projects\peaks-loop`.
 - `peaks mut run` (Stryker) **cannot complete** on this host: the installed binary lacks
   `@stryker-mutator/core`, and a working-tree run hits `EPERM` inside Stryker's sandbox copy.
 
+**What was FALSIFIED on 2026-10-24, second half — "the shell-hook tests cannot run here".**
+
+The bullet above names the WSL launcher but stops one step short, and the step it stopped short
+of is the one that decides whether the gate can go green. **A working bash IS on this host:
+`C:\Program Files\Git\bin\bash.exe` (Git Bash).** The WSL launcher only comes first on PATH.
+
+So the "14 failed files / 124 failed tests" that `tests/unit/hooks/**` and
+`tests/unit/services/hooks/code-gate*.test.ts` produced on 2026-10-24 was a **PATH-shadowing
+artifact, not a host limit**. Measured the same day, with
+`$env:PATH = 'C:\Program Files\Git\bin;' + $env:PATH`:
+`tests/unit/hooks/code-gate-relative-base-shell.test.ts` +
+`tests/unit/hooks/code-gate-thin-wrapper.test.ts` → **2 files / 43 tests passed, exit 0**
+(129 s wall; 229 s of test time — the suite spawns a shell per case, so real bash makes it slow,
+which is the opposite of a hang).
+
+The generalisation this file was rewritten to carry now applies twice over: the WSL-launcher
+fact was true and still incomplete, because "the shell on PATH is broken" was never the same
+claim as "no shell can run". Before attributing a red to the host, check what else on the box
+could satisfy it.
+
+**Cost note.** Under real bash the hook suite is slow (229 s of test time for 43 tests).
+Budget for that in the whole `tests/unit` tier and in the `pre-push` `pnpm test:changed`
+fallback, which reaches the full suite whenever the diff touches `package.json` /
+`pnpm-lock.yaml` / `scripts/` / `.peaks/` / `.husky/`.
+
 **What was FALSIFIED on 2026-10-24 — the earlier "the full suite cannot pass here" claim.**
 
 This file was written on 2026-10-23 with the claim that the full unit suite cannot pass on this
