@@ -118,9 +118,16 @@ synchronous throw into a rejection — so behaviour is unchanged.
   is still open ([stryker-js#933](https://github.com/stryker-mutator/stryker-js/issues/933)).
 
 Side observation, recorded because it is a real config defect found while
-checking: `@stryker-mutator/typescript-checker` is a devDependency but is **not
-listed in `plugins`**, so it is not active; and core `8.7.1` vs `vitest-runner`
-`9.6.1` is a major-version mismatch.
+checking. **Both halves of it are now resolved** (rid `rid-t4-mut-runtime-dependency`):
+
+- `@stryker-mutator/typescript-checker` was a devDependency that is **not listed in
+  `plugins`**, so it was never active. It has been **removed** from the root
+  `devDependencies`: with core moved to `9.6.1` its own peer
+  (`@stryker-mutator/core ~8.7.0`) was unsatisfiable, so every `pnpm install`
+  printed an `unmet peer` warning for a dependency that never ran.
+- core `8.7.1` vs `vitest-runner` `9.6.1` **was** a major-version mismatch. It is
+  **fixed**: both are now `9.6.1`, so the vitest-runner's peer
+  (`@stryker-mutator/core: 9.6.1`) is satisfied.
 
 ### What replaces it
 
