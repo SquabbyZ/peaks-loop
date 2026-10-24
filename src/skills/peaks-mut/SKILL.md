@@ -3,11 +3,11 @@ name: peaks-mut
 description: Mutation testing + assertion validity scan for Peaks. Use when a workflow needs to catch test fake-green (coverage looks fine but tests do not actually exercise behavior). Runs Stryker mutants and a 5-pattern weak-assertion AST scan, then emits a hashable MUT.sig report that chains to TACT.sig.
 ---
 
-## Two-axis naming convention
+## Single-axis naming convention
 
 > **Read once at the top of this file; the rest of the skill is written against it.**
 
-The `.peaks/` workspace is partitioned by **two orthogonal axes**: **change-id** (reviewable artifacts at `.peaks/_runtime/<changeId>/...`) and **session-id** (ephemeral state at `.peaks/_runtime/<sessionId>/...`), with a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. Use `<changeId>` / `<sessionId>` placeholders (NEVER bare `<sid>`). CLI axis mapping: change-id → `peaks request *` / `peaks scan *`; session-id → `peaks session *`; sub-agent → `peaks sub-agent *`. Regression test `tests/unit/skills/skills-skill-md-naming.test.ts` enforces (a) zero bare `<sid>`, (b) every `.peaks/_runtime/<X>/` has an axis label, (c) this callout is present.
+The `.peaks/` workspace has a **single scope axis** — **session-id** (ephemeral state at `.peaks/_runtime/<sessionId>/...`) — with a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. The peaks-loop change-id axis was removed in slice `2026-06-29-change-id-root-removal`: a date-stamped / change-id-style directory must never sit at the top level of `.peaks/` (it belongs under `.peaks/_runtime/<sessionId>/`), and `tests/unit/workspace/top-level-change-id-guard.test.ts` refuses one. Use `<sessionId>` for runtime paths (NEVER a bare `<sid>` path; the CLI's own help text spells the flag placeholder `<sid>`). CLI axis mapping: session-id → `peaks session *`; sub-agent → `peaks sub-agent *`; request-scoped artifacts → `peaks request *`. Normative by documentation only — the guard that once asserted (a) zero bare `<sid>`, (b) an axis label on every runtime path, and (c) this callout's presence was deleted in `457b9a87`. Comply by convention.
 
 # Peaks-Loop Mut
 
@@ -21,7 +21,7 @@ Before any analysis or tool call, immediately run:
 peaks skill presence:set peaks-mut --project <repo> --mode <mode> --gate startup
 ```
 
-**When invoked as a sub-agent (peaks-code swarm):** do NOT call `peaks skill presence:set` (Code owns the active-skill marker) and do NOT spawn your own session. Use the parent's sid — read `.peaks/_runtime/session.json` or pass `--session-id <parent-sid>` to any session-creating CLI. The new `peaks session info --active` reads the canonical binding for you.
+**When invoked as a sub-agent (peaks-code swarm):** do NOT call `peaks skill presence:set` (Code owns the active-skill marker) and do NOT spawn your own session. Use the parent's sid — resolve it with `peaks session info --active` (the on-disk `.peaks/_runtime/session.json` path is internal and must NOT be read directly) or pass `--session-id <parent-sid>` to any session-creating CLI.
 
 On the first presence:set in a project, ensure the out-of-band status bar is installed so the user can see at a glance that Peaks is orchestrating — it renders the active skill in Claude Code's terminal status line, independent of model output:
 
@@ -43,7 +43,7 @@ Then display: `Peaks-Loop Skill: peaks-mut | Peaks-Loop Gate: startup | Next: <o
 Two independent signals feed a single report:
 
 1. **Mutation testing** — Stryker mutates source code under test. Existing tests must KILL each mutant. A low kill rate means tests accept behaviour changes that should fail them. Default tool: `stryker`. Schema reserves `mutmut` and `go-mutesting` for future slices.
-2. **Weak-assertion scan** — regex/AST scan over test files for 5 patterns that pass on `null`, `undefined`, `void`, or the receiver itself: `toBeDefined`, `toBeTruthy`, `toEqual-self`, `expect-anything`, `toBe-self`. Each hit is a `WeakExample` (file + line + code).
+2. **Weak-assertion scan** — regex/AST scan over test files for 5 patterns that do not pin a value: `toBeDefined`, `toBeTruthy`, `toEqual-self`, `expect-anything`, `toBe-self`. Each hit is a `WeakExample` (file + line + code).
 
 Both signals are combined into `MutReportJson` (version `1.0`) with MUT.sig = `sha256` of canonicalised content, chained to the upstream TACT.sig via the `inputSig` field. H6 (CLI裁决, not LLM): `thresholds.passed` and `followups[]` are computed by the CLI; the LLM only consumes them.
 
@@ -51,20 +51,20 @@ Both signals are combined into `MutReportJson` (version `1.0`) with MUT.sig = `s
 
 peaks-code or peaks-rd dispatches peaks-mut after peaks-rd/战术 (TACT.sig exists). The flow:
 
-1. peaks-mut consumes `context.json --audience peaks-mut` (built by peaks-context Phase 1).
+1. peaks-mut takes the test files and the sources under test as explicit inputs (`--test-files`, `--mutate`); there is no `--audience` view to consume.
 2. Stryker mutates test-target source code; existing tests must kill the mutants.
-3. AssertScanner finds 5 weak-assertion patterns: `toBeDefined`, `toBeTruthy`, `toEqual-self`, `expect.anything`, `toBe-self`.
+3. AssertScanner finds 5 weak-assertion patterns: `toBeDefined`, `toBeTruthy`, `toEqual-self`, `expect-anything`, `toBe-self`.
 4. Outputs `mut-report.json` with `MUT.sig` chained to `TACT.sig` (inputSig field).
-5. peaks-qa reads MUT.sig during validation (slice Task 8 wiring).
+5. peaks-qa reads the mut report during validation — `peaks verdict aggregate` reads `mut/mut-report.json`, and the contract treats its absence as a warning rather than a gate failure.
 
 ## Thresholds (default)
 
-| Metric | Default | Severity | Override |
-|---|---|---|---|
-| `mutationKillRateMin` | `0.80` | soft — AskUserQuestion to override | `peaks-mut.config.json` at project root |
-| `weakAssertionRateMax` | `0.05` | hard — refuse by default | same file |
+| Metric                 | Default | Severity of the emitted followup                            | Override |
+| ---------------------- | ------- | ----------------------------------------------------------- | -------- |
+| `mutationKillRateMin`  | `0.80`  | `soft` — the followup carries `issue: low_kill_rate`        | none     |
+| `weakAssertionRateMax` | `0.05`  | `hard` — the followup carries `issue: high_weak_assertions` | none     |
 
-A breach sets `thresholds.passed = false`. Soft breaches still allow override via the question flow; hard breaches block without confirmation. `passed` is the sole gate for `process.exitCode` from `peaks mut run`.
+A breach sets `thresholds.passed = false`. There is **no** override channel: `buildMutReport` takes the thresholds as an input, falls back to `DEFAULT_THRESHOLDS`, and the CLI never overrides them — so the two defaults above are the only numbers that can apply. `passed` is the sole gate for `process.exitCode` from `peaks mut run` (`1` when it is `false`).
 
 ## CLI
 
@@ -75,30 +75,62 @@ peaks mut asserts # AST scan only; empty-mutation report
 peaks mut report  # re-read a previously-written mut-report.json
 ```
 
-All artifact-producing subcommands require `--session-id <sid>` (one-axis envelope: outputs land at `.peaks/_runtime/<sessionId>/mut/...`). `--change-id` is **never** accepted on the parser — plan 1 followup hotfix (commit `81f00ce`) forbids it.
+All artifact-producing subcommands require `--session-id <sid>` (one-axis envelope: the artifact is keyed by the session id). `--change-id` is **never** accepted on the `peaks mut` parser — plan 1 followup hotfix (commit `81f00ce`) forbids it.
 
-| Subcommand | Required flags | What it writes | Exit code |
-|---|---|---|---|
-| `run` | `--project <path> --test-files <files...> --input-sig <hex> --session-id <sid> --out <path> [--json]` | full `MutReportJson` (mutation + assertions + followups) | `1` if `thresholds.passed === false` |
-| `mutants` | same as `run` | full `MutReportJson` with empty assertions | `1` if `thresholds.passed === false` |
-| `asserts` | same as `run` | full `MutReportJson` with empty mutation | `1` if `thresholds.passed === false` |
-| `report` | `--in <path> --session-id <sid> [--json]` | nothing on disk — re-emits a one-line summary | `1` if input report's `thresholds.passed === false`; `2` on invalid JSON or schema failure |
+| Subcommand | Flags                                                                                                                          | What it writes                                           | Exit code                                                                                  |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `run`      | `--project <path> --test-files <files...> [--mutate <patterns...>] --input-sig <hex> --session-id <sid> --out <path> [--json]` | full `MutReportJson` (mutation + assertions + followups) | `1` if `thresholds.passed === false`                                                       |
+| `mutants`  | `--project <path> --test-files <files...> [--mutate <patterns...>] --input-sig <hex> --session-id <sid> --out <path> [--json]` | full `MutReportJson` with empty assertions               | `1` if `thresholds.passed === false`                                                       |
+| `asserts`  | `--project <path> --test-files <files...> --input-sig <hex> --session-id <sid> --out <path> [--json]`                          | full `MutReportJson` with empty mutation                 | `1` if `thresholds.passed === false`                                                       |
+| `report`   | `--in <path> --session-id <sid> [--json]`                                                                                      | nothing on disk — re-emits a one-line summary            | `1` if input report's `thresholds.passed === false`; `2` on invalid JSON or schema failure |
+
+In the **Flags** column a bare flag is **required** and a flag in `[...]` is **optional**. `peaks mut asserts` has no `--mutate`: it never runs Stryker.
+
+MEASURED: `peaks mut asserts` writes an **empty** mutation block, so its `mutation.killRate` is `0` — below `mutationKillRateMin` — and `thresholds.passed` is therefore always `false`, i.e. the exit code is `1` even when the assertion scan finds nothing weak. Read `assertions.weakRate` for the assertion verdict, not the exit code.
 
 `--json` emits `{ ok, sha256, passed, path }` (run/mutants/asserts) or a structured summary object (report). Without `--json`, plain text is written to stdout. Failures from JSON parse / Zod validation go to stderr with `INVALID_JSON` / `INVALID` prefix.
 
+### Mutation scope and the Stryker configuration
+
+`--mutate <patterns...>` is the **mutation scope**: source patterns, relative to `--project`. It is optional on the parser but required in practice — without it the runner falls back to a project-root `stryker.conf.js`, and with neither the run is refused with the named code `MUT_MUTATE_PATTERN_REQUIRED`.
+
+The Stryker configuration is **built programmatically** by the CLI (`peaks-loop-mut` → `buildStrykerOptions`): the test runner, the timing, the coverage mode and the mutation scope all come from the flags. A project-root `stryker.conf.js` is **optional** — a backwards-compatible fallback for projects that already ship one. When one exists, the CLI's own options win over it (Stryker deep-merges the CLI options over the config file).
+
+Named error codes the mut family can emit:
+
+| Code                          | Meaning                                                                       |
+| ----------------------------- | ----------------------------------------------------------------------------- |
+| `MUT_MUTATE_PATTERN_REQUIRED` | no `--mutate` scope and no project-root `stryker.conf.js` to fall back to     |
+| `MUT_NO_MUTANTS`              | the run produced 0 mutants — a configuration error, not a passing measurement |
+| `MUT_TOOLCHAIN_UNAVAILABLE`   | the `@stryker-mutator/vitest-runner` plugin could not be resolved             |
+| `MUT_FAILED`                  | the fallback for a failure that carries no named code of its own              |
+
+A failure envelope is written to stderr and the exit code is non-zero (`1`).
+
+### The two root scripts
+
+The repository ships two ready-to-run scripts:
+
+| Script          | Command                                                        | Placeholders                                            |
+| --------------- | -------------------------------------------------------------- | ------------------------------------------------------- |
+| `pnpm mut:run`  | `peaks mut run` over the four `stryker.conf.js` mutate targets | `--input-sig` and `--session-id` are PLACEHOLDER values |
+| `pnpm mut:scan` | `peaks mut asserts` — the assertion scan only, no Stryker      | same                                                    |
+
+The `--input-sig` PLACEHOLDER is 64 zeros — it is **not** a real TACT.sig. Take the real one from `peaks tact read --artifact .peaks/_runtime/<sessionId>/rd/impl.json --project <repo> --json | jq -r '.sha256'` and replace it, and replace the `--session-id` PLACEHOLDER with the session id you are working in. The reports land under `.peaks/_runtime/<sessionId>/mut/`, which is gitignored: a `mut-report.json` is session-scoped ephemeral state and must never be committed.
+
 ## Report shape (link to types)
 
-`MutReportJson` is the canonical artifact, validated by `MutReportSchema` (Zod). Source of truth: `src/services/mut/types.ts`. Top-level fields:
+`MutReportJson` is the canonical artifact, validated by `MutReportSchema` (Zod). Source of truth: `packages/peaks-loop-mut/src/services/mut/types.ts`. Top-level fields:
 
 ```ts
 interface MutReportJson {
   readonly version: '1.0';
-  readonly sha256: string;       // MUT.sig — sha256 of canonicalised content
-  readonly generatedAt: string;  // ISO 8601 — excluded from the sha256 digest
-  readonly inputSig: string;     // TACT.sig (64-hex) — chain anchor
+  readonly sha256: string; // MUT.sig — sha256 of canonicalised content
+  readonly generatedAt: string; // ISO 8601 — excluded from the sha256 digest
+  readonly inputSig: string; // TACT.sig (64-hex) — chain anchor
   readonly mutation: MutationReport;
   readonly assertions: AssertionsReport;
-  readonly thresholds: ThresholdsConfig;  // includes `passed: boolean`
+  readonly thresholds: ThresholdsConfig; // includes `passed: boolean`
   readonly followups: ReadonlyArray<Followup>;
 }
 ```
@@ -109,17 +141,17 @@ The MUT.sig digest is **deterministic**: object keys are sorted recursively, `ge
 
 ## One-axis envelope invariant
 
-peaks-mut writes ONLY to `.peaks/_runtime/<sessionId>/mut/mut-report.json` (or wherever `--out` points inside that prefix). It never reads from `.peaks/_sub_agents/...`, never writes to `.peaks/_runtime/<changeId>/...`, and never accepts `--change-id`. This invariant matches peaks-qa / peaks-context and keeps the chain MUT.sig → TACT.sig → PRD sig auditable in one place.
+peaks-mut writes the report to the path given by `--out` (the CLI creates the parent directory; it does **not** enforce a `.peaks/_runtime/<sessionId>/` prefix — put the report there yourself). It never reads from `.peaks/_sub_agents/...`, and it never accepts `--change-id`. This invariant matches peaks-qa / peaks-context and keeps the chain MUT.sig → TACT.sig → PRD sig auditable in one place.
 
 ## Independent context (防合谋)
 
-peaks-mut's `context.json --audience peaks-mut` view **does not include** `strategy.md` / `impl.json` (PRD §4.2 防合谋). It sees only test files + source under test, so peaks-mut cannot be biased by peaks-rd's design intent when judging test quality. peaks-qa applies the same isolation when it consumes MUT.sig.
+peaks-mut's inputs are the test files and the sources under test — the CLI takes them as `--test-files` and `--mutate` and reads nothing else (PRD §4.2 防合谋). The strategy / implementation artifacts (`strategy.md`, `impl.json`) are not part of any mut input, so peaks-mut cannot be biased by peaks-rd's design intent when judging test quality. peaks-qa applies the same isolation when it consumes MUT.sig.
 
 ## Karpathy guidelines
 
 All 4 guidelines injected (same as peaks-rd). The two relevant ones here:
 
-- **Truthfulness about completion** — peaks-mut MUST NOT report `thresholds.passed = true` if the assertion scan was skipped (e.g. `--asserts` not run). The CLI sets the value from real measurements; the LLM only reads it.
+- **Truthfulness about completion** — peaks-mut MUST NOT report `thresholds.passed = true` if the assertion scan was skipped (e.g. `peaks mut mutants` was run instead of `peaks mut run`). The CLI sets the value from real measurements; the LLM only reads it.
 - **No silent swallowing** — peaks-mut MUST NOT silently swallow assertion violations. Every `WeakExample` is preserved in the report (capped per pattern), every `Followup.suggestion` is concrete, and the CLI exit code reflects `thresholds.passed`.
 
 ## Default runbook
@@ -159,13 +191,16 @@ peaks tact write \
 # 2. Get the upstream TACT.sig (the chain anchor for MUT.sig)
 peaks tact read --artifact .peaks/_runtime/<sid>/rd/impl.json --project <repo> --json | jq -r '.sha256'
 
-# 3. Inventory test files (peaks-context --audience peaks-mut view)
-peaks context list-test-files --audience peaks-mut --project <repo> --json
+# 3. Inventory the test files. There is NO CLI command that lists them
+#    (`peaks context` has only layer / status / check, and no --audience
+#    option), and `--test-files` takes explicit paths relative to --project.
+#    List the test files that import the sources under test.
 
 # 4. Run the full audit
 peaks mut run \
   --project <repo> \
   --test-files <files...> \
+  --mutate <patterns...> \
   --input-sig <tact.sig> \
   --session-id <sid> \
   --out .peaks/_runtime/<sid>/mut/mut-report.json \
@@ -177,7 +212,7 @@ peaks mut report \
   --session-id <sid>
 
 # 6. Sub-runs when the slice is small or partial (e.g. CI)
-peaks mut mutants --project <repo> --test-files <files...> --input-sig <tact.sig> --session-id <sid> --out <path> --json
+peaks mut mutants --project <repo> --test-files <files...> --mutate <patterns...> --input-sig <tact.sig> --session-id <sid> --out <path> --json
 peaks mut asserts --project <repo> --test-files <files...> --input-sig <tact.sig> --session-id <sid> --out <path> --json
 
 # 7. Clean up
@@ -186,15 +221,17 @@ peaks skill presence:clear --project <repo>
 
 ### Transition verification gates (MANDATORY — run the command, see the output)
 
-You cannot declare peaks-mut complete from memory. Each gate below is a `ls` command you **MUST run** and whose output you **MUST see** before proceeding.
+You cannot declare peaks-mut complete from memory. Each gate below is a command you **MUST run** and whose output you **MUST see** before proceeding.
 
 **Peaks-Loop Gate A — After `peaks mut run`:**
+
 ```bash
 ls .peaks/_runtime/<session-id>/mut/mut-report.json
 # Expected: a single mut-report.json file. Missing → STOP, the CLI failed.
 ```
 
 **Peaks-Loop Gate B — Before handing off to peaks-qa (MUT.sig chain is valid):**
+
 ```bash
 # The report's inputSig MUST equal the upstream TACT.sig.
 jq -r '.inputSig' .peaks/_runtime/<session-id>/mut/mut-report.json
@@ -207,6 +244,7 @@ jq -r '.sha256' .peaks/_runtime/<session-id>/mut/mut-report.json
 ```
 
 **Peaks-Loop Gate C — Threshold verdict (when a human or CI checks `passed`):**
+
 ```bash
 jq -r '.thresholds.passed' .peaks/_runtime/<session-id>/mut/mut-report.json
 # Expected: `true` (pass) or `false` (fail). When false, the CLI exited with code 1.
@@ -217,7 +255,7 @@ jq -r '.thresholds.passed' .peaks/_runtime/<session-id>/mut/mut-report.json
 - Do not write tests, do not modify source under test, do not pick mutation strategies. peaks-mut only **measures** the test suite and **reports** the verdict.
 - Do not commit mut-report.json to source control; it is session-scoped ephemeral state.
 - Do not bypass thresholds via the LLM: if `peaks mut run` exits `1`, surface the failure to peaks-qa and the user — do not retry with a relaxed config unless they explicitly ask.
-- Do not run Stryker outside `peaks mut run | mutants`; the runner requires the injected `invokeStryker` and the config in `stryker.conf.js` at the project root.
+- Do not run Stryker outside `peaks mut run | mutants`; the runner requires the injected `invokeStryker`, and the Stryker configuration is built programmatically from the flags. A project-root `stryker.conf.js` is an optional backwards-compatible fallback, not a requirement.
 - Do not call `peaks mut report` against a report whose `inputSig` does not match the current TACT.sig — that is a stale report, not authoritative.
 
-Reference: `src/services/mut/` for the service-layer code (`types.ts`, `assert-scanner.ts`, `mut-runner.ts`, `thresholds.ts`, `report-builder.ts`).
+Reference: `packages/peaks-loop-mut/src/services/mut/` for the service-layer code (`types.ts`, `assert-scanner.ts`, `mut-runner.ts`, `thresholds.ts`, `report-builder.ts`, `stryker-options.ts`, `production-stryker.ts`).
