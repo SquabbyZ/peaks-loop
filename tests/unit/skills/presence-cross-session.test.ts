@@ -1,20 +1,21 @@
 // tests/unit/skills/presence-cross-session.test.ts
 //
 // Slice 2026-10-24 — rid-t2-presence-cross-session.
+// Split 2026-10-24 — rid-t3-presence-cross-session-test-split.
 //
-// Three defects this file holds down. (1) `peaks skill presence --json` read
-// ONE session tree (the bound one) and answered `{"active": false}` even when
-// a live lease sat in another tree of the same project — 16 trees held
-// `preparing` leases while the bound tree held none. (2) The `gate` never
-// reached the disk: `SetPresenceLeaseInput.gate` existed, the lease
-// constructor never expanded it, and the read side had nothing to project —
-// so `Peaks-Loop Gate: <gate>` was model-invented prose. (3) A lease that
-// reached a terminal state, or whose heartbeat went cold, still counted as
-// "active" — the amplifier that keeps a finished session's lease on the books.
+// This file now holds ONLY the presence scenarios that need a real disk: the
+// cross-session read over real session trees (integration), the `--json`
+// envelope (render), and the plain-language refusal of a malformed gate (a11y).
 //
-// Dimensions: behavior (the selection rules + the gate contract, pure),
-// integration (real session trees on disk), render (the `--json` envelope),
-// a11y (the human-facing rejection of a malformed gate).
+// The pure tests moved to two sibling files, both fixture-free:
+//
+//   - `tests/unit/skills/presence-gate.test.ts` — the 6 gate-contract tests.
+//   - `tests/unit/skills/presence-lease-selection.test.ts` — the 8 selection tests.
+//
+// Only the 11 tests left here pay for a scratch workspace per test.
+//
+// Dimensions: integration, render, a11y; `behavior` is omitted with a reason
+// in the `declareDimensions` call below.
 //
 // Run with: pnpm vitest run tests/unit/skills/presence-cross-session.test.ts
 
@@ -32,36 +33,18 @@ import {
 } from '../_setup/tmp-workspace.js';
 import { getSkillPresence } from '../../../src/services/skills/skill-presence-service.js';
 import { diagnosePresence } from '../../../src/services/skills/presence-lease-resolver.js';
-import {
-  explainInactivePresence,
-  selectActivePresenceLease,
-  staleThresholdMs,
-  type PresenceLeaseCandidate
-} from '../../../src/services/skills/presence-lease-selection.js';
-import {
-  STALE_HEARTBEAT_MS,
-  STALE_STARTED_AFTER_MS
-} from '../../../src/services/skills/presence-lease-types.js';
-import {
-  KNOWN_PRESENCE_GATES,
-  MAX_PRESENCE_GATE_LENGTH,
-  normalizePresenceGate,
-  readPresenceGate
-} from '../../../src/services/skills/presence-gate.js';
 import { registerSkillCommand } from '../../../src/cli/commands/core/skill-command.js';
 
-declareDimensions('tests/unit/skills/presence-cross-session.test.ts', [
-  'behavior',
-  'integration',
-  'render',
-  'a11y'
-]);
+declareDimensions(
+  'tests/unit/skills/presence-cross-session.test.ts',
+  ['integration', 'render', 'a11y'],
+  [{ dim: 'behavior', reason: 'the pure behaviour tests moved to the two sibling files.' }]
+);
 
 const BOUND_SID = '2026-10-24-session-0000aa';
 const OTHER_SID = '2026-10-23-session-0000bb';
 
 const NOW = new Date().toISOString();
-const ONE_HOUR_MS = 60 * 60 * 1000;
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 
 let ws: TmpWorkspace;
@@ -140,191 +123,6 @@ function seedBoundSession(projectRoot: string, sessionId: string): void {
 function isoAgo(ms: number): string {
   return new Date(Date.now() - ms).toISOString();
 }
-
-/** A candidate set for the pure selection functions. */
-function candidate(
-  lease: Partial<PresenceLeaseCandidate['lease']> & { lastHeartbeat?: string },
-  scope: 'bound' | 'other',
-  sessionId = scope === 'bound' ? BOUND_SID : OTHER_SID
-): PresenceLeaseCandidate {
-  return {
-    lease: {
-      callerId: 'caller-a',
-      workflowId: 'wf-a',
-      graphRef: 'graphs/wf-a.json',
-      skill: 'peaks-code',
-      depth: 0,
-      startedAt: NOW,
-      lastHeartbeat: NOW,
-      status: 'running',
-      schemaVersion: 1,
-      ...lease
-    },
-    sessionId,
-    scope
-  };
-}
-
-/* ---------- behavior: the selection rules ---------- */
-describe('Scenario: behavior — presence lease selection rules', () => {
-  it('when the bound tree holds no lease but another tree does, should report the other tree’s lease', () => {
-    // given: a candidate set holding one live lease in another session tree
-    // when: the active lease is selected
-    // then: the other tree lease is selected and marked as out of the bound tree
-    const selection = selectActivePresenceLease(
-      [candidate({ lastHeartbeat: NOW }, 'other')],
-      Date.now()
-    );
-    expect(selection?.sessionId).toBe(OTHER_SID);
-    expect(selection?.scope).toBe('other');
-  });
-
-  it('when the bound tree holds a lease, should keep the bound tree’s precedence over a fresher foreign lease', () => {
-    // given: a candidate set holding a bound lease and a fresher foreign lease
-    // when: the active lease is selected
-    // then: the bound tree keeps precedence
-    const selection = selectActivePresenceLease(
-      [
-        candidate({ lastHeartbeat: isoAgo(10 * 60 * 1000) }, 'bound'),
-        candidate({ lastHeartbeat: NOW }, 'other')
-      ],
-      Date.now()
-    );
-    expect(selection?.scope).toBe('bound');
-    expect(selection?.sessionId).toBe(BOUND_SID);
-  });
-
-  it('when every lease reached a terminal state, should select nothing', () => {
-    // given: a candidate set holding only terminalized and lost leases
-    // when: the active lease is selected
-    // then: nothing is selected
-    const selection = selectActivePresenceLease(
-      [
-        candidate({ status: 'terminalized', terminalAt: NOW }, 'bound'),
-        candidate({ status: 'lost', terminalAt: NOW }, 'other')
-      ],
-      Date.now()
-    );
-    expect(selection).toBeNull();
-  });
-
-  it('when the heartbeat is older than the stale window, should not report the lease as active', () => {
-    // given: a candidate set holding a lease whose heartbeat is older than the stale window
-    // when: the active lease is selected
-    // then: nothing is selected
-    const selection = selectActivePresenceLease(
-      [candidate({ lastHeartbeat: isoAgo(STALE_HEARTBEAT_MS + ONE_HOUR_MS) }, 'other')],
-      Date.now()
-    );
-    expect(selection).toBeNull();
-  });
-
-  // The 24h run must not lose its presence after one hour just because
-  // nothing refreshes the lease heartbeat while the run is in flight.
-  it('when a 24h lease is past the 1h window but inside its own window, should keep it active', () => {
-    // given: a 24h lease whose heartbeat is older than the 1h window
-    // when: the active lease is selected
-    // then: the 24h lease keeps its presence
-    const age = STALE_HEARTBEAT_MS + ONE_HOUR_MS;
-    expect(age).toBeLessThan(STALE_STARTED_AFTER_MS);
-    const selection = selectActivePresenceLease(
-      [candidate({ mode: '24h', lastHeartbeat: isoAgo(age) }, 'other')],
-      Date.now()
-    );
-    expect(selection?.lease.mode).toBe('24h');
-  });
-
-  it('when the window is asked for, should give 24h30m to a 24h lease and 1h to every other', () => {
-    // given: a 24h lease and a lease with no mode
-    // when: the stale threshold is asked for
-    // then: the 24h lease gets the 24h30m window and every other lease the 1h window
-    expect(staleThresholdMs(candidate({ mode: '24h' }, 'other').lease)).toBe(
-      STALE_STARTED_AFTER_MS
-    );
-    expect(staleThresholdMs(candidate({}, 'other').lease)).toBe(STALE_HEARTBEAT_MS);
-    expect(STALE_HEARTBEAT_MS).toBe(60 * 60 * 1000);
-    expect(STALE_STARTED_AFTER_MS).toBe(24 * 60 * 60 * 1000 + 30 * 60 * 1000);
-  });
-
-  it('when nothing is eligible, should explain why the read found nothing', () => {
-    // given: a candidate set holding one terminalized lease and one stale lease
-    // when: the inactive presence is explained
-    // then: the reason names terminal and stale leases and counts each of them
-    const diagnostic = explainInactivePresence(
-      [
-        candidate({ status: 'terminalized', terminalAt: NOW }, 'bound'),
-        candidate({ lastHeartbeat: isoAgo(TWO_HOURS_MS) }, 'other')
-      ],
-      Date.now()
-    );
-    expect(diagnostic.reason).toBe('terminal-and-stale');
-    expect(diagnostic.leaseCount).toBe(2);
-    expect(diagnostic.terminalCount).toBe(1);
-    expect(diagnostic.staleCount).toBe(1);
-    expect(diagnostic.eligibleCount).toBe(0);
-  });
-
-  it('when there is no lease at all, should report the empty reason', () => {
-    // given: an empty candidate set
-    // when: the inactive presence is explained
-    // then: the reason is that there were no leases at all
-    expect(explainInactivePresence([], Date.now()).reason).toBe('no-leases');
-  });
-});
-
-/* ---------- behavior: the gate contract ---------- */
-describe('Scenario: behavior — the gate contract', () => {
-  it('when a gate value is well formed, should accept it verbatim (trimmed)', () => {
-    // given: a well-formed gate value
-    // when: the gate is normalised
-    // then: the gate is accepted verbatim, trimmed
-    expect(normalizePresenceGate('startup')).toBe('startup');
-    expect(normalizePresenceGate('  swarm-fan-out  ')).toBe('swarm-fan-out');
-  });
-
-  it('when a gate value is absent or empty, should drop it rather than persist an empty string', () => {
-    // given: an absent, null or blank gate value
-    // when: the gate is normalised
-    // then: no gate value is produced
-    expect(normalizePresenceGate(undefined)).toBeUndefined();
-    expect(normalizePresenceGate(null)).toBeUndefined();
-    expect(normalizePresenceGate('   ')).toBeUndefined();
-  });
-
-  it('when a gate value is unknown, should accept it — the vocabulary is open', () => {
-    // given: a gate value this repository has never seen
-    // when: the gate is normalised
-    // then: the unknown gate is accepted, because the vocabulary is open
-    expect(normalizePresenceGate('a-gate-nobody-predicted')).toBe('a-gate-nobody-predicted');
-  });
-
-  it('when a gate value carries a control character or is too long, should reject it', () => {
-    // given: a gate value carrying a control character or longer than the maximum
-    // when: the gate is normalised
-    // then: the gate value is rejected
-    expect(() => normalizePresenceGate('bad\u0001gate')).toThrow();
-    expect(() => normalizePresenceGate('x'.repeat(MAX_PRESENCE_GATE_LENGTH + 1))).toThrow();
-  });
-
-  it('when every gate value this repository uses is checked, should accept all of them', () => {
-    // given: every gate value this repository uses
-    // when: each one is normalised
-    // then: every gate is accepted unchanged
-    for (const gate of KNOWN_PRESENCE_GATES) {
-      expect(normalizePresenceGate(gate)).toBe(gate);
-    }
-  });
-
-  it('when a stored gate is read back, should tolerate a missing or non-string value', () => {
-    // given: a stored gate that is missing, not a string or empty
-    // when: the stored gate is read back
-    // then: no gate value is produced for the bad entries
-    expect(readPresenceGate('startup')).toBe('startup');
-    expect(readPresenceGate(undefined)).toBeUndefined();
-    expect(readPresenceGate(42)).toBeUndefined();
-    expect(readPresenceGate('')).toBeUndefined();
-  });
-});
 
 /* ---------- integration: real session trees on disk ---------- */
 describe('Scenario: integration — cross-session presence over real session trees', () => {
