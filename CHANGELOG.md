@@ -1,5 +1,131 @@
 # Changelog
 
+## 4.1.19 — 2026-10-24（`peaks mut` 在真实用户机器上**真的能跑**）
+
+**版本级别**：候选 **patch**（沿用常设规则"默认版本新增采用最小的版本位"）。本次**没有**新增门禁族、
+没有改 fail-open 策略、没有动 auto-compact 三档阈值，peaks-code 的 11 步工序与 Gate A–G **一字不改**；
+改的是 `peaks mut` 这一条线上的**依赖位置、作用域与文档**（§1–§5），以及**版本号本身**（§6）。
+
+这一批做的是**同一件事**：让 `peaks mut` 从"消费者装上就崩"走到"消费者装上就能跑"。
+
+崩的原因**不是代码写错了**，是**依赖放错了地方**：变异测试引擎只挂在根包的 `devDependencies` 上，
+而真正 import 它的是 `peaks-loop-mut` —— 一个**要被发布出去**的包。消费者装到的是 registry 上的
+`peaks-loop-mut@0.1.72`，它的 dependencies 只有 `{zod, ecc-universal}`，**不带 stryker**，
+于是 `Cannot find package '@stryker-mutator/core'`。
+
+这一批把它修好，并且补上三件一直缺的东西：**项目作用域正确**（改谁就只改谁）、
+**文档说真话**（文档里每句话都对得上代码）、**过期接受退休**（一条理由已经不成立的"豁免"从名单里划掉）。
+
+**消费者要多付一点下载体积：约 2.66 MB。** 这件事写在 §1，不藏着。
+
+### 1. 变异引擎落到生产依赖（以及它到底值不值这 2.66 MB）
+
+- 现在 `@stryker-mutator/core`（Stryker 的变异引擎）与 `@stryker-mutator/vitest-runner` 是
+  `peaks-loop-mut` 的**生产依赖**（`dependencies`，不是 `devDependencies`），两者同为 **9.6.1**。
+- **消费者视角 —— `@stryker-mutator/vitest-runner` 是干什么的**：它是把 Stryker 的变异引擎接到
+  vitest 上的**适配器**。没有它，Stryker 只能退回"跑一条命令看退出码"的粗粒度跑手，
+  **算不出逐 mutant 的 kill rate** —— 而 `peaks mut` 卖的**正是这个数字**。所以它不是可选项。
+- **代价**：安装会多出 stryker 引擎闭包 **9 个包 / 约 2.66 MB**。
+- **vitest 那部分不会自动来**：vitest-runner 声明的 peer 是 `vitest >=2.0.0`，而 pnpm 的 peer 自动安装
+  **只在 peer 缺失时**发生。vitest / vite 家族共 **11 个包 / 约 5.30 MB**，**只有在你的机器上
+  还没有 vitest 时**才会被自动装上 —— 而要跑 `peaks mut` 的项目**必然已经有 vitest**。
+- 说人话：**你装 peaks-loop 多下载了约 2.7 MB**。参照：`peaks-loop-mut` 现有的生产依赖树是
+  **344 个包 / 156.6 MB**（大头是 `sql.js` 23.0 MB、`typescript` 22.5 MB、`ecc-universal` 18.6 MB，
+  **与本次改动无关**），2.66 MB 相对可忽略。（这一段的 MB 一律是**二进制 MB**：三个大头由同一份实测
+  脚本以 `/1024/1024` 从按 `KB` 记的实测字节换算，与上面 2.66 / 5.30 / 156.6 同一口径。）
+- **为什么这一节必须配一次版本号**：发布脚本**先发子包、后发根包**，并且**跳过 registry 上已存在的同版本**。
+  `peaks-loop-mut@0.1.72` 已经在 registry 上，它不带 `dist/version.js` 所以不会被判 stale ——
+  版本不动，**这个改动到不了任何用户**。
+
+### 2. core / vitest-runner 的大版本互斥修好了；那个**从来没激活过**的 checker 被移除
+
+- 此前：vitest-runner 9.6.1 声明的 peer 要求 core **9.6.1**，而根包 `devDependencies` 里 core 停在
+  **^8.7.1** ⇒ 每次安装都有一条 unmet peer。
+- 现在：core 与 vitest-runner 同为 **9.6.1**，**全量重解析零 unmet peer**。
+- `@stryker-mutator/typescript-checker` **已移除**：**移除之前**全仓只有 **5 处**提到它 —— 根清单的
+  `devDependencies` 一行、锁文件里的 importer 条目 / package 条目 / peer 快照条目三条，以及
+  `.peaks/docs/lint-rule-divergences.md` 里的一句散文记录。**这 5 处没有一处是插件**：
+  `stryker.conf.js` 的 `plugins` 里**从来就没有它**（移除前的版本也没有），它**从来没有被激活过**。
+  而它声明的 peer 是 core `~8.7.0`，与 9.6.1 **互斥**，于是每次安装都报一条 unsatisfied binding。
+  移除后那条警告消失。这一版发出去的树里，它**只剩两处**被提到：那一句散文记录，和本节的这一句。
+- 锁文件的改动**有闭包证明**，不是"看着像"：把两份锁文件的 stryker 传递闭包逐键比对，结论是
+  **每一处改动都在闭包内**（**PASS**）。checker 移除那一轮单独是 **26 删 / 0 增 / 1 改**，
+  删掉的正是 checker 的子树；028 这一轮合起来，importer 只动了 `.` 与 `packages/peaks-loop-mut`。
+
+### 3. `peaks mut` 的项目作用域与程序化配置（改谁就只改谁）
+
+- 此前：`--project` 被**忽略** —— Stryker 读配置、解析 `mutate` / `testFiles` 模式都按 `process.cwd()` 来，
+  `--test-files` 根本没传到 Stryker；项目根的 `stryker.conf.js` 是**必须**的。
+- 现在：作用域由 `--project` 决定，配置由 CLI **程序化**构建；项目根的 `stryker.conf.js`
+  降级为**可选的向后兼容兜底**（项目自己写的 `mutate` 仍然优先于 CLI 的默认值）。
+- **实测（真实夹具，在仓库之外：没有 `node_modules`、没有 `stryker.conf.js`）**：
+  `mutantsTotal 4 / killed 2 / survived 2 / killRate 0.5`；
+  从**另一个工作目录**发起时，被改的是夹具里的文件，调用者 cwd 里的诱饵文件**没被改**
+  （`decoyUnchanged = true`）。**stdout 恰好 1 行**，可解析。
+- 失败现在有**具名错误码**，不再是 `UNHANDLED_ERROR`：
+  `MUT_MUTATE_PATTERN_REQUIRED`、`MUT_NO_MUTANTS`、`MUT_TOOLCHAIN_UNAVAILABLE`。
+- 测试：纯配置构建器 **13 passed**、CLI 标志解析 **5 passed**、集成 **2 个文件 / 5 个测试全绿**。
+- 报告 schema 的源文件**逐字节未改**
+  （sha256 `bc675a8521601c8edb2cd217ccbe9972fe6ed2040b79701e3870cd1f3db60d1d` 前后相同）。
+
+### 4. 文档与脚本说真话（每一句都对得上代码）
+
+- `peaks-mut` 技能文档：**18 处校正 + 3 处收紧**（逐条"原句 → 现句"在切片载体里）。
+- 守卫测试对着**真实的 commander 命令对象**比对，不是对着手抄的标志清单 ⇒ 标志改名/增删都会红。
+  当前 **12/12 绿**；红复现实测 **1 failed / 11 passed，退出码 1**。
+- 仓库自己的 `stryker.conf.js` 此前指向 **4 个没有任何测试 import 的文件** ⇒ dogfood 运行必然
+  `killRate 0`、退出码 1（**不是配置写错了，是那几个文件根本没有测试**）。现在 4 个 mutate 目标
+  **每一个都有测试 import**。
+- 根脚本 `mut:run` / `mut:scan` 现在带的参数**就是解析器认的参数**（之前那两个脚本各缺必需参数）。
+
+### 5. `mut/mut-report.json` 的过期接受条目退休
+
+- 此前：种子名单里有一条针对 `mut/mut-report.json` 的"过期可接受"豁免，它给的理由**两半都是假的**
+  （"没有生产者"、"peaks tact read 不是注册命令"）。现在 `peaks mut run` **真的**产出报告，
+  `peaks tact read` **真的**是注册命令 —— 理由不成立了，条目就该退休。
+- 退休范围**只有那一条接受条目**：那行 `backCompat` / `backCompatUntil` 的**窗口本身一字未改**
+  （窗口仍在，缺的报告仍是软通过）；另一条接受**保留**。
+- 真实报告（`mut/mut-report.json`）：`mutantsTotal 21 / killed 20 / survived 1`、
+  `killRate 0.9523809523809523`、`totalAssertions 29`、`weakAssertions 0`、`weakRate 0`、
+  `thresholds.passed true`。
+- 阈值**一个都没改**（`mutationKillRateMin 0.80` / `weakAssertionRateMax 0.05`），
+  受影响的 **7 个测试文件 / 93 个测试全绿**。
+
+### 6. 版本号与发布含义
+
+- 根包 `peaks-loop` **4.1.18 → 4.1.19**。`packages/` 下**实际只有 4 个**可发布 workspace 包
+  （发现规则是扫 `packages/` 的直接子目录、且要求其中有 `package.json`），
+  由正路脚本**锁步升**（子包规则 = patch 位 +1，major/minor 不变）：
+
+| 包                            | 改前    | 改后       |
+| ----------------------------- | ------- | ---------- |
+| `peaks-loop`（根）            | 4.1.18  | **4.1.19** |
+| `peaks-loop-mut`              | 0.1.72  | **0.1.73** |
+| `peaks-loop-shared`           | 0.0.107 | 0.0.108    |
+| `peaks-loop-shared-channel`   | 0.0.75  | 0.0.76     |
+| `peaks-loop-internal-runtime` | 0.0.58  | 0.0.59     |
+
+- 两个**受版本控制**的版本戳同步为 4.1.19：`packages/peaks-loop-shared/src/version.ts` 的 `CLI_VERSION`
+  与 `packages/peaks-loop-internal-runtime/src/index.ts` 的 `RUNTIME_VERSION`。
+- **版本字段一个都没手改**：全部由 `scripts/bump-version.mjs --to 4.1.19` 与 `scripts/sync-version.mjs`
+  产生。逐字段比对证明：**5 个 manifest 各自只有 `version` 一个键变了**。
+- **维护者要做的**（本次**没有**做）：合并后 `git tag v4.1.19` + push，由发布流程发包。
+  **本次不打 tag、不发布、不提交。**
+- 为什么**必须**动版本号（再说一次，因为它就是本节存在的理由）：发布脚本**先发子包、后发根包**，
+  并且**跳过 registry 上已存在的同版本**；线上根包 pin 的是 `peaks-loop-mut: 0.1.72`，
+  而 registry 上的 0.1.72 **不带 stryker** ⇒ 版本不动，§1 的依赖**到不了用户**。
+
+### 7. 验证
+
+- `node scripts/verify-version-parity.mjs runtime-src` 退出 **0**（源码层，不需 build）。
+- 源码 CLI `node node_modules/tsx/dist/cli.mjs src/cli/index.ts --version` 打印 **4.1.19**。
+- `pnpm install --frozen-lockfile` 退出 **0**，而且**锁文件一个字都没改** ——
+  workspace 包在锁文件里是 `link:` 引用（**不记版本号**），所以版本号变动**不需要**动锁文件。
+- 依赖守卫测试 `tests/unit/release/mut-runtime-dependency.test.ts` **13 passed (13)**。
+- `tsc -p tsconfig.json --noEmit` 退出 **0**；`prettier --check` 对本次改动的清单文件退出 **0**；
+  `eslint --config config/eslint/.peaks-rules.cjs --no-ignore` 对两个版本戳文件 **0 findings**。
+- 逐字段比对：**5 个 manifest 各自只有 `version` 一个键变了**。
+
 ## 4.1.18 — 2026-10-23（下游机器的技能商店会说谎了；门禁不再对自己的沉默撒谎）
 
 **版本级别**：候选 **patch**（沿用常设规则"默认版本新增采用最小的版本位"）。本次是**纯修复**：

@@ -75,6 +75,11 @@ npm i -g peaks-loop
 
 不需要记 CLI、不需要写 manifest、不需要切到第二个终端。**斜杠命令一发,后面的活它替你跑完。**
 
+> **装这个包会多下载多少?** 这一版把变异测试引擎(`@stryker-mutator/core` +
+> `@stryker-mutator/vitest-runner`)作为**运行时依赖**带上了 —— 消费者的安装会多出 stryker 引擎闭包
+> **约 2.66 MB(9 个包)**。vitest 家族那 5.30 MB **只在你的机器上还没有 vitest 时**才会被自动装上,
+> 而要跑 `peaks mut` 的项目**必然已经有 vitest**。**一句话:你装 peaks-loop 多下载了约 2.7 MB。**
+
 ---
 
 ## 装上以后，文件放在哪

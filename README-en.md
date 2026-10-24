@@ -80,6 +80,12 @@ Other slash commands you'll reach for:
 
 No CLI to memorize. No manifest to hand-author. No second terminal to open. **Send the slash, the rest is on it.**
 
+> **How much more does this download?** This version ships the mutation-testing engine
+> (`@stryker-mutator/core` + `@stryker-mutator/vitest-runner`) as a **runtime dependency**, so the install
+> pulls the stryker engine closure — **about 2.66 MB (9 packages)** more. The vitest family's 5.30 MB is only
+> auto-installed **if your machine does not have vitest yet**, and any project that runs `peaks mut` already
+> has vitest. **In one line: installing peaks-loop downloads about 2.7 MB more.**
+
 ---
 
 ## Where files land after install
