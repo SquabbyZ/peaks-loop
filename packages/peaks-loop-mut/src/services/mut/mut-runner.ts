@@ -7,6 +7,10 @@
  *   DRY: production implementation lives in this file; tests mock the
  *       invokeStryker injection point.
  *   KISS: keep the public surface narrow — input, invoker, output.
+ *
+ * The invoker input shape carries the mutation scope (`mutate`) so the
+ * CLI can drive it (R4). Every field is optional except `project` and
+ * `testFiles`, so the injected-invoker seam keeps working unchanged.
  */
 import type { MutationReport } from './types.js';
 
@@ -22,14 +26,28 @@ export interface StrykerRawResult {
   }>;
 }
 
-export type StrykerInvoker = (opts: {
-  project: string;
-  testFiles: ReadonlyArray<string>;
-}) => Promise<StrykerRawResult>;
+/** The input an invoker receives. */
+export interface StrykerInvokerInput {
+  /** Project root — the scope of the mutation run. */
+  readonly project: string;
+  /** Test files the mutation run must execute. */
+  readonly testFiles: ReadonlyArray<string>;
+  /** Source patterns to mutate. Empty means "let the project config decide". */
+  readonly mutate?: ReadonlyArray<string>;
+  readonly tsconfigFile?: string;
+  readonly timeoutMs?: number;
+  readonly concurrency?: number;
+}
+
+export type StrykerInvoker = (opts: StrykerInvokerInput) => Promise<StrykerRawResult>;
 
 export interface RunMutationInput {
   readonly project: string;
   readonly testFiles: ReadonlyArray<string>;
+  readonly mutate?: ReadonlyArray<string>;
+  readonly tsconfigFile?: string;
+  readonly timeoutMs?: number;
+  readonly concurrency?: number;
   readonly invokeStryker: StrykerInvoker;
 }
 
@@ -42,11 +60,14 @@ export async function runMutation(input: RunMutationInput): Promise<RunMutationO
   try {
     raw = await input.invokeStryker({
       project: input.project,
-      testFiles: input.testFiles
+      testFiles: input.testFiles,
+      mutate: input.mutate,
+      tsconfigFile: input.tsconfigFile,
+      timeoutMs: input.timeoutMs,
+      concurrency: input.concurrency
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`Stryker invocation failed: ${message}`);
+    throw wrapInvocationError(err);
   }
   const killRate = raw.mutantsTotal === 0 ? 0 : raw.mutantsKilled / raw.mutantsTotal;
   return {
@@ -64,4 +85,22 @@ export async function runMutation(input: RunMutationInput): Promise<RunMutationO
       }))
     }
   };
+}
+
+/**
+ * Wrap an invoker failure while KEEPING its machine-readable `code`.
+ * The production invoker raises named codes (`MUT_TOOLCHAIN_UNAVAILABLE`,
+ * `MUT_NO_MUTANTS`, …) and the CLI envelope must surface them instead of
+ * collapsing every failure into one anonymous message.
+ */
+function wrapInvocationError(err: unknown): Error {
+  const message = err instanceof Error ? err.message : String(err);
+  const wrapped = new Error(`Stryker invocation failed: ${message}`);
+  if (err && typeof err === 'object' && 'code' in err) {
+    const code = (err as { code?: unknown }).code;
+    if (typeof code === 'string') {
+      (wrapped as Error & { code?: string }).code = code;
+    }
+  }
+  return wrapped;
 }
