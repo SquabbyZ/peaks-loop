@@ -145,6 +145,16 @@ function renderRdTemplate(
 ${renderTypeLine(requestType)}
 ` +
     RD_TEMPLATE_BODY +
+    // The rid's OWN changed paths, one per line, machine-readable. The
+    // declared-type rule judges THIS set instead of the whole working tree
+    // (which blamed a docs rid for another slice's src change), and the
+    // `<path>` placeholder is what the body lint refuses while it is unfilled —
+    // so an RD that never declared its paths cannot leave `draft`.
+    `## Changed paths
+
+changedPath: <path>
+
+` +
     `## Handoff
 
 - to peaks-qa: ${formatHandoffPath(sessionId, 'qa', requestId)}

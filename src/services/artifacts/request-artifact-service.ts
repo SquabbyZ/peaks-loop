@@ -28,7 +28,7 @@ import { isUnsafePathInput } from '../../shared/path-safety.js';
 import { guardRuntimeSegment, runtimeRoot } from '../../shared/runtime-root.js';
 import { checkTypeSanity } from '../scan/type-sanity-service.js';
 import { requireUserConfirmation } from '../mode/mode-enforcement.js';
-import { runRdTransitionGates } from './rd-transition-gates.js';
+import { isRdGatePhase, runRdTransitionGates } from './rd-transition-gates.js';
 import { emitObservabilityEvent } from '../observability/observability-service.js';
 
 export { VALID_REQUEST_TYPES, DEFAULT_REQUEST_TYPE, isRequestType, type RequestType };
@@ -649,16 +649,16 @@ export async function transitionRequestArtifact(
     }
   }
 
+  // The phase test is a predicate, so the narrowed state reaches the gate.
   const gateBypassNote =
-    options.role === 'rd' &&
-    (options.newState === 'implemented' ||
-      options.newState === 'qa-handoff' ||
-      options.newState === 'handed-off')
+    options.role === 'rd' && isRdGatePhase(options.newState)
       ? runRdTransitionGates({
           projectRoot: options.projectRoot,
           declaredType: existing.requestType,
           allowIncomplete: options.allowIncomplete === true,
-          phase: options.newState
+          phase: options.newState,
+          requestId: options.requestId,
+          sessionId: existing.sessionId
         })
       : null;
 
