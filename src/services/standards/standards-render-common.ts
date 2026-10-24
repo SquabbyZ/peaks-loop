@@ -30,6 +30,15 @@ export function renderHeader(title: string): string {
  * this paragraph — so a migrated file and a freshly generated one cannot
  * drift apart.
  *
+ * THE HEADER IS FIVE SEGMENTS. `Peaks-Loop Skill | Peaks-Loop Role |
+ * Peaks-Loop Gate | Peaks-Loop Context | Next` — the shape the response
+ * contract in `.claude/output-styles/peaks-skill-swarm.md` publishes. Every
+ * cell but `Next` is a MACHINE FACT read from one `peaks skill presence --json`
+ * call: `data.skill`, `data.role`, `data.gate`, `data.context.ratioPct` and
+ * `data.context.action`. The contract therefore names where each cell comes
+ * from, because a cell the model fills in from its own judgement is not a
+ * status header — it is prose with a header's punctuation.
+ *
  * THE PATH IS THE CORRECTED ONE. `.peaks/_runtime/active-skill.json` and its
  * legacy sibling `.peaks/.active-skill.json` were removed from the presence
  * service in 4.0.11; the canonical projection is the session-scoped lease at
@@ -37,7 +46,7 @@ export function renderHeader(title: string): string {
  * "ask the CLI", because the CLI is what resolves the lease.
  */
 export const PRESENCE_CONTRACT_TEXT =
-  'Active Peaks-Loop skill presence: at the start of every response, run `peaks skill presence --json` to read the active skill marker. The CLI resolves the session-scoped presence lease at `.peaks/_runtime/<sessionId>/leases/presence-*.json`; do not read those files directly. When the response includes a valid skill name, display the compact status header: `Peaks-Loop Skill: <skill> | Peaks-Loop Gate: <gate> | Next: <one short action>`. Display the header on every turn while the CLI returns an active skill; omit it when the CLI returns no active skill.';
+  'Active Peaks-Loop skill presence: at the start of every response, run `peaks skill presence --json` to read the active skill marker. The CLI resolves the session-scoped presence lease at `.peaks/_runtime/<sessionId>/leases/presence-*.json`; do not read those files directly. When the response includes a valid skill name, display the compact status header: `Peaks-Loop Skill: <skill> | Peaks-Loop Role: <role> | Peaks-Loop Gate: <gate> | Peaks-Loop Context: <ratio%> (<zone>) | Next: <one short action>`. Copy `<role>` from the `data.role` field of that same read (`orchestrator` or `bee`; `null` for a skill outside both lists), and copy `<ratio%>` and `<zone>` from the `data.context.ratioPct` and `data.context.action` fields of that read — never judge the tier or estimate the context fill yourself. Display the header on every turn while the CLI returns an active skill; omit it when the CLI returns no active skill.';
 
 export function renderCodeReview(ctx: ProjectContext): string {
   const baseRules = [
@@ -78,19 +87,27 @@ export function renderCodeReview(ctx: ProjectContext): string {
  * It names `AGENTS.md` as the constitution because that is where the body
  * lives now; `CLAUDE.md` imports it. The block is appended to whichever
  * constitution file the writer owns, so it must read correctly in both.
+ *
+ * `rulesRoot` is the directory the project's standards actually live in:
+ * `.peaks/standards` for the 2.0 canonical layout, `.claude/rules` for a
+ * project still carrying the 1.x tree. The block names FILES, so it must
+ * name the ones that are really there.
  */
-export function renderManagedStandardsIndex(language: StandardsLanguage): string {
+export function renderManagedStandardsIndex(
+  language: StandardsLanguage,
+  rulesRoot: string
+): string {
   return [
     '<!-- peaks-standards:index:start -->',
     '## Peaks Standards Index',
     '- Constitution: `AGENTS.md` is the repository-wide constitution.',
-    '- Local laws: `.peaks/standards/**` are project-local laws and are created only when missing.',
+    `- Local laws: \`${rulesRoot}/**\` are project-local laws and are created only when missing.`,
     '- Managed by: `peaks standards update`.',
     '- Managed files:',
-    '  - `.peaks/standards/common/code-review.md`',
-    '  - `.peaks/standards/common/coding-style.md`',
-    '  - `.peaks/standards/common/security.md`',
-    `  - .peaks/standards/${language}/coding-style.md`,
+    `  - \`${rulesRoot}/common/code-review.md\``,
+    `  - \`${rulesRoot}/common/coding-style.md\``,
+    `  - \`${rulesRoot}/common/security.md\``,
+    `  - ${rulesRoot}/${language}/coding-style.md`,
     '- Conflict note: keep the existing body unchanged and resolve any disagreement manually before the next standards update.',
     '<!-- peaks-standards:index:end -->',
     ''

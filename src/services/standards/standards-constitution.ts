@@ -4,21 +4,11 @@
  * The constitution write plan: which instruction files the standards writer
  * owns, what goes in them, and how a hand-written file is protected.
  *
- * THE PROTECTION RULE — one rule, two files. A file that already exists is
- * never overwritten:
- *   - `standards init` writes it only when it is absent (`O_EXCL`).
- *   - `standards update` appends the managed standards block to a file that
- *     has none, leaves a file whose managed block already matches, and asks
- *     for a review when the managed block differs.
- *   - `standards migrate --from-claude-rules` scaffolds the files only when
- *     they are absent.
- * So a hand-written `CLAUDE.md` survives all three; only the managed block is
- * ever appended to it.
- *
- * `isInsidePath` moved here from `project-standards-service.ts` so the
- * write-target guard and the plan builder live in one module — and so this
- * module depends on `project-standards-service.ts` for TYPES only, which
- * keeps the import graph acyclic at runtime.
+ * THE PROTECTION RULE — one rule, two files, ONE planner. A file that already
+ * exists is never overwritten: absent → created; missing the managed block or
+ * the `@AGENTS.md` pointer → appended to; already carrying both → left alone;
+ * managed block differing → left for a human. `standards init` and `standards
+ * update` share this planner, so the two verbs cannot disagree.
  */
 import { existsSync, lstatSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { isAbsolute, relative, resolve } from 'node:path';
@@ -28,10 +18,12 @@ import type { ProjectScripts } from './project-scripts.js';
 import {
   AGENTS_MD_FILENAME,
   CLAUDE_MD_FILENAME,
+  CLAUDE_MD_POINTER_LINE,
   renderAgentsMd,
   renderClaudeMdPointer
 } from './standards-render-agents.js';
 import { renderManagedStandardsIndex } from './standards-render-common.js';
+import { managedBlockMatches, planPointer, reviewSuggestions } from './standards-pointer.js';
 import type { StandardsLanguage, StandardsWriteStatus } from './project-standards-service.js';
 
 /** Which instruction files the standards writer owns for one project. */
@@ -156,66 +148,75 @@ function fileUpdate(input: {
   readonly reviewSuggestions?: readonly string[];
 }): ConstitutionFileUpdate {
   return {
-    relativePath: input.relativePath,
-    filePath: input.filePath,
-    status: input.status,
-    content: input.content,
+    ...input,
     appendBlock: input.appendBlock ?? '',
     reviewSuggestions: input.reviewSuggestions ?? []
   };
 }
 
-/**
- * The four-state plan for ONE constitution file.
- *
- *   planned  — the file is absent; it will be created with body + block
- *   appended — the file exists without a managed block; the block is appended
- *   existing — the file exists and its managed block already matches
- *   review   — the file exists with a managed block that differs; a human decides
- */
-function buildFileUpdate(input: {
+/** The inputs of one constitution file's four-state plan. */
+type ConstitutionFileInput = {
   readonly projectRoot: string;
   readonly relativePath: string;
   readonly body: string;
   readonly managedBlock: string;
-}): ConstitutionFileUpdate {
+  readonly pointerLine: string | null;
+};
+
+/**
+ * The four-state plan for ONE constitution file.
+ *
+ *   planned  — the file is absent; it will be created with body + block
+ *   appended — the file exists and is missing what we own: the managed block,
+ *              the pointer line, or both. The missing part is appended.
+ *   existing — the file exists and already carries everything we own
+ *   review   — the file exists with a managed block that differs; a human decides
+ */
+function buildFileUpdate(input: ConstitutionFileInput): ConstitutionFileUpdate {
   const filePath = resolve(input.projectRoot, input.relativePath);
   const existingContent = readFileIfExists(filePath);
+  const common = { relativePath: input.relativePath, filePath };
   if (existingContent === null) {
     return fileUpdate({
-      relativePath: input.relativePath,
-      filePath,
+      ...common,
       status: 'planned',
       content: `${input.body.trimEnd()}\n\n${input.managedBlock}`
     });
   }
+  const pointer = planPointer(existingContent, input.pointerLine);
   const blockStart = existingContent.indexOf(MANAGED_BLOCK_START);
   if (blockStart < 0) {
+    const addition = input.managedBlock + (pointer.needed ? `\n${pointer.line}\n` : '');
     return fileUpdate({
-      relativePath: input.relativePath,
-      filePath,
+      ...common,
       status: 'appended',
-      content: `${existingContent.trimEnd()}\n\n${input.managedBlock}`,
-      appendBlock: `\n\n${input.managedBlock}`
+      content: `${existingContent.trimEnd()}\n\n${addition}`,
+      appendBlock: `\n\n${addition}`
     });
   }
-  const existingBlock = existingContent.slice(blockStart).trimEnd();
-  if (existingBlock === input.managedBlock.trimEnd()) {
+  if (
+    managedBlockMatches(existingContent.slice(blockStart), input.managedBlock, input.pointerLine)
+  ) {
+    if (!pointer.needed) {
+      return fileUpdate({
+        ...common,
+        status: 'existing',
+        content: existingContent
+      });
+    }
+    const addition = `${pointer.line}\n`;
     return fileUpdate({
-      relativePath: input.relativePath,
-      filePath,
-      status: 'existing',
-      content: existingContent
+      ...common,
+      status: 'appended',
+      content: `${existingContent.trimEnd()}\n\n${addition}`,
+      appendBlock: `\n${addition}`
     });
   }
   return fileUpdate({
-    relativePath: input.relativePath,
-    filePath,
+    ...common,
     status: 'review',
     content: existingContent,
-    reviewSuggestions: [
-      `Existing ${input.relativePath} already has a managed standards block. Review the managed block manually before changing it.`
-    ]
+    reviewSuggestions: reviewSuggestions(input.relativePath, pointer.needed)
   });
 }
 
@@ -234,12 +235,13 @@ export function buildConstitutionUpdate(input: {
   readonly scripts: ProjectScripts;
   readonly rulesRoot: string;
 }): ConstitutionUpdate {
-  const managedBlock = renderManagedStandardsIndex(input.language);
+  const managedBlock = renderManagedStandardsIndex(input.language, input.rulesRoot);
   const body = buildFileUpdate({
     projectRoot: input.projectRoot,
     relativePath: input.constitution.bodyFile,
     body: renderAgentsMd(input.language, input.scripts, input.rulesRoot),
-    managedBlock
+    managedBlock,
+    pointerLine: null
   });
   const pointerFile = input.constitution.pointerFile;
   const pointer =
@@ -249,7 +251,8 @@ export function buildConstitutionUpdate(input: {
           projectRoot: input.projectRoot,
           relativePath: pointerFile,
           body: renderClaudeMdPointer(),
-          managedBlock
+          managedBlock,
+          pointerLine: CLAUDE_MD_POINTER_LINE
         });
   return { body, pointer };
 }

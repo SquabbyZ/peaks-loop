@@ -33,6 +33,16 @@ export const AGENTS_MD_FILENAME = 'AGENTS.md';
 /** The IDE-native file that imports the body. */
 export const CLAUDE_MD_FILENAME = 'CLAUDE.md';
 
+/**
+ * The Claude Code import line — `@AGENTS.md`, on a line of its own.
+ *
+ * It is declared here, next to the renderer that prints it, because the line
+ * is a SYNTAX CONTRACT and not prose: the writer that adds it and the planner
+ * that looks for it must agree on its exact spelling, and one declaration is
+ * the only way they can. `standards-pointer.ts` owns the rules around it.
+ */
+export const CLAUDE_MD_POINTER_LINE = '@AGENTS.md';
+
 /** The category label the AGENTS.md body prints in front of each command. */
 const CATEGORY_LABELS: Record<ProjectScriptCategory, string> = {
   build: 'Build',
@@ -145,7 +155,7 @@ export function renderClaudeMdPointer(): string {
   return [
     '# Project Instructions',
     '',
-    '@AGENTS.md',
+    CLAUDE_MD_POINTER_LINE,
     '',
     'The project instructions live in `AGENTS.md` — the file every coding agent in this',
     'project shares. This file exists only so Claude Code loads that body: edit',

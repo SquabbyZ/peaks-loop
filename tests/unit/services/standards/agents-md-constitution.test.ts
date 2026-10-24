@@ -138,16 +138,21 @@ describe('Scenario: standards init — the CLAUDE.md pointer', () => {
     expect(body).not.toContain('@AGENTS.md');
   });
 
-  it('when invoked, should not overwrite a hand-written CLAUDE.md', () => {
+  it('when invoked, should append to a hand-written CLAUDE.md without rewriting it', () => {
     // given: a project whose CLAUDE.md was written by a human
     // when:  the standards are initialised with apply
-    // then:  the human's file is untouched and the body lands beside it
+    // then:  the human's text survives verbatim and what we own is appended
     const handwritten = '# House rules\n\nAlways ask before touching the database.\n';
     writeFileSync(join(projectRoot, 'CLAUDE.md'), handwritten, 'utf8');
     const result = executeProjectStandardsInit({ projectRoot, apply: true });
-    expect(readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8')).toBe(handwritten);
+    const after = readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8');
+    expect(after.startsWith(handwritten)).toBe(true);
+    expect(after).toContain('Always ask before touching the database.');
+    expect(after).toContain('<!-- peaks-standards:index:start -->');
+    expect(after.split('\n').filter((line) => line.trim() === '@AGENTS.md')).toHaveLength(1);
     expect(result.writtenFiles).toContain('AGENTS.md');
-    expect(result.writtenFiles).not.toContain('CLAUDE.md');
+    const claude = result.plannedWrites.find((write) => write.relativePath === 'CLAUDE.md');
+    expect(claude?.status).toBe('appended');
   });
 });
 

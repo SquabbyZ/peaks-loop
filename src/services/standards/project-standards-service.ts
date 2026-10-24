@@ -88,11 +88,15 @@ export type ProjectStandardsInitPlan = {
   readonly constitution: StandardsConstitution;
   /** The directory the project's standards files live in. */
   readonly rulesRoot: string;
+  /** The four-state constitution write plan, shared by `init` and `update`. */
+  readonly constitutionUpdate: ConstitutionUpdate;
   readonly plannedWrites: StandardsWrite[];
 };
 
 export type ProjectStandardsInitResult = ProjectStandardsInitPlan & {
   readonly writtenFiles: string[];
+  /** Why a constitution file was left for a human, when one was. */
+  readonly reviewSuggestions: string[];
 };
 
 export type ProjectStandardsInitSummary = {
@@ -104,12 +108,14 @@ export type ProjectStandardsInitSummary = {
   readonly plannedWrites: Array<Pick<StandardsWrite, 'relativePath' | 'status'>>;
   readonly writtenFiles: string[];
   readonly skippedFiles: string[];
+  readonly reviewSuggestions: string[];
 };
 
-export type ProjectStandardsUpdatePlan = ProjectStandardsInitPlan & {
-  /** The write plan for the body file and, when the IDE needs one, its pointer. */
-  readonly constitutionUpdate: ConstitutionUpdate;
-};
+/**
+ * The update plan — the init plan, which already carries the constitution
+ * write plan the update applies.
+ */
+export type ProjectStandardsUpdatePlan = ProjectStandardsInitPlan;
 
 export type ProjectStandardsUpdateResult = ProjectStandardsUpdatePlan & {
   readonly writtenFiles: string[];
@@ -433,20 +439,30 @@ function createLegacyOneXTemplates(input: {
 }
 
 /**
- * The write plan for the constitution files — the shared body and, when the
- * IDE needs one, the pointer that imports it.
- *
- * The four-state decision (create / append / leave / ask for a review) lives
- * in `standards-constitution.ts`, next to the rule that a file which already
- * exists is never overwritten.
+ * The write plan for ONE template.
+ * A constitution file's plan comes from the four-state planner, so `init` and
+ * `update` decide the same thing about the same file; a rules file's plan
+ * stays the simpler one: an existing file is left alone.
  */
-function buildWrite(projectRoot: string, template: StandardsTemplate): StandardsWrite {
+function buildWrite(
+  projectRoot: string,
+  template: StandardsTemplate,
+  constitutionUpdate: ConstitutionUpdate
+): StandardsWrite {
+  const plans = [constitutionUpdate.body, constitutionUpdate.pointer].filter(
+    (plan): plan is ConstitutionFileUpdate => plan !== null
+  );
+  const constitutionPlan = plans.find((plan) => plan.relativePath === template.relativePath);
+  if (constitutionPlan !== undefined) {
+    return {
+      relativePath: constitutionPlan.relativePath,
+      filePath: constitutionPlan.filePath,
+      content: constitutionPlan.content,
+      status: constitutionPlan.status
+    };
+  }
   const filePath = resolve(projectRoot, template.relativePath);
-  return {
-    ...template,
-    filePath,
-    status: existsSync(filePath) ? 'existing' : 'planned'
-  };
+  return { ...template, filePath, status: existsSync(filePath) ? 'existing' : 'planned' };
 }
 
 export function createProjectStandardsInitPlan(
@@ -472,7 +488,16 @@ export function createProjectStandardsInitPlan(
   const templates = useLegacyOneXLayout
     ? createLegacyOneXTemplates({ constitution, language, ctx, scripts })
     : createTemplates({ constitution, language, ctx, scripts });
-  const plannedWrites = templates.map((template) => buildWrite(projectRoot, template));
+  const constitutionUpdate = buildConstitutionUpdate({
+    projectRoot,
+    constitution,
+    language,
+    scripts,
+    rulesRoot
+  });
+  const plannedWrites = templates.map((template) =>
+    buildWrite(projectRoot, template, constitutionUpdate)
+  );
 
   return {
     apply: options.apply ?? false,
@@ -482,6 +507,7 @@ export function createProjectStandardsInitPlan(
     skillPreflight: SKILL_PREFLIGHT,
     constitution,
     rulesRoot,
+    constitutionUpdate,
     plannedWrites
   };
 }
@@ -489,47 +515,20 @@ export function createProjectStandardsInitPlan(
 export function createProjectStandardsUpdatePlan(
   options: ProjectStandardsInitOptions
 ): ProjectStandardsUpdatePlan {
-  const basePlan = createProjectStandardsInitPlan(options);
-  const scripts = detectProjectScripts(basePlan.projectRoot);
-  const constitutionUpdate = buildConstitutionUpdate({
-    projectRoot: basePlan.projectRoot,
-    constitution: basePlan.constitution,
-    language: basePlan.language,
-    scripts,
-    rulesRoot: basePlan.rulesRoot
-  });
-  return {
-    ...basePlan,
-    constitutionUpdate
-  };
+  // The init plan already carries the constitution write plan `update` applies.
+  return createProjectStandardsInitPlan(options);
 }
 
 export function executeProjectStandardsInit(
   options: ProjectStandardsInitOptions
 ): ProjectStandardsInitResult {
-  const plan = createProjectStandardsInitPlan(options);
-  const writtenFiles: string[] = [];
-  const resolveHomedir = options.resolveHomedir ?? osHomedir;
-
-  if (plan.apply) {
-    assertSafeStandardsRoot(plan.projectRoot);
-    const pendingWrites = plan.plannedWrites.filter((write) => write.status !== 'existing');
-    prevalidateWrites(plan.projectRoot, pendingWrites, resolveHomedir);
-    for (const write of pendingWrites) {
-      const targetPath = resolve(write.filePath);
-      mkdirSync(dirname(targetPath), { recursive: true });
-      writeNewFile(targetPath, write.content);
-      writtenFiles.push(write.relativePath);
-    }
-  }
-
-  return {
-    ...plan,
-    plannedWrites: plan.plannedWrites.map((write) =>
-      writtenFiles.includes(write.relativePath) ? { ...write, status: 'written' } : write
-    ),
-    writtenFiles
-  };
+  // ONE writer for both verbs. `init` and `update` differ in what they
+  // REPORT, not in what they write: both plan the constitution with the same
+  // four-state planner, so a downstream project that already has an AGENTS.md
+  // and a CLAUDE.md receives the missing managed block and the missing
+  // `@AGENTS.md` pointer from EITHER command — and the same result.
+  const { writtenFiles, plannedWrites, ...plan } = executeProjectStandardsUpdate(options);
+  return { ...plan, plannedWrites, writtenFiles };
 }
 
 /**
@@ -660,7 +659,8 @@ export function summarizeProjectStandardsInitResult(
     writtenFiles: result.writtenFiles,
     skippedFiles: result.plannedWrites
       .filter((write) => write.status === 'existing')
-      .map((write) => write.relativePath)
+      .map((write) => write.relativePath),
+    reviewSuggestions: result.reviewSuggestions
   };
 }
 
