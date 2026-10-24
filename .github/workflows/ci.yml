@@ -618,10 +618,12 @@ jobs:
   # §21.9 — THE BDD TEST-STYLE CONTRACT HAD A CHECKER AND NO EXECUTOR.
   #
   # `src/services/qa/bdd-test-style-verifier.ts` checks the contract in
-  # `contracts/test-style-contract.md`: an `it()` / `test()` description must read
-  # `when X, should Y`, and the callback body must start with exactly `// given:`
-  # / `// when:` / `// then:`. The checker was reachable from the peaks-qa
-  # verification path and NOTHING IN CI CALLED IT, which is how it rotted:
+  # `contracts/test-style-contract.md`: an `it()` / `test()` description must
+  # include `when` or `should` — at least one of the two (`when X, should Y` is
+  # the idiomatic form, a preference rather than a requirement) — and the
+  # callback body must start with exactly `// given:` / `// when:` / `// then:`.
+  # The checker was reachable from the peaks-qa verification path and NOTHING IN
+  # CI CALLED IT, which is how it rotted:
   # measured 2026-10-23 over the tracked `tests/**/*.test.ts` population, 599 of
   # 691 files violated it — 4996 violating `it()` / `test()` calls. The repo's own
   # lesson (backlog §14, slice A-F sweep): a checker that is registered but never

@@ -28,11 +28,20 @@ MUST follow the given-when-then shape.
 
 ### 1.1 Description (the `it()` / `test()` string-literal)
 
-- **Form**: `when X, should Y` — state the precondition in the `when`
-  clause and the observable outcome in the `should` clause.
-- **Required word**: must include at least one of `when` or `should`.
-  (`when` alone is the precondition; `should` alone is the outcome;
-  the natural-language form combines both.)
+- **Preferred form (idiomatic — a preference, NOT a requirement)**:
+  `when X, should Y` — state the precondition in the `when` clause and the
+  observable outcome in the `should` clause. New tests SHOULD read this way,
+  because it names the precondition and the outcome in one sentence. Writing
+  only `when`, or only `should`, is ALLOWED; writing both is RECOMMENDED, never
+  required.
+- **Enforced rule (the only rule a checker enforces)**: the description MUST
+  include at least one of `when` or `should`. This is exactly what the
+  verifier runs: `hasWhenOrShould` in
+  `src/services/qa/bdd-test-style-contract.ts` matches
+  `/(\bwhen\b|\bshould\b)/i`, and a description that contains neither fails
+  with the reason code `description-no-should-when`. A description carrying
+  only `when`, or only `should`, PASSES this rule — the checker never asks for
+  both.
 - **Anti-pattern**: do NOT use legacy `// arrange:` / `// act:` /
   `// assert:` markers anywhere in the test body.
 

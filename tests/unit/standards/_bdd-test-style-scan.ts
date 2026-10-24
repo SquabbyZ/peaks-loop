@@ -5,10 +5,12 @@
 //
 // THE DEBT THIS LOCKS. `src/services/qa/bdd-test-style-verifier.ts` checks the
 // contract in `contracts/test-style-contract.md`: an `it()` / `test()` description
-// must read `when X, should Y`, and the callback body must start with exactly
-// `// given:` / `// when:` / `// then:`. The checker existed and NOTHING called it
-// from CI, so it rotted. Measured 2026-10-23 over the tracked `tests/**/*.test.ts`
-// population: 691 files, of which 92 conform and 599 do not.
+// must include `when` or `should` — at least one of the two (`when X, should Y`
+// is the idiomatic form, a preference rather than a requirement) — and the
+// callback body must start with exactly `// given:` / `// when:` / `// then:`.
+// The checker existed and NOTHING called it from CI, so it rotted. Measured
+// 2026-10-23 over the tracked `tests/**/*.test.ts` population: 691 files, of
+// which 92 conform and 599 do not.
 //
 // WHY A RECORDED BASELINE AND NOT A ZERO FLOOR. A zero floor would fail on the
 // tree this slice was written against, so it could never be committed. The

@@ -4,11 +4,13 @@
 //
 // THE DEBT THIS LOCKS. `src/services/qa/bdd-test-style-verifier.ts` checks the
 // contract in `contracts/test-style-contract.md`: an `it()` / `test()` description
-// must read `when X, should Y`, and the callback body must start with exactly
-// `// given:` / `// when:` / `// then:` (`// arrange:` / `// act:` / `// assert:`
-// are not this contract's vocabulary). The checker existed and NO CI GATE CALLED
-// IT, so it rotted. Measured 2026-10-23 over the tracked `tests/**/*.test.ts`
-// population: 691 files, 92 conforming, 599 violating — 4996 violating calls.
+// must include `when` or `should` — at least one of the two (`when X, should Y`
+// is the idiomatic form, a preference rather than a requirement) — and the
+// callback body must start with exactly `// given:` / `// when:` / `// then:`
+// (`// arrange:` / `// act:` / `// assert:` are not this contract's vocabulary).
+// The checker existed and NO CI GATE CALLED IT, so it rotted. Measured 2026-10-23
+// over the tracked `tests/**/*.test.ts` population: 691 files, 92 conforming,
+// 599 violating — 4996 violating calls.
 //
 // The backlog's §21.9 recorded 11 pre-existing violations. That 11 was measured
 // over the files ONE session happened to touch, not over the tree; the repo-wide

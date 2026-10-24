@@ -171,7 +171,7 @@ Corrected 2026-10-13, kept visible rather than edited away: this paragraph used 
 
 When you (the LLM sub-agent) write new or modified unit tests in `tests/unit/**`, every `it()` / `test()` block MUST follow the given-when-then contract:
 
-1. The first string-literal argument of `it()` / `test()` MUST describe business behavior in the form `when X, should Y` — must include either the word "when" (state / pre-condition) or "should" (observable outcome).
+1. The first string-literal argument of `it()` / `test()` MUST describe business behavior and MUST include either the word "when" (state / pre-condition) or "should" (observable outcome). The idiomatic form `when X, should Y` names both, so prefer it — but it is a preference, not a requirement: a description carrying only "when" or only "should" is compliant.
 2. The body callback (the second argument) MUST start with exactly 3 leading comments:
    ```typescript
    // given: <precondition — system / user state>
