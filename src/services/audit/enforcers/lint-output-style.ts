@@ -2,7 +2,8 @@
  * P2-a Theme C — output style enforcers.
  *
  * The peaks-loop dogfood rule: every skill response carries a status
- * header (`Peaks-Loop Skill: <name> | Peaks-Loop Gate: <gate> | Next:
+ * header (`Peaks-Loop Skill: <name> | Peaks-Loop Role: <tier> |
+ * Peaks-Loop Gate: <gate> | Peaks-Loop Context: <ratio%> (<zone>) | Next:
  * <action>`), the SKILL.md body has no greeting/closing-prompt
  * flattery, and the status header is detectable in the recent
  * session transcript (test-only fixture).
@@ -36,8 +37,19 @@ const CLOSING_PROMPTS = [
   /\b随时 (欢迎 )?(联系|提问)/i
 ];
 
+/**
+ * The status-header shape check. It answers ONE question — "does this
+ * response carry a Peaks-Loop status header at all?" — and not "is the
+ * header's shape right?".
+ *
+ * The header is published in several shapes: three segments, four with a
+ * Role cell, five with Role and Context. The Role and Context cells are
+ * therefore OPTIONAL here: a header that omits them is still a header, and a
+ * linter that reddened the three-segment examples still carried by the skill
+ * documentation would be measuring something other than its own duty.
+ */
 const STATUS_HEADER_PATTERN =
-  /Peaks-Loop Skill:\s*peaks-[a-z0-9-]+\s*\|\s*Peaks-Loop Gate:\s*[A-Za-z0-9_.-]+\s*\|\s*Next:\s*\S/;
+  /Peaks-Loop Skill:\s*peaks-[a-z0-9-]+\s*\|\s*(?:Peaks-Loop Role:\s*[^|\n]*\s*\|\s*)?Peaks-Loop Gate:\s*[A-Za-z0-9_.-]+\s*(?:\|\s*Peaks-Loop Context:\s*[^|\n]*)?\|\s*Next:\s*\S/;
 
 export function lintNoFluff(skill: SkillFile): readonly LintHit[] {
   const hits: LintHit[] = [];

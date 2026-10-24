@@ -13,8 +13,10 @@ visibility: internal
 ## Loop hygiene (every turn — MANDATORY)
 
 **Skill header.** While this skill is active, open every turn with
-`Peaks-Loop Skill: <skill> | Peaks-Loop Gate: <gate> | Next: <one short action>`.
+`Peaks-Loop Skill: <skill> | Peaks-Loop Role: <role> | Peaks-Loop Gate: <gate> | Peaks-Loop Context: <ratio%> (<zone>) | Next: <one short action>`.
 Every turn, not only the first — it is how the user knows which skill is driving.
+`Role` and `Context` are machine facts: copy them from `peaks skill presence --json`
+(`data.role`, `data.context.ratioPct`, `data.context.action`) — never invent them.
 
 **Context is this skill's own business.** Run `peaks skill presence --json` every turn and
 read its `context` block. When `action` is `auto-fire`, `pre-compact`, or `red-line`,
@@ -70,7 +72,7 @@ peaks project memories --project <repo> --json
 ```
 
 This returns durable memories from `.peaks/memory` — decisions, conventions, modules, and rules captured in past sessions. Filter with `--kind <project|decision|convention|rule|reference|feedback|module|lesson|bug|investigation|technical-pattern|project-rule|design|handoff|session-handoff|project-todo|publish-closure|project-closure|slice-closure|slice-pilot-findings|sediment>`. (`.peaks/PROJECT.md` is a human-readable session timeline only.)
-Then display: `Peaks-Loop Skill: peaks-txt | Peaks-Loop Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-txt --project <repo> --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear --project <repo>`.
+Then display: `Peaks-Loop Skill: peaks-txt | Peaks-Loop Role: <role> | Peaks-Loop Gate: startup | Peaks-Loop Context: <ratio%> (<zone>) | Next: <one short action>`. `Role` and `Context` are machine facts: copy them from `peaks skill presence --json` (`data.role`, `data.context.ratioPct`, `data.context.action`) — never invent them. Update with `peaks skill presence:set peaks-txt --project <repo> --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear --project <repo>`.
 
 ## Responsibilities
 

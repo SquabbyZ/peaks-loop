@@ -13,8 +13,10 @@ visibility: internal
 ## Loop hygiene (every turn — MANDATORY)
 
 **Skill header.** While this skill is active, open every turn with
-`Peaks-Loop Skill: <skill> | Peaks-Loop Gate: <gate> | Next: <one short action>`.
+`Peaks-Loop Skill: <skill> | Peaks-Loop Role: <role> | Peaks-Loop Gate: <gate> | Peaks-Loop Context: <ratio%> (<zone>) | Next: <one short action>`.
 Every turn, not only the first — it is how the user knows which skill is driving.
+`Role` and `Context` are machine facts: copy them from `peaks skill presence --json`
+(`data.role`, `data.context.ratioPct`, `data.context.action`) — never invent them.
 
 **Context is this skill's own business.** Run `peaks skill presence --json` every turn and
 read its `context` block. When `action` is `auto-fire`, `pre-compact`, or `red-line`,
@@ -122,7 +124,7 @@ peaks statusline install --project <repo>   # idempotent; skips if already insta
 ```
 
 Read durable project memory via `peaks project memories --project <repo> --json` (decisions / conventions / modules / rules). Filter with `--kind`. (`.peaks/PROJECT.md` is a human-readable timeline only.)
-Then display: `Peaks-Loop Skill: peaks-ui | Peaks-Loop Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-ui --project <repo> --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear --project <repo>`.
+Then display: `Peaks-Loop Skill: peaks-ui | Peaks-Loop Role: <role> | Peaks-Loop Gate: startup | Peaks-Loop Context: <ratio%> (<zone>) | Next: <one short action>`. `Role` and `Context` are machine facts: copy them from `peaks skill presence --json` (`data.role`, `data.context.ratioPct`, `data.context.action`) — never invent them. Update with `peaks skill presence:set peaks-ui --project <repo> --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear --project <repo>`.
 
 ## Responsibilities
 

@@ -45,18 +45,25 @@ For final evidence, prefer this visual block:
 └──────────────────────────────────────────
 ```
 
-For continuing turns in the same Peaks-Loop workflow, use a compact status header that **always surfaces both skill layers** — the active skill AND its role tier — even when only the active skill is set:
+For continuing turns in the same Peaks-Loop workflow, use a compact status header that **always surfaces both skill layers** — the active skill AND its role tier — plus the live context pressure, even when only the active skill is set:
 
 ```markdown
-Peaks-Loop Skill: <skill-name> | Peaks-Loop Role: <tier> | Peaks-Loop Gate: <current gate> | Next: <one short action>
+Peaks-Loop Skill: <skill-name> | Peaks-Loop Role: <tier> | Peaks-Loop Gate: <current gate> | Peaks-Loop Context: <ratio%> (<zone>) | Next: <one short action>
 ```
 
 `<skill-name>` is the value returned by `peaks skill presence --json`'s `data.skill`. The `Role` line surfaces the two-layer Peaks-Loop family so the user always knows which layer is active:
 
-- **orchestrator** (1-level) — `peaks-code`, `peaks-content`, `peaks-doctor`, `peaks-issue-fix-orchestrator`, `peaks-solo`, `peaks-ide`, `peaks-sop`. These are user-facing workflows that own gate transitions.
-- **bee** (1-level sub-role) — `peaks-prd`, `peaks-rd`, `peaks-qa`, `peaks-ui`, `peaks-sc`, `peaks-txt`, `peaks-final-review`, `peaks-resume`, `peaks-status`, `peaks-test`, `peaks-reviewer`. These are dispatched by an orchestrator and own one stage.
+- **orchestrator** (1-level) — `peaks-code`, `peaks-content`, `peaks-doctor`, `peaks-issue-fix-orchestrator`, `peaks-solo`, `peaks-ide`, `peaks-sop`, `peaks-audit`, `peaks-race-code`. These are user-facing workflows that own gate transitions.
+- **bee** (1-level sub-role) — `peaks-prd`, `peaks-rd`, `peaks-qa`, `peaks-ui`, `peaks-sc`, `peaks-txt`, `peaks-final-review`, `peaks-resume`, `peaks-status`, `peaks-test`, `peaks-reviewer`, `peaks-slice-decompose`, `peaks-perf-audit`, `peaks-security-audit`. These are dispatched by an orchestrator and own one stage.
 
 **Both layers must always appear in the header regardless of which skill is currently active**, so the user sees the full Peaks-Loop family on every turn. When the active skill is a bee (e.g. `peaks-rd`), the orchestrator is implicit and you MAY add a parenthetical: `peaks-rd (under peaks-code)`. When the active skill is an orchestrator, no parent is implied.
+
+`<tier>`, `<current gate>`, `<ratio%>` and `<zone>` are all **machine facts** — copy them verbatim from the same `peaks skill presence --json` read, never estimate them:
+
+- `data.role` → the tier above (`orchestrator` / `bee`; `null` for an unknown skill).
+- `data.gate` → the current gate.
+- `data.context.ratioPct` → the context fill, e.g. `42.3%`.
+- `data.context.action` → the zone, one of `none` / `soft-warn` / `auto-fire` / `pre-compact` / `red-line`.
 
 **Persistence rule:** The active Peaks-Loop skill name and gate are persisted to the session-scoped presence lease at `.peaks/_runtime/<session-id>/leases/presence-*.json` (the canonical path; the project-level single-slot `active-skill.json` files were removed in 4.0.11). Read the active marker via `peaks skill presence --json` at the start of EVERY response when a Peaks-Loop skill workflow is active — the CLI resolves the lease across the project's session trees, do not read those files directly. If the CLI returns a valid skill, always show the compact header — even if this is the first turn of a new conversation, even after context compaction, and without exception. Only omit the header when the CLI reports no active skill. This ensures users unfamiliar with Claude Code's skill system always see which Peaks-Loop skill is orchestrating their session.
 

@@ -202,7 +202,7 @@ After RD completes (whether inline or sub-agent), Code does not stop — it must
 peaks skill presence:set peaks-code --project <repo> --mode <mode> --gate <current-gate>
 ```
 
-This keeps the CLAUDE.md status header accurate (`Peaks-Loop Skill: peaks-code`) instead of showing a stale role name. Use the current mode and gate values; the gate may have advanced since startup. Skipping this step causes the header to display the last-known gate permanently.
+This keeps the CLAUDE.md status header accurate (`Peaks-Loop Skill: peaks-code | Peaks-Loop Role: <role> | Peaks-Loop Gate: <gate> | Peaks-Loop Context: <ratio%> (<zone>) | Next: <one short action>`) instead of showing a stale role name. `Role` and `Context` are machine facts: copy them from `peaks skill presence --json` (`data.role`, `data.context.ratioPct`, `data.context.action`) — never invent them. Use the current mode and gate values; the gate may have advanced since startup. Skipping this step causes the header to display the last-known gate permanently.
 
 **Full-auto auto-proceed rule**: In the `full-auto` profile, when RD transitions to `qa-handoff`, Code immediately drives QA — by launching a `peaks sub-agent dispatch qa` sub-agent carrying the `peaks-qa` body (swarm path), then executing the returned toolCall, or by running QA inline in the main loop (assisted/strict path). Do not pause, do not ask the user, do not summarize RD results as if they were final. The only valid reason to skip QA is when `--type` is `docs` or `chore` (no acceptance surface).
 

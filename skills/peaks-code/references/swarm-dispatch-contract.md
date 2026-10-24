@@ -182,7 +182,7 @@ After all sub-agent dispatch calls return and the LLM has invoked the toolCalls,
 
 ## 5. Presence restoration (single-shot)
 
-Sub-agents are explicitly forbidden from calling `peaks skill presence:set`. That means the presence lease does not move during the fan-out. Code sets it to `gate=swarm-fan-out` before fan-out and to `gate=swarm-converged` once after all Tasks return. The status header (the `Peaks-Loop Skill: peaks-code | Peaks-Loop Gate: <gate>` line) therefore reads consistently across the fan-out window.
+Sub-agents are explicitly forbidden from calling `peaks skill presence:set`. That means the presence lease does not move during the fan-out. Code sets it to `gate=swarm-fan-out` before fan-out and to `gate=swarm-converged` once after all Tasks return. The status header (the `Peaks-Loop Skill: peaks-code | Peaks-Loop Role: <role> | Peaks-Loop Gate: <gate> | Peaks-Loop Context: <ratio%> (<zone>) | Next: <one short action>` line) therefore reads consistently across the fan-out window. `Role` and `Context` are machine facts: copy them from `peaks skill presence --json` (`data.role`, `data.context.ratioPct`, `data.context.action`) — never invent them.
 
 If a sub-agent is misbehaving and writes its own presence lease anyway, the next Code presence-set (after fan-out) overwrites it — the bug self-heals on the next gate advance, but the swarm-phase display may be off. The hard prohibition is there to prevent this; Code should still treat the lease as a single-writer resource.
 

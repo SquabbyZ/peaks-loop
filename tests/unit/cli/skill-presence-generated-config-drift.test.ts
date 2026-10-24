@@ -30,6 +30,7 @@ import { declareDimensions } from '../_setup/4dim-template.js';
 import { makeCapturedIo } from '../_setup/io.js';
 import { withTmpWorkspacePerTest } from '../_setup/tmp-workspace.js';
 import { registerSkillCommand } from '../../../src/cli/commands/core/skill-command.js';
+import { buildClaudeSettingsLocalJson } from '../../../src/services/workspace/claude-settings-template.js';
 import {
   generatedArtifactsStampPath,
   writeGeneratedArtifactsStamp
@@ -48,6 +49,22 @@ const getWs = withTmpWorkspacePerTest('peaks-presence-drift-');
 function seedGeneratedArtifact(projectRoot: string): void {
   mkdirSync(join(projectRoot, '.claude'), { recursive: true });
   writeFileSync(join(projectRoot, '.claude', 'settings.local.json'), '{}\n', 'utf8');
+}
+
+/**
+ * A project whose generated artifact still matches the current template.
+ *
+ * The staleness verdict follows the CONTENT, so "the config is current" has to
+ * mean the artifact carries what the current template declares — a stamp alone
+ * cannot make it current.
+ */
+function seedCurrentArtifact(projectRoot: string): void {
+  mkdirSync(join(projectRoot, '.claude'), { recursive: true });
+  writeFileSync(
+    join(projectRoot, '.claude', 'settings.local.json'),
+    `${JSON.stringify(buildClaudeSettingsLocalJson(), null, 2)}\n`,
+    'utf8'
+  );
 }
 
 async function runPresence(
@@ -81,12 +98,17 @@ describe('Scenario: render — generated-config drift rides `skill presence`', (
 
     expect(envelope.ok).toBe(true);
     expect(envelope.data.generatedArtifacts?.stale).toBe(true);
+    // The release that wrote the artifacts is reported as information; the
+    // CONTENT is what makes the project stale.
     expect(envelope.data.generatedArtifacts?.reasons).toContain('package-upgraded');
+    expect(envelope.data.generatedArtifacts?.reasons).toContain('content-drift');
     expect(envelope.data.generatedArtifacts?.onDiskPackageVersion).toBe('4.0.40');
     // The remedy has to be IN the message, not inferable from it — the reader
     // is an LLM that must be able to act without guessing a command.
     expect(envelope.warnings.join('\n')).toContain('4.0.40');
     expect(envelope.warnings.join('\n')).toContain('peaks workspace init');
+    // The message has to name the FILE that does not match.
+    expect(envelope.warnings.join('\n')).toContain('.claude/settings.local.json');
   });
 
   it('prints the same notice to stderr for a human running the command by hand', async () => {
@@ -102,8 +124,23 @@ describe('Scenario: render — generated-config drift rides `skill presence`', (
 
   it('says NOTHING when the config is current — no field, no warning', async () => {
     const ws = getWs();
-    seedGeneratedArtifact(ws.path);
+    seedCurrentArtifact(ws.path);
     writeGeneratedArtifactsStamp(ws.path);
+
+    const { stdout, stderr } = await runPresence(ws.path, ['--json']);
+    const envelope = JSON.parse(stdout) as { data: Record<string, unknown> };
+
+    expect(envelope.data.generatedArtifacts).toBeUndefined();
+    expect(stderr).toBe('');
+  });
+
+  it('says NOTHING when only the release number moved on and the content still matches', async () => {
+    // given: a generated artifact whose content still matches the template
+    // when: only the release number recorded in the stamp moved on
+    // then: the presence report carries no drift field and no warning
+    const ws = getWs();
+    seedCurrentArtifact(ws.path);
+    writeGeneratedArtifactsStamp(ws.path, { packageVersion: '4.0.40' });
 
     const { stdout, stderr } = await runPresence(ws.path, ['--json']);
     const envelope = JSON.parse(stdout) as { data: Record<string, unknown> };

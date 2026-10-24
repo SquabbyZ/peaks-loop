@@ -8,8 +8,10 @@ description: 'Authoring skill for user-defined SOPs (standard operating procedur
 ## Loop hygiene (every turn — MANDATORY)
 
 **Skill header.** While this skill is active, open every turn with
-`Peaks-Loop Skill: <skill> | Peaks-Loop Gate: <gate> | Next: <one short action>`.
+`Peaks-Loop Skill: <skill> | Peaks-Loop Role: <role> | Peaks-Loop Gate: <gate> | Peaks-Loop Context: <ratio%> (<zone>) | Next: <one short action>`.
 Every turn, not only the first — it is how the user knows which skill is driving.
+`Role` and `Context` are machine facts: copy them from `peaks skill presence --json`
+(`data.role`, `data.context.ratioPct`, `data.context.action`) — never invent them.
 
 **Context is this skill's own business.** Run `peaks skill presence --json` every turn and
 read its `context` block. When `action` is `auto-fire`, `pre-compact`, or `red-line`,
@@ -82,7 +84,7 @@ peaks skill presence:set peaks-sop --project <repo> --mode <mode> --gate startup
 peaks project memories --project <repo> --json
 ```
 
-Then display: `Peaks-Loop Skill: peaks-sop | Peaks-Loop Gate: startup | Next: <one short action>`. Update gates with `peaks skill presence:set peaks-sop --project <repo> --mode <mode> --gate <gate>` when they change. When the SOP is registered and the user is satisfied, run `peaks skill presence:clear --project <repo>`.
+Then display: `Peaks-Loop Skill: peaks-sop | Peaks-Loop Role: <role> | Peaks-Loop Gate: startup | Peaks-Loop Context: <ratio%> (<zone>) | Next: <one short action>`. `Role` and `Context` are machine facts: copy them from `peaks skill presence --json` (`data.role`, `data.context.ratioPct`, `data.context.action`) — never invent them. Update gates with `peaks skill presence:set peaks-sop --project <repo> --mode <mode> --gate <gate>` when they change. When the SOP is registered and the user is satisfied, run `peaks skill presence:clear --project <repo>`.
 
 ## Responsibilities
 

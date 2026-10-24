@@ -23,7 +23,7 @@ This repository uses project-local Peaks standards. Existing repository conventi
 
 ## Active Peaks-Loop skill presence
 
-Active Peaks-Loop skill presence: at the start of every response, run `peaks skill presence --json` to read the active skill marker. The CLI resolves the session-scoped presence lease at `.peaks/_runtime/<sessionId>/leases/presence-*.json`; do not read those files directly. When the response includes a valid skill name, display the compact status header: `Peaks-Loop Skill: <skill> | Peaks-Loop Gate: <gate> | Next: <one short action>`. Display the header on every turn while the CLI returns an active skill; omit it when the CLI returns no active skill.
+Active Peaks-Loop skill presence: at the start of every response, run `peaks skill presence --json` to read the active skill marker. The CLI resolves the session-scoped presence lease at `.peaks/_runtime/<sessionId>/leases/presence-*.json`; do not read those files directly. When the response includes a valid skill name, display the compact status header: `Peaks-Loop Skill: <skill> | Peaks-Loop Role: <role> | Peaks-Loop Gate: <gate> | Peaks-Loop Context: <ratio%> (<zone>) | Next: <one short action>`. Copy `<role>` from the `data.role` field of that same read (`orchestrator` or `bee`; `null` for a skill outside both lists), and copy `<ratio%>` and `<zone>` from the `data.context.ratioPct` and `data.context.action` fields of that read — never judge the tier or estimate the context fill yourself. Display the header on every turn while the CLI returns an active skill; omit it when the CLI returns no active skill.
 
 ## Repository-specific rules
 

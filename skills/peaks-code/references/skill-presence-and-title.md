@@ -16,7 +16,7 @@ On the first presence:set in a project, ensure the out-of-band status bar is ins
 peaks statusline install --project <repo>   # idempotent; skips if already installed
 ```
 
-Then display the compact status header: `Peaks-Loop Skill: peaks-code | Peaks-Loop Gate: startup | Next: <one short action>`. Display this header on EVERY turn while the skill is active.
+Then display the compact status header: `Peaks-Loop Skill: peaks-code | Peaks-Loop Role: <role> | Peaks-Loop Gate: startup | Peaks-Loop Context: <ratio%> (<zone>) | Next: <one short action>`. `Role` and `Context` are machine facts: copy them from `peaks skill presence --json` (`data.role`, `data.context.ratioPct`, `data.context.action`) — never invent them. Display this header on EVERY turn while the skill is active.
 
 Update with `peaks skill presence:set peaks-code --project <repo> --mode <mode> --gate <gate>` when gates change. The presence lease persists across the full workflow lifecycle — it lives at `.peaks/_runtime/<session-id>/leases/presence-*.json` (the canonical path; the project-level `active-skill.json` single-slot files were removed in 4.0.11) — clear is owned by workflow terminalize; follow-up workflows re-claim via new workflow init.
 
