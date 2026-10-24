@@ -8,6 +8,11 @@
 // mode), keeps the 6-state machine as an internal phase of the `24h`
 // mode, and lets the auto-engage paths set the `24h` mode.
 //
+// The auto-compact profile is NOT part of the mode picture: it is a
+// public project setting (`autoCompactProfile`), so a 24h lease resolves
+// the PROJECT's profile — `standard` unless the project pins `eager`.
+// The `24h` mode does not choose one.
+//
 // Dimensions covered:
 //   - render:      `peaks code mode status` envelope shape (both the
 //                  "mode recorded" and the "no presence" branches)
@@ -239,7 +244,7 @@ describe('Scenario: render — peaks code mode status envelope', () => {
     expect(mode?.commands.map((c) => c.name())).toContain('status');
   });
 
-  it('when a 24h lease is active, should report the stacked picture', async () => {
+  it('when a 24h lease is active, should report the stacked picture with the standard profile', async () => {
     const root = makeProjectRoot();
     writeLease(root, '24h');
     write24hState(root, SID, {
@@ -251,11 +256,14 @@ describe('Scenario: render — peaks code mode status envelope', () => {
     const status = resolveModeStatus({ projectRoot: root, sessionId: SID });
     expect(status.mode).toBe('24h');
     expect(status.is24h).toBe(true);
-    expect(status.autoCompactProfile).toBe('partial');
+    // The 24h mode does NOT choose a compaction profile: the profile is
+    // the project's public setting, and this project pins none.
+    expect(status.autoCompactProfile).toBe('standard');
+    expect(status.autoCompactProfileSource).toBe('default');
     expect(status.autoCompactThresholds).toEqual({
-      autoFire: 0.65,
-      preCompact: 0.7,
-      redLine: 0.85
+      autoFire: 0.8,
+      preCompact: 0.85,
+      redLine: 0.95
     });
     expect(status.h24State?.state).toBe('24H_ACTIVE');
     expect(status.jobMode).toBe(false);
@@ -279,7 +287,7 @@ describe('Scenario: render — peaks code mode status envelope', () => {
     expect(envelope.ok).toBe(true);
     expect(envelope.data['mode']).toBe('24h');
     expect(envelope.data['is24h']).toBe(true);
-    expect(envelope.data['autoCompactProfile']).toBe('partial');
+    expect(envelope.data['autoCompactProfile']).toBe('standard');
     expect(envelope.data['modeSource']).toBe('canonical');
   });
 

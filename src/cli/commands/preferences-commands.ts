@@ -7,7 +7,12 @@ import {
   preferencesPath,
   savePreferences
 } from '../../services/preferences/preferences-service.js';
-import type { ProjectPreferences } from '../../services/preferences/preferences-types.js';
+import {
+  AUTO_COMPACT_PROFILE_VALUES,
+  isAutoCompactProfile,
+  type ProjectPreferences
+} from '../../services/preferences/preferences-types.js';
+import { normalizeAutoCompactMode } from '../../services/code/auto-compact-modes.js';
 
 const ALLOWED_KEYS: ReadonlySet<keyof ProjectPreferences> = new Set<keyof ProjectPreferences>([
   'economyMode',
@@ -17,7 +22,8 @@ const ALLOWED_KEYS: ReadonlySet<keyof ProjectPreferences> = new Set<keyof Projec
   'classifyConservatism',
   'classifyRules',
   'swarmSpeculative',
-  'loopAutonomousEnabled'
+  'loopAutonomousEnabled',
+  'autoCompactProfile'
 ]);
 
 /**
@@ -42,6 +48,29 @@ function unknownKeyError(key: string): Error {
   return new Error(
     `PREFERENCES_KEY_UNKNOWN: ${key}. Allowed keys: ${ALLOWED_KEYS_LIST.join(', ')}.`
   );
+}
+
+/**
+ * The value guard for `autoCompactProfile`.
+ *
+ * An illegal value is REJECTED with the legal ones named — it is never
+ * silently coerced to the default, because a silently-coerced profile is a
+ * cadence the operator did not ask for and cannot see.
+ *
+ * The legacy alias `partial` is accepted here too and stored in its
+ * canonical form (`eager`), so the file on disk only ever carries a
+ * canonical profile.
+ */
+function normalizeAutoCompactProfileValue(key: string, value: unknown): unknown {
+  if (key !== 'autoCompactProfile') return value;
+  if (isAutoCompactProfile(value)) return value;
+  const alias = typeof value === 'string' ? normalizeAutoCompactMode(value) : null;
+  if (alias === null) {
+    throw new Error(
+      `PREFERENCES_VALUE_INVALID: autoCompactProfile must be one of ${AUTO_COMPACT_PROFILE_VALUES.join(' | ')} (got ${JSON.stringify(value)}).`
+    );
+  }
+  return alias;
 }
 
 interface GetOptions {
@@ -138,7 +167,7 @@ export function registerPreferencesCommands(program: Command): void {
           // Not valid JSON — keep the raw string.
         }
         const merged = savePreferences(opts.project, {
-          [opts.key]: parsed
+          [opts.key]: normalizeAutoCompactProfileValue(opts.key, parsed)
         });
         const envelope = {
           ok: true,

@@ -8,6 +8,7 @@
 import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { getSessionDir } from '../session/getSessionDir.js';
+import { normalizeAutoCompactMode } from './auto-compact-modes.js';
 
 /**
  * auto-compact dispatch. Appended at the end of `executeAutoCompact`
@@ -19,7 +20,12 @@ export interface CompactHistoryEvent {
   readonly schemaVersion: 1;
   readonly ts: string;
   readonly target: 'main' | 'sub-agent' | 'worker';
-  readonly mode: 'standard' | 'partial' | 'aggressive';
+  /**
+   * The profile the run used. `eager` is the canonical name of the
+   * earlier-firing profile; `partial` is its legacy alias and is still
+   * accepted so an old row can be read; `aggressive` predates both.
+   */
+  readonly mode: 'standard' | 'partial' | 'aggressive' | 'eager';
   readonly ide: string;
   readonly pathway: string;
   readonly beforeRatio: number;
@@ -58,5 +64,9 @@ export function appendCompactHistoryEvent(input: {
   const dir = getSessionDir(input.projectRoot, input.sessionId);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   const path = join(dir, 'compact-history.jsonl');
-  appendFileSync(path, JSON.stringify(input.event) + '\n', 'utf8');
+  // The row carries the CANONICAL profile name. The legacy alias is
+  // normalized at the one storage choke point, so an old row and a new row
+  // can be compared — and the alias never reaches the runtime state.
+  const mode = normalizeAutoCompactMode(input.event.mode) ?? input.event.mode;
+  appendFileSync(path, JSON.stringify({ ...input.event, mode }) + '\n', 'utf8');
 }

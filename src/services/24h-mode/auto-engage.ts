@@ -67,9 +67,17 @@ export function applyAutoEngagePresenceMode(input: {
  * Slice H3 (rid=h3-24h-threshold-not-wired): `no-in-flight-lease` is
  * the common case in practice — entering `24H_ACTIVE` before any skill
  * workflow has a lease — and it used to be reported only inside
- * `data.presenceMode`, where nothing read it. The user then believed
- * the 24h thresholds were in force while the profile still resolved to
- * `standard`.
+ * `data.presenceMode`, where nothing read it.
+ *
+ * WHAT THIS ADVISORY SAYS ABOUT THE COMPACTION PROFILE: nothing that
+ * contradicts the product. The auto-compact profile is a PUBLIC choice
+ * (`autoCompactProfile` in `.peaks/preferences.json`, or an explicit
+ * `--mode`), and the 24h state machine does not derive it — so the
+ * advisory reports the PRESENCE MODE, and says that the profile is the
+ * project's own setting. The claim it must not make is that the
+ * thresholds "are still derived from the 24h state machine": that turned
+ * false the moment the profile became a public, explicitly settable
+ * choice, and the wording below states the truth instead.
  *
  * `nextActions` address the LLM driver (it runs the CLI on the user's
  * behalf); they never ask the user to type a verb.
@@ -82,16 +90,16 @@ export function presenceModeAdvisory(result: AutoEngagePresenceResult): {
   if (result.reason === 'no-in-flight-lease') {
     return {
       warnings: [
-        'The `24h` presence mode was NOT recorded: no in-flight presence lease to stamp (`no-in-flight-lease`). Auto-compact thresholds are still derived from the 24h state machine, so the 24h (partial) lines apply; the mode gate and statusline will NOT see `24h`.'
+        'The `24h` presence mode was NOT recorded: no in-flight presence lease to stamp (`no-in-flight-lease`). The auto-compact profile is NOT derived from the 24h state machine — it is the project setting `autoCompactProfile`; the mode gate and statusline will NOT see `24h`.'
       ],
       nextActions: [
-        'Do NOT report that the 24h thresholds are inactive — they are active via the 24h state machine. If the mode gate / statusline also need to see `24h`, start the skill workflow first and then re-run `peaks session 24h-mode transition --state 24H_ACTIVE` yourself. Do not ask the user to run it.'
+        'Do NOT report that the compaction profile changed — the 24h mode does not decide it, and the project setting `autoCompactProfile` still governs it. If the mode gate / statusline also need to see `24h`, start the skill workflow first and then re-run `peaks session 24h-mode transition --state 24H_ACTIVE` yourself. Do not ask the user to run it.'
       ]
     };
   }
   return {
     warnings: [
-      `The \`24h\` presence mode was NOT recorded (\`${result.reason}\`). Auto-compact thresholds are still derived from the 24h state machine, so the 24h (partial) lines apply; the mode gate and statusline will NOT see \`24h\`.`
+      `The \`24h\` presence mode was NOT recorded (\`${result.reason}\`). The auto-compact profile is NOT derived from the 24h state machine — it is the project setting \`autoCompactProfile\`; the mode gate and statusline will NOT see \`24h\`.`
     ],
     nextActions: []
   };

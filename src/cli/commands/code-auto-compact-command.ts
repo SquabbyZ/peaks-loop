@@ -3,7 +3,11 @@ import type { Command } from 'commander';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail } from 'peaks-loop-shared/result';
 import { runAutoCompact } from '../../services/code/auto-compact-orchestrator.js';
-import type { AutoCompactMode } from '../../services/code/auto-compact-modes.js';
+import {
+  normalizeAutoCompactMode,
+  type AutoCompactProfile
+} from '../../services/code/auto-compact-modes.js';
+import { resolveAutoCompactProfile } from '../../services/code/auto-compact-profile.js';
 import {
   probeInFlightBatch,
   type ProbeResult
@@ -29,8 +33,10 @@ const AUTO_COMPACT_DESCRIPTION =
   'command acts on. This command is also fired by the installed ' +
   'PreToolUse hook, which passes `--project .` — without that argument ' +
   'the hook could never run at all. rid-027 ' +
-  'adds `--mode <mode>`: `standard` (0.85/0.95) or `partial` (0.70/0.85 ' +
-  'for 24h long-run mode).';
+  'adds `--mode <mode>`: `standard` (pre-compact 0.85 / red-line 0.95) ' +
+  'or `eager` (pre-compact 0.70 / red-line 0.85 — fires earlier than ' +
+  '`standard`). With no `--mode`, the project setting `autoCompactProfile` ' +
+  'decides (default `standard`).';
 
 interface AutoCompactOpts {
   project: string;
@@ -49,9 +55,9 @@ function reportInvalidAutoCompactMode(io: ProgramIO, modeName: string, json?: bo
     fail(
       'code.auto-compact',
       'AUTO_COMPACT_INVALID_MODE',
-      `Invalid --mode '${modeName}'. Valid values: standard | partial.`,
+      `Invalid --mode '${modeName}'. Valid values: standard | eager. The legacy alias 'partial' is also accepted and means 'eager'.`,
       null,
-      ['Re-run with --mode standard or --mode partial.']
+      ['Re-run with --mode standard or --mode eager.']
     ),
     json
   );
@@ -75,7 +81,7 @@ interface ProbeCapture {
  */
 function buildAutoCompactInput(
   opts: AutoCompactOpts,
-  modeName: AutoCompactMode,
+  modeName: AutoCompactProfile,
   capture: ProbeCapture
 ) {
   // The in-flight signal comes from the session's DISPATCH LEDGER — the
@@ -116,11 +122,12 @@ function buildAutoCompactInput(
       : {}),
     force: opts.force === true,
     bypassRedLine: opts.bypassRedLine === true,
-    // Forward the FLAG verbatim — `undefined` when the user named no
-    // mode — so the orchestrator's fallback to the presence-derived
-    // mode can actually run. Forwarding the validated `modeName` is
-    // what disabled 24h → partial.
-    mode: opts.mode === undefined ? undefined : modeName
+    // The profile is resolved ONCE, by the resolver, and handed down
+    // explicitly: the CLI flag beats the project setting, and the project
+    // setting beats the default. The orchestrator's own fallback reads the
+    // same resolver, so the two cannot disagree about which profile is in
+    // force.
+    mode: modeName
   };
 }
 
@@ -156,14 +163,17 @@ function deferralDetail(
 /** The action body, lifted to a module-level function so both it and the registrar fit in 50 lines. */
 async function runAutoCompactAction(opts: AutoCompactOpts, io: ProgramIO): Promise<void> {
   try {
-    const { isValidMode } = await import('../../services/code/auto-compact-modes.js');
-    const modeName = opts.mode ?? 'standard';
-    if (!isValidMode(modeName)) {
-      reportInvalidAutoCompactMode(io, modeName, opts.json);
+    // `--mode` is normalized ONCE, here: the legacy alias `partial` becomes
+    // `eager` before anything is stored, reported or logged, so the alias
+    // never reaches the runtime state.
+    const cliMode = opts.mode === undefined ? null : normalizeAutoCompactMode(opts.mode);
+    if (opts.mode !== undefined && cliMode === null) {
+      reportInvalidAutoCompactMode(io, opts.mode, opts.json);
       return;
     }
+    const selection = resolveAutoCompactProfile({ projectRoot: opts.project, cliMode });
     const capture: ProbeCapture = { last: null };
-    const result = await runAutoCompact(buildAutoCompactInput(opts, modeName, capture));
+    const result = await runAutoCompact(buildAutoCompactInput(opts, selection.profile, capture));
     const code = result.code;
     const exitOk = result.ok || code === 'AUTO_COMPACT_SKIP' || code === 'AUTO_COMPACT_WAIT';
     // Adapt AutoCompactResult → ResultEnvelope so printResult's
@@ -199,13 +209,13 @@ export function registerCodeAutoCompactCommand(code: Command, io: ProgramIO): vo
         'no-op: the 95% red line no longer gates dispatch, so there is nothing to bypass (accepted for backward compatibility)'
       )
       // No commander default here, deliberately. A declared default makes
-      // `opts.mode` permanently defined, which defeats the orchestrator's
-      // `input.mode ?? resolveAutoCompactMode(projectRoot)` fallback and
-      // silently disables "24h mode auto-selects partial" — the help text
-      // below promises it. Absence must stay absent.
+      // `opts.mode` permanently defined, which would defeat the resolver's
+      // "project setting → default" fallback — the help text below promises
+      // that the project setting decides when no `--mode` is named.
+      // Absence must stay absent.
       .option(
         '--mode <mode>',
-        'auto-compact mode (standard | partial). Default: standard. 24h mode auto-selects partial.'
+        'auto-compact mode for THIS call: standard | eager (the legacy alias `partial` is accepted and means `eager`). Default: the project setting `autoCompactProfile`, else standard.'
       )
   ).action((opts: AutoCompactOpts) => runAutoCompactAction(opts, io));
 }

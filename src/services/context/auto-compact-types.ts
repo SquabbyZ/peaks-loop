@@ -153,11 +153,13 @@ export type AutoCompactResult =
          */
         readonly target?: 'main' | 'sub-agent';
         /**
-         * was used. Defaults to `'standard'` (0.85/0.95). `'partial'`
-         * (0.70/0.85) is selected when 24h mode is active or the
-         * caller passes `--mode partial`.
+         * The profile the run used. Defaults to `'standard'` (pre-compact
+         * 0.85 / red-line 0.95). `'eager'` (0.70/0.85) fires earlier; it is
+         * selected by the project setting `autoCompactProfile` or by an
+         * explicit `--mode eager`. The legacy alias `'partial'` means
+         * `'eager'`.
          */
-        readonly mode?: 'standard' | 'partial';
+        readonly mode?: 'standard' | 'partial' | 'eager';
         /**
          * True when the ratio had crossed the red line and peaks-loop asked
          * the harness to compact.
@@ -217,7 +219,7 @@ export interface ContextPercentProbe {
   readonly ratio: number;
   /**
    * Adapter-driven source tag. Fixed values:
-   *   - `user-overridden`         (v2.14.0 rid-002: explicit `--prompt-size
+   *   - `user-overridden`         (since v2.14.0: an explicit `--prompt-size
    *                                <bytes>` from the CLI / hook wrapper —
    *                                takes priority P0 over EVERY other source.
    *                                Mac escape hatch.)

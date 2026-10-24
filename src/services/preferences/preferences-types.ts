@@ -25,6 +25,36 @@ export type UaPromptDecision = 'unset' | 'skip-this-session' | 'skip-forever';
  */
 export type ClassifyConservatism = 'default' | 'strict' | 'lax';
 
+/**
+ * The auto-compact profile a project can pin.
+ *
+ * PUBLIC: any project, in any mode, can choose the compaction cadence. The
+ * profile is a THRESHOLD choice — `eager` fires earlier than `standard` —
+ * and it is set with
+ * `peaks preferences set --key autoCompactProfile --value eager`.
+ *
+ * The value set is closed on purpose: an unknown value is rejected at write
+ * time with the legal ones named, rather than stored and read back as
+ * something else.
+ */
+export type AutoCompactProfilePreference = 'standard' | 'eager';
+
+/** The legal `autoCompactProfile` values, in the order the error message lists them. */
+export const AUTO_COMPACT_PROFILE_VALUES: readonly AutoCompactProfilePreference[] = [
+  'standard',
+  'eager'
+];
+
+/**
+ * The `isFanoutMode` paradigm for the auto-compact profile: one guard, one
+ * closed set, so a caller never has to re-spell the legal values.
+ */
+export function isAutoCompactProfile(value: unknown): value is AutoCompactProfilePreference {
+  return (
+    typeof value === 'string' && (AUTO_COMPACT_PROFILE_VALUES as readonly string[]).includes(value)
+  );
+}
+
 export interface ClassifyRuleOverrides {
   // All fields are optional: a partial override is merged over DEFAULT_PREFERENCES.classifyRules
   // by preferences-service.ts::mergePreferences (load + save). Missing fields fall back to the
@@ -96,6 +126,16 @@ export interface ProjectPreferences {
   readonly classifyConservatism: ClassifyConservatism;
   readonly classifyRules: ClassifyRuleOverrides;
   readonly swarmSpeculative: SwarmSpeculativePreferences;
+  /**
+   * The auto-compact profile this project pins: `standard` (the v2.13.0
+   * zero-pause contract thresholds) or `eager` (fires earlier).
+   *
+   * OPTIONAL on purpose. The field is additive, so an existing
+   * `.peaks/preferences.json` that does not carry it keeps loading — the
+   * schema version is unchanged, and a file without the key resolves to the
+   * default profile rather than to a load error.
+   */
+  readonly autoCompactProfile?: AutoCompactProfilePreference;
   /** Loop Autonomous (L4 14.5) toggle. Default: false — never auto-enable. */
   readonly loopAutonomousEnabled: boolean;
   /**
@@ -174,6 +214,7 @@ export const DEFAULT_PREFERENCES: ProjectPreferences = {
     feature_threshold_lines: 100,
     runtime_clean_grace_hours: 24
   },
+  autoCompactProfile: 'standard',
   swarmSpeculative: {
     enabled: true,
     maxConcurrent: 3,

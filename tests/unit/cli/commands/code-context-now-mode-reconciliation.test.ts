@@ -15,11 +15,17 @@
 //
 // Root cause: `context-now` classified the ratio with a hard-coded ladder that
 // read no mode at all (>=0.95 red-line / >=0.85 auto-compact-now / >=0.5
-// soft-warn). On a 24h run the profile is `partial` (0.65/0.70/0.85), so the
+// soft-warn). On a run whose profile was the earlier one (0.65/0.70/0.85), the
 // whole [0.70, 0.85) band — mandatory compaction — was reported as soft-warn.
 // The fix routes the classification through `evaluateCompactTrigger(ratio,
 // mode)` with `mode = resolveAutoCompactProfile(root)`, i.e. the same table and
 // the same mode resolver `peaks code auto-compact` decides with.
+//
+// RE-PINNED against the PUBLIC profile (2026-10-24): the earlier profile is
+// no longer selected by the 24h state machine — it is a public project
+// setting (`autoCompactProfile`). The second arm of the sweep below therefore
+// reaches it through the PROJECT SETTING, and the 24h state machine is
+// asserted NOT to change the profile.
 //
 // The `action` vocabulary is a published contract (SKILL.md +
 // references/step-0-8-gate.md + build-dispatch-system-prompt.ts), so the
@@ -62,7 +68,7 @@ const RATIO_ENV = 'CLAUDE_CONTEXT_USAGE_PERCENT';
 
 const SID = '2026-09-18-session-h4';
 
-/** The 现场 band: at/above `partial.preCompact` (0.70), below `standard.autoFire` (0.80). */
+/** The 现场 band: at/above `eager.preCompact` (0.70), below `standard.autoFire` (0.80). */
 const FIELD_RATIOS = [0.7, 0.75, 0.769469, 0.799] as const;
 
 const tmpRoots: string[] = [];
@@ -91,6 +97,20 @@ function enter24h(root: string): string {
     state: '24H_ACTIVE',
     enteredAt: '2026-09-18T14:00:00.000Z'
   });
+  return root;
+}
+
+/**
+ * Pin the earlier profile the PUBLIC way: the project setting
+ * `autoCompactProfile`. This is the only route to the earlier thresholds
+ * now — the 24h state machine is not one.
+ */
+function pinEagerProfile(root: string): string {
+  writeFileSync(
+    join(root, '.peaks', 'preferences.json'),
+    JSON.stringify({ schema_version: '2.0.0', autoCompactProfile: 'eager' }, null, 2) + '\n',
+    'utf8'
+  );
   return root;
 }
 
@@ -134,12 +154,13 @@ afterEach(() => {
 
 describe('Slice H4 — context-now classifies with the active mode', () => {
   it(
-    'when a 24h run is engaged, should report the `partial` action across [0.70, 0.80), NOT soft-warn',
+    'when the project pins the eager profile, should report the `auto-compact-now` action across [0.70, 0.80), NOT soft-warn',
     { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
     async () => {
-      // given: the 现场 coexistence — 24H_ACTIVE, and the profile it resolves to
-      const root = enter24h(makeProject());
-      expect(resolveAutoCompactProfile(root)).toBe('partial');
+      // given: the 现场 coexistence — the project asks for the earlier
+      // profile, and the profile it resolves to
+      const root = pinEagerProfile(makeProject());
+      expect(resolveAutoCompactProfile(root)).toBe('eager');
 
       // when/then: every ratio in the field band is mandatory compaction
       for (const ratio of FIELD_RATIOS) {
@@ -157,7 +178,7 @@ describe('Slice H4 — context-now classifies with the active mode', () => {
     'CONTROL: a standard session at the SAME ratios is unchanged (soft-warn, next null, same prose)',
     { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
     async () => {
-      // given: no 24h snapshot at all — the control arm
+      // given: no project setting and no 24h snapshot — the control arm
       const root = makeProject();
       expect(resolveAutoCompactProfile(root)).toBe('standard');
 
@@ -178,7 +199,28 @@ describe('Slice H4 — context-now classifies with the active mode', () => {
   );
 
   it(
-    'when the 24h run pauses at WAITING_USER, should still be `partial`',
+    'when the 24h run is ACTIVE, should NOT change the profile',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: a 24h run in the ACTIVE state
+      // when: the state machine is read
+      // then: the profile is the default one, whatever the state machine says
+      //   The 24h state machine no longer selects a profile: it used to, and
+      //   `24H_ACTIVE` was the state that silently switched a project to the
+      //   earlier thresholds. Now the project pins none, so the profile is the
+      //   default one — whatever the state machine says.
+      const root = enter24h(makeProject());
+      expect(resolveAutoCompactProfile(root)).toBe('standard');
+
+      const env = await runContextNow(root, 0.75);
+      // `standard` does not compact below 0.80, so 0.75 stays a soft warn.
+      expect(env.data.action).toBe('soft-warn');
+      expect(env.data.next).toBeNull();
+    }
+  );
+
+  it(
+    'when the 24h run pauses at WAITING_USER, should NOT change the profile',
     { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
     async () => {
       const root = makeProject();
@@ -187,8 +229,14 @@ describe('Slice H4 — context-now classifies with the active mode', () => {
         state: 'WAITING_USER',
         enteredAt: '2026-09-18T14:00:00.000Z'
       });
+      // The 24h state machine no longer selects a profile: the project
+      // pins none, so the profile is the default one.
+      expect(resolveAutoCompactProfile(root)).toBe('standard');
+
       const env = await runContextNow(root, 0.75);
-      expect(env.data.action).toBe('auto-compact-now');
+      // `standard` does not compact below 0.80, so 0.75 stays a soft warn.
+      expect(env.data.action).toBe('soft-warn');
+      expect(env.data.next).toBeNull();
     }
   );
 });
@@ -203,7 +251,7 @@ describe('Slice H4 — context-now reconciles with the action component', () => 
 
   const ARMS: readonly (readonly [AutoCompactMode, () => string])[] = [
     ['standard', (): string => makeProject()],
-    ['partial', (): string => enter24h(makeProject())]
+    ['eager', (): string => pinEagerProfile(makeProject())]
   ];
 
   it(
@@ -223,9 +271,9 @@ describe('Slice H4 — context-now reconciles with the action component', () => 
             // The ONE documented carve-out, asserted rather than skipped:
             // the auto-fire tier belongs to `peaks skill presence` (the
             // every-turn probe, already mode-correct), so `context-now`
-            // reports it as soft-warn in BOTH modes. Realising it as
-            // `auto-compact-now` here would change every non-24h session's
-            // output, which slice H4 forbids.
+            // reports it as soft-warn in BOTH profiles. Realising it as
+            // `auto-compact-now` here would change every standard
+            // session's output, which slice H4 forbids.
             expect(env.data.action).toBe('soft-warn');
             continue;
           }
@@ -238,8 +286,8 @@ describe('Slice H4 — context-now reconciles with the action component', () => 
     }
   );
 
-  it('should diverge ONLY inside the auto-fire band, in both modes (nothing wider)', () => {
-    for (const mode of ['standard', 'partial'] as const) {
+  it('should diverge ONLY inside the auto-fire band, in both profiles (nothing wider)', () => {
+    for (const mode of ['standard', 'eager'] as const) {
       const divergentPct: number[] = [];
       for (let pct = 1; pct <= 100; pct += 1) {
         const ratio = pct / 100;
@@ -259,9 +307,9 @@ describe('Slice H4 — context-now reconciles with the action component', () => 
 // ---------------------------------------------------------------------------
 
 describe('Slice H4 — the trigger -> action mapping cannot drift', () => {
-  it('should map every CompactTrigger kind to exactly ONE action, identically in both modes', () => {
+  it('should map every CompactTrigger kind to exactly ONE action, identically in both profiles', () => {
     const actionsByKind = new Map<string, Set<string>>();
-    for (const mode of ['standard', 'partial'] as const) {
+    for (const mode of ['standard', 'eager'] as const) {
       for (let pct = 1; pct <= 100; pct += 1) {
         const ratio = pct / 100;
         const kind = evaluateCompactTrigger(ratio, mode).kind;
@@ -293,12 +341,12 @@ describe('Slice H4 — the trigger -> action mapping cannot drift', () => {
       action: 'red-line',
       next: 'peaks code auto-compact'
     });
-    // `partial` moves the SAME tiers down — 0.75 is pre-compact there
-    expect(contextNowActionFor(0.75, 'partial')).toEqual({
+    // `eager` moves the SAME tiers down — 0.75 is pre-compact there
+    expect(contextNowActionFor(0.75, 'eager')).toEqual({
       action: 'auto-compact-now',
       next: 'peaks code auto-compact'
     });
-    expect(contextNowActionFor(0.86, 'partial')).toEqual({
+    expect(contextNowActionFor(0.86, 'eager')).toEqual({
       action: 'red-line',
       next: 'peaks code auto-compact'
     });

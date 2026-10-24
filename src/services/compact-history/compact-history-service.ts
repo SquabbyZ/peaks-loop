@@ -12,12 +12,18 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { normalizeAutoCompactMode } from '../code/auto-compact-modes.js';
 
 export interface CompactHistoryEvent {
   readonly schemaVersion: 1;
   readonly ts: string;
   readonly target: 'main' | 'sub-agent' | 'worker';
-  readonly mode: 'standard' | 'partial' | 'aggressive';
+  /**
+   * The profile the run used. `eager` is the canonical name of the
+   * earlier-firing profile; `partial` is its legacy alias and is still
+   * accepted so an old row keeps parsing; `aggressive` predates both.
+   */
+  readonly mode: 'standard' | 'partial' | 'aggressive' | 'eager';
   readonly ide: string;
   readonly pathway: string;
   readonly beforeRatio: number;
@@ -186,7 +192,10 @@ export function readCompactHistory(input: {
         parseErrors.push({ line: idx + 1, raw: line });
         return;
       }
-      events.push(parsed);
+      // A row written before the rename carries the legacy alias `partial`.
+      // It reads back as `eager`, so an old row and a new row describe the
+      // SAME profile and can be compared.
+      events.push({ ...parsed, mode: normalizeAutoCompactMode(parsed.mode) ?? parsed.mode });
     } catch {
       parseErrors.push({ line: idx + 1, raw: line });
     }
