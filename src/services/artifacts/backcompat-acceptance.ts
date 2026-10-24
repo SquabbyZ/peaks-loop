@@ -76,7 +76,14 @@ const REVIEW_CAP_MINORS = 2;
  *  accepted. `reviewBy` is DERIVED at seed time from the installed release, so a
  *  project initialized on a release boundary receives a current list rather
  *  than an already-expired one; it is bounded by the same two-minor cap the gate
- *  enforces. */
+ *  enforces.
+ *
+ *  THE `mut/mut-report.json` WINDOW IS NOT SEEDED (retired 2026-10-24). Its
+ *  stated reason was FALSE — `peaks tact read` is a registered command and
+ *  `peaks mut run` produces a real mutation report — so accepting the absence
+ *  would hand every new project a debt that does not exist. The WINDOW is
+ *  untouched (`artifact-prerequisites.ts` still carries `backCompat: true`, so a
+ *  missing report is still a soft pass); only the ACCEPTANCE of it is retired. */
 export function backcompatAcceptanceSeed(installedVersion: string = CLI_VERSION): string {
   const reviewBy = reviewCapFor(installedVersion);
   return JSON.stringify(
@@ -84,13 +91,6 @@ export function backcompatAcceptanceSeed(installedVersion: string = CLI_VERSION)
       version: 1,
       note: "Expired backCompat windows accepted for the commit leg. The LLM edits this file on the user's behalf (the user only speaks or picks); adding an entry is a reviewed diff and reviewBy is enforced against a two-minor cap.",
       accepted: [
-        {
-          path: 'mut/mut-report.json',
-          until: 'v2.14.0',
-          reason:
-            'No producer in this build: peaks mut * requires --input-sig (TACT.sig), and peaks tact read is not a registered command (backlog §9.2).',
-          reviewBy
-        },
         {
           path: 'rd/third-party-review-<rid>.md',
           until: 'v2.15.0',

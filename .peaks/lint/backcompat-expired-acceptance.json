@@ -3,12 +3,6 @@
   "note": "Expired backCompat windows accepted for the commit leg. The LLM edits this file on the user's behalf (the user only speaks or picks); adding an entry is a reviewed diff and reviewBy is enforced against a two-minor cap.",
   "accepted": [
     {
-      "path": "mut/mut-report.json",
-      "until": "v2.14.0",
-      "reason": "No producer in this build: peaks mut * requires --input-sig (TACT.sig), and peaks tact read is not a registered command (backlog §9.2).",
-      "reviewBy": "v4.2.0"
-    },
-    {
       "path": "rd/third-party-review-<rid>.md",
       "until": "v2.15.0",
       "reason": "No reviewer configured: peaks reviewer status reports no-reviewer-config, and the prerequisite table soft-skips this artifact in that state. Documented deviation: this commit-leg gate does not re-evaluate the reviewer.providers conditional, so the window is accepted here regardless of that config.",

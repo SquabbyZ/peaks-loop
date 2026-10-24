@@ -13,6 +13,11 @@
 //   - behavior:    seeding is idempotent and `reviewBy` is derived per build
 //   - integration: the seed against the repo's own tracked list, plus the doctor
 //   - a11y:        the doctor's remediation text (it asks the LLM, never the user)
+//
+// 2026-10-24 — the `mut/mut-report.json` acceptance was RETIRED. The seeded
+// list and the repo's tracked list no longer carry that window, so the arms
+// below assert the ABSENCE of the mut entry explicitly: a list that still
+// carried it would fail these arms rather than pass them unnoticed.
 
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -35,7 +40,9 @@ declareDimensions('tests/unit/services/artifacts/backcompat-acceptance-seed.test
   'a11y'
 ]);
 
-const MUT_PATH = 'mut/mut-report.json';
+/** The window RETIRED on 2026-10-24 — it must not appear in the seed or the
+ *  tracked list any more. */
+const RETIRED_MUT_PATH = 'mut/mut-report.json';
 const THIRD_PARTY_PATH = 'rd/third-party-review-<rid>.md';
 const ACCEPTANCE_RELATIVE = '.peaks/lint/backcompat-expired-acceptance.json';
 /** `initWorkspace` validates the id against `YYYY-MM-DD-<slug>`. */
@@ -74,11 +81,14 @@ function writeAcceptance(root: string, accepted: SeededList['accepted']): void {
   writeFileSync(absolute, JSON.stringify({ version: 1, accepted }, null, 2), 'utf8');
 }
 
-describe('Scenario: render — the seeded list names the two windows and the LLM rule', () => {
-  it('when the seed is generated, should carry both windows and an LLM-authored note', () => {
+describe('Scenario: render — the seeded list names the reviewer window and the LLM rule', () => {
+  it('when the seed is generated, should carry the reviewer window and an LLM-authored note', () => {
     const seeded = JSON.parse(backcompatAcceptanceSeed()) as SeededList;
 
-    expect(seeded.accepted.map((entry) => entry.path)).toEqual([MUT_PATH, THIRD_PARTY_PATH]);
+    expect(seeded.accepted.map((entry) => entry.path)).toEqual([THIRD_PARTY_PATH]);
+    // The mut window was retired: a seed that still carried it would hand a
+    // new project the same false debt.
+    expect(seeded.accepted.map((entry) => entry.path)).not.toContain(RETIRED_MUT_PATH);
     expect(seeded.note).toContain('The LLM edits this file');
     for (const entry of seeded.accepted) {
       expect(entry.reason.length).toBeGreaterThan(0);
@@ -92,7 +102,8 @@ describe('Scenario: behavior — seeding is idempotent and reviewBy is derived',
     await initWorkspace({ projectRoot: root, sessionId: SEED_SESSION, noClaudeHooks: true });
 
     const seeded = JSON.parse(readFileSync(acceptanceAbs(root), 'utf8')) as SeededList;
-    expect(seeded.accepted.map((entry) => entry.path)).toEqual([MUT_PATH, THIRD_PARTY_PATH]);
+    expect(seeded.accepted.map((entry) => entry.path)).toEqual([THIRD_PARTY_PATH]);
+    expect(seeded.accepted.map((entry) => entry.path)).not.toContain(RETIRED_MUT_PATH);
     // The third-party window documents why it does not re-read reviewer.providers.
     expect(seeded.accepted.find((entry) => entry.path === THIRD_PARTY_PATH)?.reason).toContain(
       'reviewer.providers'
@@ -141,9 +152,11 @@ describe('Scenario: integration — the seed and the repo list agree on the wind
       list.accepted.map((entry) => [entry.path, entry.until, entry.reason]);
     expect(windows(seeded)).toEqual(windows(tracked));
 
-    // Adoption is pinned: the repo's list covers both expired windows, and its
-    // own review target is still ahead of this build.
-    expect(tracked.accepted.map((entry) => entry.path)).toEqual([MUT_PATH, THIRD_PARTY_PATH]);
+    // Adoption is pinned: the repo's list covers the one expired window that is
+    // still accepted, its own review target is still ahead of this build, and
+    // the retired mut window is gone from BOTH lists.
+    expect(tracked.accepted.map((entry) => entry.path)).toEqual([THIRD_PARTY_PATH]);
+    expect(tracked.accepted.map((entry) => entry.path)).not.toContain(RETIRED_MUT_PATH);
     for (const entry of tracked.accepted) {
       expect(compareReleaseVersions(CLI_VERSION, entry.until)).toBeGreaterThanOrEqual(0);
       expect(compareReleaseVersions(CLI_VERSION, entry.reviewBy)).toBeLessThan(0);
@@ -173,7 +186,6 @@ describe('Scenario: a11y — the doctor asks the LLM, never the user', () => {
   it('when the acceptance list is present, should pass the doctor check', async () => {
     const root = makeRoot();
     writeAcceptance(root, [
-      { path: MUT_PATH, until: 'v2.14.0', reason: 'fixture', reviewBy: 'v9.9.9' },
       { path: THIRD_PARTY_PATH, until: 'v2.15.0', reason: 'fixture', reviewBy: 'v9.9.9' }
     ]);
 
