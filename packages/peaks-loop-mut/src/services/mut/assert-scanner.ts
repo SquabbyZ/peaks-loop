@@ -14,8 +14,9 @@
  *   - toBe(x) where arg === receiver (toBe-self)
  */
 import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { resolve } from 'node:path';
 import type { AssertionsReport, WeakExample, WeakPattern, WeakPatternCount } from './types.js';
+import { assertTestFilesUsable } from './test-files.js';
 
 const WEAK_PATTERNS: ReadonlyArray<{
   readonly pattern: WeakPattern;
@@ -62,65 +63,88 @@ function lineOf(content: string, offset: number): number {
   return content.slice(0, offset).split('\n').length;
 }
 
+/**
+ * The self-equality examples in one file: `expect(x).toEqual(x)` and
+ * `expect(x).toBe(x)` both need the RECEIVER extracted, so they share this.
+ * Extracted so `scanAssertions` stays inside the per-function line cap.
+ */
+function collectSelfExamples(content: string, file: string, regex: RegExp): WeakExample[] {
+  const examples: WeakExample[] = [];
+  for (const match of content.matchAll(regex)) {
+    const receivers = content
+      .slice(0, match.index ?? 0)
+      .match(/expect\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/g);
+    const lastReceiver = receivers?.[receivers.length - 1];
+    const receiverName = lastReceiver?.match(/expect\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/)?.[1];
+    if (receiverName && receiverName === match[1]) {
+      examples.push({ file, line: lineOf(content, match.index ?? 0), code: match[0] });
+    }
+  }
+  return examples;
+}
+
+/** The self-equality patterns, in the order they are reported. */
+const SELF_PATTERNS: ReadonlyArray<{ pattern: WeakPattern; regex: RegExp }> = [
+  { pattern: 'toEqual-self', regex: TO_EQUAL_SELF },
+  { pattern: 'toBe-self', regex: TO_BE_SELF }
+];
+
+/** The weak-pattern examples of one file, grouped by pattern. */
+function collectWeakPatternExamples(
+  content: string,
+  file: string
+): Map<WeakPattern, WeakExample[]> {
+  const found = new Map<WeakPattern, WeakExample[]>();
+  for (const { pattern, regex } of WEAK_PATTERNS) {
+    const matches = [...content.matchAll(regex)];
+    if (matches.length === 0) {
+      continue;
+    }
+    found.set(
+      pattern,
+      matches.map((m) => ({ file, line: lineOf(content, m.index ?? 0), code: m[0] }))
+    );
+  }
+  return found;
+}
+
 export async function scanAssertions(input: ScanInput): Promise<AssertionsReport> {
+  // BEFORE anything is read: a missing file must fail with a NAMED code
+  // (`MUT_TEST_FILE_NOT_FOUND`), not with whatever `readFile` throws, and a
+  // PATTERN must fail with its own code — this scanner reads literal files.
+  assertTestFilesUsable({
+    project: input.project,
+    testFiles: input.testFiles,
+    allowPatterns: false
+  });
+
   let total = 0;
   let weak = 0;
   const byPattern = new Map<WeakPattern, WeakExample[]>();
 
   for (const file of input.testFiles) {
-    const fullPath = join(input.project, file);
+    // `resolve`, not `join`: an absolute `--test-files` entry must stay
+    // absolute instead of being appended to the project root.
+    const fullPath = resolve(input.project, file);
     const content = await readFile(fullPath, 'utf8');
     total += await countAssertions(content);
 
-    for (const { pattern, regex } of WEAK_PATTERNS) {
-      const matches = [...content.matchAll(regex)];
-      if (matches.length > 0) {
-        weak += matches.length;
-        const list = byPattern.get(pattern) ?? [];
-        for (const m of matches) {
-          const idx = m.index ?? 0;
-          list.push({ file, line: lineOf(content, idx), code: m[0] });
-        }
-        byPattern.set(pattern, list);
-      }
+    for (const [pattern, examples] of collectWeakPatternExamples(content, file)) {
+      weak += examples.length;
+      const list = byPattern.get(pattern) ?? [];
+      list.push(...examples);
+      byPattern.set(pattern, list);
     }
 
-    // toEqual-self: needs receiver extraction.
-    const eqSelf = [...content.matchAll(TO_EQUAL_SELF)];
-    for (const m of eqSelf) {
-      const receiverMatch = content
-        .slice(0, m.index ?? 0)
-        .match(/expect\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/g);
-      if (receiverMatch && receiverMatch.length > 0) {
-        const lastReceiver = receiverMatch[receiverMatch.length - 1];
-        const receiverName = lastReceiver?.match(/expect\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/)?.[1];
-        if (receiverName && receiverName === m[1]) {
-          weak += 1;
-          const idx = m.index ?? 0;
-          const list = byPattern.get('toEqual-self') ?? [];
-          list.push({ file, line: lineOf(content, idx), code: m[0] });
-          byPattern.set('toEqual-self', list);
-        }
+    for (const { pattern, regex } of SELF_PATTERNS) {
+      const examples = collectSelfExamples(content, file, regex);
+      if (examples.length === 0) {
+        continue;
       }
-    }
-
-    // toBe-self: same pattern.
-    const beSelf = [...content.matchAll(TO_BE_SELF)];
-    for (const m of beSelf) {
-      const receiverMatch = content
-        .slice(0, m.index ?? 0)
-        .match(/expect\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/g);
-      if (receiverMatch && receiverMatch.length > 0) {
-        const lastReceiver = receiverMatch[receiverMatch.length - 1];
-        const receiverName = lastReceiver?.match(/expect\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/)?.[1];
-        if (receiverName && receiverName === m[1]) {
-          weak += 1;
-          const idx = m.index ?? 0;
-          const list = byPattern.get('toBe-self') ?? [];
-          list.push({ file, line: lineOf(content, idx), code: m[0] });
-          byPattern.set('toBe-self', list);
-        }
-      }
+      weak += examples.length;
+      const list = byPattern.get(pattern) ?? [];
+      list.push(...examples);
+      byPattern.set(pattern, list);
     }
   }
 

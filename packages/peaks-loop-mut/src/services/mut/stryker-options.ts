@@ -21,11 +21,22 @@
  *
  * DESIGN
  * ------
- * This module is PURE: no IO, no clock, no process state. Everything it
- * needs arrives as input, so it can be unit-tested without Stryker being
- * installed at all. The single source of truth for every default lives in
- * `STRYKER_DEFAULTS` below — nothing else in the package may hard-code a
- * default value.
+ * This module is PURE in everything it SETS: no clock, no process state, and
+ * every default it applies arrives as input, so it can be unit-tested without
+ * Stryker being installed at all. The single source of truth for every
+ * default lives in `STRYKER_DEFAULTS` below — nothing else in the package may
+ * hard-code a default value.
+ *
+ * ONE DELIBERATE EXCEPTION TO THAT PURITY. `resolveTestFiles()` CHECKS that
+ * every LITERAL `--test-files` entry exists before the options are built (see
+ * `test-files.ts`). The check is a file-system read, so this module is no
+ * longer IO-free — and that is the point: a path that does not exist used to
+ * reach Stryker, whose own file matcher dropped it silently and let the run
+ * fall back to the project's default test discovery. The check is what stops
+ * that, and it has to happen BEFORE the options exist, because an option that
+ * names a missing file is what produces the silent fallback. A PATTERN is
+ * never checked: Stryker expands patterns, so a pattern is not a file and
+ * cannot be "missing".
  *
  * MEASURED BEHAVIOURS THIS ENCODES
  * --------------------------------
@@ -55,6 +66,7 @@
  */
 import { isAbsolute, resolve } from 'node:path';
 import type { Stryker } from '@stryker-mutator/core';
+import { assertTestFilesUsable } from './test-files.js';
 
 /**
  * The exact option type `new Stryker(...)` accepts, derived from the
@@ -205,10 +217,15 @@ export function toStrykerCliOptions(options: StrykerOptionsShape): StrykerCliOpt
 /**
  * Resolve test-file patterns against the project root so the result does
  * not depend on the caller's CWD. Absolute patterns are kept as-is.
+ *
+ * A LITERAL path that does not exist is rejected here, with the named code
+ * `MUT_TEST_FILE_NOT_FOUND` — see the module header for why the check cannot
+ * live any later than this.
  */
 function resolveTestFiles(project: string, patterns: ReadonlyArray<string> | undefined): string[] {
   if (!patterns || patterns.length === 0) {
     return [];
   }
+  assertTestFilesUsable({ project, testFiles: patterns, allowPatterns: true });
   return patterns.map((pattern) => (isAbsolute(pattern) ? pattern : resolve(project, pattern)));
 }

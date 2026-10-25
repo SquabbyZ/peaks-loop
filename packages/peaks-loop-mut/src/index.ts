@@ -13,6 +13,17 @@
 
 export * from './services/mut/index.js';
 
+export { MUT_ERROR_CODES, MutToolchainError } from './services/mut/stryker-errors.js';
+export {
+  assertTestFilesUsable,
+  buildTestFileMessage,
+  collectTestFileProblems,
+  isTestFilePattern,
+  MAX_TEST_FILE_CANDIDATES,
+  type TestFileProblem,
+  type TestFilesInput
+} from './services/mut/test-files.js';
+
 export {
   installEccAgents,
   materializeEccAgents,

@@ -13,10 +13,12 @@
  * toolchain must surface a MACHINE-READABLE error code (for example
  * `MUT_TOOLCHAIN_UNAVAILABLE`) plus an actionable message and a
  * non-zero exit code — never `UNHANDLED_ERROR` with a bare
- * "Cannot find package".
+ * "Cannot find package". The same rule now covers a missing `--test-files`
+ * path (`MUT_TEST_FILE_NOT_FOUND`).
  */
 import { Command } from 'commander';
 import {
+  assertTestFilesUsable,
   buildMutReport,
   runMutation,
   scanAssertions,
@@ -131,19 +133,29 @@ export function mutErrorMessage(err: unknown): string {
 }
 
 /**
- * Emit the failure envelope on stderr and set a non-zero exit code.
- * stdout stays reserved for the `--json` payload (R6), so the envelope
- * goes to stderr exactly like every other peaks CLI error.
+ * Emit the failure envelope on stderr and set a non-zero exit code. Its
+ * `data` field carries the machine-readable detail — where an ABSOLUTE path
+ * belongs; stdout stays reserved for the `--json` payload (R6).
  */
 export function emitMutError(io: ProgramIO, err: unknown): void {
-  printErrorEnvelope(io, 'mut', mutErrorCode(err), mutErrorMessage(err), {}, []);
+  const details = (err as { details?: unknown } | null)?.details;
+  const data = details && typeof details === 'object' ? (details as Record<string, unknown>) : {};
+  printErrorEnvelope(io, 'mut', mutErrorCode(err), mutErrorMessage(err), data, []);
+}
+
+/**
+ * Validate `--test-files` BEFORE any Stryker run, scan or report write: a
+ * missing path must fail with the named code, never reach the mutation
+ * engine. A PATTERN is accepted here — Stryker expands patterns.
+ */
+function assertMutTestFiles(a: MutCommandArgs): void {
+  assertTestFilesUsable({ project: a.project, testFiles: a.testFiles, allowPatterns: true });
 }
 
 /**
  * `peaks mut run` — the full mut pipeline (Stryker + assertion scan +
  * report). One-axis: --session-id required.
- */
-export function buildMutRunCommand(invokeStryker: StrykerInvoker, io: ProgramIO): Command {
+ */ export function buildMutRunCommand(invokeStryker: StrykerInvoker, io: ProgramIO): Command {
   return new Command('run')
     .description(
       'Run the full mut pipeline (Stryker + assertion scan + report). One-axis: --session-id required.'
@@ -160,6 +172,7 @@ export function buildMutRunCommand(invokeStryker: StrykerInvoker, io: ProgramIO)
     .option('--json', 'machine-readable output', false)
     .action(async (a: MutCommandArgs) => {
       try {
+        assertMutTestFiles(a);
         const { mutation } = await runMutation({
           project: a.project,
           testFiles: a.testFiles,
@@ -213,6 +226,7 @@ export function buildMutMutantsCommand(invokeStryker: StrykerInvoker, io: Progra
     .option('--json', 'machine-readable output', false)
     .action(async (a: MutCommandArgs) => {
       try {
+        assertMutTestFiles(a);
         const { mutation } = await runMutation({
           project: a.project,
           testFiles: a.testFiles,
@@ -256,24 +270,29 @@ export function buildMutAssertsCommand(io: ProgramIO): Command {
     .requiredOption('--out <path>', 'output path for mut-report.json')
     .option('--json', 'machine-readable output', false)
     .action(async (a: MutCommandArgs) => {
-      const assertions = await scanAssertions({
-        project: a.project,
-        testFiles: a.testFiles
-      });
-      const report = await buildMutReport({
-        inputSig: a.inputSig,
-        out: a.out,
-        mutation: emptyMutation(),
-        assertions
-      });
-      emitSummary(io, a.json, {
-        ok: true,
-        sha256: report.sha256,
-        passed: report.thresholds.passed,
-        path: a.out
-      });
-      if (!report.thresholds.passed) {
-        process.exitCode = 1;
+      try {
+        assertMutTestFiles(a);
+        const assertions = await scanAssertions({
+          project: a.project,
+          testFiles: a.testFiles
+        });
+        const report = await buildMutReport({
+          inputSig: a.inputSig,
+          out: a.out,
+          mutation: emptyMutation(),
+          assertions
+        });
+        emitSummary(io, a.json, {
+          ok: true,
+          sha256: report.sha256,
+          passed: report.thresholds.passed,
+          path: a.out
+        });
+        if (!report.thresholds.passed) {
+          process.exitCode = 1;
+        }
+      } catch (err: unknown) {
+        emitMutError(io, err);
       }
     });
 }
