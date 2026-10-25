@@ -7691,3 +7691,41 @@ so the parser cannot read it. They occur **only on Windows**; CI (ubuntu) never 
 SQLite warning landed on **2026-10-05**, well before this session. **Pre-existing, CI-blind, and
 left alone** — but recorded here, because "CI is green" and "the suite is green" are two different
 sentences.
+
+### 21.12 A release tool that mutates the release state when asked for help, and a reproduction that covered two of three paths (found 2026-10-25, measured)
+
+**`node scripts/bump-version.mjs --help` is not a help request.** The script's argument reader
+(`scripts/bump-version.mjs:52-62`) parses `--to`, `PEAKS_NEXT_VERSION` and `PEAKS_NEXT_MAJOR`, and
+**drops every other argument** — so the probe performed a **patch bump** (`4.1.22 → 4.1.23` on the
+root and the four publishable workspace packages) inside a shared working tree, and printed nothing
+about it. This session's release QA hit it, and **restored the five manifests byte-exactly** with
+the tool's own serializer (`JSON.stringify(pkg, null, 2) + '\n'`), proving the restore against the
+sha256 values captured before the accident.
+
+**Why it is a finding and not a note.** The script is the **only** producer of the released
+versions, and "ask the release tool what it does" is the most ordinary diagnostic there is. A tool
+whose answer to `--help` is *mutate the thing you are about to release* cannot be probed by a human
+or an agent without changing the release. **Recommended fix** (not applied here — `scripts/**` is
+product surface, and no slice in this batch owns it): print usage and exit **0** for `--help` / `-h`,
+and **refuse unknown flags** instead of dropping them.
+
+**The second finding is the same shape as the first: a measurement that looked like it settled a
+question and did not.** The recorded finding *"a missing `--test-files` path silently falls back to
+the default discovery"* had been filed as **not reproducible** — and that record was **wrong**: the
+reproduction had measured `run` and `asserts` and **never `mutants`**. On `mutants` it reproduces,
+and not merely in the exit code: the run exits **0**, writes a report, and reports `killRate` **1**
+for a file that never existed — and that report's digest is the digest of a run with a **working
+glob**, which is what makes the fallback comparable rather than merely plausible. The measurement
+that produced "does not reproduce" was a measurement of **two of the three subcommands** the claim
+was about.
+
+**Fixed in this session.** All three subcommands now exit **1** with the named code
+`MUT_TEST_FILE_NOT_FOUND`, write no report, and name the near-miss candidates beside the path they
+could not find. The `## 4.1.22` changelog entry states the measured opposite of the old
+conclusion, and says which subcommand the old reproduction had missed.
+
+**The shape to break: "I measured it and it did not reproduce" is a claim about a measurement, not
+about the behaviour.** What was measured was a subset, and the subset was not named. A finding that
+does not say *which* cases were exercised is not a reproduction either way — and the release
+changelog of a version is the last place where a wrong "does not reproduce" can still be corrected
+in public.
