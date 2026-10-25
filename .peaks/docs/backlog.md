@@ -7729,3 +7729,100 @@ about the behaviour.** What was measured was a subset, and the subset was not na
 does not say *which* cases were exercised is not a reproduction either way — and the release
 changelog of a version is the last place where a wrong "does not reproduce" can still be corrected
 in public.
+
+### 21.13 Three ways a green local gate is not the same thing as a published release (found 2026-10-25, measured)
+
+**The first is a hole in the local gate itself, and it is the one that mattered this round.**
+The pre-push hook runs `pnpm test:changed -- origin/main`. When the diff reaches a path it
+declines to reason about — `package.json`, `.peaks/**`, `scripts/**` — that selector falls back
+to the **full unit suite**, and it prints a verdict that reads like a verdict on everything:
+`640 files / 6947 tests, all passed`. But the root vitest project does **not** contain the
+workspace packages' own suites. `packages/peaks-loop-mut/tests/**` is a different vitest project,
+run in CI by a separate step ("Test workspace packages"), and the root project never sees it.
+
+So a change under `packages/peaks-loop-mut/src/**` can break that package's own suite while the
+local gate reports 6947 green. Measured, both, on the same tree, the same evening:
+
+| | what it measured | result |
+|---|---|---|
+| local pre-push hook | root `tests/**` only — **640 files / 6947 tests** | **all green** |
+| CI `vitest + build` (3 jobs) | root suite **plus** `packages/*/tests/**` | **red** — `packages/peaks-loop-mut/tests/stryker-options.test.ts`, 4 of 13 failed |
+
+The four failures were real: slice A put the `--test-files` existence check inside
+`resolveTestFiles()`, which is part of `buildStrykerOptions()` — a function that package's suite
+pins as pure, with a project root that **does not exist**, precisely so that a builder that reads
+the filesystem cannot pass. The check had to move to the layer that legitimately reads the
+filesystem; the builder went back to being pure, and the package's thirteen cases came back green
+**without being edited**.
+
+**The shape to break: "the gate ran and was green" is a claim about a SELECTION, and the selection
+has to be named.** The fallback to the full suite is the word that misleads: it is the full suite
+of the **root project**, and the repository has more than one suite. A gate that says "full suite"
+should say which one.
+
+**The second is that the push transport and the push hook do not fit together.** This repository's
+pre-push hook takes about **fourteen minutes** on this host (it runs the affected tests, and for
+this diff that was the whole root suite). Over SSH, `git send-pack` opens the connection to
+`git-receive-pack` **before** the hook runs, so the socket then sits idle for the whole hook and
+the peer drops it: `Read from remote host ssh.github.com: Connection reset by peer`, followed by
+`send-pack: unexpected disconnect`. Moving to port 443 did not help, and neither did
+`ServerAliveInterval`/`ServerAliveCountMax` — the socket is alive but the path still resets. The
+same push over **HTTPS** succeeds, because there the whole ref transaction happens *after* the
+hook, so there is no long-lived idle socket to lose. Nothing about the gates changed: the pre-push
+hook runs exactly as it always does.
+
+Two further measurements from that, both worth keeping:
+
+- **A push can exit non-zero with the ref already updated.** The command reported
+  `error: failed to push some refs` while the remote had already taken the update
+  (`ae964f3e..95212cbb  main -> main`). The hook's last gate invocation saw `origin/main` already
+  at `HEAD` and refused to report "nothing to compare" as a pass — correct behaviour, wrong place.
+  **"Did the push land?" is answered by `git ls-remote origin refs/heads/main`, not by the exit
+  code of the push.**
+- **A gate that measures the working tree measures whatever is on it.** In that same push the
+  hook's comment-hygiene leg reported `comment narrative: 22 > ceiling 21` and
+  `comment dead-ref: 1 > ceiling 0`, and then refused to measure, naming a batch of one file with
+  **0 files scanned**. The tree it was looking at still carried the fixture files of a test run
+  that had been killed a minute earlier (`src/small.ts`, `src/lumpy.ts`, `src/tidy.ts` — all
+  absent now). Measured on the same tree afterwards: `commentNarrativeLines: measured 21 ::
+  ceiling 21 :: same`, `commentDeadReferences: measured 0 :: ceiling 0 :: same`, and the gate's own
+  `changed` mode exits **0** with `10 changed file(s) OK (ratchet held)` on both candidate bases.
+  **Whether those leftovers are exactly what the detector saw is UNMEASURED** — the files were
+  gone before anyone looked — but the shape is the one the repo already knows: a measurement of
+  the working tree is a measurement of the working tree, including another process's debris.
+
+**The third is smaller and is the reason this entry exists: the release train carried a broken
+package suite for one CI round.** The repair is a separate boundary with its own RD and its own
+independent QA, because the fix moves a check between layers of a **published** package and the
+safety net for a programmatic caller of `runMutation()` — who never goes through the CLI, and for
+whom the CLI-side check was the only thing standing between a missing test file and the mutation
+engine.
+
+### 21.14 The repository's own memory file has 559 characters it cannot show (found 2026-10-26, measured)
+
+While appending §21.13, the byte count of `.peaks/docs/backlog.md` was checked
+before and after, and the file turned out to carry **559 U+FFFD REPLACEMENT CHARACTERS** — in text
+that was there before this session touched it. They are not in §21.13 (the entry
+added here has **0**); they are in older headings, and the damage is total
+rather than partial: a heading that used to read
+
+    ## <U+FFFD><U+FFFD>20 <U+FFFD><U+FFFD> D6.e <U+FFFD><U+FFFD> deferral <U+FFFD><U+FFFD> production …
+
+now reads with every non-ASCII character replaced by the replacement character.
+**The original characters are not recoverable from the file** — a lossy
+read-then-write destroyed them, and this repository's memory file is the one
+place where a loss like that is hardest to notice, because the file is read
+rarely and because the surviving text still reads as English.
+
+The likely mechanism is a shell that read the file as something other than UTF-8
+and wrote it back without saying so — the same class of accident as a
+`Out-File` that writes a BOM, or an inline `node -e` whose quotes the shell
+ate. The repository's own rules already say that file IO in the shell needs
+explicit UTF-8; this entry is the measured consequence of that rule being
+skipped once.
+
+**Not repaired here, and that is deliberate.** The bytes are gone: repairing
+the *readability* would mean rewriting the affected headings from what they
+can be inferred to have said, and a memory file that guesses at its own past is
+worse than one that shows the scar. The honest form is the scar plus this
+paragraph.
