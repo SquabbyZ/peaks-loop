@@ -15,6 +15,14 @@
  *     process-global, so runs are serialised through `runExclusive()`.
  *   - PLUGIN LOADING. The vitest runner is resolved from THIS package's own
  *     installation — see `stryker-plugin.ts`.
+ *   - TEST FILES ARE CHECKED BEFORE STRYKER. A `--test-files` entry that does
+ *     not exist used to reach Stryker, whose own file matcher dropped it
+ *     silently and let the run fall back to the project's default test
+ *     discovery. The options builder is pure and cannot see the file system,
+ *     so the check lives HERE — the layer that owns the Stryker call. That is
+ *     what protects the PUBLISHED package: a programmatic caller of this
+ *     package never goes through the CLI, and it still cannot hand a missing
+ *     test file to Stryker.
  *
  * NO FAKE GREEN. A run that produces zero mutants, or that cannot load
  * its test runner, fails with a named error code — it never reports
@@ -38,6 +46,7 @@ import {
 } from './stryker-options.js';
 import { resolveVitestRunnerPlugin } from './stryker-plugin.js';
 import { normalizeMutants, type StrykerMutant } from './stryker-result.js';
+import { assertTestFilesUsable } from './test-files.js';
 
 export { MUT_ERROR_CODES, MutToolchainError };
 
@@ -72,6 +81,12 @@ export function createProductionStrykerInvoker(): StrykerInvoker {
           concurrency: STRYKER_DEFAULTS.concurrency,
           coverageAnalysis: STRYKER_DEFAULTS.coverageAnalysis
         };
+    // The `--test-files` list is validated HERE, immediately before the
+    // options are built — the exact position the builder's own check used to
+    // occupy, so the error a programmatic caller sees is unchanged. A missing
+    // literal path must never reach Stryker; a PATTERN is never checked,
+    // because Stryker expands patterns.
+    assertTestFilesUsable({ project, testFiles: input.testFiles, allowPatterns: true });
     const { options } = buildStrykerOptions({
       project,
       mutate: input.mutate,

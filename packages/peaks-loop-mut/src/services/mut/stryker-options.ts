@@ -27,16 +27,19 @@
  * default lives in `STRYKER_DEFAULTS` below — nothing else in the package may
  * hard-code a default value.
  *
- * ONE DELIBERATE EXCEPTION TO THAT PURITY. `resolveTestFiles()` CHECKS that
- * every LITERAL `--test-files` entry exists before the options are built (see
- * `test-files.ts`). The check is a file-system read, so this module is no
- * longer IO-free — and that is the point: a path that does not exist used to
- * reach Stryker, whose own file matcher dropped it silently and let the run
- * fall back to the project's default test discovery. The check is what stops
- * that, and it has to happen BEFORE the options exist, because an option that
- * names a missing file is what produces the silent fallback. A PATTERN is
- * never checked: Stryker expands patterns, so a pattern is not a file and
- * cannot be "missing".
+ * NO EXCEPTION TO THAT PURITY. This module never reads the file system, so it
+ * cannot know whether a `--test-files` entry exists — and it must not try: a
+ * builder that throws on a missing path is not a builder any more, it is half
+ * of the validator. The existence check therefore lives where the file system
+ * is legitimately read, and it is ONE check with THREE callers (see
+ * `test-files.ts`): the CLI boundary (`assertMutTestFiles()`), the assertion
+ * scanner (`assert-scanner.ts`) and the production Stryker invoker
+ * (`production-stryker.ts`). The invoker is the one that protects the
+ * PUBLISHED package: a programmatic caller that never goes through the CLI
+ * still cannot hand a missing test file to Stryker, whose own file matcher
+ * drops it silently and lets the run fall back to the project's default test
+ * discovery. A PATTERN is never checked anywhere: Stryker expands patterns,
+ * so a pattern is not a file and cannot be "missing".
  *
  * MEASURED BEHAVIOURS THIS ENCODES
  * --------------------------------
@@ -66,7 +69,6 @@
  */
 import { isAbsolute, resolve } from 'node:path';
 import type { Stryker } from '@stryker-mutator/core';
-import { assertTestFilesUsable } from './test-files.js';
 
 /**
  * The exact option type `new Stryker(...)` accepts, derived from the
@@ -218,14 +220,13 @@ export function toStrykerCliOptions(options: StrykerOptionsShape): StrykerCliOpt
  * Resolve test-file patterns against the project root so the result does
  * not depend on the caller's CWD. Absolute patterns are kept as-is.
  *
- * A LITERAL path that does not exist is rejected here, with the named code
- * `MUT_TEST_FILE_NOT_FOUND` — see the module header for why the check cannot
- * live any later than this.
+ * PURE: a path that does not exist is resolved anyway. Rejecting it is the
+ * validator's job (`test-files.ts`), and the validator runs at the boundary
+ * that owns the file system — see the module header.
  */
 function resolveTestFiles(project: string, patterns: ReadonlyArray<string> | undefined): string[] {
   if (!patterns || patterns.length === 0) {
     return [];
   }
-  assertTestFilesUsable({ project, testFiles: patterns, allowPatterns: true });
   return patterns.map((pattern) => (isAbsolute(pattern) ? pattern : resolve(project, pattern)));
 }
