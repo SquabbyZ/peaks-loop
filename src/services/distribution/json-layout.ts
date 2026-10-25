@@ -41,8 +41,7 @@
 // MEASURED, NOT ASSUMED. This rule was differential-tested against the installed
 // prettier over 3000 generated manifests: the render equalled
 // `prettier.format(JSON.stringify(value, null, 2))` in 3000 of 3000 cases, and
-// `prettier.format(render(value)) === render(value)` in 3000 of 3000. The evidence
-// lives in `rd/bug-analysis-rid-t6b-plugin-manifest-prettier-clean.md`; the guard
+// `prettier.format(render(value)) === render(value)` in 3000 of 3000. The guard
 // that keeps the property is
 // `tests/unit/services/distribution/plugin-manifest-prettier-clean.test.ts`.
 
