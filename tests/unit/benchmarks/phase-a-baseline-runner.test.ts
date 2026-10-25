@@ -114,16 +114,15 @@ describe('Phase A baseline runner — integration', () => {
     { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
     () => {
       // given: a workspace whose memory library holds one entry
+      // when: the runner starts there
+      // then: nothing under the memory library was created, modified or deleted
       const workspace = makeWorkspace();
       const memoryDir = join(workspace, '.peaks', 'memory');
       mkdirSync(memoryDir, { recursive: true });
       writeFileSync(join(memoryDir, 'keep.md'), '# a memory entry\n');
       const before = snapshot(memoryDir);
-
-      // when: the runner starts there
       const run = runRunner(workspace);
 
-      // then: nothing under the memory library was created, modified or deleted
       expect(run.status).toBe(EXIT_NOT_MEASURED);
       expect(snapshot(memoryDir)).toEqual(before);
       expect(existsSync(join(memoryDir, PLAN_BASELINE_FILE))).toBe(false);
@@ -135,14 +134,13 @@ describe('Phase A baseline runner — integration', () => {
     { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
     () => {
       // given: this repository's real memory library and one tracked entry in it
+      // when: the runner starts in the repository root
+      // then: the plan's baseline file was not created and the tracked entry is unchanged
       const memoryDir = join(REPO_ROOT, '.peaks', 'memory');
       const entry = join(memoryDir, '2026-08-10-runtime-detached-design.md');
       const before = readFileSync(entry);
-
-      // when: the runner starts in the repository root
       const run = runRunner(REPO_ROOT);
 
-      // then: the plan's baseline file was not created and the tracked entry is unchanged
       expect(run.status).toBe(EXIT_NOT_MEASURED);
       expect(existsSync(join(memoryDir, PLAN_BASELINE_FILE))).toBe(false);
       expect(readFileSync(entry).equals(before)).toBe(true);
@@ -156,15 +154,14 @@ describe('Phase A baseline runner — a11y', () => {
     { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
     () => {
       // given: a workspace whose memory library must stay untouched
+      // when: the runner is pointed at that directory
+      // then: it refuses, names the reason, and writes nothing
       const workspace = makeWorkspace();
       const memoryDir = join(workspace, '.peaks', 'memory');
       mkdirSync(memoryDir, { recursive: true });
       const target = join(memoryDir, 'result.json');
-
-      // when: the runner is pointed at that directory
       const run = runRunner(workspace, ['--out', target]);
 
-      // then: it refuses, names the reason, and writes nothing
       expect(run.status).toBe(EXIT_RUNNER_ERROR);
       expect(run.stderr).toContain('memory library');
       expect(existsSync(target)).toBe(false);
