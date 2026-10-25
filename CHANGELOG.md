@@ -1,5 +1,114 @@
 # Changelog
 
+## 4.1.22 — 2026-10-25（把"只测了两个子命令"的漏测补上，把"不是缺陷"的两条说准）
+
+**版本级别**：候选 **patch**（沿用常设规则"默认版本新增采用最小的版本位"）。本次**没有**改任何运行时语义、
+**没有**动 mutation 阈值、**没有**碰发布流程；三个代码切片各自只加守卫、**零清单改动**，本切片只做
+**版本锁步 + 生成清单重生成 + 这段 CHANGELOG**。
+
+**一句话：`peaks mut` 指向一个**不存在**的 `--test-files` 时，`mut mutants` 过去会**静默回退**到默认发现，
+为一个从未存在过的文件报出**满分 kill rate**（exit 0）—— 而最初的记录只测了 `run` 与 `asserts`、**漏了
+`mutants`**；这一版三个子命令统一 **exit 1 + 具名码 `MUT_TEST_FILE_NOT_FOUND`**。**
+
+### 1. 缺陷：`peaks mut` 缺失 `--test-files` 路径时的静默回退（三个子命令这一版统一堵上）
+
+同一夹具、同一台机器上的**前后两侧实测**（改前取自 `HEAD` 的隔离树，改后取自本仓库的工作树）：
+
+| 子命令 | 改前 | 改后 |
+|---|---|---|
+| `mut mutants` | **exit 0、写出了报告、killRate 1、mutantsTotal 2** | **exit 1 `MUT_TEST_FILE_NOT_FOUND`，无报告** |
+| `mut run` | exit 1 `MUT_FAILED`（裸 ENOENT + 机器绝对路径） | exit 1 `MUT_TEST_FILE_NOT_FOUND`，无报告 |
+| `mut asserts` | exit 1 `UNHANDLED_ERROR`（裸 ENOENT + 机器绝对路径） | exit 1 `MUT_TEST_FILE_NOT_FOUND`，无报告 |
+
+**"静默回退"不是推测，是可比对的 digest。** 改前 `mut mutants` + 缺失文件写出的报告，digest 与
+`mut mutants` + **一个能用的 glob** 写出的报告**完全相同**（两者都是 `339e74cc…`）—— 缺失的路径被
+Stryker 的文件匹配丢掉，vitest runner 跑了项目自己的默认发现，然后为一个**从未存在过的文件**报出了满分。
+改后同一个 glob 仍然 exit 0、digest 仍是 `339e74cc…`（能用的 glob 保持能用），而缺失文件一律 exit 1。
+
+改后三个子命令的消息**逐字节相同**，且**只给相对 `--project` 的路径**，并附近邻候选：
+
+```
+Test file not found: tests/does-not-exist.test.ts
+Near-miss candidates:
+- tests/add.test.ts
+```
+
+**快乐路径没变**：有效测试文件下 `mut run` 的报告 digest 改前改后**都是 `96595ff6…`**（`killRate` 1、
+`mutantsTotal` 2）。守卫 `tests/unit/cli/mut-test-file-not-found.test.ts` **15 个用例全绿**。
+
+**这一段要更正的是一条"不可复现"的判断。** 最初的记录写的是"缺失 `--test-files` 路径静默回退默认发现、
+可能报出完美 kill rate"**不可复现** —— 那条判断**只测了 `run` 与 `asserts`**，**漏了 `mutants`**；在
+`mutants` 上它**确实复现**（exit 0 + 满分 kill rate）。本批的三个子命令现在统一成同一个具名码。
+
+### 2. 生成的插件清单：`prettier --check` 从 exit 1 变成 exit 0（本次 bump 没有把形状缺陷带回来）
+
+清单是**受版本控制的生成产物**（`npm run plugin:manifest`），渲染器过去把**每个**数组都展开，
+所以清单**不是** prettier-clean 的。实测（用仓库自己的 prettier 与仓库自己的 prettier 配置）：
+
+| | 改前（`HEAD` 的渲染） | 改后（本切片 bump 之后的渲染） |
+|---|---|---|
+| `prettier --check` | **exit 1（不是 prettier-clean）** | **exit 0** |
+| 行数（按换行计数） | 200 | **197** |
+| 行数（按 `split("\n").length`） | 201 | **198** |
+
+唯一的变化是 `"args": ["mcp", "serve"]`（4 行 → 1 行）。改前的清单经 prettier 规范化后的输出，
+sha256 是 `849e6168…`，与**本切片 bump 之前**工作树里那份清单（切片 B 的渲染，版本 4.1.21）
+**逐字节相同** —— 说明新的渲染器产出的正是 prettier 自己的形状。本切片 bump 之后的清单
+sha256 是 `fd087f50…`，同样 prettier-clean。
+
+**依赖集不变**：根 manifest 的 `dependencies`（12 项）与 `devDependencies`（19 项）与 bump 前**逐字段相同**
+（本切片实测：五个 manifest 各自只有 `version` 一个键变了）；`prettier` 仍在 `devDependencies`、
+**不在** `dependencies`（实测 `prettier in dependencies: false`），发布包的运行时依赖集没有变化。
+
+**版本戳在两处**：`metadata.version` 与 `plugins[0].version` 都读 `4.1.22`；连跑两次生成**逐字节相同**
+（sha256 `fd087f50…`）。
+
+### 3. 包入口不变量（只加守卫，**零清单改动**）
+
+根包声明 **1** 个入口（`bin.peaks → ./bin/peaks.js`），`peaks-loop-mut` 声明 **2** 个
+（`exports["."].types`、`exports["."].default`）。守卫 `tests/unit/release/package-entry-points-guard.test.ts`
+**9 passed | 1 skipped**（构建产物在 → 磁盘检查**跑起来**：2 checked、0 skipped）。守卫钉住三条不变量：
+声明的入口必须落在该包自己的 `files` 白名单里；`main` 与 `exports["."].default` 若同时声明必须一致；
+根包**不得**把副作用型 CLI 模块声明成库入口。
+
+### 4. 两条必须说准的事（一条"不是缺陷"，一条"更正旧判断"）
+
+**(1)"包缺 `main`"不是缺陷 —— 它不是这次修的东西。** `peaks-loop-mut` 的主入口**已经**由 `exports["."]` 表达
+（`exports["."].default → ./dist/index.js`）。实测（本机 Node v24.12.0）：
+
+- 一个同时声明 `main` 与 `exports` 的包，被 import 时加载的是 **`exports`** 那个目标（输出 `LOADED:EXPORTS`）
+  —— Node 解析 `exports` 优先于 `main`，`main` 被忽略；
+- **`require()` 一个纯 ESM 包在 Node v24.12.0 上是成功的**（实测 `REQUIRE_OK`；`ERR_REQUIRE_ESM`
+  只对 Node < 22.12 成立）。所以诚实的理由是**"冗余且会误导"**，而**不是**"无法 require"；
+- 根包则**绝不能**加 `main`/`exports`：`dist/cli/index.js` 在**模块顶层**就
+  `program.parseAsync(process.argv)`（`src/cli/index.ts:61`），实测**import 它就会把 CLI 跑起来**
+  —— 导入过程中就打出了 CLI 的帮助横幅。
+
+**(2)"静默回退不可复现"这条旧判断本身不成立 —— 这一版是真的堵上了。** 它在 `mut mutants` 上**确实复现**
+（exit 0 + 满分 kill rate），缺的只是那次测量里的**第三个子命令**。所以这里不是"没有缺陷"，而是
+"缺陷是真的、这一版三个子命令统一堵上了"。
+
+### 5. 版本号本身
+
+| 包 | 从 | 到 |
+|---|---|---|
+| `peaks-loop` | 4.1.21 | **4.1.22** |
+| `peaks-loop-shared` | 0.0.110 | 0.0.111 |
+| `peaks-loop-mut` | 0.1.75 | 0.1.76 |
+| `peaks-loop-shared-channel` | 0.0.78 | 0.0.79 |
+| `peaks-loop-internal-runtime` | 0.0.61 | 0.0.62 |
+
+版本号由 `scripts/bump-version.mjs` 产生（不是手打的）：根 `4.1.21 → 4.1.22`，四个 workspace 包在同一次
+lockstep 里各 +1，五个 manifest **各自只有 `version` 一个键变了**；`scripts/sync-version.mjs` 把
+`CLI_VERSION` 与 `RUNTIME_VERSION` 写成 `4.1.22`，`node scripts/verify-version-parity.mjs runtime-src`
+**exit 0**。
+
+**发布顺序（发版前必须知道）**：`pnpm pack` 会把根包 `workspace:*` 依赖改写成**精确 semver pin**，
+所以 `peaks-loop@4.1.22` 打包后的 manifest 依赖的是 `peaks-loop-mut@0.1.76`、
+`peaks-loop-shared@0.0.111`、`peaks-loop-shared-channel@0.0.79`、`peaks-loop-internal-runtime@0.0.62`
+（实测：从 tarball 里读出的 `package/package.json`）。这四个版本**在 registry 上都不存在**（实测 `E404`），
+所以**这四个包必须先发布**，`peaks-loop@4.1.22` 才能被消费者装上；在它们发布之前，根包是不可安装的。
+
 ## 4.1.21 — 2026-10-25（把"返工循环"数对，把"没测过"说出来）
 
 **版本级别**：候选 **patch**（沿用常设规则"默认版本新增采用最小的版本位"）。本次**没有**改 fail-open 策略、
