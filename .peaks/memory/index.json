@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-23T17:55:50.964Z",
+  "updatedAt": "2026-10-25T03:37:55.775Z",
   "hot": {
     "rule": [
       {
@@ -548,6 +548,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\memory-search-y2-rerank-2026-06-19-decision.md",
         "sourceArtifact": "src/services/memory/llm-reranker.ts",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "mut-report-acceptance-retired",
+        "kind": "decision",
+        "description": "**决定（用户原话「退休吧」，2026-10-24）**： 里  那条过期 back-compat 接受**退休**，不续期。 **为什么不是续期**：条目里的理由是「No producer in this build: peaks ...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\mut-report-acceptance-retired.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-23-session-5e40e0/prd/handoff-rid-t4-mut-retire-mut-acceptance.md",
+        "updatedAt": "2026-10-24"
       },
       {
         "name": "peaks-ide-dashboard-ok-policy-workspace-only-default",
@@ -1151,7 +1159,7 @@
         "description": "Measured on the Windows dev host for .",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\on-this-host-bash-is-the-wsl-launcher-and-a-host-limit-measured-once-is-not-a-permanent-limit.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-22-session-b0e6e2/txt/handoff-t1-backlog-2026-10-23.md",
-        "updatedAt": "2026-10-23"
+        "updatedAt": "2026-10-24"
       },
       {
         "name": "one-type-line-two-readers-and-the-parity-corpus",
@@ -3568,6 +3576,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\cli-cleanup-on-demand-ecc-design-2026-07-16.md",
         "sourceArtifact": null,
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "codegraph-1-6-2-default-ignore-drops-tracked-source",
+        "kind": "project",
+        "description": "codegraph 1.6.2 的默认忽略机制静默吞掉 tracked 源码（2026-10-25） 事实 codegraph 从 0.7.x 升到 1.6.2 之后，[[codegraph-default-excludes-hide...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\codegraph-1-6-2-default-ignore-drops-tracked-source.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-10-25"
       },
       {
         "name": "codegraph-dangling-marker-autorefresh-fix",
