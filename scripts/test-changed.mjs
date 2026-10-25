@@ -7,6 +7,7 @@
 //   pnpm test:changed                 — vs HEAD (unstaged + staged)
 //   pnpm test:changed -- main         — vs main 分支
 //   pnpm test:changed -- HEAD~3       — vs HEAD~3
+//   pnpm test:changed -- --require-nonempty -- <base> — CI only: 什么都没选中 → exit 2
 //
 // 算法(透明、可审、不调任何 LLM):
 //   1. 用 `git diff --name-status -z <base>` 拿到所有变更文件及其 status(默认 base=HEAD)。
@@ -31,7 +32,7 @@
 //   0  vitest 绿 / 或 diff 的内容只有基线的 generatedAt(→ 0 个测试要跑,stderr 明确说明;
 //      这条路径的 code 是 'baseline-inert',是 `mode: 'none'` 唯一的到达方式)
 //   1  vitest 红 / git 失败 / 路径推断失败
-//   2  git 没装或不在仓库里
+//   2  git 没装或不在仓库里 / 带 --require-nonempty 时什么都没选中
 //
 // 设计边界(明确不做的事):
 //   - 不做 import-graph 静态分析(那是 tsc / madge 的工作,我们只要 fast subset)。
@@ -161,6 +162,18 @@ function baselineContentMoved(base) {
   );
 }
 
+/** The `--require-nonempty` refusal: exit 2, naming the base that selected nothing — 2 is this
+ *  runner's infrastructure-failure code, and the base is NAMED because the fix is to change it. */
+function refuseEmptySelection(base, what) {
+  console.error(
+    `[test-changed] --require-nonempty: the base resolved to "${base}" and selected 0 ${what}; nothing was run.`
+  );
+  console.error(
+    '[test-changed]   The base is wrong, or the change set genuinely selects nothing; on CI that is an infrastructure failure, not a pass.'
+  );
+  process.exit(2);
+}
+
 async function main() {
   // 1. 拿 diff base: 用户可显式传一个位置参数(过滤 --flag)。否则默认 HEAD。
   const userBase = process.argv
@@ -168,6 +181,7 @@ async function main() {
     .filter((a) => !a.startsWith('--'))
     .pop();
   const base = userBase || 'HEAD';
+  const requireNonempty = process.argv.includes('--require-nonempty');
 
   const gitCheck = run('git', ['rev-parse', '--git-dir']);
   if (gitCheck.status !== 0) {
@@ -222,6 +236,15 @@ async function main() {
   for (const reason of plan.reasons) console.error('[test-changed] reason:', reason);
   console.error('[test-changed] verdict:', plan.code);
 
+  // `--require-nonempty` — CI ONLY. The default answer to "nothing was selected" is exit 0 with a
+  // loud message, and on a runner that reads as "the base was wrong": a green tick beside a red
+  // authoritative suite that proves nothing. Two shapes refuse: 0 CHANGED FILES (a clean CI
+  // checkout diffs empty against HEAD, where the classifier would answer `full` — a slow
+  // duplicate of the authoritative job that HIDES the wiring bug) and 0 TEST FILES.
+  if (requireNonempty && changed.length === 0) {
+    refuseEmptySelection(base, 'changed files');
+  }
+
   if (plan.mode === 'full') {
     const code = await runVitest(['run']);
     process.exit(code);
@@ -235,6 +258,7 @@ async function main() {
     console.error(
       '[test-changed] 0 test files selected; NOT running the suite and NOT falling back to full.'
     );
+    if (requireNonempty) refuseEmptySelection(base, 'test files');
     process.exit(0);
   }
 

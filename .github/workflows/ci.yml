@@ -947,3 +947,106 @@ jobs:
         # `.husky/coverage*` — nothing about this gate is spelled twice here, so nothing
         # here can drift from what runs.
         run: node .husky/coverage-ratchet.mjs
+
+  changed-tests-subset:
+    # THE CHANGED-TESTS SUBSET — an EARLIER signal, and NOT the gate.
+    #
+    # WHY THIS JOB EXISTS. `scripts/test-changed.mjs` is a mature subset runner (9 classification
+    # rules, exit codes 0/1/2, the local vitest entry) that had never run in CI: no workflow step
+    # called it, so a PR author waited for the authoritative full suite — measured 2026-10-25 at
+    # 489-534 s for 629 files / 6831 cases at 4 workers, across a 3-OS matrix — to learn whether
+    # anything was broken at all. This job runs the PR's own changed tests first, on one runner.
+    #
+    # ADVISORY, AND THE `test` JOB ABOVE IS WHAT BLOCKS A MERGE. That job runs the WHOLE suite
+    # and it still fails a PR when it fails. This one cannot replace it: a subset run has a
+    # different file-parallelism shape than the full run, and a flake that only reproduces in the
+    # subset's shape must not block a PR the authoritative job would have passed. So this job's
+    # failure is reported but does not stop the merge, and
+    # `tests/unit/lint/test-changed-ci-wiring.test.ts` pins BOTH halves of that sentence — so this
+    # job can never quietly become the only gate.
+    #
+    # WHY THE BASE CANNOT BE `HEAD`. `actions/checkout` leaves a CLEAN worktree at the PR's merge
+    # commit, so `git diff HEAD` and `git diff --cached HEAD` are both empty and the runner would
+    # see no changed file at all. The base is therefore the MERGE-BASE of the PR head and the
+    # target branch, resolved in the step below and passed as the positional argument the runner
+    # already accepts. `fetch-depth: 0` is what makes that resolvable — @v4 defaults to depth 1,
+    # and a shallow clone cannot name a merge-base (the `test` job's own comment records the same
+    # class of bug).
+    #
+    # WHY `--require-nonempty`. The runner's default answer to "nothing was selected" is exit 0
+    # with a loud message, which on a runner is indistinguishable from "the base was wrong". The
+    # flag turns an empty selection into exit 2 (infrastructure failure) and NAMES THE BASE, so a
+    # wrong base becomes a named failure instead of a green tick beside a red authoritative suite.
+    #
+    # ubuntu-latest ONLY: this signal is about WHICH tests run, not which platform they run on.
+    # The macOS and Windows cells of the `test` job above exist for platform-specific defects; a
+    # subset runner on three OSes would triple the cost for the same signal.
+    #
+    # `timeout-minutes: 60` covers the WORST case, not the fast one: the classifier can fall back
+    # to the whole suite (a `package.json` or `scripts/` change, or a selected path that is not on
+    # disk), so this budget is the one the `test` job above needs for its own full-suite run, plus
+    # install and build.
+    name: 'changed tests (subset signal; ADVISORY — the `test` job is the gate)'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # The one key that makes this job advisory: its failure is reported, not blocking.
+    continue-on-error: true
+    # PR-only: on a push to main/develop the authoritative `test` job above is the whole signal.
+    if: github.event_name == 'pull_request'
+    env:
+      # The same worker count the authoritative job uses, so the two signals are comparable.
+      PEAKS_VITEST_MAX_WORKERS: '4'
+      TZ: UTC
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The merge-base below cannot be resolved in a shallow clone.
+          fetch-depth: 0
+
+      - name: Setup pnpm (corepack)
+        # Same reason as the other jobs here: pnpm/action-setup's self-installer fails on
+        # the runner's default Node 24.
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.11.0 --activate
+          pnpm --version
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        # The unit suite's `globalSetup` requires `packages/*/dist`, so this job needs the
+        # same Build step every other job here has.
+        run: npm run build
+
+      - name: Resolve the merge base with the target branch
+        id: base
+        # The base the runner diffs against: the point where the PR head and the target branch
+        # diverged. `git diff <that>` over a clean checkout of the PR's merge commit is the PR's
+        # changed files, which is exactly what the runner selects its tests from.
+        run: |
+          base=$(git merge-base "origin/${{ github.base_ref }}" HEAD)
+          echo "sha=$base" >> "$GITHUB_OUTPUT"
+
+      - name: Run the changed tests (subset)
+        id: subset
+        # The runner spawns the LOCAL vitest entry itself — the workflow must not reintroduce
+        # `npx`. Its verdict (`[test-changed] verdict: <code>`) says whether this was a
+        # 12-file subset or the full-suite fallback, so it is echoed into the step output and
+        # the job summary: the summary is what a PR reader sees without opening the log. The
+        # runner's own exit code — 2 for an empty selection — is what this step exits with.
+        run: |
+          set +e
+          log="$RUNNER_TEMP/changed-subset.log"
+          node scripts/test-changed.mjs --require-nonempty "${{ steps.base.outputs.sha }}" 2>&1 | tee "$log"
+          status=${PIPESTATUS[0]}
+          set -e
+          verdict=$(sed -n 's/^\[test-changed\] verdict: //p' "$log" | tail -1)
+          echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+          echo "changed tests (advisory subset) — verdict: $verdict" >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
