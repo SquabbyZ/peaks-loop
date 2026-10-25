@@ -134,6 +134,8 @@
     "test:audit:silent-warning": "node ./scripts/lint/silent-warning-detector.mjs",
     "test:ci": "node ./scripts/sync-version.mjs && node ./scripts/lint/silent-warning-detector.mjs && vitest run --coverage",
     "test:changed": "node scripts/test-changed.mjs",
+    "bench:phase-a": "node node_modules/tsx/dist/cli.mjs benchmarks/runtime-detached/baseline.ts",
+    "bench:resource-budget": "node node_modules/tsx/dist/cli.mjs benchmarks/runtime-detached/resource-budget-bench.ts",
     "lint:silent-warning": "node ./scripts/lint/silent-warning-detector.mjs",
     "test:race": "vitest run --no-file-parallelism packages/peaks-loop-shared-channel/tests/shared-channel.test.ts tests/unit/services/dispatch/dispatch-record-writer.test.ts",
     "test:replay": "node scripts/fixture-capture-setup.mjs && vitest run tests/unit/services/dispatch/conflict-replay.test.ts tests/unit/services/dispatch/e2e-fixtures.test.ts",

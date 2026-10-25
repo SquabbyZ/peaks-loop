@@ -271,15 +271,15 @@ function pickTestFiles(entries, picked, reasons) {
 }
 
 /**
- * `tests/unit/` directories no `src` area can reach, each with the reason it is a DECISION. The two
- * triggers (`publish`, `scripts`) are per-path; the rest are reached only when nothing else maps.
+ * `tests/unit/` directories no `src` area can reach, each with the reason it is a DECISION. The two triggers (`publish`, `scripts`) are per-path; the rest are reached only when nothing else maps.
  */
 export const UNREACHABLE_UNIT_DIRS = Object.freeze([
   { dir: 'scripts', reason: 'subject is scripts/** — a FULL_FALLBACK_TRIGGER' },
   { dir: 'publish', reason: 'subject is package.json#files + .github/workflows — both triggers' },
   { dir: 'vendor', reason: 'packages/*/src/vendor/**; full only if nothing else maps' },
   { dir: '_samples', reason: 'unit collection excludes it; only CI `pnpm test:e2e` runs it' },
-  { dir: '_setup', reason: 'the test harness itself; full only if nothing else maps' }
+  { dir: '_setup', reason: 'the test harness itself; full only if nothing else maps' },
+  { dir: 'benchmarks', reason: 'benchmarks/** has no src/ area; full only if nothing else maps' }
 ]);
 
 /**
