@@ -1,5 +1,94 @@
 # Changelog
 
+## 4.1.21 — 2026-10-25（把"返工循环"数对，把"没测过"说出来）
+
+**版本级别**：候选 **patch**（沿用常设规则"默认版本新增采用最小的版本位"）。本次**没有**改 fail-open 策略、
+没有动 auto-compact 三档阈值，peaks-code 的 11 步工序与 Gate A–G **一字不改**；改的是**一个度量的口径**、
+**两个门禁的诚实性**、**CI 的一个咨询性作业**、**一个算错单位的守卫**，以及**版本号本身**。
+
+**一句话：`peaks observability` 之前把 QA 自己的内部迁移当成了"返工循环"数出来，于是 108 个切片里有 82 个
+"超了帽"。这一版把它数对了 —— 真正超帽的只有 1 个。**
+
+### 1. 缺陷：返工循环数的是 QA 的内部迁移
+
+旧口径数的是每一条 `detail.artifactRole === 'qa'` 的 slice-transition 事件。那是 QA 阶段内部的迁移，
+和"RD 被打回去重做"没有关系。四个**各自独立**的缺陷叠在一起：
+
+| # | 缺陷 | 实测 |
+|---|---|---|
+| 1 | 数的是 QA 内部迁移 | 与返工无关 |
+| 2 | 一次迁移发**两条**事件 | 约 8ms 间隔，其中一条没有 `detail.from` |
+| 3 | `detail.from` 不可信 | 仅 606/1102 存在，其中 **395 条与事件顺序矛盾** ⇒ 绝不读它 |
+| 4 | `qa-handoff` 是 **RD 的状态** | 正常收尾 `verdict-issued→qa-handoff→handed-off` 是**快乐路径**，不是返工 |
+
+**实测对比**（10 个会话目录、108 个切片、1102 条事件）：
+
+| 口径 | ≥cap(3) 的切片 | 分布 | 峰值 |
+|---|---|---|---|
+| 旧（QA 事件计数） | **82 / 108** | `0:11 1:1 2:14 3:2 4:50 5:12 6:5 7:2 8:7 9:1 11:2 24:1` | **24** |
+| 新（返工循环） | **1 / 108** | `0:93 1:13 2:1 5:1` | **5** |
+
+唯一真正超帽的那一个，序列是真的：`implemented→qa-handoff→running→verdict-issued→implemented→…`，五轮。
+
+### 2. 度量版本化：v2 与 v1 并列，不让新旧数被静默对比
+
+- `metricVersion: 2`；旧计数保留在 `legacyQaEventCount` 下，`capHitCount` 用 v2。
+- 返工循环的判定：QA 阶段后回到 RD **工作态**（`draft|spec-locked|implemented`）才算；一次返工只计一次；
+  重复发射折叠；**绝不读 `detail.from`**；纯 QA 往返单列为 QA rounds，不混进返工。
+
+### 3. 新命令与可复算的基线产物
+
+- `peaks observability repair-cycles --all-sessions --json`
+- `peaks observability baseline [--write|--check]` → `.peaks/observability/results-baseline.json`
+
+基线行只用**率与峰值**；人口描述被单独隔离并注明"不得作为门禁"，产物里写明 `ciEnforceable: false`
+及其原因（观测数据在 gitignored 的会话空间里，CI 拿不到，硬接只会造一条假门禁）。
+
+### 4. 没测过的门禁，必须说"没测过"
+
+Phase A benchmark 门禁从二态改成**三态**：
+
+| 状态 | 退出码 | `passesGate` |
+|---|---|---|
+| `measured-and-passed` | 0 | `true` |
+| `measured-and-failed` | 1 | `false` |
+| `not-measured` | **3** | **`null`** |
+| runner 报错 | 2 | — |
+
+旧的 `passesGate: false` 既可能是"测了没过"，也可能是"根本没测"，读者分不出来，而根因恰恰是**零次测量**。
+现在未决绝不等同于通过。runner 也拒绝把 `--out` 指向记忆库（exit 2）—— 它以前每次运行都会往
+`.peaks/memory/` 里写一份 `_TBD_` 存根，覆盖掉平台预留给人类真实测量的那个文件。
+
+### 5. 一个算错单位的守卫
+
+`peaks-loop-internal-runtime` 的 resource-budget 守卫里，`process.cpuUsage()` 返回**微秒**，
+而旧式算法 `/1e6 × 100` 得到的是**厘秒**。于是 `maxCpuPct: 5` 实际约束的是 **50 毫秒** CPU，不是 5%。
+现在 `cpuPct` 是**占单核百分比**，另出 `cpuCentiseconds` 字段，字段名与 `Sample` 形状保持不变。
+
+### 6. CI 增加一个咨询性作业
+
+`changed-tests-subset`：**只在 PR、只在 ubuntu**、`continue-on-error: true`（咨询性，不挡合并）、
+`fetch-depth: 0` + 显式 merge-base、`PEAKS_VITEST_MAX_WORKERS: 4`、`timeout-minutes: 60`。
+权威门禁仍是全量 `test` 作业。
+
+### 7. 这次发版带走了什么
+
+`v4.1.20..HEAD` 的 44 个改动文件里，**13 个真正进入已发布产物**（12 个经 `src/**→dist/**`，
+1 个是 `peaks-loop-internal-runtime`）；`dist/` 占 tarball 2889 条目中的 2670（92.4%）。
+发版影响面按**输入集**算：展开 `package.json#files` 白名单得直发集，再补上 `src/**→dist/**` 与
+`packages/**→内部包` 的间接集，最后排除发布元数据。
+
+### 8. 版本号本身
+
+| 包 | 从 | 到 |
+|---|---|---|
+| `peaks-loop` | 4.1.20 | **4.1.21** |
+| `peaks-loop-shared` | 0.0.109 | 0.0.110 |
+| `peaks-loop-mut` | 0.1.74 | 0.1.75 |
+| `peaks-loop-shared-channel` | 0.0.77 | 0.0.78 |
+| `peaks-loop-internal-runtime` | 0.0.60 | 0.0.61 |
+
+
 ## 4.1.20 — 2026-10-25（从 4.1.18 起装不上的根包，修好了）
 
 **版本级别**：候选 **patch**（沿用常设规则"默认版本新增采用最小的版本位"）。本次**没有**新增门禁族、
