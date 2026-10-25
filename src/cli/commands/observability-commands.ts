@@ -4,12 +4,18 @@
  *
  * markdown report formatter is implemented.
  *
- * Read-only — never writes. Reads the JSONL metrics files emitted
+ * Read-only over the JSONL metrics files emitted
  * by the `peaks request transition` hook (Slice A) plus the future
  * Slice C hook sites (dispatch / checkpoint / mode-gate / context
  * / post-compact). The aggregations tolerate zero events gracefully
  * so each subcommand returns a meaningful empty result on a fresh
  * tree.
+ *
+ * ONE EXCEPTION TO THE READ-ONLY RULE: `peaks observability baseline
+ * --write` regenerates the tracked results-layer baseline at
+ * `.peaks/observability/results-baseline.json`. It is the only command
+ * here that writes, and it exists because the results layer needs a
+ * baseline that can be regenerated and compared on demand.
  */
 
 import type { Command } from 'commander';
@@ -44,6 +50,7 @@ import {
   runSlices,
   runStatus
 } from './observability-commands-queries.js';
+import { runBaseline } from './observability-commands-baseline.js';
 
 const VALID_PERIODS: ReadonlyArray<Period> = ['day', 'week', 'month'];
 
@@ -169,15 +176,37 @@ export function registerObservabilityCommands(program: Command, io: ProgramIO): 
     observability
       .command('repair-cycles')
       .description(
-        'RD → QA repair-cycle count per slice. Cap = 3 (peaks-code repair-loop contract); capHit flag is set when any slice hits the cap.'
+        'RD → QA repair-cycle count per slice (metric version 2: a repair cycle is a return to an RD work state after a QA phase). Cap = 3 (peaks-code repair-loop contract); capHit flag is set when any slice hits the cap. The version-1 qa-role event count is reported beside it as legacyQaEventCount — it is NOT a repair-cycle count.'
       )
       .option('--project <path>', 'target project root (defaults to git root or cwd)')
       .option(
         '--session <sessionId>',
         'scope to one session (defaults to the canonical session binding)'
       )
-  ).action((options: { project?: string; session?: string; json?: boolean }) => {
-    runRepairCycles(io, options);
+      .option(
+        '--all-sessions',
+        'measure the whole recorded history of the project instead of the canonical session binding'
+      )
+  ).action(
+    (options: { project?: string; session?: string; json?: boolean; allSessions?: boolean }) => {
+      runRepairCycles(io, options);
+    }
+  );
+
+  addJsonOption(
+    observability
+      .command('baseline')
+      .description(
+        'Results-layer baseline over the whole recorded history. Prints the computed baseline; --write regenerates the tracked artifact at .peaks/observability/results-baseline.json; --check compares the computed baseline with the tracked one and reports drift. The tracked artifact is NOT CI-enforceable: its source data is gitignored session state.'
+      )
+      .option('--project <path>', 'target project root (defaults to git root or cwd)')
+      .option('--write', 'regenerate the tracked results baseline artifact')
+      .option(
+        '--check',
+        'compare the computed baseline against the tracked artifact and report drift'
+      )
+  ).action((options: { project?: string; json?: boolean; write?: boolean; check?: boolean }) => {
+    runBaseline(io, options);
   });
 
   observability

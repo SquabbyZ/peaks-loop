@@ -20,7 +20,6 @@ import {
   type ObservabilitySubagentRole
 } from './observability-service.js';
 import {
-  REPAIR_CYCLE_CAP,
   TERMINAL_FAIL_STATES,
   TERMINAL_HAPPY_STATES,
   ZERO_FANOUT,
@@ -31,26 +30,26 @@ import {
   type SliceRollup,
   type StatusAggregate
 } from './aggregation-types.js';
-import {
-  computeRepairCyclesBySlice,
-  durationMsBetween,
-  isSliceTransition,
-  transitionTo
-} from './aggregation-helpers.js';
+import { durationMsBetween, isSliceTransition, transitionTo } from './aggregation-helpers.js';
+import { buildRepairCycleReport, computeSliceRepairMetrics } from './repair-cycle-metric.js';
 
 // The result shapes and their data (terminal states, repair-loop cap, zeroed
-// fan-out row) live in `aggregation-types.ts`; the event-detail readers, the
-// per-slice cycle count and the event-source helpers live in
-// `aggregation-helpers.ts` (wave-3 file-size cap split; declarations moved
-// verbatim). Every PUBLIC name is re-exported below so importers keep
-// resolving it from `aggregation.js` unchanged; the module-private readers are
-// imported for use here and not re-exported.
+// fan-out row) live in `aggregation-types.ts`; the event-detail readers and
+// the event-source helpers live in `aggregation-helpers.ts` (wave-3 file-size
+// cap split; declarations moved verbatim). The repair-cycle METRIC lives in
+// `repair-cycle-metric.ts` — version 2 of it, with the version-1 count kept
+// beside it under its own name. Every PUBLIC name is re-exported below so
+// importers keep resolving it from `aggregation.js` unchanged; the
+// module-private readers are imported for use here and not re-exported.
 export { REPAIR_CYCLE_CAP } from './aggregation-types.js';
+export { REPAIR_CYCLE_METRIC_VERSION } from './repair-cycle-metric.js';
 export { readAllSessionEvents, readSessionEvents } from './aggregation-helpers.js';
 export type {
   DashboardMetrics,
   FanoutBreakdown,
+  LegacyQaEventCount,
   Period,
+  QaRoundSummary,
   RepairCycleReport,
   SliceRollup,
   StatusAggregate
@@ -99,10 +98,10 @@ function rollupSlices(events: readonly ObservabilityEvent[]): Map<string, SliceR
 
 export function aggregateStatus(events: readonly ObservabilityEvent[]): StatusAggregate {
   const bySlice = rollupSlices(events);
-  const cyclesBySlice = computeRepairCyclesBySlice(events);
+  const metrics = computeSliceRepairMetrics(events);
   let repairCyclePeak = 0;
   for (const rollup of bySlice.values()) {
-    const cycles = cyclesBySlice.get(rollup.sliceRid) ?? 0;
+    const cycles = metrics.get(rollup.sliceRid)?.repairCycles ?? 0;
     rollup.repairCycleCount = cycles;
     if (cycles > repairCyclePeak) repairCyclePeak = cycles;
   }
@@ -124,9 +123,9 @@ export function aggregateStatus(events: readonly ObservabilityEvent[]): StatusAg
 
 export function aggregateSlices(events: readonly ObservabilityEvent[]): SliceRollup[] {
   const bySlice = rollupSlices(events);
-  const cyclesBySlice = computeRepairCyclesBySlice(events);
+  const metrics = computeSliceRepairMetrics(events);
   for (const rollup of bySlice.values()) {
-    rollup.repairCycleCount = cyclesBySlice.get(rollup.sliceRid) ?? 0;
+    rollup.repairCycleCount = metrics.get(rollup.sliceRid)?.repairCycles ?? 0;
   }
   return Array.from(bySlice.values()).sort((a, b) => a.sliceRid.localeCompare(b.sliceRid));
 }
@@ -145,19 +144,7 @@ export function aggregateFanout(events: readonly ObservabilityEvent[]): FanoutBr
 }
 
 export function aggregateRepairCycles(events: readonly ObservabilityEvent[]): RepairCycleReport {
-  const cyclesBySlice = computeRepairCyclesBySlice(events);
-  const perSlice = Array.from(cyclesBySlice.entries())
-    .map(([sliceRid, cycleCount]) => ({ sliceRid, cycleCount }))
-    .sort((a, b) => a.sliceRid.localeCompare(b.sliceRid));
-  const totalCycles = perSlice.reduce((sum, row) => sum + row.cycleCount, 0);
-  const capHitCount = perSlice.filter((row) => row.cycleCount >= REPAIR_CYCLE_CAP).length;
-  return {
-    totalCycles,
-    cap: REPAIR_CYCLE_CAP,
-    capHit: capHitCount > 0,
-    capHitCount,
-    perSlice
-  };
+  return buildRepairCycleReport(events);
 }
 
 export function periodStartIso(period: Period, now: () => Date = () => new Date()): string {

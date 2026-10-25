@@ -11,6 +11,10 @@
  * `runReport` stayed behind on purpose: it carries a
  * `max-lines-per-function` finding, and a NEW module in this campaign must be
  * clean outright — hoisting it would move a finding into a brand-new file.
+ *
+ * LATER ADDITION — `peaks observability repair-cycles` also grew an
+ * `--all-sessions` scope, so the whole recorded history of a project can be
+ * measured from the command itself.
  */
 
 import { fail, ok } from 'peaks-loop-shared/result';
@@ -177,10 +181,14 @@ export function runFanout(
 
 export function runRepairCycles(
   io: ProgramIO,
-  options: { project?: string; session?: string; json?: boolean }
+  options: { project?: string; session?: string; json?: boolean; allSessions?: boolean }
 ): void {
   const projectRoot = resolveProjectRoot(options.project);
-  const sessionId = resolveSessionId(options.session, projectRoot);
+  // `--all-sessions` is the escape from the canonical-session binding: the
+  // recorded history (every session in the project) is the population the
+  // results baseline and the metric comparison are measured over.
+  const sessionId =
+    options.allSessions === true ? undefined : resolveSessionId(options.session, projectRoot);
   try {
     const events =
       sessionId !== undefined

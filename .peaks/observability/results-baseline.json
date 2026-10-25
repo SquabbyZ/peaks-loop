@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "metricVersion": 2,
+  "generatedAt": "2026-10-25T07:04:09.529Z",
+  "ciEnforceable": false,
+  "ciEnforceableReason": "NOT CI-ENFORCEABLE. The source data lives in .peaks/_runtime/<sessionId>/metrics/slices.jsonl, and every such path is gitignored — a CI runner has no session data, so there is nothing there to compare against. This file is a local review artifact: regenerate it with `peaks observability baseline --write` on a machine that has session data and compare it with `peaks observability baseline --check` during a local run or a slice review.",
+  "tolerance": {
+    "rate": 0.02,
+    "peak": 1,
+    "mean": 0.5,
+    "note": "Absolute drift allowed per row kind when `peaks observability baseline --check` compares the tracked artifact with the freshly computed baseline."
+  },
+  "baselineRows": [
+    {
+      "id": "repair-cycle-cap-hit-rate",
+      "kind": "rate",
+      "value": 0.009259,
+      "unit": "slices at or over the cap / slices",
+      "description": "Share of slices at or over the RD/QA repair cap. Version 2 metric."
+    },
+    {
+      "id": "repair-cycle-peak",
+      "kind": "peak",
+      "value": 5,
+      "unit": "repair cycles in one slice",
+      "description": "Highest repair-cycle count held by a single slice. Version 2 metric."
+    },
+    {
+      "id": "qa-round-peak",
+      "kind": "peak",
+      "value": 6,
+      "unit": "QA phases in one slice",
+      "description": "Highest number of QA phases in one slice. A QA phase is NOT a repair cycle."
+    },
+    {
+      "id": "slice-success-rate",
+      "kind": "rate",
+      "value": 0.888889,
+      "unit": "successful slices / slices",
+      "description": "Share of slices whose final state is a terminal happy state."
+    },
+    {
+      "id": "slice-failure-rate",
+      "kind": "rate",
+      "value": 0,
+      "unit": "failed slices / slices",
+      "description": "Share of slices whose final state is blocked."
+    },
+    {
+      "id": "fanout-cost-per-slice",
+      "kind": "mean",
+      "value": 2.824074,
+      "unit": "dispatch events / slice",
+      "description": "Mean sub-agent dispatch cost per slice."
+    }
+  ],
+  "population": {
+    "scope": "all-sessions",
+    "sessionIds": [
+      "2026-10-14-session-3cb9bc",
+      "2026-10-15-session-172124",
+      "2026-10-18-session-0e1a6c",
+      "2026-10-18-session-dedff6",
+      "2026-10-19-session-94b084",
+      "2026-10-20-session-a545d0",
+      "2026-10-20-session-c620de",
+      "2026-10-20-session-f7f45b",
+      "2026-10-22-session-b0e6e2",
+      "2026-10-23-session-5e40e0"
+    ],
+    "sessionCount": 10,
+    "sliceCount": 108,
+    "sliceTransitionEventCount": 1102,
+    "measuredAt": "2026-10-25T07:04:09.529Z"
+  },
+  "populationDescriptors": {
+    "note": "Population descriptors, NOT baseline rows: these grow with the number of slices ever recorded and must never be gated on. The baseline rows above are rates and peaks.",
+    "totalSlices": 108,
+    "totalSliceTransitionEvents": 1102,
+    "totalRepairCycles": 20,
+    "totalQaRounds": 120,
+    "totalLegacyQaEvents": 450
+  },
+  "metricComparison": {
+    "note": "Version 1 counted qa-role slice-transition events (QA's own internal state transitions, doubled by the duplicate emission) and was never a repair-cycle count. Version 2 counts repair cycles. The historical numbers below are a different measurement, not a regression — do not compare a v1 number with a v2 number.",
+    "v1QaEventCount": {
+      "metric": "qa-role-transition-event-count",
+      "metricVersion": 1,
+      "total": 450,
+      "peak": 24,
+      "slicesMeasured": 108,
+      "slicesAtOrOverCap": 82,
+      "distribution": {
+        "0": 11,
+        "1": 1,
+        "2": 14,
+        "3": 2,
+        "4": 50,
+        "5": 12,
+        "6": 5,
+        "7": 2,
+        "8": 7,
+        "9": 1,
+        "11": 2,
+        "24": 1
+      }
+    },
+    "v2RepairCycles": {
+      "metric": "repair-cycles",
+      "metricVersion": 2,
+      "total": 20,
+      "peak": 5,
+      "slicesMeasured": 108,
+      "slicesAtOrOverCap": 1,
+      "distribution": {
+        "0": 93,
+        "1": 13,
+        "2": 1,
+        "5": 1
+      }
+    }
+  }
+}

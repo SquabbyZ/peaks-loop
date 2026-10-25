@@ -39,12 +39,48 @@ export type FanoutBreakdown = {
   perRole: Record<ObservabilitySubagentRole, number>;
 };
 
+/**
+ * The v1 convention, kept alive under a name that says what it is. It counts
+ * slice-transition events whose `detail.artifactRole === 'qa'` — QA's own
+ * internal state transitions, doubled by the duplicate emission, and NOT a
+ * repair-cycle count. It exists so the v1 and v2 numbers can be compared side
+ * by side instead of being compared by accident.
+ */
+export type LegacyQaEventCount = {
+  metric: 'qa-role-transition-event-count';
+  metricVersion: 1;
+  note: string;
+  total: number;
+  peak: number;
+  capHitCount: number;
+  perSlice: Array<{ sliceRid: string; eventCount: number }>;
+};
+
+/**
+ * QA phases, reported separately from repair cycles: `qa-handoff →
+ * verdict-issued → qa-handoff` is a QA round, not an RD rework.
+ */
+export type QaRoundSummary = {
+  metric: 'qa-rounds';
+  total: number;
+  peak: number;
+  perSlice: Array<{ sliceRid: string; roundCount: number }>;
+};
+
 export type RepairCycleReport = {
+  metric: 'repair-cycles';
+  /** Which convention produced the numbers below. */
+  metricVersion: number;
+  /** What the metric counts, in one sentence. */
+  definition: string;
   totalCycles: number;
   cap: number;
   capHit: boolean;
+  /** Slices at or over the cap — computed from the v2 metric. */
   capHitCount: number;
   perSlice: Array<{ sliceRid: string; cycleCount: number }>;
+  qaRounds: QaRoundSummary;
+  legacyQaEventCount: LegacyQaEventCount;
 };
 
 // Slice lifecycle terminal states. Anything not listed is in-flight

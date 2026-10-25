@@ -1,3 +1,27 @@
+/**
+ * `src/services/artifacts/repair-cycle-service.ts`
+ *
+ * WHY THIS MODULE EXISTS. It counts the RD/QA repair cycles recorded in a
+ * request artifact's OWN transition notes (`QA return-to-rd cycle N`). That
+ * note is the artifact contract's authoritative record of a repair loop, so
+ * this is the number the repair gate reads.
+ *
+ * CROSS-REFERENCE — THERE IS A SECOND, DIFFERENT REPAIR-CYCLE COUNT, and the
+ * two must never be merged or compared:
+ *
+ *   - THIS module counts the artifact's own `QA return-to-rd cycle N` notes.
+ *   - `src/services/observability/repair-cycle-metric.ts` counts repair
+ *     cycles RECONSTRUCTED from the observability event stream: a return to
+ *     an RD work state (`draft` | `spec-locked` | `implemented`) after the
+ *     slice had entered a QA phase (`running` | `verdict-issued`).
+ *
+ * They disagree on purpose: the note is written by whoever routes the repair
+ * and may be missing, while the event stream is reconstructed after the fact
+ * from the transitions that actually happened. `peaks observability
+ * repair-cycles` reports the reconstructed one, versioned, with the
+ * version-1 qa-event count kept beside it under its own name.
+ */
+
 import { showRequestArtifact } from './request-artifact-service.js';
 
 export type RepairCycleEntry = {

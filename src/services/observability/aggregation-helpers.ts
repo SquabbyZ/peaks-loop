@@ -2,13 +2,18 @@
  * `src/services/observability/aggregation-helpers.ts`
  *
  * The event-detail readers the aggregations in `aggregation.ts` are built on
- * (category test, `detail` field extraction, timestamp difference), the
- * per-slice repair-cycle count, and the two event-source helpers the CLI
- * calls. Moved verbatim (wave 3, file-size cap campaign) so the aggregation
- * module stays under the 300 raw-line cap. The first four were module-private
- * before the move and are NOT re-exported from `aggregation.ts`; the two
- * event-source helpers were public and are re-exported there, so that
- * module's public surface is unchanged.
+ * (category test, `detail` field extraction, timestamp difference) and the
+ * two event-source helpers the CLI calls. Moved verbatim (wave 3, file-size
+ * cap campaign) so the aggregation module stays under the 300 raw-line cap.
+ * The first four were module-private before the move and are NOT re-exported
+ * from `aggregation.ts`; the two event-source helpers were public and are
+ * re-exported there, so that module's public surface is unchanged.
+ *
+ * The per-slice repair-cycle count that used to live here moved to
+ * `repair-cycle-metric.ts`: the version-1 counter this file carried counted
+ * QA's own state transitions, not repair loops, and the corrected metric
+ * needs its own module to keep the version marker and the legacy count
+ * together.
  */
 
 import { readObservabilityEvents, type ObservabilityEvent } from './observability-service.js';
@@ -37,26 +42,6 @@ export function durationMsBetween(firstTs: string, lastTs: string): number {
     return 0;
   }
   return Math.max(0, b - a);
-}
-
-export function computeRepairCyclesBySlice(
-  events: readonly ObservabilityEvent[]
-): Map<string, number> {
-  // Repair cycle = each rd → qa transition within one slice (proxy for the
-  // RD→QA→RD loop). For each slice we count qa transitions that follow an
-  // rd transition. Multiple qa transitions on the same slice are capped by
-  // REPAIR_CYCLE_CAP at the report level — the per-slice count here is the
-  // raw observation count.
-  const cyclesBySlice = new Map<string, number>();
-  for (const event of events) {
-    if (!isSliceTransition(event)) continue;
-    const rid = event.sliceRid;
-    const role = artifactRole(event);
-    if (role === 'qa') {
-      cyclesBySlice.set(rid, (cyclesBySlice.get(rid) ?? 0) + 1);
-    }
-  }
-  return cyclesBySlice;
 }
 
 export function readAllSessionEvents(projectRoot: string): ObservabilityEvent[] {

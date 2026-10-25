@@ -13,12 +13,13 @@
  *   - Top-N slowest slices: same as slice table, sorted by durationMs desc
  */
 
-import type {
-  FanoutBreakdown,
-  Period,
-  RepairCycleReport,
-  SliceRollup,
-  StatusAggregate
+import {
+  REPAIR_CYCLE_METRIC_VERSION,
+  type FanoutBreakdown,
+  type Period,
+  type RepairCycleReport,
+  type SliceRollup,
+  type StatusAggregate
 } from './aggregation.js';
 
 export type ReportInput = {
@@ -70,7 +71,9 @@ function markdownStatusSummary(status: StatusAggregate): string {
   lines.push(`| total slices | ${status.totalSlices} |`);
   lines.push(`| success count | ${status.successCount} |`);
   lines.push(`| fail count | ${status.failCount} |`);
-  lines.push(`| repair-cycle peak | ${status.repairCyclePeak} |`);
+  lines.push(
+    `| repair-cycle peak (v${REPAIR_CYCLE_METRIC_VERSION} metric) | ${status.repairCyclePeak} |`
+  );
   lines.push(`| fanout cost total | ${status.fanoutCostTotal} |`);
   lines.push('');
   return lines.join('\n');
@@ -121,20 +124,37 @@ function markdownRepairCycleTable(repairCycles: RepairCycleReport): string {
   const lines: string[] = [];
   lines.push('## Repair cycles');
   lines.push('');
+  // The version marker and the definition travel with the numbers: a reader
+  // must not be able to see a v2 cap-hit count next to a v1 count without the
+  // report saying that the two are different measurements.
+  lines.push(`- **metric**: \`${repairCycles.metric}\` (version ${repairCycles.metricVersion})`);
+  lines.push(`- **definition**: ${repairCycles.definition}`);
+  lines.push('');
   if (repairCycles.perSlice.length === 0) {
-    lines.push('_No repair cycles recorded for this period._');
+    lines.push('_No slice transitions recorded for this period._');
     lines.push('');
     return lines.join('\n');
   }
-  lines.push('| slice rid | cycle count |');
+  lines.push('| slice rid | repair cycles |');
   lines.push('|---|---|');
   for (const row of repairCycles.perSlice) {
     lines.push(`| ${row.sliceRid} | ${row.cycleCount} |`);
   }
   lines.push('');
+  lines.push(
+    `- **total repair cycles (v${repairCycles.metricVersion})**: ${repairCycles.totalCycles}`
+  );
   lines.push(`- **cap**: ${repairCycles.cap}`);
   lines.push(`- **cap hit**: ${repairCycles.capHit ? 'yes' : 'no'}`);
-  lines.push(`- **slices at cap**: ${repairCycles.capHitCount}`);
+  lines.push(`- **slices at cap (v${repairCycles.metricVersion})**: ${repairCycles.capHitCount}`);
+  lines.push(
+    `- **QA rounds (a separate metric — a QA phase, NOT a repair cycle)**: total ${repairCycles.qaRounds.total}, peak ${repairCycles.qaRounds.peak}`
+  );
+  const legacy = repairCycles.legacyQaEventCount;
+  lines.push(
+    `- **legacy v${legacy.metricVersion} \`${legacy.metric}\` (NOT a repair-cycle count)**: total ${legacy.total}, peak ${legacy.peak}, slices at cap ${legacy.capHitCount}`
+  );
+  lines.push(`- **legacy note**: ${legacy.note}`);
   lines.push('');
   return lines.join('\n');
 }
