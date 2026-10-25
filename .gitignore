@@ -71,6 +71,27 @@ tests/fixtures/bdd-reporter-tmp/
 # intent here was always the ONE top-level artifact directory, so anchor it.
 /best-practice/
 
+# Fourth instance of the same class: `vendor/` is a built-in default-ignored
+# directory name in codegraph's own DEFAULT_IGNORE_DIRS (Go/PHP/Ruby vendored
+# deps convention), and codegraph applies that exclusion to git-TRACKED files
+# as well. `packages/peaks-loop-internal-runtime/src/vendor/` and
+# `tests/unit/**/vendor/` hold FIRST-PARTY source here — the sub-agent vendor
+# adapters and their tests — so without these negations codegraph silently
+# drops 11 tracked source files from the index while `peaks codegraph status`
+# still reports "[OK] Index is up to date". The exclusion is uniform, so the
+# opt-in is a `.gitignore` negation (upstream's own documented escape hatch).
+#
+# SCOPED, NOT GLOBAL: a bare `!vendor/` would also re-surface every
+# `node_modules/**/vendor/**` tree (the negation lands after the defaults in
+# the same matcher, and `node_modules/` itself is excluded by directory, so
+# the negation would win inside it). These three paths name exactly the
+# first-party directories, and each is anchored by its full path so the
+# negation cannot reach a same-named directory elsewhere.
+/packages/peaks-loop-internal-runtime/src/vendor/
+!/packages/peaks-loop-internal-runtime/src/vendor/
+!/tests/unit/runtime/vendor/
+!/tests/unit/vendor/
+
 # >>> peaks-loop managed snippet (slice 2.0.1-bug3) — do not edit by hand
 # Consumer-project .claude/settings.local.json: written by `peaks workspace init`
 # to bypass Claude Code [Fact-Forcing Gate] for .peaks/** writes. Local-only.
