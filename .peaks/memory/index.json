@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-25T03:37:55.775Z",
+  "updatedAt": "2026-10-25T05:53:58.777Z",
   "hot": {
     "rule": [
       {
@@ -4320,6 +4320,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\two-practices-gated-vs-handwritten.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-12-session-74bd69/txt/handoff.md",
         "updatedAt": "2026-10-12"
+      },
+      {
+        "name": "unit-suite-duration-is-a-linear-function-of-file-count",
+        "kind": "project",
+        "description": "单测时长是测试文件数的线性函数，不是「将来可能超长」的风险（2026-10-25 实测） 事实 仓库 14 条  门禁里**没有任何一条**测量或约束单测时长与测试文件数。2026-10-25 实测 （win32 / 16 核 / v...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\unit-suite-duration-is-a-linear-function-of-file-count.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-10-25"
       },
       {
         "name": "upgrading-the-package-does-not-refresh-generated-settings",
