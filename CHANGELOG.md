@@ -1,5 +1,135 @@
 # Changelog
 
+## 4.1.20 — 2026-10-25（从 4.1.18 起装不上的根包，修好了）
+
+**版本级别**：候选 **patch**（沿用常设规则"默认版本新增采用最小的版本位"）。本次**没有**新增门禁族、
+没有改 fail-open 策略、没有动 auto-compact 三档阈值，peaks-code 的 11 步工序与 Gate A–G **一字不改**；
+改的是**根包自己的打包白名单**（§1–§2）、**消费者能看到的说法**（§3–§4）与**版本号本身**（§5）。
+
+**一句话：`npm i -g peaks-loop` 从 4.1.18 起就是装不上的。这一版把它修好了。**
+
+### 1. 缺陷：白名单少了一行，于是整个安装死在 postinstall
+
+根包的 `package.json#files` 是**白名单** —— 只有被它点名的文件才会进 tarball。
+`scripts/install-skills-bundles.mjs`（**在包里**）import 了 `./canonical-store-report.mjs`，
+而后者**不在白名单里**，于是 npm 发出去的是**一个没有同伙的 import 方**。
+
+Node 的 ESM 加载器在跑任何代码之前就要把整张模块图解析完，所以这不是"少了个功能"，
+是**图连不上**，安装死在 `postinstall`，CLI 根本轮不到上场：
+
+```
+npm error Error [ERR_MODULE_NOT_FOUND]: Cannot find module
+  '.../node_modules/peaks-loop/scripts/canonical-store-report.mjs'
+  imported from .../node_modules/peaks-loop/scripts/install-skills-bundles.mjs
+```
+
+**根因提交**是 `12c71e55`（"fix(gates): a surface must not say what the code does not do"）。
+那一个提交在 `scripts/` 下**新增了 3 个** canonical-store 脚本（`canonical-store-fs.mjs`、
+`canonical-store-marker.mjs`、`canonical-store-report.mjs`），给 importer 接上了其中的**第三个**，
+而白名单**只加了那 3 个里的 2 个** —— 漏掉的正是 `-report`。该提交落在 `v4.1.17` 与 `v4.1.18`
+之间（`git merge-base --is-ancestor` 实测：在 `v4.1.18`/`v4.1.19` 之内，在 `v4.1.16`/`v4.1.17` 之外）。
+
+### 2. 实测证据（每个数字都来自本次实测）
+
+**两个互相独立的方法**，同一个结论：
+
+| 方法 | 4.1.17 | 4.1.18 | 4.1.19 |
+|---|---|---|---|
+| **真实 `npm install`**（隔离 prefix + 隔离 HOME） | **exit 0**，`added 127 packages in 10s` | **exit 1**，`ERR_MODULE_NOT_FOUND` | **exit 1**，`ERR_MODULE_NOT_FOUND` |
+| **静态解析已发布 tarball**（`scripts/*.mjs` 数 / 本地相对 import 数 / **未命中**的目标数） | 16 / 24 / **0** | 18 / 27 / **1** | 18 / 27 / **1** |
+
+那个"**1**"在 4.1.18 与 4.1.19 里是**同一个**目标：`install-skills-bundles.mjs -> ./canonical-store-report.mjs`。
+**4.1.19 tarball 里所有已发布脚本的本地相对 import 全被枚举过一遍，未命中的只有这一个** ——
+其余没进包的 `scripts/*.mjs` 都是本就不该进包的 dev / build / 测试脚本。
+
+**不是 4.1.19 那一批引入的**：`v4.1.18` 与 `v4.1.19` 之间，`package.json#files` 的脚本条目
+**增 0 减 0**，importer 的 blob 哈希**完全相同**（`05e80b3da11df0fee5f870fa3285a0fe153d0ff3`）。
+4.1.19 是**继承**了这个缺陷，不是**造成**了它。
+
+**修好之后的实测**（不只是"打包内容看着对"，是**真的装得上、跑得起来**）：
+
+- 把修好的树 `pnpm pack` 出来的 tarball 里，`scripts/*.mjs` 共 **19** 个，
+  `scripts/canonical-store-report.mjs` **在包里**，已发布脚本的本地相对 import **未命中 0 个**。
+- **真实安装**：把那个 tarball 装进一个隔离的 prefix（`HOME`、`PEAKS_CLAUDE_SKILLS_DIR`、
+  `PEAKS_CLAUDE_AGENTS_DIR` 全部指到临时目录），`npm install` **退出 0**
+  （`added 293 packages in 40s`），**没有** `ERR_MODULE_NOT_FOUND`，postinstall 跑完。
+- **装完就能用**：装好的包里 `peaks --version` 打出 **4.1.20**（退出 0），
+  `peaks mut --help` 打出完整命令树（退出 0）。
+- 说明一句方法上的诚实：这 4 个 workspace 子包在本次版本里是**新版本号**，registry 上**还没有**
+  （实测 `npm view peaks-loop-mut@0.1.74` → **404**），所以端到端安装里这 4 个内部依赖是用
+  **本树自己打出来的 tarball**（`file:` spec）解析的，其余依赖全部走 registry。
+  这正是发布流程"先发子包、后发根包"之后的拓扑；**打包白名单这件事本身**由上面的 tarball
+  内容测量直接回答。
+
+### 3. 修法：一行白名单 + 一个防回归守卫
+
+**修法就是一行** —— 根 `package.json#files` 里加一条 `"scripts/canonical-store-report.mjs",`，
+`files` 的其余部分**一字未动**。白名单**没有**被放宽成整个 `scripts/`：那些 dev / build / 测试
+脚本是**故意**不进包的，放宽会把它们一起发出去。
+
+**现在有了防回归守卫**：`tests/unit/release/packaging-shipped-scripts-import-guard.test.ts`
+（**13** 个用例）。它**静态**地读根 manifest 的白名单，取出 `scripts/*.mjs` 条目作为**已发布脚本集**，
+解析每个已发布脚本的本地相对 import，断言**每个被 import 的目标也在已发布集里**。
+**不联网、不查 registry、不做真实 `npm install`**。
+
+它守的是"**已发布脚本之间的**本地相对 import"，**不会**要求 dev / build / 测试脚本进包。
+而且它被证明**真的会红**：临时把那一行从 `files` 里去掉 → 守卫 **exit 1**（`4 failed | 9 passed (13)`）；
+逐字节还原（sha256 比对一致）→ 再跑 → **exit 0**（`13 passed (13)`）。**只看到绿不算验证过。**
+
+守卫在修好的树上的数字：**已发布脚本条目 19 个**，**检查的本地相对 import 27 个**，**未命中 0 个**。
+
+### 4. 顺手拆掉的一颗雷：`main` 指向了不在白名单里的文件
+
+工作树里根 `package.json` 带着 4 处**与本次缺陷无关**的改动（`repository.url`、`bin.peaks`，
+以及新增的 `main`、`directories`）。其中 **`main: "stryker.conf.js"`** 是一颗雷：
+`stryker.conf.js` **不在 `files` 白名单里**，所以它**不会**进 tarball ——
+而 `main` 正是消费者 `import 'peaks-loop'` 解析到的入口。
+留着它，就等于**修好一个"装得上"的包，再塞一个"装上了但主入口用不了"的坑**。
+这 4 处已全部**还原成 `HEAD` 的原值**（`main` 与 `directories` 直接删掉）。
+
+**成因是查出来的，不是猜的**：`npm pkg fix` 会把 `repository.url` 归一化成 `git+https://` 形式、
+把 `bin` 的 `./` 前缀去掉；`npm pkg set` 会写入 `main` 与 `directories`。
+而**本次用的版本锁步脚本不会**（实测：跑一次 `scripts/bump-version.mjs`，这 4 个字段
+**0 个**被改动）。
+
+### 5. 版本号与发布含义
+
+- 根包 `peaks-loop` **4.1.19 → 4.1.20**。`packages/` 下**实际只有 4 个**可发布 workspace 包，
+  由正路脚本**锁步升**（子包规则 = patch 位 +1，major/minor 不变）：
+
+| 包                            | 改前    | 改后       |
+| ----------------------------- | ------- | ---------- |
+| `peaks-loop`（根）            | 4.1.19  | **4.1.20** |
+| `peaks-loop-mut`              | 0.1.73  | **0.1.74** |
+| `peaks-loop-shared`           | 0.0.108 | 0.0.109    |
+| `peaks-loop-shared-channel`   | 0.0.76  | 0.0.77     |
+| `peaks-loop-internal-runtime` | 0.0.59  | 0.0.60     |
+
+- 两个**受版本控制**的版本戳同步为 4.1.20：`packages/peaks-loop-shared/src/version.ts` 的 `CLI_VERSION`
+  与 `packages/peaks-loop-internal-runtime/src/index.ts` 的 `RUNTIME_VERSION`。
+- **版本字段一个都没手改**：全部由 `scripts/bump-version.mjs --to 4.1.20` 与 `scripts/sync-version.mjs`
+  产生。逐字段比对证明：**5 个 manifest 各自只有 `version` 一个键变了**；根 manifest 相对 `HEAD`
+  只多两处 —— `version` 与 `files` 里的那一行。
+- **维护者要做的**（本次**没有**做）：合并后 `git tag v4.1.20` + push，由发布流程发包。
+  **本次不打 tag、不发布、不提交。**
+
+### 6. 验证
+
+- `node scripts/verify-version-parity.mjs runtime-src` 退出 **0**（`RUNTIME_VERSION=4.1.20`）。
+- `pnpm install --frozen-lockfile` 退出 **0**，而且**锁文件一个字都没改** ——
+  sha256 前后同为 `7f60e065a8df3a63d7b03a2fc8f91db9628362387997fc77655c8c75ef46cc72`，
+  `git diff pnpm-lock.yaml` 为**空**。workspace 包在锁文件里是 `link:` 引用（**不记版本号**），
+  所以版本号变动**不需要**动锁文件。
+- 逐字段比对：**5 个 manifest 各自只有 `version` 一个键变了**。
+- 新守卫 `tests/unit/release/packaging-shipaged-scripts-import-guard.test.ts`：
+  **13 passed (13)**；去掉那一行白名单则 **4 failed | 9 passed (13)**，逐字节还原后回到全绿。
+- **端到端**：修好的树 `pnpm pack` → 隔离 prefix 里 `npm install` **退出 0**
+  （`added 293 packages in 40s`）、**无** `ERR_MODULE_NOT_FOUND`；装好的包里
+  `peaks --version` 打出 **4.1.20**，`peaks mut --help` 退出 **0**。
+- `.claude-plugin/marketplace.json` 由 `npm run plugin:manifest` 重生成，**跑两次逐字节相同**。
+- `tsc -p tsconfig.json --noEmit` 退出 **0**；`prettier --check` 对本次改动的清单文件退出 **0**；
+  `eslint --config config/eslint/.peaks-rules.cjs --no-ignore` 对本次改动的文件 **0 findings**。
+
 ## 4.1.19 — 2026-10-24（`peaks mut` 在真实用户机器上**真的能跑**）
 
 **版本级别**：候选 **patch**（沿用常设规则"默认版本新增采用最小的版本位"）。本次**没有**新增门禁族、
