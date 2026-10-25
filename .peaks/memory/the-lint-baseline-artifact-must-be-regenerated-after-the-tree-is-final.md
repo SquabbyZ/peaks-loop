@@ -1,3 +1,12 @@
+---
+name: the-lint-baseline-artifact-must-be-regenerated-after-the-tree-is-final
+description: lint 基线产物的 shadow.measuredFiles 必须在树定稿之后重新生成并单独提交——生成器的普查读 git ls-files，而一次测试运行会把产物还原回 HEAD 的字节
+metadata:
+  type: project
+  node_type: memory
+  modified: 2026-10-25T14:45:00.000Z
+---
+
 # The lint baseline artifact must be regenerated after the tree is final, and it must be committed
 
 **WHAT I HIT (2026-10-25, rid-t5-release-packaging-hotfix).** I added one test file to

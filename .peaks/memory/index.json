@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-25T05:53:58.777Z",
+  "updatedAt": "2026-10-25T06:38:31.030Z",
   "hot": {
     "rule": [
       {
@@ -4098,6 +4098,14 @@
         "updatedAt": "2026-10-12"
       },
       {
+        "name": "release-impact-is-measured-against-package-inputs-not-the-files-whitelist",
+        "kind": "project",
+        "description": "发版影响面要算「输入集」，不是  白名单（2026-10-25 实测） 事实 根包  的 npm tarball 实测 **2889 个文件 / 12,057,510 B**（）： | 顶层 | 文件数 | 来源 | |---|---...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\release-impact-is-measured-against-package-inputs-not-the-files-whitelist.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-10-25"
+      },
+      {
         "name": "request-init",
         "kind": "project",
         "description": "产出的是**骨架**（rd 55 行 6 个 、qa 52 行 2 个）。 而  §3.3/§3.4 的角色提示里 **没有一句**说要回填它 ⇒  必然 （6 条全是占位符行）。 **修法二选一**：① 提示里补一句「回填 ，把占位...",
@@ -4240,6 +4248,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-code-gate-matches-raw-path-prefixes.md",
         "sourceArtifact": null,
         "updatedAt": "2026-10-21"
+      },
+      {
+        "name": "the-lint-baseline-artifact-must-be-regenerated-after-the-tree-is-final",
+        "kind": "project",
+        "description": "The lint baseline artifact must be regenerated after the tree is final, and it must be committed **WHAT I HIT (2026-1...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-lint-baseline-artifact-must-be-regenerated-after-the-tree-is-final.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-10-25"
       },
       {
         "name": "the-path-copies-of-claude-and-peaks-are-dispatcher-shims-not-the-programs",
