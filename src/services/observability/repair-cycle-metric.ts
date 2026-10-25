@@ -12,7 +12,7 @@
  * second one with it. Measured over this repo's own recorded history
  * (10 session dirs, 108 slices, 1102 slice-transition events) the old
  * counter put 82 of the 108 slices at or over the cap of 3, while exactly
- * ONE slice ever really reworked (`rid-t4-mut-doc-truthfulness`, 5 cycles).
+ * ONE slice ever really reworked — and it reworked FIVE times.
  * The other 81 alarms were a measurement artifact, not rework.
  *
  * So the metric is VERSIONED. Version 1 is the qa-event count — it is kept,
