@@ -61,10 +61,7 @@
       "mcpServers": {
         "peaks": {
           "command": "peaks",
-          "args": [
-            "mcp",
-            "serve"
-          ]
+          "args": ["mcp", "serve"]
         }
       },
       "skills": [

@@ -32,6 +32,8 @@ import { repoRoot } from 'peaks-loop-shared/paths';
 
 import { loadSkillRegistry, type SkillMetadata } from '../skills/skill-registry.js';
 
+import { DEFAULT_JSON_LAYOUT, renderJsonDocument, type JsonLayoutOptions } from './json-layout.js';
+
 /** Where the generator writes, relative to the package root. */
 export const PLUGIN_MANIFEST_RELATIVE_PATH = '.claude-plugin/marketplace.json';
 
@@ -53,6 +55,13 @@ interface PackageManifest {
   readonly repository?: { readonly url?: string } | string;
   readonly license?: string;
   readonly keywords?: readonly string[];
+  /**
+   * The repository's own prettier config — the source of truth for the layout the
+   * artifact is rendered in. Read from the SAME package.json the plugin-level
+   * fields come from, so the render and the check that guards it cannot disagree
+   * about the width.
+   */
+  readonly prettier?: { readonly printWidth?: number; readonly tabWidth?: number };
 }
 
 /** One plugin entry's skill list item — the shape `peaks skill:visibility` reads. */
@@ -162,9 +171,48 @@ export function generatePluginManifest(
   };
 }
 
-/** Pretty JSON, newline-terminated — the same serialization contract as the whitelist. */
-export function serializePluginManifest(manifest: GeneratedPluginManifest): string {
-  return `${JSON.stringify(manifest, null, 2)}\n`;
+/**
+ * The layout the repository's own prettier config asks for.
+ *
+ * The config file is the ONE source of truth for `printWidth`; a second copy of the
+ * number here would be a second decision, and the artifact would drift from the
+ * tool that checks it the first time either moved. Absent config falls back to
+ * prettier's own defaults.
+ */
+function jsonLayoutOf(manifest: PackageManifest): JsonLayoutOptions {
+  return {
+    printWidth: manifest.prettier?.printWidth ?? DEFAULT_JSON_LAYOUT.printWidth,
+    tabWidth: manifest.prettier?.tabWidth ?? DEFAULT_JSON_LAYOUT.tabWidth
+  };
+}
+
+/**
+ * The layout the repository's own prettier config asks for, read from the ROOT
+ * package.json. Exported so the guard that checks the artifact resolves the layout
+ * the same way the renderer does — two resolutions would be two decisions.
+ */
+export function repositoryJsonLayout(): JsonLayoutOptions {
+  return jsonLayoutOf(loadPackageManifest());
+}
+
+/**
+ * The artifact's bytes, newline-terminated — the same serialization contract as the
+ * whitelist, in the layout prettier produces for JSON.
+ *
+ * `JSON.stringify(manifest, null, 2)` used to do this, and it expanded EVERY array
+ * regardless of width, so the committed artifact was not prettier-clean. The shape
+ * is now computed by `json-layout.ts`, which implements prettier's JSON rules with
+ * ZERO dependencies — `prettier` is a devDependency, and this module ships to
+ * consumers inside `dist/**`, so it must not depend on it.
+ *
+ * The default layout is the repository's own, read from the root `package.json`;
+ * a caller rendering for another root passes the layout it resolved there.
+ */
+export function serializePluginManifest(
+  manifest: GeneratedPluginManifest,
+  options: JsonLayoutOptions = repositoryJsonLayout()
+): string {
+  return renderJsonDocument(manifest, options);
 }
 
 /** Absolute path of the committed artifact for a package root. */
@@ -189,5 +237,6 @@ export async function renderPluginManifest(root: string = repoRoot): Promise<str
     const named = skills.failures.map((failure) => failure.skillPath).join(', ');
     throw new Error(`Refusing to render the plugin manifest: unreadable skill(s): ${named}`);
   }
-  return serializePluginManifest(generatePluginManifest(loadPackageManifest(root), skills.skills));
+  const pkg = loadPackageManifest(root);
+  return serializePluginManifest(generatePluginManifest(pkg, skills.skills), jsonLayoutOf(pkg));
 }
