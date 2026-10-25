@@ -150,31 +150,68 @@ describe('peaks mut — a missing --test-files path', () => {
   }
 
   describe('(behavior) — the failure is named and happens before any work', () => {
-    for (const subcommand of SUBCOMMANDS) {
-      it(`when \`mut ${subcommand}\` names a missing test file, should fail with MUT_TEST_FILE_NOT_FOUND`, async () => {
-        // given: a Stryker invoker that must never be reached
-        const invokeStryker = vi.fn(async () => stubResult());
-        // when: the subcommand is pointed at a test file that does not exist
-        const { stderr } = await runMut(
-          argvFor(subcommand, ['tests/does-not-exist.test.ts']),
-          invokeStryker
-        );
-        // then: the envelope carries the named code, and the invoker never ran
-        const envelope = parseEnvelope(stderr);
-        expect(envelope.ok).toBe(false);
-        expect(envelope.code).toBe('MUT_TEST_FILE_NOT_FOUND');
-        expect(envelope.code).not.toBe('MUT_FAILED');
-        expect(envelope.code).not.toBe('UNHANDLED_ERROR');
-        expect(stderr).not.toContain('UNHANDLED_ERROR');
-        expect(process.exitCode).toBe(1);
-        expect(invokeStryker).not.toHaveBeenCalled();
-      });
-    }
+    it('when `mut run` names a missing test file, should fail with MUT_TEST_FILE_NOT_FOUND', async () => {
+      // given: a Stryker invoker that must never be reached
+      // when: the subcommand is pointed at a test file that does not exist
+      // then: the envelope carries the named code, and the invoker never ran
+      const invokeStryker = vi.fn(async () => stubResult());
+      const { stderr } = await runMut(
+        argvFor('run', ['tests/does-not-exist.test.ts']),
+        invokeStryker
+      );
+      const envelope = parseEnvelope(stderr);
+      expect(envelope.ok).toBe(false);
+      expect(envelope.code).toBe('MUT_TEST_FILE_NOT_FOUND');
+      expect(envelope.code).not.toBe('MUT_FAILED');
+      expect(envelope.code).not.toBe('UNHANDLED_ERROR');
+      expect(stderr).not.toContain('UNHANDLED_ERROR');
+      expect(process.exitCode).toBe(1);
+      expect(invokeStryker).not.toHaveBeenCalled();
+    });
+
+    it('when `mut mutants` names a missing test file, should fail with MUT_TEST_FILE_NOT_FOUND', async () => {
+      // given: a Stryker invoker that must never be reached
+      // when: the subcommand is pointed at a test file that does not exist
+      // then: the envelope carries the named code, and the invoker never ran
+      const invokeStryker = vi.fn(async () => stubResult());
+      const { stderr } = await runMut(
+        argvFor('mutants', ['tests/does-not-exist.test.ts']),
+        invokeStryker
+      );
+      const envelope = parseEnvelope(stderr);
+      expect(envelope.ok).toBe(false);
+      expect(envelope.code).toBe('MUT_TEST_FILE_NOT_FOUND');
+      expect(envelope.code).not.toBe('MUT_FAILED');
+      expect(envelope.code).not.toBe('UNHANDLED_ERROR');
+      expect(stderr).not.toContain('UNHANDLED_ERROR');
+      expect(process.exitCode).toBe(1);
+      expect(invokeStryker).not.toHaveBeenCalled();
+    });
+
+    it('when `mut asserts` names a missing test file, should fail with MUT_TEST_FILE_NOT_FOUND', async () => {
+      // given: a Stryker invoker that must never be reached
+      // when: the subcommand is pointed at a test file that does not exist
+      // then: the envelope carries the named code, and the invoker never ran
+      const invokeStryker = vi.fn(async () => stubResult());
+      const { stderr } = await runMut(
+        argvFor('asserts', ['tests/does-not-exist.test.ts']),
+        invokeStryker
+      );
+      const envelope = parseEnvelope(stderr);
+      expect(envelope.ok).toBe(false);
+      expect(envelope.code).toBe('MUT_TEST_FILE_NOT_FOUND');
+      expect(envelope.code).not.toBe('MUT_FAILED');
+      expect(envelope.code).not.toBe('UNHANDLED_ERROR');
+      expect(stderr).not.toContain('UNHANDLED_ERROR');
+      expect(process.exitCode).toBe(1);
+      expect(invokeStryker).not.toHaveBeenCalled();
+    });
 
     it('when the three subcommands are pointed at the same missing file, should answer identically', async () => {
       // given: three runs of the same missing path
-      const invokeStryker = vi.fn(async () => stubResult());
       // when: each subcommand runs
+      // then: one code, one exit code, one message shape
+      const invokeStryker = vi.fn(async () => stubResult());
       const envelopes: Envelope[] = [];
       for (const subcommand of SUBCOMMANDS) {
         const { stderr } = await runMut(
@@ -183,7 +220,6 @@ describe('peaks mut — a missing --test-files path', () => {
         );
         envelopes.push(parseEnvelope(stderr));
       }
-      // then: one code, one exit code, one message shape
       expect(envelopes.map((e) => e.code)).toEqual([
         'MUT_TEST_FILE_NOT_FOUND',
         'MUT_TEST_FILE_NOT_FOUND',
@@ -195,10 +231,10 @@ describe('peaks mut — a missing --test-files path', () => {
 
     it('when a test file path is a directory, should fail with a distinct named code', async () => {
       // given: a Stryker invoker that must never be reached
-      const invokeStryker = vi.fn(async () => stubResult());
       // when: the subcommand is pointed at a directory
-      const { stderr } = await runMut(argvFor('asserts', ['tests']), invokeStryker);
       // then: the code is neither "not found" nor the catch-all
+      const invokeStryker = vi.fn(async () => stubResult());
+      const { stderr } = await runMut(argvFor('asserts', ['tests']), invokeStryker);
       const envelope = parseEnvelope(stderr);
       expect(envelope.code).toBe('MUT_TEST_FILE_NOT_A_FILE');
       expect(envelope.code).not.toBe('MUT_TEST_FILE_NOT_FOUND');
@@ -208,13 +244,13 @@ describe('peaks mut — a missing --test-files path', () => {
 
     it('when a test file value is a pattern, should not report it as a missing file', async () => {
       // given: a Stryker invoker that records whether it was reached
-      const invokeStryker = vi.fn(async () => stubResult());
       // when: the subcommand is pointed at a glob pattern
+      // then: the pattern is passed through, never reported as "file not found"
+      const invokeStryker = vi.fn(async () => stubResult());
       const { stdout, stderr } = await runMut(
         argvFor('mutants', ['tests/**/*.test.ts']),
         invokeStryker
       );
-      // then: the pattern is passed through, never reported as "file not found"
       expect(stderr).not.toContain('MUT_TEST_FILE_NOT_FOUND');
       expect(stderr).not.toContain('UNHANDLED_ERROR');
       expect(invokeStryker).toHaveBeenCalledTimes(1);
@@ -223,10 +259,10 @@ describe('peaks mut — a missing --test-files path', () => {
 
     it('when a test file value is a pattern and the scanner needs files, should use the pattern code', async () => {
       // given: a Stryker invoker that must never be reached
-      const invokeStryker = vi.fn(async () => stubResult());
       // when: the assertion scan is pointed at a glob pattern
-      const { stderr } = await runMut(argvFor('asserts', ['tests/**/*.test.ts']), invokeStryker);
       // then: the outcome is named, and it is not "file not found"
+      const invokeStryker = vi.fn(async () => stubResult());
+      const { stderr } = await runMut(argvFor('asserts', ['tests/**/*.test.ts']), invokeStryker);
       const envelope = parseEnvelope(stderr);
       expect(envelope.code).toBe('MUT_TEST_FILE_PATTERN_UNSUPPORTED');
       expect(envelope.code).not.toBe('MUT_TEST_FILE_NOT_FOUND');
@@ -237,13 +273,13 @@ describe('peaks mut — a missing --test-files path', () => {
   describe('(render) — the --json envelope contract is unchanged', () => {
     it('when the failure envelope is printed, should keep stdout free of the envelope', async () => {
       // given: a Stryker invoker that must never be reached
-      const invokeStryker = vi.fn(async () => stubResult());
       // when: the subcommand fails
+      // then: stdout is empty and stderr carries exactly one JSON envelope
+      const invokeStryker = vi.fn(async () => stubResult());
       const { stdout, stderr } = await runMut(
         argvFor('mutants', ['tests/does-not-exist.test.ts']),
         invokeStryker
       );
-      // then: stdout is empty and stderr carries exactly one JSON envelope
       expect(stdout).toBe('');
       const envelope = parseEnvelope(stderr);
       expect(envelope.ok).toBe(false);
@@ -253,13 +289,13 @@ describe('peaks mut — a missing --test-files path', () => {
 
     it('when the failure envelope is printed, should carry the machine-readable detail', async () => {
       // given: a Stryker invoker that must never be reached
-      const invokeStryker = vi.fn(async () => stubResult());
       // when: the subcommand fails
+      // then: the detail names the project root, the missing path and the candidates
+      const invokeStryker = vi.fn(async () => stubResult());
       const { stderr } = await runMut(
         argvFor('asserts', ['tests/does-not-exist.test.ts']),
         invokeStryker
       );
-      // then: the detail names the project root, the missing path and the candidates
       const envelope = parseEnvelope(stderr);
       expect(envelope.data.project).toBe(project);
       expect(envelope.data.missing).toEqual(['tests/does-not-exist.test.ts']);
@@ -270,10 +306,10 @@ describe('peaks mut — a missing --test-files path', () => {
   describe('(integration) — the validator reads the project on disk', () => {
     it('when the test file exists, should run the pipeline and write the report', async () => {
       // given: a Stryker invoker that returns a measurement
-      const invokeStryker = vi.fn(async () => stubResult());
       // when: the subcommand is pointed at an existing test file
-      const { stdout } = await runMut(argvFor('mutants', ['tests/add.test.ts']), invokeStryker);
       // then: the pipeline ran, the payload is on stdout and the report is written
+      const invokeStryker = vi.fn(async () => stubResult());
+      const { stdout } = await runMut(argvFor('mutants', ['tests/add.test.ts']), invokeStryker);
       const payload = JSON.parse(stdout) as { ok: boolean; sha256: string; passed: boolean };
       expect(payload.ok).toBe(true);
       expect(payload.sha256).toMatch(/^[a-f0-9]{64}$/);
@@ -285,15 +321,15 @@ describe('peaks mut — a missing --test-files path', () => {
 
     it('when the happy path runs twice, should write the same report sha256', async () => {
       // given: a Stryker invoker that returns a measurement
-      const invokeStryker = vi.fn(async () => stubResult());
       // when: the same valid run is executed twice
+      // then: the report digest is unchanged — the pipeline's output is byte-stable
+      const invokeStryker = vi.fn(async () => stubResult());
       const first = JSON.parse(
         (await runMut(argvFor('mutants', ['tests/add.test.ts']), invokeStryker)).stdout
       ) as { sha256: string };
       const second = JSON.parse(
         (await runMut(argvFor('mutants', ['tests/add.test.ts']), invokeStryker)).stdout
       ) as { sha256: string };
-      // then: the report digest is unchanged — the pipeline's output is byte-stable
       expect(second.sha256).toBe(first.sha256);
     });
   });
@@ -301,13 +337,13 @@ describe('peaks mut — a missing --test-files path', () => {
   describe('(a11y) — the message a human reads', () => {
     it('when a test file is missing, should name it relative to the project root', async () => {
       // given: a Stryker invoker that must never be reached
-      const invokeStryker = vi.fn(async () => stubResult());
       // when: the subcommand is pointed at a missing test file
+      // then: the message names the relative path and no machine absolute path
+      const invokeStryker = vi.fn(async () => stubResult());
       const { stderr } = await runMut(
         argvFor('asserts', ['tests/does-not-exist.test.ts']),
         invokeStryker
       );
-      // then: the message names the relative path and no machine absolute path
       const envelope = parseEnvelope(stderr);
       expect(envelope.message).toContain('tests/does-not-exist.test.ts');
       expect(envelope.message).not.toContain(project);
@@ -316,13 +352,13 @@ describe('peaks mut — a missing --test-files path', () => {
 
     it('when a near-miss exists, should list at most five candidates in a stable order', async () => {
       // given: a Stryker invoker that must never be reached
-      const invokeStryker = vi.fn(async () => stubResult());
       // when: the subcommand is pointed at a missing test file
+      // then: the candidates are listed, capped at five and deterministically ordered
+      const invokeStryker = vi.fn(async () => stubResult());
       const { stderr } = await runMut(
         argvFor('asserts', ['tests/does-not-exist.test.ts']),
         invokeStryker
       );
-      // then: the candidates are listed, capped at five and deterministically ordered
       const envelope = parseEnvelope(stderr);
       const candidateLines = envelope.message
         .split('\n')
@@ -336,10 +372,10 @@ describe('peaks mut — a missing --test-files path', () => {
 
     it('when no near-miss exists, should not invent a candidate', async () => {
       // given: a Stryker invoker that must never be reached
-      const invokeStryker = vi.fn(async () => stubResult());
       // when: the subcommand is pointed at a missing file with no plausible neighbour
-      const { stderr } = await runMut(argvFor('asserts', ['tests/nothing-here.md']), invokeStryker);
       // then: the message names the file and offers nothing
+      const invokeStryker = vi.fn(async () => stubResult());
+      const { stderr } = await runMut(argvFor('asserts', ['tests/nothing-here.md']), invokeStryker);
       const envelope = parseEnvelope(stderr);
       expect(envelope.message).toContain('tests/nothing-here.md');
       expect(envelope.message).not.toContain('Near-miss candidates');
@@ -347,13 +383,13 @@ describe('peaks mut — a missing --test-files path', () => {
 
     it('when two test files are missing, should name both in one envelope', async () => {
       // given: a Stryker invoker that must never be reached
-      const invokeStryker = vi.fn(async () => stubResult());
       // when: the subcommand is pointed at two missing test files
+      // then: both are named, in a deterministic order
+      const invokeStryker = vi.fn(async () => stubResult());
       const { stderr } = await runMut(
         argvFor('asserts', ['tests/alpha-missing.test.ts', 'tests/beta-missing.test.ts']),
         invokeStryker
       );
-      // then: both are named, in a deterministic order
       const envelope = parseEnvelope(stderr);
       expect(envelope.code).toBe('MUT_TEST_FILE_NOT_FOUND');
       expect(envelope.message).toContain('tests/alpha-missing.test.ts');
