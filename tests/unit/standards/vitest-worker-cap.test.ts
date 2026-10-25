@@ -70,6 +70,39 @@ declareDimensions(
   ]
 );
 
+/**
+ * The worker count this process's policy module resolved AT IMPORT TIME.
+ *
+ * WHY THE SNAPSHOT EXISTS. The assertion this feeds used to compare `policyMaxWorkers`
+ * against the hard-coded `DEFAULT_MAX_WORKERS`, which is a CONTRADICTION the moment anybody
+ * sets `PEAKS_VITEST_MAX_WORKERS`: the policy module READS that variable to decide the worker
+ * count, so with it set to '4' the assertion could only ever read "expected 4 to be 2", and
+ * it FAILED. Measured 2026-10-25 on the full suite at 4 workers (6831 cases): this was the
+ * ONLY case that flipped between 2 and 4 workers, and it flipped because of the ENVIRONMENT,
+ * not the concurrency — which is also the evidence that 4 workers introduced no load-shaped
+ * flake. The INTENT of the assertion is "this process holds the value it imported, not the
+ * one the probe just set", so it is compared against the value the import-time ENVIRONMENT
+ * implies.
+ *
+ * THE SNAPSHOT IS TAKEN AT MODULE SCOPE, before any `it()` runs, because the probe below
+ * TEMPORARILY rewrites `process.env.PEAKS_VITEST_MAX_WORKERS` and restores it afterwards: a
+ * snapshot taken inside that `it()` would record the probe, not the import-time value.
+ *
+ * `parseOverride` IS RESTATED HERE rather than imported, because `vitest.workers.ts` does
+ * not export it and this slice does not change that module's export surface. The restated
+ * piece is the RULE; the value under test is still read back off the module itself.
+ */
+const IMPORT_TIME_OVERRIDE = process.env.PEAKS_VITEST_MAX_WORKERS;
+
+function parseOverride(raw: string | undefined): number | null {
+  if (raw === undefined || raw.trim() === '') return null;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 1) return null;
+  return Math.floor(parsed);
+}
+
+const IMPORT_TIME_WORKERS = parseOverride(IMPORT_TIME_OVERRIDE) ?? DEFAULT_MAX_WORKERS;
+
 // ── integration: the real tree ───────────────────────────────────────
 
 describe('Scenario: integration — every vitest config on disk obeys the policy', () => {
@@ -130,7 +163,7 @@ describe('Scenario: integration — every vitest config on disk obeys the policy
         );
       }
       expect(policyMaxWorkers, 'this process imported the policy before the override').toBe(
-        DEFAULT_MAX_WORKERS
+        IMPORT_TIME_WORKERS
       );
     } finally {
       if (previous === undefined) delete process.env.PEAKS_VITEST_MAX_WORKERS;

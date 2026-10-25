@@ -166,6 +166,11 @@ jobs:
         env:
           # Suppress per-platform timing flake; tests stub Date where needed.
           TZ: UTC
+          # 2026-10-25: CI runs the unit suite at 4 workers. The local default
+          # stays at 2 for determinism (see vitest.workers.ts); this job wants
+          # the wall clock back. Measured on the full suite: 854.74 s at 2
+          # workers, 489-534 s at 4, with no load-shaped flake reproduced.
+          PEAKS_VITEST_MAX_WORKERS: '4'
 
       - name: Test workspace packages
         # Slice a5 (2026-09-29) — the package leg, scheduled. `pnpm -r
@@ -774,6 +779,91 @@ jobs:
         # `.husky/format-check-ratchet.mjs` — so neither the scope nor the number is
         # spelled twice here and left to drift (§2.28).
         run: node .husky/format-check-ratchet.mjs
+
+  # THE UNIT SUITE'S WALL CLOCK, AS A NUMBER SOMEONE CAN SEE.
+  #
+  # WHY THIS JOB EXISTS. The repository carries fourteen `.husky/` gates and NOT ONE of
+  # them measured how long the unit suite takes or how many test files it has. Measured
+  # 2026-10-25 (win32, 16 cores, vitest 4.1.10): the full suite took 854.74 s at 2
+  # workers (629 files, 6831 cases) and 489-534 s at 4; the file count grew ~+9.1 files a
+  # day since 2026-08-05 (54 files on 08-05, 630 on 10-25); and the `test` job above
+  # carries `timeout-minutes: 60` and had never set `PEAKS_VITEST_MAX_WORKERS`, so CI ran
+  # at 2 workers too. The growth was therefore SILENT: the first signal was the job
+  # timeout, which reports a symptom with no cause attached. This job makes the number
+  # visible and enforced BEFORE that happens.
+  #
+  # WHY ubuntu-ONLY, AND WHAT THAT COSTS. A wall clock is only comparable on one machine:
+  # the seed was measured on win32 and this job enforces on ubuntu, so the two are not the
+  # same quantity. The windows and macos runners are SLOWER, not faster, so running the
+  # gate there would only ever redden it for a reason that has nothing to do with the suite
+  # getting slower — and a gate that goes red for the wrong reason is a gate people learn
+  # to bypass. THE COST IS STATED, NOT HIDDEN: the windows and macos cells' durations are
+  # NOT enforced by this gate, and the `test` job's own `timeout-minutes: 60` is what
+  # still bounds them.
+  #
+  # WHY A SEPARATE JOB AND NOT A REUSE OF THE `test` JOB'S REPORT. Measuring yourself is
+  # the point: this job runs the suite itself, on the machine whose clock the ceiling is
+  # enforced on, so the measurement and the comparison share their conditions. Reusing
+  # another job's report would compare a number measured under one set of conditions with a
+  # ceiling enforced under another. THE COST IS STATED TOO: one more ubuntu runner, running
+  # in parallel with the `test` matrix, so it does not lengthen the critical path.
+  #
+  # WHY THIS JOB RUNS THE SUITE ITSELF. The `coverage-ratchet` job below does exactly the
+  # same thing, for the same reason: a floor cannot be enforced against a report some other
+  # job produced, because that report's conditions are not this gate's conditions.
+  #
+  # `timeout-minutes: 50` sits ABOVE the 2700 s (45 min) ceiling ON PURPOSE: the gate must
+  # be the thing that reports a slow suite, not the job timeout that kills the runner first.
+  # It also sits BELOW the `test` job's own 60-minute limit, which is the limit this gate
+  # exists to sound before.
+  #
+  # NO `continue-on-error`, NO `|| true`. A step that cannot fail is exactly the defect this
+  # gate exists to end — and it is the shape the `format-check` job's own comment names.
+  test-duration-ratchet:
+    name: 'unit suite duration ceiling (wall clock, monotonic)'
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The HEAD anchor. `readHeadCeiling()` in `.husky/test-duration-ratchet.mjs`
+          # reads the previous ceiling with `git show HEAD:…`, and @v4 defaults to depth 1
+          # — so without this the anchor silently finds nothing to compare against and a
+          # hand-relaxed ceiling passes unnoticed. The `coverage-ratchet` job below pays
+          # this for the same reason.
+          fetch-depth: 0
+
+      - name: Setup pnpm (corepack)
+        # Same reason as the other jobs here: pnpm/action-setup's self-installer fails on
+        # the runner's default Node 24.
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.11.0 --activate
+          pnpm --version
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        # The unit suite's `globalSetup` requires `packages/*/dist`, so this job needs the
+        # same Build step every other job here has.
+        run: npm run build
+
+      - name: Test duration ceiling
+        # ONE step, ONE script, and NO ARGUMENTS — the wiring test matches this `run:`
+        # value as a WHOLE, so an argument here is a red wiring test. The ratchet measures
+        # the suite, compares the measured wall clock against
+        # `.peaks/lint/test-duration-ceiling.json`, prints the population it measured on
+        # every run, and fails when the suite is slower than the ceiling.
+        run: node .husky/test-duration-ratchet.mjs
+        env:
+          PEAKS_VITEST_MAX_WORKERS: '4'
+          TZ: UTC
 
   # THE COVERAGE FLOOR — the defect it closes. CI enforced no coverage floor at all, so
   # coverage could regress silently and nothing noticed. The repository's strict

@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "generatedAt": "2026-10-25T13:05:00.000Z",
+  "note": "The wall-clock ceiling for the unit suite. MEASURED (never typed), ENFORCED (a blocking CI job), MONOTONIC (the ceiling may only fall). The seed is deliberately loose: it was measured on win32 at 4 workers (534.1 s) and is enforced on ubuntu, so the cross-machine gap is real and is recorded here rather than hidden. The first CI run tightens it with --tighten. testFiles and testCases are RECORDED, not enforced: the file count is a leading indicator of the duration, not a second bar on the same thing.",
+  "population": {
+    "glob": "tests/unit/**/*.test.ts",
+    "source": "git ls-files",
+    "files": 629
+  },
+  "ceiling": {
+    "wallSeconds": 2700,
+    "maxWorkers": 4
+  },
+  "measured": {
+    "wallSeconds": 534.1,
+    "testFiles": 629,
+    "testCases": 6831,
+    "measuredOn": "win32",
+    "measuredAt": "2026-10-25T12:55:10.000Z"
+  },
+  "command": "node .husky/test-duration-ratchet.mjs"
+}
