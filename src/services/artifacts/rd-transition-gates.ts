@@ -52,8 +52,11 @@ import { listSessionRdArtifactIds, readRidChangeClaims } from '../scan/rid-chang
 import { slugifyDescription } from '../../shared/incrementing-number.js';
 import { normalizePath } from '../../shared/path-utils.js';
 import {
-  bypassedGateIds,
+  bypassReason,
+  claimTableReason,
   gateLabel,
+  liveGateIds,
+  notedGateIds,
   rdGateRecorder,
   type RdGateRecorder
 } from './rd-gate-event.js';
@@ -89,7 +92,7 @@ export class TypeCorroborationViolationError extends Error {
 /** Written into the artifact when `--allow-incomplete` skips a gate that COULD
  *  have judged this type: a silent bypass is indistinguishable from a pass. */
 export function rdGatesBypassNote(phase: RdGatePhase): string {
-  const gates = bypassedGateIds(phase)
+  const gates = notedGateIds(phase)
     .map((gateId) => gateLabel(gateId))
     .join(', ');
   return (
@@ -98,17 +101,14 @@ export function rdGatesBypassNote(phase: RdGatePhase): string {
   );
 }
 
-/**
- * The gates a bypassed transition skipped, each with its own event. The note
- * names them, and a reader has to be able to ask which one was never
- * evaluated — one aggregate event per transition cannot answer that.
- */
-function reportBypass(record: RdGateRecorder, phase: RdGatePhase): string {
-  const note = rdGatesBypassNote(phase);
-  for (const gateId of bypassedGateIds(phase)) {
-    record(gateId, 'bypass', { reason: note });
+/** The gates a bypassed transition skipped, each with its own event: every
+ *  gate that was LIVE for the transition and did not run. The live set is not
+ *  the note's list — see `liveGateIds`. */
+function reportBypass(record: RdGateRecorder, phase: RdGatePhase, judged: boolean): string | null {
+  for (const gateId of liveGateIds(phase, judged)) {
+    record(gateId, 'bypass', { reason: bypassReason(gateId, phase) });
   }
-  return note;
+  return judged ? rdGatesBypassNote(phase) : null;
 }
 
 /** The shared read, or the fail-closed verdict built from the same message. */
@@ -122,7 +122,11 @@ function readOrRefuse(
   } catch {
     const verdict = diffUnavailableVerdict(declaredType);
     // BEFORE the throw: after it the event would never fire, and "the diff
-    // could not be read" is one of the facts this stream exists to keep.
+    // could not be read" is one of the facts this stream exists to keep. IT IS
+    // THE CLAIM TABLE'S BLOCK, because the criterion is which gate could not be
+    // EVALUATED: the working-tree diff is the precondition the claim table
+    // needs. The verdict function living in the type-corroboration module is
+    // incidental.
     record('claim-table', 'block', { violationKind: 'diff-unavailable', reason: verdict.message });
     throw new TypeCorroborationViolationError(declaredType, verdict);
   }
@@ -203,8 +207,9 @@ function judgeDeclaredType(options: {
   } else {
     note = fallbackDisabledNote(options.sessionId, missing.length, artifactIds.length);
     // The fallback STOOD DOWN — it did not pass. A bypass says so; a pass
-    // would claim a check that never ran.
-    options.record('claim-table', 'bypass', { reason: note });
+    // would claim a check that never ran, and the reason says WHICH stand-down.
+    const standDown = claimTableReason(artifactIds.length, missing.length);
+    options.record('claim-table', 'bypass', { reason: standDown });
   }
 
   // (B) The rid's own declaration; the whole working tree when it declared none.
@@ -264,7 +269,7 @@ export function runRdTransitionGates(options: {
   });
   const judged = isToolingOnlyDeclaredType(options.declaredType);
   if (options.allowIncomplete) {
-    return judged ? reportBypass(record, options.phase) : null;
+    return reportBypass(record, options.phase, judged);
   }
   if (!judged) {
     // The size ratchet still runs at implemented; the type rule is a no-op here.

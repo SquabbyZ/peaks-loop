@@ -35,7 +35,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { emitRdGateEvent } from '~/src/services/artifacts/rd-gate-event.js';
+import { emitRdGateEvent, liveGateIds } from '~/src/services/artifacts/rd-gate-event.js';
+import type { RequestType } from '~/src/services/artifacts/artifact-prerequisites.js';
 import {
   rdGatesBypassNote,
   runRdTransitionGates
@@ -125,17 +126,18 @@ function put(root: string, relPath: string): void {
   writeFileSync(full, 'export const x = 1;\n', 'utf8');
 }
 
-/** The gate, run for the slice as a `docs` request. */
+/** The gate, run for the slice. */
 function gate(
   root: string,
   options: {
     allowIncomplete?: boolean;
     phase?: 'implemented' | 'qa-handoff' | 'handed-off';
+    declaredType?: RequestType;
   } = {}
 ): string | null {
   return runRdTransitionGates({
     projectRoot: root,
-    declaredType: 'docs',
+    declaredType: options.declaredType ?? 'docs',
     allowIncomplete: options.allowIncomplete ?? false,
     phase: options.phase ?? 'implemented',
     requestId: RID,
@@ -309,22 +311,74 @@ describe('Scenario: integration — the gate layer speaks for itself', () => {
     ]);
   });
 
-  it('when the gates are bypassed, should record a bypass for each skipped gate with the note verbatim', () => {
+  it('when the gates are bypassed, should record a bypass for every live gate', () => {
     // given: a docs rid whose gates are about to be skipped
     // when: the gate runs with --allow-incomplete
-    // then: the note is the one the artifact already carries, and each skipped
-    //       gate has its own bypass event carrying it
+    // then: the note is the one the artifact already carries, and EVERY live
+    //       gate has its own bypass — including the claim table, which the
+    //       note does not name
     const root = makeRepo();
     writeArtifact(root, RID, ['docs/a.md']);
     const note = gate(root, { allowIncomplete: true });
     expect(note).toBe(rdGatesBypassNote('implemented'));
     expect(gateEvents(root)).toEqual([
       'file-size-ratchet=bypass',
-      'declared-type-corroboration=bypass'
+      'declared-type-corroboration=bypass',
+      'claim-table=bypass'
     ]);
-    for (const detail of gateDetails(root)) {
-      expect(detail['reason']).toBe(note);
+  });
+
+  it('when a gate is bypassed, should say why THAT gate was not evaluated', () => {
+    // given: a docs rid whose gates are about to be skipped
+    // when: the gate runs with --allow-incomplete
+    // then: each bypass carries its OWN reason — the shared note cannot be the
+    //       reason for a gate it does not name
+    const root = makeRepo();
+    writeArtifact(root, RID, ['docs/a.md']);
+    gate(root, { allowIncomplete: true });
+    const details = gateDetails(root);
+    expect(details).toHaveLength(3);
+    for (const detail of details) {
+      expect(String(detail['reason'])).toContain('was not evaluated');
+      expect(detail['reason']).not.toBe(rdGatesBypassNote('implemented'));
     }
+  });
+
+  it('when a product slice is bypassed, should record the size ratchet as bypassed', () => {
+    // given: a slice whose declared type is not tooling-only — the type rule
+    //        and the claim table are NOT live for it, but the size ratchet is
+    // when: the gate runs with --allow-incomplete
+    // then: the live gate is on the record, and the not-live ones are not
+    const root = makeRepo();
+    const note = gate(root, { allowIncomplete: true, declaredType: 'feature' });
+    expect(note).toBeNull();
+    expect(gateEvents(root)).toEqual(['file-size-ratchet=bypass']);
+  });
+
+  it('when a product slice runs its gates, should record the size ratchet and no type-rule event', () => {
+    // given: a slice whose declared type is not tooling-only
+    // when: the gate runs
+    // then: only the size ratchet is live, so only it is on the record
+    const root = makeRepo();
+    const note = gate(root, { declaredType: 'feature' });
+    expect(note).toBeNull();
+    expect(gateEvents(root)).toEqual(['file-size-ratchet=pass']);
+  });
+
+  it('when the live gates are asked for, should name the checks that were applicable', () => {
+    // given: the three phases and the two declared-type shapes
+    // when: the live set is read for each shape
+    // then: it names the checks the gate would have run, and nothing else
+    expect(liveGateIds('implemented', true)).toEqual([
+      'file-size-ratchet',
+      'declared-type-corroboration',
+      'claim-table'
+    ]);
+    expect(liveGateIds('implemented', false)).toEqual(['file-size-ratchet']);
+    expect(liveGateIds('qa-handoff', true)).toEqual(['declared-type-corroboration', 'claim-table']);
+    expect(liveGateIds('qa-handoff', false)).toEqual([]);
+    expect(liveGateIds('handed-off', true)).toEqual(['declared-type-corroboration', 'claim-table']);
+    expect(liveGateIds('handed-off', false)).toEqual([]);
   });
 
   it('when the claim table cannot be completed, should record a bypass for the claim table', () => {
@@ -341,5 +395,19 @@ describe('Scenario: integration — the gate layer speaks for itself', () => {
     const note = gate(root);
     expect(note).not.toBeNull();
     expect(gateEvents(root)).toContain('claim-table=bypass');
+    const detail = gateDetails(root).find((entry) => entry['gateId'] === 'claim-table');
+    expect(String(detail?.['reason'])).toContain('1 of 2 RD artifacts');
+  });
+
+  it('when the session has no rd artifact, should say the claim table stood down for that reason', () => {
+    // given: a session with no rd artifact at all — nobody declares any path
+    // when: the gate runs
+    // then: the claim table stood down, and the reason says WHICH cause
+    const root = makeRepo();
+    const note = gate(root);
+    expect(note).not.toBeNull();
+    expect(gateEvents(root)).toContain('claim-table=bypass');
+    const detail = gateDetails(root).find((entry) => entry['gateId'] === 'claim-table');
+    expect(String(detail?.['reason'])).toContain('no RD artifact');
   });
 });

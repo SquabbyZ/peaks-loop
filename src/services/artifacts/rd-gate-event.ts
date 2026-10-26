@@ -40,27 +40,112 @@ const GATE_LABELS: Record<RdGateId, string> = {
 };
 
 /**
- * The gates a bypassed transition skips, per phase. The size ratchet only
- * runs at `implemented`, so the two later phases skip one gate, not two.
+ * The gates the bypass NOTE names, per phase. This is NOT the live set: the
+ * note names the gates a reader is TOLD about, while `liveGateIds` is the set
+ * of checks that were actually APPLICABLE — a gate that was live and skipped
+ * has to be recorded even when the note does not name it.
  *
- * The bypass NOTE and this list are two readings of ONE table: the note's
- * prose is built from these ids, so the text that names the skipped gates
- * cannot drift from the events that name them.
+ * The note and this list are two readings of ONE table: the note's prose is
+ * built from these ids, so the text that names the skipped gates cannot drift
+ * from the prose the artifact carries.
  */
-const BYPASSED_GATE_IDS: Record<RdGatePhase, readonly RdGateId[]> = {
+const NOTED_GATE_IDS: Record<RdGatePhase, readonly RdGateId[]> = {
   implemented: ['file-size-ratchet', 'declared-type-corroboration'],
   'qa-handoff': ['declared-type-corroboration'],
   'handed-off': ['declared-type-corroboration']
 };
 
-/** The ids of the gates a bypassed transition skips, in the note's order. */
-export function bypassedGateIds(phase: RdGatePhase): readonly RdGateId[] {
-  return BYPASSED_GATE_IDS[phase];
+/** The ids of the gates the bypass note names, in the note's order. */
+export function notedGateIds(phase: RdGatePhase): readonly RdGateId[] {
+  return NOTED_GATE_IDS[phase];
+}
+
+/**
+ * The gates that are LIVE for a transition: the checks that WOULD run if the
+ * transition were not bypassed.
+ *
+ * A live gate that produced no verdict was SKIPPED; a gate that is not live
+ * was never applicable to that transition. The two must be tellable apart, or
+ * a skipped gate is indistinguishable from a gate that does not exist for the
+ * slice — the invisible state this stream exists to remove.
+ *
+ * DERIVED FROM THE SOURCE, not from the note. `runRdTransitionGates` runs the
+ * size ratchet at `implemented` and, for a declared type that is NOT
+ * tooling-only, runs NOTHING else — the type rule is a no-op there and the
+ * claim table is never read. For a tooling-only declared type the type rule
+ * and the claim table run at every phase, and the size ratchet joins them at
+ * `implemented`.
+ */
+const LIVE_GATE_IDS: Record<RdGatePhase, Record<'tooling' | 'product', readonly RdGateId[]>> = {
+  implemented: {
+    tooling: ['file-size-ratchet', 'declared-type-corroboration', 'claim-table'],
+    product: ['file-size-ratchet']
+  },
+  'qa-handoff': {
+    tooling: ['declared-type-corroboration', 'claim-table'],
+    product: []
+  },
+  'handed-off': {
+    tooling: ['declared-type-corroboration', 'claim-table'],
+    product: []
+  }
+};
+
+/**
+ * The gates that are live for a transition, by its phase and by whether the
+ * declared type is tooling-only.
+ */
+export function liveGateIds(phase: RdGatePhase, judged: boolean): readonly RdGateId[] {
+  return LIVE_GATE_IDS[phase][judged ? 'tooling' : 'product'];
 }
 
 /** The prose the bypass note uses for one gate id. */
 export function gateLabel(gateId: RdGateId): string {
   return GATE_LABELS[gateId];
+}
+
+/**
+ * What each gate was NOT able to check, when the transition was bypassed.
+ */
+const BYPASS_DETAIL: Record<RdGateId, string> = {
+  'file-size-ratchet': ', so no file was measured against the cap',
+  'declared-type-corroboration': ', so the declared type was never judged against the change set',
+  'claim-table': ', so no rid claim was checked against the working tree'
+};
+
+/**
+ * Why ONE gate did not run, when the transition was bypassed.
+ *
+ * PER GATE, not the shared note: the note the artifact carries names the
+ * skipped gates in prose, and it does not name every gate that stood down —
+ * so it cannot be the reason for all of them. The note stays the prose; this
+ * is the machine-facing explanation.
+ */
+export function bypassReason(gateId: RdGateId, phase: RdGatePhase): string {
+  return (
+    `the ${gateLabel(gateId)} was not evaluated: --allow-incomplete bypassed the rd ` +
+    `${phase} gates${BYPASS_DETAIL[gateId]}`
+  );
+}
+
+/**
+ * Why the claim table could not be evaluated. The causes are DIFFERENT facts
+ * — no artifact at all, or a table some rid never filled in — and a consumer
+ * has to be able to tell them apart. (The third cause, a diff that could not
+ * be obtained, is a `block` with its own `violationKind`.)
+ */
+export function claimTableReason(artifactCount: number, missingCount: number): string {
+  if (artifactCount === 0) {
+    return (
+      'the claim table could not be evaluated: the session has no RD artifact, so no rid ' +
+      'declares the paths it touched and an unclaimed source change cannot be ruled out'
+    );
+  }
+  return (
+    `the claim table could not be evaluated: ${missingCount} of ${artifactCount} RD artifacts ` +
+    'declare no "## Changed paths" section, and an incomplete table cannot prove that no ' +
+    'source change is unclaimed'
+  );
 }
 
 /** The transition a gate decision belongs to. */
