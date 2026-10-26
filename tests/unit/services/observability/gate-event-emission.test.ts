@@ -30,7 +30,7 @@
 //   - a11y:       OMITTED — no human-visible message originates here
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -171,6 +171,7 @@ describe('Scenario: behavior — the emitter records one decision and never thro
       sliceRid: RID,
       gateId: 'file-size-ratchet',
       phase: 'implemented',
+      declaredType: 'docs',
       outcome: 'pass'
     });
     const events = readObservabilityEvents(root, SESSION_ID);
@@ -195,6 +196,7 @@ describe('Scenario: behavior — the emitter records one decision and never thro
       sliceRid: RID,
       gateId: 'claim-table',
       phase: 'implemented',
+      declaredType: 'docs',
       outcome: 'block',
       violationKind: 'source-unclaimed',
       reason: 'no request artifact claimed src/x.ts'
@@ -217,6 +219,7 @@ describe('Scenario: behavior — the emitter records one decision and never thro
         sliceRid: RID,
         gateId: 'file-size-ratchet',
         phase: 'implemented',
+        declaredType: 'docs',
         outcome: 'pass'
       })
     ).not.toThrow();
@@ -309,6 +312,47 @@ describe('Scenario: integration — the gate layer speaks for itself', () => {
       'declared-type-corroboration=pass',
       'file-size-ratchet=pass'
     ]);
+  });
+
+  it('when a gate decision is recorded, should carry the declared type it was judged under', () => {
+    // given: a docs slice whose gate has run
+    // when: the gate runs
+    // then: every gate event carries the declared type, so the live set can be
+    //       computed from the events ALONE — the artifact may have moved on
+    const root = makeRepo();
+    writeArtifact(root, RID, ['docs/a.md']);
+    gate(root);
+    for (const detail of gateDetails(root)) {
+      expect(detail['declaredType']).toBe('docs');
+    }
+  });
+
+  it('when the request artifact is retagged afterwards, should still carry the type the transition ran under', () => {
+    // given: a docs slice whose gate has run, and whose artifact is then
+    //        retagged to another type — `peaks request retag` does exactly
+    //        this, with no state guard
+    // when: the gate event is read back off disk
+    // then: it carries the type the transition judged, not the current one —
+    //       a metric that has to re-read the artifact is not reproducible
+    const root = makeRepo();
+    writeArtifact(root, RID, ['docs/a.md']);
+    gate(root);
+    const artifact = join(
+      root,
+      '.peaks',
+      '_runtime',
+      SESSION_ID,
+      'rd',
+      'requests',
+      `001-${RID}.md`
+    );
+    writeFileSync(
+      artifact,
+      readFileSync(artifact, 'utf8').replace('- type: docs', '- type: feature'),
+      'utf8'
+    );
+    const detail = gateDetails(root).find((entry) => entry['gateId'] === 'claim-table');
+    expect(detail?.['declaredType']).toBe('docs');
   });
 
   it('when the gates are bypassed, should record a bypass for every live gate', () => {

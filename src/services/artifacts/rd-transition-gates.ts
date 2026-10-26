@@ -26,9 +26,10 @@
  * a silently skipped check is indistinguishable from a passing one.
  *
  * EVERY DECISION IS RECORDED. Each gate that runs emits one `gate` event
- * carrying its stable id and what it decided (`pass` / `block` / `bypass`), so
- * the layer that decides can be read back instead of inferred from the absence
- * of an error. A refusal is recorded BEFORE it is thrown.
+ * carrying its stable id, the phase, the declared type and what it decided
+ * (`pass` / `block` / `bypass`), so the layer that decides can be read back
+ * instead of inferred from the absence of an error. A refusal is recorded
+ * BEFORE it is thrown.
  */
 import type { RequestType } from './artifact-prerequisites.js';
 import {
@@ -232,10 +233,8 @@ function judgeDeclaredType(options: {
   return { ok: true, note };
 }
 
-/**
- * The size ratchet, and the event that records what it decided. The refusal
- * is recorded BEFORE the throw — after it the event would never fire.
- */
+/** The size ratchet, and the event that records what it decided. The refusal
+ *  is recorded BEFORE the throw — after it the event would never fire. */
 function runSizeRatchet(
   record: RdGateRecorder,
   projectRoot: string,
@@ -265,7 +264,8 @@ export function runRdTransitionGates(options: {
     projectRoot: options.projectRoot,
     sessionId: options.sessionId,
     sliceRid: options.requestId,
-    phase: options.phase
+    phase: options.phase,
+    declaredType: options.declaredType
   });
   const judged = isToolingOnlyDeclaredType(options.declaredType);
   if (options.allowIncomplete) {

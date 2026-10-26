@@ -24,6 +24,7 @@
  */
 import { emitObservabilityEvent } from '../observability/observability-service.js';
 import { OBSERVABILITY_SCHEMA_VERSION } from '../observability/observability-schema.js';
+import type { RequestType } from './artifact-prerequisites.js';
 import type { RdGatePhase, RdGateViolationKind } from './rd-transition-gates.js';
 
 /** The gates the RD transition layer decides, by their stable ids. */
@@ -154,6 +155,16 @@ export type RdGateContext = {
   readonly sessionId: string;
   readonly sliceRid: string;
   readonly phase: RdGatePhase;
+  /**
+   * The declared type of the slice, as the transition judged it. It travels
+   * with the event because the LIVE SET depends on it: a consumer that wants
+   * to know whether a gate was applicable has to read it HERE, not from the
+   * request artifact — `peaks request retag` rewrites the artifact's type
+   * line with no state guard, so the artifact carries the CURRENT type, not
+   * the type the transition ran under. A metric that has to re-read mutable
+   * session state is not reproducible from the events alone.
+   */
+  readonly declaredType: RequestType;
 };
 
 /** The decision half of a gate event: what the gate decided, and why. */
@@ -185,6 +196,11 @@ export function rdGateRecorder(context: RdGateContext): RdGateRecorder {
 /**
  * Record ONE gate decision in the session's observability stream.
  *
+ * The detail carries the DECLARED TYPE, not a derived "was this slice
+ * tooling-only" boolean: the type is the more informative datum, and a consumer
+ * that has to re-read the request artifact to learn whether a gate was live
+ * cannot reproduce the answer from the events alone.
+ *
  * The optional fields carry `| undefined` on purpose: this repository
  * compiles with `exactOptionalPropertyTypes`, so a caller that forwards a
  * possibly-absent value could not pass it to a plain optional property.
@@ -195,6 +211,7 @@ export function emitRdGateEvent(opts: {
   readonly sliceRid: string;
   readonly gateId: RdGateId;
   readonly phase: RdGatePhase;
+  readonly declaredType: RequestType;
   readonly outcome: RdGateOutcome;
   readonly violationKind?: RdGateViolationKind | undefined;
   readonly reason?: string | undefined;
@@ -202,6 +219,7 @@ export function emitRdGateEvent(opts: {
   const detail: Record<string, unknown> = {
     gateId: opts.gateId,
     phase: opts.phase,
+    declaredType: opts.declaredType,
     outcome: opts.outcome
   };
   if (opts.violationKind !== undefined) detail['violationKind'] = opts.violationKind;

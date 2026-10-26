@@ -340,6 +340,7 @@ git commit -m "feat(observability): attribute the historical prereq failures wit
     readonly sliceRid: string;
     readonly gateId: RdGateId;
     readonly phase: RdGatePhase;
+    readonly declaredType: RequestType;
     readonly outcome: RdGateOutcome;
     readonly violationKind?: 'source-touched' | 'source-unclaimed' | 'diff-unavailable';
     readonly reason?: string;
@@ -360,7 +361,7 @@ git commit -m "feat(observability): attribute the historical prereq failures wit
   **修订（2026-10-27）**：`emitGateEvent` **不进 `observability-service.ts`**（该文件 285 行 / 上限 300）。它落在新建的 `src/services/artifacts/rd-gate-event.ts`，直接调 `emitObservabilityEvent`（与 `prerequisite-transition-event.ts` 同形）。`observability-service.ts` 不改。
   `ObservabilityEvent.category` 新增 `'gate'`；`detail` 形状：
   ```ts
-  { gateId: string; phase: string; outcome: 'pass'|'block'|'bypass'; violationKind?: string; reason?: string }
+  { gateId: string; phase: string; declaredType: string; outcome: 'pass'|'block'|'bypass'; violationKind?: string; reason?: string }
   ```
   **修订（2026-10-27，Task 3 的第二轮修复）**：`detail` 还要带 **`declaredType`**（声明类型字符串本身，不是派生的 boolean）。**理由**：近失计算要问"这个门禁当时是否生效"，而 `liveGateIds(phase, judged)` 需要 `judged`。**不能去读请求 artifact 拿类型** —— `peaks request retag` 改写 `- type:` 行时**没有任何状态守卫**（`src/services/artifacts/request-retag-service.ts:114-147`），磁盘上的类型是**当前**类型而非当时那次迁移的类型。一个 `docs` slice 在 `implemented` 之后被 retag 成 `feature`，artifact 就会给出**错的**生效集合。事件自带类型，这条路就断了。
 
