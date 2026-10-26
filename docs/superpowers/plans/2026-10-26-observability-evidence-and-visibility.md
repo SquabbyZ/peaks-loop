@@ -362,6 +362,7 @@ git commit -m "feat(observability): attribute the historical prereq failures wit
   ```ts
   { gateId: string; phase: string; outcome: 'pass'|'block'|'bypass'; violationKind?: string; reason?: string }
   ```
+  **修订（2026-10-27，Task 3 的第二轮修复）**：`detail` 还要带 **`declaredType`**（声明类型字符串本身，不是派生的 boolean）。**理由**：近失计算要问"这个门禁当时是否生效"，而 `liveGateIds(phase, judged)` 需要 `judged`。**不能去读请求 artifact 拿类型** —— `peaks request retag` 改写 `- type:` 行时**没有任何状态守卫**（`src/services/artifacts/request-retag-service.ts:114-147`），磁盘上的类型是**当前**类型而非当时那次迁移的类型。一个 `docs` slice 在 `implemented` 之后被 retag 成 `feature`，artifact 就会给出**错的**生效集合。事件自带类型，这条路就断了。
 
 - [ ] **Step 1: 写失败的测试**
 
@@ -398,7 +399,7 @@ Expected: FAIL —— `emitGateEvent` 不存在
 
 > **修订（2026-10-27，实施时核对源码后更正）**：本表原先把三个 violation kind 全归给 `claim-table`，同时又把 `declared-type-corroboration` 列为同一分支里的独立判定点 —— 两者自相矛盾。上表是**按源码核对后**的归属：每个判定点一个事件，每个 kind 一个门禁 id。**kind 与判定点的对应以源码为准，不以本表为准。**
 
-**`allowIncomplete` 提前返回的那条路径**：发 `outcome: 'bypass'`，`reason` 用现成的 `rdGatesBypassNote(options.phase)` 返回值。
+**`allowIncomplete` 提前返回的那条路径**：为**每一个当时生效的门禁**发一条 `outcome: 'bypass'`（生效集合由适用性表 `liveGateIds(phase, judged)` 给出 —— **不是**由 note 点名的门禁给出，note 只点名其中几个）。每条 bypass **带自己的 `reason`**；`rdGatesBypassNote(options.phase)` 那段散文**保持原样**（文本被既有测试逐字钉死），它继续是**给人看**的那一份，不作为任何一条门禁的 reason。
 
 **`block` 事件必须在 `throw` 之前发出** —— 抛了就永远发不出"这个门禁拦下了一次"的记录。
 
@@ -546,9 +547,13 @@ Expected: FAIL —— 模块不存在
 
 - **修订（2026-10-27，Task 3 的评审之后）—— 规则 1 变强了。** 上面那条规则**依赖 bypass 事件存在**；一个被跳过却没发事件的门禁，会从这条规则里**彻底消失**（既不是 bypass 也不是 pass），于是近失率**少算**。Task 3 的评审正是抓到了两条这样的路径（其中一条实施者没有披露）。
 
-  **新规则 1（更强）：对每一个通过的 slice，取它在最终迁移上"当时生效"的门禁集合；若其中某个门禁在该 slice 内既没有 `pass` 也没有 `block` 事件，即为近失** —— **不依赖 bypass 事件是否存在**。bypass 事件仍然是这类近失的**首要证据**，但规则本身不再依赖它。
+  **新规则 1（更强）：对每一个通过的 slice，取它**所有门禁事件**上"当时生效"的门禁集合的**并集**；若并集中某个门禁在该 slice 内既没有 `pass` 也没有 `block` 事件，即为近失** —— **不依赖 bypass 事件是否存在**。bypass 事件仍然是这类近失的**首要证据**，但规则本身不再依赖它。
 
-  "当时生效"的门禁集合由 Task 3 导出的**适用性函数**给出（Task 3 的 `liveGateIds(phase, judged)`）：一个门禁对某次迁移**不生效**（按设计就是 no-op，例如类型规则对 feature slice、尺寸棘轮在 `qa-handoff`/`handed-off`）→ **不发事件**，于是"没有事件"就**无歧义地**等于"当时不生效"，而不可能是"生效了但被跳过却没记"。
+  **必须是并集，不是"最终迁移那一次"**：尺寸棘轮**只在 `implemented` 生效**。一个在 `implemented` 被跳过、后来推进到 `qa-handoff` 的 feature slice，其"最终迁移"的生效集合是**空的** —— 只看最终迁移就会漏掉它在 `implemented` 上那次跳过，而那正是这条规则要抓的。
+
+  生效集合由 Task 3 导出的**适用性函数**给出（`liveGateIds(phase, judged)`），其中 `phase` 与 `judged` **都取自门禁事件自己的字段**（门禁事件带 `phase`，并按 Ruling 13 带 `declaredType`）。**不去读请求 artifact** —— `peaks request retag` 改写 `- type:` 行时**没有任何状态守卫**，磁盘上的类型是**当前**类型，不是当时那次迁移的类型（一个 `docs` slice 在 `implemented` 之后被 retag 成 `feature`，artifact 就会给出错的生效集合）。
+
+  **没有产生任何门禁事件的迁移不进并集**：它要么当时没有生效的门禁，要么在记录之前就抛错了（那种迁移没有推进 slice；若 slice 后来通过了，靠后续迁移的门禁事件供给并集）。
 
 - [ ] **Step 4: 写失败测试（CLI 层）**
 
