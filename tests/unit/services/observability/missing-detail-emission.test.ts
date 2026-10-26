@@ -73,24 +73,29 @@ const FAILED_RESULT: PrerequisiteCheckResult = {
   warnings: []
 };
 
+/** Emit a transition event for `result` and read the recorded detail back. */
+function emitAndRead(result: PrerequisiteCheckResult): Record<string, unknown> {
+  const root = projectRoot();
+  emitPrereqTransitionEvent({
+    projectRoot: root,
+    sessionId: SESSION_ID,
+    role: 'rd',
+    newState: 'qa-handoff',
+    requestId: 'slice-1',
+    result
+  });
+  const events = readObservabilityEvents(root, SESSION_ID);
+  const transition = events.find((event) => event.category === 'slice-transition');
+  if (transition === undefined) throw new Error('no slice-transition event was recorded');
+  return transition.detail;
+}
+
 describe('Scenario: behavior — the transition event keeps the missing-artifact list', () => {
   it('when a transition fails on missing artifacts, should record each one with its owner', () => {
     // given: a prerequisite check that failed on two missing artifacts
     // when: the transition event is emitted for that session
     // then: the recorded detail names both artifacts and the skill that owns each
-    const root = projectRoot();
-    emitPrereqTransitionEvent({
-      projectRoot: root,
-      sessionId: SESSION_ID,
-      role: 'rd',
-      newState: 'qa-handoff',
-      requestId: 'slice-1',
-      result: FAILED_RESULT
-    });
-    const events = readObservabilityEvents(root, SESSION_ID);
-    const transition = events.find((event) => event.category === 'slice-transition');
-    if (transition === undefined) throw new Error('no slice-transition event was recorded');
-    const detail = transition.detail;
+    const detail = emitAndRead(FAILED_RESULT);
     expect(detail['missingCount']).toBe(2);
     expect(detail['missing']).toEqual([
       {
@@ -104,6 +109,58 @@ describe('Scenario: behavior — the transition event keeps the missing-artifact
         description: 'the audit envelope carries no verdict header',
         kind: 'body',
         ownerSkill: 'peaks-security-audit'
+      }
+    ]);
+  });
+
+  it('when a declared evidence key names a file that is absent, should record its owner', () => {
+    // given: a handoff capsule declaring evidence that is not on disk
+    // when: the transition event is emitted for that session
+    // then: the recorded entry names the skill that produces that evidence
+    const detail = emitAndRead({
+      ok: false,
+      missing: [
+        {
+          kind: 'absent',
+          path: 'gateEvidence.securityReview',
+          description:
+            'gateEvidence.securityReview declares "audit/security-slice-1.md", which does not exist'
+        }
+      ],
+      warnings: []
+    });
+    expect(detail['missing']).toEqual([
+      {
+        path: 'gateEvidence.securityReview',
+        description:
+          'gateEvidence.securityReview declares "audit/security-slice-1.md", which does not exist',
+        kind: 'absent',
+        ownerSkill: 'peaks-security-audit'
+      }
+    ]);
+  });
+
+  it('when the missing artifact is an unreadable capsule, should record no owner', () => {
+    // given: a handoff capsule whose declaration cannot be read
+    // when: the transition event is emitted for that session
+    // then: the recorded entry names no owner, because no skill produces one
+    const detail = emitAndRead({
+      ok: false,
+      missing: [
+        {
+          kind: 'body',
+          path: 'gateEvidence(frontmatter-malformed)',
+          description: "the handoff's gateEvidence declaration is unusable"
+        }
+      ],
+      warnings: []
+    });
+    expect(detail['missing']).toEqual([
+      {
+        path: 'gateEvidence(frontmatter-malformed)',
+        description: "the handoff's gateEvidence declaration is unusable",
+        kind: 'body',
+        ownerSkill: null
       }
     ]);
   });
