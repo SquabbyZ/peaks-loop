@@ -357,6 +357,7 @@ git commit -m "feat(observability): attribute the historical prereq failures wit
     readonly reason?: string;
   }): void;
   ```
+  **修订（2026-10-27）**：`emitGateEvent` **不进 `observability-service.ts`**（该文件 285 行 / 上限 300）。它落在新建的 `src/services/artifacts/rd-gate-event.ts`，直接调 `emitObservabilityEvent`（与 `prerequisite-transition-event.ts` 同形）。`observability-service.ts` 不改。
   `ObservabilityEvent.category` 新增 `'gate'`；`detail` 形状：
   ```ts
   { gateId: string; phase: string; outcome: 'pass'|'block'|'bypass'; violationKind?: string; reason?: string }
@@ -392,8 +393,10 @@ Expected: FAIL —— `emitGateEvent` 不存在
 | 门禁 id | 判定点 | outcome |
 |---|---|---|
 | `file-size-ratchet` | `options.phase === 'implemented'` 分支里的 `scanFileSize` | `pass` / `block` |
-| `declared-type-corroboration` | 类型佐证判定处 | `pass` / `block` |
-| `claim-table` | `RdGateViolation` 产生处（`source-touched` / `source-unclaimed` / `diff-unavailable`） | `pass` / `block` |
+| `declared-type-corroboration` | 类型佐证判定处。**它产生的 violation kind 是 `source-touched`** —— 一个声明为工具类、却碰了产品源码的 slice，是*类型规则*抓到它撒了谎，不是认领表发现了一条无人认领的路径 | `pass` / `block` |
+| `claim-table` | 认领表判定处。**它产生的 violation kind 是 `source-unclaimed` 与 `diff-unavailable`** | `pass` / `block` |
+
+> **修订（2026-10-27，实施时核对源码后更正）**：本表原先把三个 violation kind 全归给 `claim-table`，同时又把 `declared-type-corroboration` 列为同一分支里的独立判定点 —— 两者自相矛盾。上表是**按源码核对后**的归属：每个判定点一个事件，每个 kind 一个门禁 id。**kind 与判定点的对应以源码为准，不以本表为准。**
 
 **`allowIncomplete` 提前返回的那条路径**：发 `outcome: 'bypass'`，`reason` 用现成的 `rdGatesBypassNote(options.phase)` 返回值。
 
