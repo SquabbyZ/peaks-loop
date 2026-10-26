@@ -12,8 +12,9 @@
  * WHAT CAN BE DERIVED INSTEAD. The prerequisite table is a pure function of
  * three values — the artifact role, the target state and the request type —
  * and a v1 event carries the first two. Re-deriving the table for that
- * transition yields the candidate set, and the recorded count says how many of
- * them were missing.
+ * transition yields the CANDIDATE set: the artifacts the missing entries could
+ * be. The recorded count then says how many artifacts were missing in total,
+ * which is what decides whether the candidates can be narrowed.
  *
  * WHY THE CONFIDENCE IS CAPPED AT `inferred`. The derivation runs over
  * TODAY's prerequisite table, and the table is version-controlled code that
@@ -47,18 +48,28 @@ import { ownerSkillForPath } from './owner-skill-map.js';
  *
  *   - `exact` — the missing list was measured when the event was recorded.
  *     Only a forward event carries it; the retro-attribution never does.
- *   - `inferred` — the candidate set follows deterministically from the
- *     prerequisite table and the recorded count.
- *   - `ambiguous` — the candidate set is the whole prereq list; the count
- *     cannot single out which entries were missing.
+ *   - `inferred` — the recorded count is CONSISTENT WITH the whole candidate
+ *     list being the missing set. It is not proof, and it must not be read as
+ *     proof: the missing list has three sources (the prereq table, the
+ *     judged-declaration refusals, the gate-evidence declaration), so a count
+ *     equal to the table's length can match by coincidence while the missing
+ *     entries came from the other two. `inferred` says "the count does not
+ *     contradict this set", never "these artifacts were proven missing".
+ *   - `ambiguous` — the count cannot single out any subset, so the candidate
+ *     set stays the whole prereq list. An EMPTY candidate set means "nothing
+ *     derivable" — distinguishable from "ambiguous among N" by
+ *     `candidates.length === 0`, and it is the shape a transition the table
+ *     holds nothing for produces.
  */
 export type AttributionConfidence = 'exact' | 'inferred' | 'ambiguous';
 
 /**
  * One attribution: how far it can be trusted, and the artifacts it can name.
  *
- * The candidates are the prereq paths of the transition, each paired with the
- * skill that owns it. `ownerSkill` is `null` when no skill owns the path —
+ * The candidates are a CANDIDATE list: the prereq paths of the transition,
+ * each paired with the skill that owns it. They name the artifacts the missing
+ * entries could be — not the artifacts that were proven missing, which only a
+ * forward event records. `ownerSkill` is `null` when no skill owns the path —
  * a stated absence, not a missing field.
  */
 export type RetroAttribution = {
@@ -85,6 +96,9 @@ export type RetroAttributionInput = {
  * The table is indexed by request type, and an event's type arrives from a
  * file this module does not own — so an unknown type must answer an empty
  * list rather than raise inside a read path.
+ *
+ * The published parameter is a `RequestType`, so this arm is reachable only
+ * from a caller that ignores the signature.
  */
 function prerequisitesFor(
   role: RequestArtifactRole,
@@ -100,6 +114,9 @@ function prerequisitesFor(
  *
  * A count that is missing, negative or not a number says nothing about how
  * many artifacts were missing, so the candidate set cannot be narrowed by it.
+ *
+ * The published parameter is a `number`, so this arm is reachable only from a
+ * caller that ignores the signature.
  */
 function readableCount(value: number): number | null {
   if (typeof value !== 'number') return null;
@@ -139,7 +156,18 @@ function candidatesFor(
  *   - a count equal to the list's length → `inferred`, the whole list;
  *   - any other count → `ambiguous`, the whole list as candidates.
  *
- * The last case covers a count of one against a list of several, a count
+ * WHAT `inferred` CLAIMS AT THE THIRD RULE. The count matches the table's
+ * length, so the count is CONSISTENT WITH the whole list being the missing
+ * set — and it is not proof of that. The missing list has three sources (the
+ * prereq table, the judged-declaration refusals, the gate-evidence
+ * declaration), and a count equal to the table's length can match by
+ * coincidence while the missing entries came from the other two, leaving a
+ * table entry intact. The same holds for a one-entry list and a count of one:
+ * the single missing entry may have come from source two or three. So the
+ * label says "the count does not contradict this set", and never "these
+ * artifacts were proven missing".
+ *
+ * The last rule covers a count of one against a list of several, a count
  * between zero and the list's length, and a count ABOVE the list's length —
  * the last because the missing list has two further sources the table does
  * not describe, and neither of them is derivable from a v1 event.

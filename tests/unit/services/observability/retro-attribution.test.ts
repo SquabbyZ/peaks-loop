@@ -246,6 +246,42 @@ describe('Scenario: behavior — the retro-attribution names the candidates the 
     expect(result.candidates).toHaveLength(0);
   });
 
+  it('when the recorded count is not a number, should keep the whole list as the candidate set', () => {
+    // given: a transition whose prereq list holds one entry
+    // when: the failure is attributed with a count that is not a readable number
+    // then: the confidence is ambiguous and the candidate set is the whole list
+    const transition = transitionWithOnePrereq();
+    const prereqs = getPrerequisitesFor(transition.role, transition.state, transition.type);
+    const unreadableCounts: readonly unknown[] = ['two', undefined, Number.NaN, -1];
+    for (const unreadable of unreadableCounts) {
+      const result = attributeV1Failure({
+        artifactRole: transition.role,
+        newState: transition.state,
+        requestType: transition.type,
+        missingCount: unreadable as number
+      });
+      expect(result.confidence, `count ${String(unreadable)} was not treated as unreadable`).toBe(
+        'ambiguous'
+      );
+      expect(result.candidates.map((c) => c.path)).toEqual(prereqs.map((p) => p.relativePath));
+    }
+  });
+
+  it('when the request type is not one the table knows, should answer ambiguous with no candidate', () => {
+    // given: a transition the table can be asked about, named with an unknown request type
+    // when: the failure is attributed
+    // then: the confidence is ambiguous and no candidate is named
+    const transition = transitionWithOnePrereq();
+    const result = attributeV1Failure({
+      artifactRole: transition.role,
+      newState: transition.state,
+      requestType: 'not-a-request-type' as RequestType,
+      missingCount: 1
+    });
+    expect(result.confidence).toBe('ambiguous');
+    expect(result.candidates).toHaveLength(0);
+  });
+
   it('when every transition and count is swept, should never report the exact confidence', () => {
     // given: every transition the table can be asked about
     // when: each is attributed with several counts
