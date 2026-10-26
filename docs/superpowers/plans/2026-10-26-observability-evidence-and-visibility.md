@@ -919,7 +919,14 @@ node node_modules/tsx/dist/cli.mjs src/cli/index.ts observability hotspots --pro
 
 1. `hotspots` 的输出里**至少有一条** `count ≥ 1`、`evidence` 非空、`ownerSkill` 能解析到一个**真实存在的 SKILL.md 路径**（`skills/bee/<ownerSkill>/SKILL.md` 或 `skills/<ownerSkill>/SKILL.md`）。
 2. `near-miss` 能报出**非零**的近失数或明确的 0（0 也是有效答案，但必须是因为真的没有，而不是因为读不到）。
-3. **历史事件没有被丢弃**：`peaks observability status --project . --all-sessions` 的 `totalEvents` **≥ 1533**。若小于 1533，说明 Task 1/3 的 schema 改动破坏了旧记录的读法 —— **这是 Review Focus 第 1 条**，必须先修。
+3. **历史事件没有被丢弃。** **判据（2026-10-27 修订）**：不能比一个**绝对数** —— 事件存储的保留策略 `MAX_METRICS_FILES = 10`（`src/services/observability/jsonl-store.ts`）会按 mtime 剪掉更老的 session 文件，所以磁盘上的事件总数本来就会漂（本轮开始时是 1533，现在是 1530，差值是剪枝，不是 schema 改动造成的）。
+   **正确的判据是"读出来的条数 == 磁盘上实际存在的行数"**：
+   - 数出 `.peaks/_runtime/*/metrics/slices.jsonl` 里**实际的总行数**（含被 schema 跳过的行）
+   - 再数 `peaks observability status --project . --all-sessions` 报出的 `totalEvents`
+   - **两者必须相等** —— 相等说明读者看到了磁盘上的每一条；不等说明有记录被 `safeParse` **静默跳过**了，那正是 schema 改动破坏旧记录读法的症状（**Review Focus 第 1 条**）
+   - 若两者不等，且差的行数恰好等于**被剪枝掉的文件里的行数**，那不是 schema 问题，是保留策略 —— 报告它，不要把它读成"历史丢了"。
+
+4. **报告的 `--period` 空结果也要说话。**（2026-10-27 修订，来自 Task 4 的实施者顾虑 1）`--all-sessions` 之后 `peaks observability report` 仍可能是空的，**因为 `--period day` 是另一根轴**：作用域不空，是周期空，而作用域 warning 不触发 —— 结果读者看到的还是一张空表。**空结果必须说明原因并指出能读到数据的那个开关**（`--period month`）。这条归 Task 7（报告面）。
 
 - [ ] **Step 3: 把实测结果写进 spec §2.4**
 
@@ -940,7 +947,7 @@ git commit -m "docs(observability): the gate is open, with the numbers that open
 
 - [ ] `peaks observability near-miss --all-sessions` 报出近失率与清单
 - [ ] `peaks observability hotspots --all-sessions` 报出卡点榜，且每行的 `ownerSkill` 指向真实存在的 SKILL.md
-- [ ] `peaks observability status --all-sessions` 的 `totalEvents` ≥ 1533（历史没丢）
+- [ ] **历史没丢**：`peaks observability status --all-sessions` 读出的 `totalEvents` **等于** `.peaks/_runtime/*/metrics/slices.jsonl` 里**磁盘上实际的总行数**（绝对数会因存储的 `MAX_METRICS_FILES = 10` 剪枝策略而漂，判据是"读到的 == 存在的"，不是"≥ 某个数"）
 - [ ] `status` 的 `successCount + failCount + stalledCount === totalSlices`
 - [ ] `peaks observability report` 开头是"近失"节，其后是"卡点"节
 - [ ] 两个试点技能（`peaks-rd` / `peaks-race-code`）的遵守率由**确定性检查**算出，不依赖 LLM judge
