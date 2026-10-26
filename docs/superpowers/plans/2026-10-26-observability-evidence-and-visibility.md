@@ -544,6 +544,12 @@ Expected: FAIL —— 模块不存在
   2. `tool-blocked`：存在 `tool-trace` 事件 `outcome === 'block'`（**本计划不产出 tool-trace，该分支先留空并写注释说明**，S1.7 落地后接上）
   3. `prereq-skipped`：存在 `slice-transition` 事件 `prereqOk === false`，随后该 slice 仍到达 `verdict-issued`
 
+- **修订（2026-10-27，Task 3 的评审之后）—— 规则 1 变强了。** 上面那条规则**依赖 bypass 事件存在**；一个被跳过却没发事件的门禁，会从这条规则里**彻底消失**（既不是 bypass 也不是 pass），于是近失率**少算**。Task 3 的评审正是抓到了两条这样的路径（其中一条实施者没有披露）。
+
+  **新规则 1（更强）：对每一个通过的 slice，取它在最终迁移上"当时生效"的门禁集合；若其中某个门禁在该 slice 内既没有 `pass` 也没有 `block` 事件，即为近失** —— **不依赖 bypass 事件是否存在**。bypass 事件仍然是这类近失的**首要证据**，但规则本身不再依赖它。
+
+  "当时生效"的门禁集合由 Task 3 导出的**适用性函数**给出（Task 3 的 `liveGateIds(phase, judged)`）：一个门禁对某次迁移**不生效**（按设计就是 no-op，例如类型规则对 feature slice、尺寸棘轮在 `qa-handoff`/`handed-off`）→ **不发事件**，于是"没有事件"就**无歧义地**等于"当时不生效"，而不可能是"生效了但被跳过却没记"。
+
 - [ ] **Step 4: 写失败测试（CLI 层）**
 
 在 `tests/unit/cli/observability-scope.test.ts` 里加一组：跑 `peaks observability near-miss --project <tmp> --all-sessions --json`，断言信封 `data.nearMissRate` 存在、`data.records` 是数组。
