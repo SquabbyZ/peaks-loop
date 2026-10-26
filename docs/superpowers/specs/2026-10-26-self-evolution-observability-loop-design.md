@@ -1,0 +1,784 @@
+# 自进化闭环的可观测底座 — 设计（v1）
+
+- 日期：2026-10-26
+- 状态：**设计已成形，未实施**
+- 范围：`peaks-loop` 自身（技能层 / 门禁层 / 棘轮层）
+- 前置事实核对时间：2026-10-26（本文所有"实测"结论均为当日实跑输出或当日读源码，非推测）
+
+> **怎么读这份文档**
+> - **只想知道要做什么、做完长什么样** → 读 **§0**（大白话）和 **§8**（一页纸速览）。够了。
+> - **要实施** → 读 §1（依据）、§2（设计）、§4（切片判据）。§1.5 / §1.6 是外部调研，别跳过。
+> - **技术细节**（schema 字段、命令参数、指标定义）都在 §2，不需要先读 §1.5 才能看懂。
+
+---
+
+## 0. 用大白话说这份 spec
+
+### 0.1 你现在遇到的是什么问题
+
+你想改 `skills/bee/peaks-rd/SKILL.md`，然后想知道"**这次改动到底有没有让事情变好**"。
+
+现在没有办法知道。不是因为没努力，而是**这个仓库从来没记过"技能到底是怎么被执行的"**。具体地说，有两个洞：
+
+**洞一：判断"干得好不好"的那把尺子本身是坏的。**
+
+现在判断一个 slice 干得好不好，看的是 QA 说"通过"。但历史数据里有这种情况：
+
+> 门禁**根本没被检查过**（`bypassing ONLY the file-size gate ... none of them was evaluated`），QA 照样给了"通过"。
+
+而且汇总报表把这种 slice 记成了**成功** —— `fail count` 显示 0，可表里有 8 个 `✗`。
+
+**"通过了"和"真的做对了"之间有道缝。缝有多大没人知道，因为没人记。** 这道缝在专业上叫"近失"（near-miss）。
+
+**洞二：连"哪里出了问题"都看不到。**
+
+你跑 `peaks observability report`，它会告诉你 `total events 0`、"没有任何 slice 记录"。
+
+**但仓库里其实有 1533 条事件。** 命令默认只查今天这个空的 session，所以显示 0。你据此得出的"没有数据"的结论，是查询口径造出来的假象。
+
+而且就算查对了 session，最关键的信息也被扔掉了：门禁说"你缺 3 个文件"，事件里只记了 `missingCount: 3`（一个数字），**没记是哪 3 个**。那条信息当时就在内存里，被 `.length` 换掉了。
+
+### 0.2 改完之后你会看到什么
+
+**三条新命令：**
+
+```
+$ peaks observability near-miss
+近失率: 8 / 40 个通过的 slice 是靠跳过门禁换来的 (20%)
+  rid-t2-presence-cross-session        跳过的门禁: file-size-ratchet  (从未被评估)
+  rid-t2-repo-agents-md-bootstrap      跳过的门禁: declared-type-corroboration
+  ...
+```
+
+```
+$ peaks observability hotspots
+技能            缺了什么                  次数   置信度
+peaks-rd        audit/security-<rid>.md    12   exact
+peaks-rd        rd/bug-analysis-<rid>.md    5   exact
+peaks-qa        qa/test-reports/<rid>.md    3   inferred
+```
+
+```
+$ peaks observability report          # 报告最前面多一节"近失"，其次是"卡点 Top-N"
+```
+
+**以及一份能读的历史**：`peaks observability status --all-sessions` 能看到全仓库的 1533 条事件，而不是 0。
+
+### 0.3 "自进化"具体长什么样
+
+改完之后，一次真实的改进循环是这样：
+
+```
+1. 跑数据      → near-miss 报出：近失集中在 declared-type-corroboration 门禁
+2. 定位        → hotspots 报出：peaks-rd 漏写 audit/security-<rid>.md 12 次
+3. 提案        → 系统给一张候选清单：
+                 "peaks-rd 的第 4 步（派发安全审计）遵守率 0.4，
+                  近失贡献 7 次。建议：提升为 hook 强制。"
+4. 改          → 人（或 LLM）把它改成一条 hook 规则 —— 不是改文案，是让系统没法跳过
+5. 验证        → 下一个窗口重跑同一指标：近失率从 20% → 5%，遵守率 0.4 → 1.0
+6. 留痕        → 这条改动连同"改前 20% / 改后 5%"记进 evolution_evaluation 表，
+                  以后能查、能回滚
+```
+
+**和现在的区别**：现在改 SKILL.md 靠感觉，改完不知道有没有变好，下次还会改回去。
+
+### 0.4 为什么分四步做，不能一次做完
+
+有硬依赖：**没有数据 → 不知道该改谁 → 提不出靠谱的提案 → 没法验证改动是好是坏。**
+
+所以四步之间设了两道闸，**闸不过就不许往下做**。特别是第 3 步和第 4 步之间：没有配对实验（同一个任务、同一个技能改前改后各跑一次）验证的改动，**只能停在"等人决定"，不许自动采纳** —— 否则就成了"我觉得变好了"。
+
+### 0.5 这份 spec 明确不做的事
+
+- **不自动改写 SKILL.md** —— 只给候选清单和证据，怎么改由你（或 LLM）决定
+- **不把"通过率"当成目标** —— 通过率在技能质量上是失明的（见 §1.6），降级成参考指标
+- **不读运行时私有会话记录** —— 轨迹从 peaks-loop 自己的 hook 层来，隐私面小得多
+- **不搬外部代码** —— 只借设计思想，实现自己写
+- **不一次给 25 个技能都写规范** —— 先试点 `peaks-rd` + `peaks-race-code`
+
+---
+
+## 1. Problem
+
+### 1.1 用户的原话
+
+> 现在我感觉 peaks-code、peaks-race-code、peaks-rd 等等都是偏黑盒的，想优化技能、脚本、等等完全是一头雾水的，没有实际的日志等数据，根本没有方向，也无法[实现] peaks-loop 这个项目自进化。
+
+这句话里有两个可以分开验证的命题：
+
+- **P1（可观测性）**：技能与门禁的行为不可见 → 无法定位"哪里该改"。
+- **P2（自进化）**：没有自进化的闭环 → 无法让改动被度量、被保留、被回滚。
+
+本文的结论是：**P1 基本为假，P2 为真**，且 P2 的病灶可以用一句话定位。
+
+### 1.2 现状审计（实测）
+
+**(a) 仪器已经存在，而且有真实数据。**
+
+事件流在 `.peaks/_runtime/<sessionId>/metrics/slices.jsonl`（`src/services/observability/jsonl-store.ts:35`）。全量扫描本仓库 12 个 session：
+
+| 类别 | 条数 |
+|---|---|
+| `slice-transition` | 1180（77%） |
+| `dispatch` | 322 |
+| `lease` | 29 |
+| `checkpoint` | 2 |
+| **合计** | **1533** |
+
+schema 声明了 **10 个** category（`src/services/observability/observability-schema.ts:21`）。**已声明但在全部记录历史中从未发出过的有 6 个**：`cycle` / `token-usage` / `monotonic-trigger` / `mode-gate` / `context-trigger` / `post-compact`。
+
+（补充核对：这 6 个**全都有 emitter** —— `cycle` / `token-usage` / `monotonic-trigger` 在 `observability-service.ts`，`mode-gate` 在 `code-mode-gate-should-pause-envelope.ts`，`context-trigger` 在 `context-check-command.ts`，`post-compact` 在 `post-compact-detector.ts`。）**所以问题不是"没写"，是"条件触发，而我们那 12 个 session 没走到那些流程"** —— 例如 `cycle` / `monotonic-trigger` 只由 loop runtime 触发。声明了却不交付数据，本身就是一种黑盒：schema 承诺了一件它不做的事。
+
+**(b) 最有价值的信息在最后一米被丢弃。**
+
+`src/services/artifacts/prerequisite-transition-event.ts:35`：
+
+```ts
+missingCount: opts.result.missing.length
+```
+
+而 `opts.result.missing` 的类型是 `Array<{ path: string; description: string; kind: 'absent' | 'body' }>`（`src/services/artifacts/artifact-prerequisites.ts:97`）—— 每个缺件的**路径、描述、是"文件不存在"还是"内容标记缺失"**都已在内存里，然后被 `.length` 换成了一个整数。
+
+538 次带 prereq 判定的迁移中，**113 次 prereq 失败**。这 113 次失败目前只留下一个数字。
+
+而 `path` 的首段就是产出该 artifact 的角色（`rd/` `qa/` `audit/` `prd/` `sc/`），`missing` 列表本身就是"哪个技能没交活"的**确定性归属源** —— 不需要 LLM 配合，不需要新协议。
+
+**(c) 真正的"为什么"存在，但只以自由文本存在，且只覆盖了一小部分。**
+
+113 次失败中，**只有 14 条带 `detail.reason`**（其余 99 条只留了计数）。这 14 条里写着门禁层的真缺陷，反复出现三类：
+
+1. **门禁作用域与 slice 作用域不一致** —— tree-wide 的 file-size / type-corroboration 门禁按整个工作树判定，平行 slice 的未提交源码让 chore slice 永远过不了。
+2. **状态机缺值导致 fail-closed 拦下正确产出** —— QA 写出 `verified` / `completed`，而角色状态机只定义 `draft / running / verdict-issued / blocked`，state-order 门禁把已完成的工作判为失败。
+3. **认领表不完整使反撒谎兜底整体静默失效** —— 22 个 RD artifact 中 19 个没有 `## Changed paths` 段，兜底因此不启用。
+
+这三条都是**门禁 / 契约层**的缺陷，不是技能文案的缺陷。它们现在只躺在 JSONL 里，没有任何人或命令会读。
+
+**这 14 条的样本量极小，但每一条的诊断精度极高** —— 它们不是"某个门禁失败了"，而是"这个门禁的语义和 slice 的语义不一致"。这正是当前系统最缺的那种信息。
+
+**(c2) 而这 14 条之所以只能以自由文本存在，是因为门禁层根本没有被事件化。**
+
+`src/services/artifacts/rd-transition-gates.ts`（223 行）负责 RD 三个相位（`implemented` / `qa-handoff` / `handed-off`）的门禁判定，产出 `RdGateViolation`（`source-touched` / `source-unclaimed` / `diff-unavailable`）与 bypass 说明文本 —— 但**它不发任何观测事件**，schema 里也没有 `gate` 这个 category。
+
+**门禁层对事件流完全不可见。** 一次门禁 pass / block / bypass，除了偶然被 prereq 事件的 `reason` 捎带（且只在同时伴随 prereq 失败时，全历史仅 14 次），不留任何结构化痕迹。
+
+而 (c) 认定的那三类反复出现的缺陷**全部在门禁层**。**最该被优化的那一层，恰恰是唯一一层完全没被观测到的。**
+
+**(d) "看不见" 有一部分是口径造成的假象。**
+
+`src/cli/commands/observability-commands-queries.ts:43`：
+
+```ts
+export function resolveSessionId(optionSession, projectRoot) {
+  if (optionSession !== undefined) return optionSession;
+  return getSessionIdCanonical(projectRoot) ?? undefined;   // ← 有绑定时永远命中
+}
+```
+
+于是 `readAllSessionEvents` 的全量分支（同文件 `:59` / `:105` / `:146` / `:196`）**在 CLI 路径上不可达**，而所有查询默认走 canonical session。实跑：
+
+```
+$ peaks observability report --project . --period month
+- scope: session `2026-10-26-session-fb8cc6`
+| total events | 0 |
+| total slices | 0 |
+| fail count   | 0 |
+_No slice transitions recorded for this period._
+```
+
+同一时刻仓库里有 1533 条事件。**跑一次默认命令看到的是"零"，于是得出"没有数据"——这个结论本身是数据产生的假象。** 指到有数据的 session 才看得见：
+
+```
+$ peaks observability report --project . --session 2026-10-23-session-5e40e0 --period month
+| total events | 550 | | total slices | 40 | | repair-cycle peak | 5 |
+```
+
+那张表里 **8 个 slice 的 final state 停在 `qa-handoff`**（时长 733.9m / 710.2m / 102.9m / 81.5m / 74.6m / 6.2m / 6.0m / 49.4s）—— 就是"进去了出不来"。
+
+另有一处口径不自洽：同一份输出里 summary 写 `successCount 32` / `failCount 0`，而 slice 表里恰有 **8 个 `✗`**。40 = 32 + 8，分子对得上，但失败计数是 0 —— **失败的 slice 被 summary 记成了成功**。
+
+**(e) 自进化机制建好了，从未接线。**
+
+Darwin 棘轮的能力是齐全的：`peaks evolution propose / evaluate / mark-keep / revert / status`（`src/cli/commands/evolution-commands.ts`），硬规则七条齐全（单目标 / 单维度 / 独立评审 / 回归怀疑者 / 阈值 / 用户确认 / 禁止自评，`src/services/evolution/evolution-types.ts:32-42`），**且 `bee`（技能）本来就是合法的进化目标**：
+
+```
+$ peaks evolution status --project . --target bee:peaks-rd
+{"target_kind":"bee","target_release_id":"peaks-rd","total":0,
+ "byVerdict":{"keep":0,"revert":0,"needs-user-decision":0}}
+```
+
+`.peaks/state.db` 中 `evolution_evaluation` **0 行**、`crystallization_event` **0 行**、`bee_change` **0 行**。
+
+而 proposal 的输入是这样的（`src/cli/commands/evolution-propose-command.ts:96-118`）：
+
+```ts
+before_snapshot: {},
+after_snapshot:  { after_score: prep.after },
+diff:            {},
+before_score:    prep.before,      // ← LLM 自报，0..10
+after_score:     prep.after,       // ← LLM 自报，0..10
+rubric:          {},
+red_lines:       [],
+source_traces:   []
+```
+
+**一行 proposal 的全部内容 = 目标 id + LLM 自报的两个分数。** DDL 里预留的快照、diff、rubric、红线、证据指针（`src/services/evolution/evolution-evaluation-schema.ts:20-55`）**五项全空**。
+
+**(f) 反馈回路的另一半也是停的。**
+
+`.peaks/retrospective/index.json` 停在 `2026-06-09`（88 条：60 in-flight / 11 shipped / 17 blocked），四个多月未更新。
+
+**(g) 命名澄清。** `peaks-mut` 的 mut 是 **mutation testing（Stryker）**，不是"技能变异"；本仓库**没有** SKILL.md 优化器。外部的 `darwin-skill` 是另一套评分器，与 peaks-loop 的 Darwin 棘轮无关，接线时不可混用。
+
+### 1.3 诊断
+
+> **不是"没有数据"，而是：数据在最后一米被丢掉了（b）、可见口径坏了（d）、到不了那个已经建好的棘轮（e）。**
+>
+> 棘轮的病灶可以用一句话定位：**`before_score` / `after_score` 是 LLM 自报的数字，没有数据源。** 机制有了，尺子没有。
+
+于是 P1 基本为假（数据在，只是答不了"该改哪儿"），P2 为真（闭环缺的不是机制，是**把自评分换成实测**的那一层）。
+
+### 1.4 为什么不能只做"看得见"
+
+只做可观测层（不改棘轮输入）的失败模式，**这个仓库已经演过一次**：仪表装了，retrospective 停更四个月、`evolution_evaluation` 0 行、`crystallization_event` 0 行、`bee_change` 0 行。再加一个没人开的看板，概率很高。
+
+而跳过可观测层直接做"自动提案"的失败模式：提案的改前 / 改后没有客观依据，独立评审者评的是一份自述，回归怀疑者怀疑的也是自述 —— **垃圾进，垃圾出，但披着棘轮的外衣，看起来很严谨**。这比黑盒更危险。
+
+**结论：闭环必须闭，但必须按"数据 → 提案 → 实测 → 判定"的顺序建，不能跳。**
+
+---
+
+## 1.5 外部参照（2026-10-26 调研）
+
+按用户提议"抄作业"做的外部检索与本地勘查。**结论先行：调研推翻了本 spec 的一个核心判断 —— 见 §1.6。**
+
+### 1.5.1 四个来源
+
+**① Hermes（Nous Research）`hermes-agent-self-evolution`** —— MIT，2026-06 开源。核心是 DSPy + **GEPA**（Genetic-Pareto Prompt Evolution，ICLR 2026 Oral）在 agent 层（memory / skills / prompts / tools）自进化，不动模型权重。
+
+可移植的：
+- **变异由失败轨迹驱动**，不是随机重写 —— 这正是 §2.5 的 `mine` 该做的事
+- **"Benchmarks are GATES, not fitness functions"** —— 基准是闸，不是适应度函数；候选可以任务分更高但因回归被否
+- **"Deployment via PR (Never Direct Commit)"** + 人工评审合并 + 独立 holdout 防过拟合
+- 硬约束闸：全套测试通过、size budget（技能 ≤15KB / 工具描述 ≤500 字符）、**演化文本与原文保持语义相似**、schema 冻结、不得删除安全检查、prompt 缓存不得失效、不得热替换进活跃会话
+- 适应度组合：过程遵守度 + 产出有用性 + 简洁度 + 长度惩罚
+
+不可移植：GEPA 本身（需 DSPy + Python 栈）、五阶段全量路线。
+
+**② `skill-comply`**（ecc-universal 2.2.3，**MIT**，已在本地 `node_modules` 内）—— 形状与本需求高度同构，值得逐条读。
+
+它的流水线：**`.md` 目标 → 自动生成 ComplianceSpec（YAML：有序步骤 + `required` + 探测器描述 + `before_step`/`after_step` 时序约束）→ 捕获工具调用 trace（JSONL）→ LLM 把事件分类到步骤 → 确定性时序判定 → 遵守率 + hook 提升建议**。
+
+三个直接可用的设计：
+- **技能被表达为"可判定的步骤序列"**，而不是散文
+- **时序约束由代码判定**（LLM 只做分类，不做判定）—— 正是"评分不能是 LLM 自评"的答案
+- **低遵守率的出路是"提升为 hook"**（`threshold_promote_to_hook`，默认 0.6），而不是改文案
+
+它还有一个我原 spec 完全缺失的维度：**prompt 严格度阶梯**（支持性 → 中性 → 竞争性），用来测**prompt 独立性** —— 技能在用户没催它的时候还扛不扛得住。
+
+**③ 论文**（见 §9 引用）：
+- **SOPBench**（ICLR 2026）：用**代码化的多层验证**（outcome / step-level / trajectory-level）替代 LLM judge；一个"用最合适的工具尽快完成"的提示，就让某模型**相对通过率掉 86.2%**
+- **CTA / Counterfactual Trace Auditing**（arXiv 2605.11946）：配对比较"有技能 / 无技能"的轨迹，标注 Skill Influence Pattern（构造性：Procedural Scaffolding、Edge-case Prompting；中性：Redundant Exploration；**破坏性：Surface Anchoring、Concept Bleed**）
+- **Near-Miss**（IBM，arXiv 2603.29665）：**latent failure** —— agent 绕过必需的政策检查却达到了正确的最终状态
+- **AgentPex / Willful Disobedience**（arXiv 2603.23806）：从 prompt / tool schema 抽取行为规则后给轨迹打分，**48/58 条 τ²-bench 满分轨迹仍存在过程违规**
+- **MAC-Bench / Beyond Goodhart's Law**（arXiv 2606.07805）：提出 Compliance-Weighted Success Rate 与 Machiavellian Gap，警告 Goodhart
+
+### 1.5.2 许可与红线
+
+`ecc-universal` 是 MIT；Hermes 自进化仓库也是 MIT。**但本仓库的 AGENTS.md 规定外部仓库"只作策展参考，未经明确批准不得执行或安装"**。因此本设计的立场是：**移植设计思想，TS 自行实现**；若将来要直接搬 `skill-comply` 的代码，需用户单独批准并附 MIT 署名。
+
+### 1.5.3 一条被证伪的直觉
+
+调研前我以为"peaks-code 的 SKILL.md 44KB 太大"。**这是错的** —— peaks-loop 已经做了渐进披露（`skills/peaks-code/references/` 有 41 个引用文件，主文件加载、引用按需加载），Hermes 的 15KB 预算针对的是单文件平铺，不适用。真正成立的问题只有一个：**入口文件 44KB ≈ 11k tokens，技能是否挣回了这份开销，从未被测量过。** 这恰恰是 CTA 要问的问题。
+
+---
+
+## 1.6 调研推翻的核心判断（本 spec 的最重要修订）
+
+**peaks-loop 用来判断成功的指标 —— "QA verdict 通过" —— 正是文献证明对技能质量最不敏感的指标。**
+
+三条独立证据指向同一处：
+
+| 证据 | 结论 |
+|---|---|
+| CTA | 49 个任务里 **45 个通过率毫无变化**，却出现 **696 处分歧 / 522 个 SIP 实例**（平均每任务 10.7 个）；**37 个"天花板任务"（基线通过率 ≥90%）里藏着 415/522 = 80% 的 SIP 实例**，而通过率平均只掉 0.5pp |
+| AgentPex | **48/58 条 τ²-bench 满分轨迹**里仍存在过程违规 |
+| Near-Miss | **8.6%–17.3%** 的 latent failure：绕过必需检查、却给出正确答案 |
+
+**peaks-loop 的 QA verdict 是一次"最终状态是否正确"的判定，而它的门禁系统是一套"必需检查"—— 这正是 Near-Miss 的定义。** 而 peaks-loop 自己的数据已经证明了这一点：§1.2(c) 引的那 14 条 `reason` 原文，说的就是"**bypassing ONLY the X gate ... via --allow-incomplete; none of them was evaluated**"——**门禁从未被评估，QA 仍然给出了通过的结论**。
+
+**所以本 spec 的头号产出应当是 peaks-loop 自己的 near-miss 率（近失率），而不是遵守率。** 理由：近失率是 QA verdict **结构上看不见**的那个量，而遵守率虽然更贴近病因，却需要为 25 个技能逐个编写 ComplianceSpec（成本高一个数量级）。
+
+排序：
+
+1. **近失率（near-miss rate）** —— "通过的 slice 里，有多少比例跳过了必需门禁且该门禁从未被评估"。**用 S1.5 的 `gate` 事件即可算，且立刻可算**。
+2. **遵守率（compliance rate）** —— 逐步骤的执行率。只对少数高价值技能做（试点 2–3 个）。
+3. **通过率** —— **降级为参考指标，不作为适应度**（CTA 已证明它在天花板任务上失明）。
+4. **token 开销 / 用户干预次数** —— 成本侧。Hermes 官方文档推荐用"**更少的引导与更少的纠正**"衡量改进，而不是合成分数 —— 这对应 peaks-loop 已有的 `peaks user-touchpoints` 概念。
+
+还有两个数字直接进了设计：
+- CTA：**84% 的分歧发生在早期**（Orientation 44% + Implementation 40%）—— 而 peaks-loop 的观测**全部发生在验证期**（状态迁移）。**分歧发生的地方我们根本没在看。** 这要求 trace 从流程一开始就采，而不是只在迁移时采。
+- CTA：技能 token 开销均值 **1.91×**，个别案例 **22.24×** —— 而 peaks-loop 的 `token-usage` 是**六个从未发出的哑 category 之一**。成本侧根本没测。
+
+---
+
+## 2. Design
+
+
+
+### 2.1 分层：四条接缝
+
+```
+[S1] 证据不丢 + 轨迹采集 ──► [S2] 看得见 ──► ┃闸1┃ ──► [S3] 数据→提案 ──► ┃闸2┃ ──► [S4] 棘轮跑起来+度量
+ missing[] / gate 事件        口径修 + 近失率      可指名       合规规范 +          配对验证 +
+ tool-trace / presence 归属   hotspots + 合规率                 四种动作 + 约束闸    漂移检查
+ 哑 category 清算
+```
+
+两道闸都是**硬闸**：过不了就停，不许往下做。
+
+### 2.2 S1 —— 证据不丢
+
+**S1.1 缺件落地。** `prerequisite-transition-event.ts` 的 `detail` 扩展为：
+
+```ts
+detail: {
+  artifactRole, to, prereqOk,
+  missingCount,                                  // 保留，旧读者不受影响
+  missing: Array<{                               // 新增
+    path: string,
+    description: string,
+    kind: 'absent' | 'body',
+    ownerSkill: string                           // 由 path 首段 + 文件名推出
+  }>,
+  ownerSkill: string                             // 缺失项的聚合归属（单数时为其一）
+}
+```
+
+`ownerSkill` 的推导规则是**静态的、无歧义的**：`rd/` → `peaks-rd`；`qa/` → `peaks-qa`；`prd/` → `peaks-prd`；`sc/` → `peaks-sc`；`audit/security-` → `peaks-security-audit`；`audit/perf-` → `peaks-perf-audit`。推导规则是一张**受版本控制的常量表**（不是散落在代码里的 if），因为它同时是"技能 ↔ 门禁 ↔ artifact"的索引，后面 S3 的提案要靠它。
+
+**归属有两个维度，都要记**：
+- `ownerSkill` = **该交活的技能**没交 → 改它的 SKILL.md / 产出指令。
+- `artifactRole`（已有）= **被卡住的那个角色** → 改它的流程说明。
+
+**S1.2 哑 category 清算。** 6 个在记录历史中从未发出的 category（`cycle` / `token-usage` / `monotonic-trigger` / `mode-gate` / `context-trigger` / `post-compact`）**都有 emitter**（见 §1.2(a) 的补充核对）。因此审计的终态是三种：**① 确认为条件触发并在 schema 注释里写明触发条件**，**② 补一个让它在常规流程里也发事件的接线**，**③ 从 enum 中删除**并说明理由。留一个永远不发的 category 在 schema 里，是在向未来的读者承诺一件不会发生的事。
+
+其中 `cycle` 与 `monotonic-trigger` 只由 loop runtime 触发（`src/services/loop/loop-observability.ts`），常规 peaks-code 流程根本不走那条路 —— 这一项的审计结论会直接决定 §2.8 的接线形态。
+
+**S1.3 schema 演进：加字段，**不**升版本号。**
+
+调研期间发现的陷阱，必须写进设计：`readObservabilityEvents`（`src/services/observability/observability-service.ts:109`）用 `ObservabilityEventSchema.safeParse(raw)` 逐行校验，**任何 schemaVersion 不匹配的记录被直接跳过**；而 schema 里写的是 `schemaVersion: z.literal(1)`。
+
+**后果：一旦把版本号升到 2，仓库里全部 1533 条历史事件会瞬间变得不可读 —— 而且是静默的（safeParse 失败 → continue）。这恰好会制造出本计划要消灭的那个"零数据"假象。**
+
+因此本设计采用**纯增量扩展，不动版本号**：
+
+- 新字段一律 `.optional()`（`detail` 本身已经是 `z.record(z.string(), z.unknown())`，多余的键天然兼容）
+- `schemaVersion` 保持 `z.literal(1)`
+- **向前兼容因此得以保持**：旧版本 peaks-loop 读新文件时，多出来的 `detail` 键会被忽略而不是报错
+
+"这一条记录是旧格式还是新格式"由**字段是否存在**来区分，而不是由版本号区分 —— 这与本仓库"事件流是向前写的 JSONL，不是需要迁移的表"的形态一致。
+
+真要升版本号的那一天，必须同时改读者（改成 union / 判别式），并**先写一个测试断言旧记录仍可读**。
+
+**S1.4 技能版本绑定。** 每个 session 记录一次 `skills/` 目录树的 git blob sha（会话开始时取一次），查询时与事件 join。这样"某条失败发生在 SKILL.md 的哪个版本"可查 —— 没有它，跨版本比较无从谈起。
+
+**S1.5 门禁事件化 —— 让"缺陷最集中的那一层"变得可见。**
+
+审计发现的事实：`src/services/artifacts/rd-transition-gates.ts`（223 行）负责 RD 三个相位（`implemented` / `qa-handoff` / `handed-off`）的门禁判定，产出 `RdGateViolation`（三种：`source-touched` / `source-unclaimed` / `diff-unavailable`）与 `rdGatesBypassNote`（bypass 时的说明文本）—— 但**它不发任何观测事件**，schema 里也没有 `gate` 这个 category。
+
+**结论：门禁层对事件流是完全不可见的。** 一次门禁判定 pass / block / bypass，除了偶然被 prereq 事件的 `reason` 自由文本捎带（且只有同时伴随 prereq 失败时才会出现 —— 全历史仅 14 次），不留任何结构化痕迹。
+
+而 §1.2(c) 认定的三类反复出现的缺陷**全部在门禁层**。也就是说：最该被优化的那一层，恰恰是唯一一层没有被观测到的。
+
+因此 S1 必须新增一个 category（`gate`），每次门禁判定发一条：
+
+```ts
+{
+  category: 'gate',
+  sliceRid,
+  detail: {
+    gateId: string,          // 门禁的稳定标识（如 'file-size-ratchet' / 'declared-type-corroboration' / 'state-order'）
+    phase: RdGatePhase,      // implemented | qa-handoff | handed-off
+    outcome: 'pass' | 'block' | 'bypass',
+    violationKind?: 'source-touched' | 'source-unclaimed' | 'diff-unavailable',
+    bypassed?: string[],     // 被跳过的门禁 id 列表
+    reason?: string          // 现成的 bypass 说明文本（脱敏后）
+  }
+}
+```
+
+**注意 `bypassed` 是一个数组** —— 现有 bypass 说明里出现过"只跳过 file-size 门禁""跳过了 state-order 门禁"这类**多门禁部分跳过**（reason 原文里就是 "Bypassing ONLY the ..." 的形式），逐个门禁分别发事件会丢失这个语义。
+
+有了这一层，`gate-false-block-rate` 才可算（分母 = 该门禁的评估总数，分子 = 其中被 bypass 的次数），而且——更重要的——**门禁的误伤面第一次能被排序**。
+
+**S1.7 轨迹采集 —— 从"状态迁移"升级到"过程全量"。**
+
+调研的第二个硬结论（§1.6）：**CTA 实测 84% 的技能诱导分歧发生在早期**（Orientation 44% + Implementation 40%），而 peaks-loop 的观测**全部发生在验证期**（状态迁移）。分歧发生的地方我们根本没在看。
+
+因此需要一条**工具调用级**的轨迹流。三个设计要点：
+
+**(a) 轨迹源：peaks-loop 自己的 hook 层（不是读别家的 transcript）。**
+
+peaks-loop 已经有两个 hook 事件在跑：`PreToolUse`（`src/services/hooks/pre-tool-code-gate.ts`，负责拦 Bash）与 `PostToolUse`（`src/services/hooks/presence-marker-detector.ts`）。而且 `src/services/ide/hook-translator.ts` + `hook-protocol.ts` 已经把 hook 协议在 9 个 IDE 适配器之间做了翻译。**加一个 PostToolUse 记录器，就得到一条跨运行时、跨 IDE 的工具调用轨迹** —— 这符合 AGENTS.md"适配器层是唯一做厂商翻译的地方"的原则，且不依赖任何厂商私有格式。
+
+（读运行时自己的 transcript —— 例如 Claude Code 写在 `~/.claude/projects/` 下的会话记录 —— 属于**厂商私有格式**，若要做必须放进**活的** vendor 层 `src/services/runtime/vendors/`，**不是** `src/services/adapter/` —— 那个目录下的 claude/codex/copilot adapter 是死代码，零引用，每个方法都抛 `ADAPTER_NOT_IMPLEMENTED`。而且它是用户全部会话的明文，隐私面比 hook 大得多。默认不做。）
+
+**(b) 归属：presence lease 已经解决了"当时是哪个技能在跑"。**
+
+peaks-loop 的技能层本来就发 `presence:set` / `presence:clear`（每个 SKILL.md 的第一个动作就是 `peaks skill presence:set <skill> --mode <mode> --gate <gate>`）。**这意味着轨迹事件可以按时间 join 到当时激活的技能上 —— 不需要 LLM 配合，不需要新协议，归属是现成的。** 这是 peaks-loop 相对通用方案的一个结构性优势，必须用上。
+
+**(c) 相位（phase）：由已有状态机推出，不新增概念。**
+
+CTA 用一个有限状态机把轨迹切成 Orientation / Implementation / Validation / Debugging / Finalization。peaks-loop 的角色状态机（`draft` → `spec-locked` → `implemented` → `running` → `verdict-issued`）**本来就是这个东西**，映射即可，不需要引入第二套相位定义。
+
+事件形状：
+
+```ts
+{
+  category: 'tool-trace',          // 新增 category
+  sessionId,
+  sliceRid?,
+  detail: {
+    seq,                          // session 内单调
+    ts,
+    tool: string,                 // 'Bash' | 'Write' | 'Edit' | 'Read' | ...
+    phase: 'orientation' | 'implementation' | 'validation' | 'debugging' | 'finalization',
+    skillId?: string,             // 按时间 join presence lease 得到
+    gateId?: string,              // 若被某个门禁处理
+    outcome: 'allow' | 'block' | 'error',
+    input?: string,               // 脱敏 + 截断
+    output?: string               // 脱敏 + 截断
+  }
+}
+```
+
+**`outcome: 'block'` 的 tool-trace 事件是近失率的直接来源之一** —— 另一个来源是 §2.2 S1.5 的 gate 事件里 `outcome === 'bypass'` 且该门禁从未被评估。
+
+**S1.6 追认（retro-attribution）—— 让历史 113 次失败今天就能用。**
+
+S1.1 只对**新发生**的失败生效。历史上那 113 次 v1 事件只留了 `missingCount`，**不能被"还原"** —— 这是必须讲清楚的事实。但它们可以被**追认**，而且追认是确定性的：
+
+prereq 表是完全可算的 —— `getPrerequisitesFor(role, newState, requestType)`（`src/services/artifacts/artifact-prerequisites.ts:478`）是一个**三元纯函数**，表本身是 `PREREQUISITES_BY_TYPE: Record<RequestType, PrerequisiteTable>`（`:442`）；而 `requestType` 就写在请求 artifact 的 `- type:` 行里，读取规则是仓库的 canonical reader（`src/services/artifacts/request-artifact-metadata.ts:57`，"最后一个可用的 `- type:` 行胜出"）。
+
+于是对每一条 v1 失败事件：取 `artifactRole`（= role）、`to`（= newState）、按 rid 查请求的 type → 算出该次迁移的完整 prereq 清单 → 与 `missingCount` 比对：
+
+| 条件 | 结论 | confidence |
+|---|---|---|
+| `missingCount === prereqs.length` | 全部缺失 | `inferred` |
+| `missingCount === 1 && prereqs.length === 1` | 那一条就是缺件 | `inferred` |
+| `missingCount === 1 && prereqs.length > 1` | 候选集 = 该 prereq 清单，无法定位到单条 | `ambiguous` |
+| `0 < missingCount < prereqs.length` | 候选集 = 该 prereq 清单，无法定位到子集 | `ambiguous` |
+
+**追认的置信度封顶为 `inferred`，永不到 `exact`。** 理由：追认用的是**今天**的 prereq 表，而历史事件发生在**过去**的表版本下 —— prereq 表是受版本控制的代码，它在两次记录之间改过。`exact` 只能由 v2 的前向事件给出（那份 `missing[]` 是当场实测的）。把追认结果标成 `exact` 就是在撒谎，违反仓库既有原则：缺失的过程绝不能读成一个判定。
+
+113 次失败中 **66 次是 `missingCount === 1`**（`:58`），其中能落成 `inferred`（而非 `ambiguous`）的比例取决于各 request type 下该迁移的 prereq 清单长度 —— **这是实测出来的数字，不是估计**，S1.6 的完成判据里必须报出 inferred / ambiguous 的实际占比。
+
+另外，14 条 v1 失败带 `detail.reason` 自由文本，其中直接写着 artifact 路径与门禁名（如 `packages/peaks-loop-mut/src/services/mut/production-stryker.ts`）—— 这 14 条由文本直接指名，置信度高于纯计数推算，但同样不是 `exact`（文本是人写的，可能过时）。三条来源的置信度分档：
+
+| confidence | 来源 | 含义 |
+|---|---|---|
+| `exact` | v2 前向事件 | 当场实测的缺件清单 |
+| `inferred` | 追认 / reason 文本 | 由确定性规则或人写文本推算，可能受表漂移或文本过时影响 |
+| `ambiguous` | 追认候选集 | 只知道"在这份 prereq 清单里"，定位不到具体哪条 |
+
+**三档都进热点榜，但必须显式标注，不许伪装成确定结论。** 排名默认把 `exact` 排在 `inferred` 之前（同一 count 下）。
+
+### 2.3 S2 —— 看得见
+
+**S2.1 口径修（三处）。**
+
+1. `status` / `slices` / `fanout` / `report` 全部支持 `--all-sessions`（与 `repair-cycles` 对齐，见 `observability-commands-queries.ts` 顶部注释所述的既有惯例）。
+2. **默认口径不变**（canonical session），但**当作用域内为 0 而别处有事件时，信封必须带一条 warning**，写明"本 session 0 条事件；其他 N 个 session 共 M 条，使用 `--all-sessions`"。理由见 §6：一个空的结果**不得被读成"没有发生过"**。
+3. 修 `fail count 0` 与 slice 表 `✗` 的口径不自洽（两者必须出自同一次聚合）。
+
+**S2.2 新命令 `peaks observability hotspots`。** 这是"看得见"的真正落点 —— 按 `ownerSkill` 聚合的卡点榜：
+
+| 列 | 含义 |
+|---|---|
+| `ownerSkill` | 该交活的技能（归属源：S1.1 的 `missing[].ownerSkill`；历史数据来自 S1.6 追认） |
+| `artifact` | 缺失的 artifact 路径模板（去 rid） |
+| `kind` | `absent`（文件不存在）/ `body`（文件在但内容标记缺失） |
+| `confidence` | `exact`（前向实测）/ `inferred`（追认或文本推算）/ `ambiguous`（候选集，未定位到单条） |
+| `count` | 发生次数 |
+| `sessions` | 涉及几个 session |
+| `firstSeen` / `lastSeen` | 时间跨度 |
+| `evidence` | 事件指针（sessionId + ts + rid） |
+
+排序默认按 `count` 降序。`--json` 输出机器可读信封。
+
+**S2.3 新命令 `peaks observability near-miss` —— 头号产出。**
+
+按 §1.6，近失率是 QA verdict 结构上看不见的量，所以它必须是**一个独立的一等命令**，不是 hotspots 的一列。
+
+判定：一次 slice 的 verdict 为通过（`verdict-issued` 且 QA 判定 pass），但存在下列任一情形 → **该 slice 是一次近失**：
+
+- 存在 `gate` 事件 `outcome === 'bypass'`，且该 `gateId` 在该 slice 内**从未有过一次 `outcome === 'pass'` 或 `'block'` 的评估**（即"从未被评估"）
+- 存在 `tool-trace` 事件 `outcome === 'block'`，但该 slice 最终仍然通过
+- 存在 `slice-transition` 事件 `prereqOk === false`，随后该 slice 仍然进入了 `verdict-issued`
+
+**输出**：`near-miss-rate`（近失 slice 数 / 通过 slice 数）+ 近失清单（每个近失附证据指针 + 当时被跳过的门禁 + reason 原文）。
+
+**这个指标是整个自进化计划的第一号产出，因为它回答一个具体的问题：*我们过去的"通过"，有多少是靠跳过检查换来的？***
+
+**S2.4 报告面。** `peaks observability report` 增加两节：**"近失"**（放在最前）与**"卡点 Top-N"** —— 报告是会被贴进 PR 的东西，这两件事必须出现在报告里，而不是只在一个新命令里。
+
+### 2.4 闸1（硬闸）
+
+> **S2 产出的热点榜必须能指名道姓地指向"某个技能的某类 artifact 缺失率 > 0"，并给出可复算的证据指针。**
+
+指不出来 → S1 的 schema 还不够（可能是 ownerSkill 推导表覆盖不全，或 prereq 失败根本没走这条 emitter）→ **S3 不许开工**。
+
+判据示例：`peaks observability hotspots --json` 的输出中，至少存在一条 `count ≥ 1` 且 `evidence` 非空的记录，其 `ownerSkill` 能解析到一个**真实存在的 SKILL.md 路径**。
+
+**因为有 S1.6 追认，这道闸不必等新数据积累** —— 它可以在 S1/S2 落地当天用历史的 113 次失败来验。
+
+### 2.5 S3 —— 从数据到提案
+
+**S3.1 指标体系：分四层，头号产出是近失率。**
+
+按 §1.6 的排序（近失率 > 遵守率 > 成本 > 通过率），为每个目标（技能 | 门禁）定义**可从事件流实测**的指标：
+
+| 层 | metric id | 定义 | 方向 | 依赖 |
+|---|---|---|---|---|
+| **T1 头号** | `near-miss-rate` | 通过的 slice 中，"必需门禁被 bypass 且该门禁从未被评估"或"必需 prereq 被跳过"的比例 | 越低越好 | **S1.5 + S1.7** |
+| **T1 头号** | `gate-false-block-rate` | 该门禁的 bypass 事件数 / 该门禁评估数 | 越低越好 | S1.5 |
+| **T2** | `compliance-rate` | 已执行的必需步骤 / 必需步骤总数 | 越高越好 | S1.7 + ComplianceSpec |
+| **T3 成本** | `token-overhead` | 技能激活期间的 token 消耗相对基线的倍率 | 越低越好 | `token-usage` category（当前是哑的，须接线） |
+| **T3 成本** | `user-steering-count` | 一次 slice 内需要用户介入（AskUserQuestion / 纠正）的次数 | 越低越好 | 用户触点记录 |
+| **T4 参考** | `artifact-missing-rate` | 缺失事件数 / prereq 检查数 | 越低越好 | S1.1 + S1.6 |
+| **T4 参考** | `repair-cycles` | 返工轮数（已实现：`repair-cycle-metric.ts`） | 越低越好 | 无 |
+| **T4 参考** | `median-time-to-verdict` | `draft` → `verdict-issued` 时长中位数 | 越低越好 | 无 |
+| **T4 参考** | `scope-claim-rate` | 带 `## Changed paths` 段的 RD artifact 占比 | 越高越好 | 无 |
+
+**T4 不作为适应度** —— CTA 已证明通过率在天花板任务上失明（80% 的 SIP 藏在通过率无变化的 37/49 个任务里）。T4 只用于**诊断**与**回归观察**：某个改动让 `repair-cycles` 变差，即使 T1 变好，也要记录并由人裁决。
+
+**指标是权威量，分数是投影。** 每个 metric 配一个**写进文档的映射函数**，把实测值投到 0..10（以满足 `score_delta_min` 的既有 CHECK 约束与棘轮语义），原始实测值另存字段。`score_delta_min` 因此从"自报阈值"变成**真的回归护栏**。
+
+**S3.1b ComplianceSpec —— peaks-loop 已经有一个，只是没这么叫。**
+
+`skill-comply` 用 YAML 声明"这个技能的步骤序列 + 每步的探测器 + 时序约束"，再判定 trace 是否遵守。**peaks-loop 的 artifact contract 就是这个东西的另一种读法**：prereq 表已经声明了"到状态 X 时，artifact Y 必须存在且含标记 Z"，那就是一条步骤规范。
+
+所以 peaks-loop 的 ComplianceSpec **不需要新造概念**，只需要补三样 prereq 表现在没有的：
+
+```yaml
+id: peaks-rd-handoff
+source: skills/bee/peaks-rd/SKILL.md#step-4
+owner: peaks-rd
+version: 1
+steps:
+  - id: write_security_audit
+    description: "派发 peaks-security-audit 并落地 audit/security-<rid>.md"
+    required: true
+    detector:
+      description: "一次 sub-agent dispatch，role = peaks-security-audit"
+      after_step: write_code_review
+    verify:                          # 确定性检查优先
+      artifactExists: "audit/security-<rid>.md"
+scoring:
+  threshold_promote_to_hook: 0.6
+```
+
+补的三样：**① owner（归属到技能）② 显式时序约束（`after_step` / `before_step`）③ required / optional 之分**。
+
+**关键优势：peaks-loop 的 detector 大多可以确定性判定，不必像 `skill-comply` 那样依赖 LLM 分类。** 一个步骤的"被执行"通常就是"它负责的 artifact 落地了，且内容标记齐全"—— 这正是 prereq 机制已经在做的事。SOPBench 的结论（**用代码化的多层验证替代 LLM judge**）在这里直接落地：**peaks-loop 的遵守率可以是纯代码算出来的**，只有少数无法用 artifact 表达的步骤才需要轨迹分类器兜底。
+
+**S3.2 `peaks evolution mine`。** 读事件流 → 聚类失败模式 → 产出**候选清单**（按已确认的形态：只出清单 + 证据，不自动生成 diff）。每条候选：
+
+```
+target        = bee:peaks-rd | gate:<id>
+dimension     = 单一优化维度
+metric        = 上面表里的某个 metric id
+observed      = 该 metric 在窗口内的实测值（before）
+evidence      = 事件指针 + `reason` 原文（截断到合理长度）
+suggestion    = 改动方向（一句话）
+```
+
+`mine` **不写** `evolution_evaluation` 表 —— 它只产出候选清单。落库由人确认后走 `peaks evolution propose`，因此**不会污染棘轮历史**。
+
+**证据门槛：** `mine` 只允许引用 `confidence === 'exact'` 的证据，或已被人工复核过的 `inferred` 条目。**纯 `ambiguous` 的候选集不得直接成为提案** —— 它只能作为"这一族需要人看一眼"的线索出现在榜上。
+
+**S3.3 动作空间：自进化有四种改法，不止改文案。**
+
+这是 `skill-comply` 的 `threshold_promote_to_hook` 与 Hermes 的约束闸共同指出的。**按成本从低到高：**
+
+| # | 动作 | 手段 | 适用信号 |
+|---|---|---|---|
+| **A1** | **提升为 hook** | 遵守率低于阈值 → 把该步骤做成确定性强制（ToolGuard 式：自然语言策略 → 可执行守卫） | 单个步骤反复不执行 |
+| **A2** | 改技能文案 | GEPA 式**由失败轨迹驱动**的定向变异（非随机重写） | 步骤被执行了但做错了 |
+| **A3** | 调门禁契约 | 增删 prereq、放宽/收紧 `mustContain` | 门禁误伤（`gate-false-block-rate` 高） |
+| **A4** | 调编排结构 | 调整 fan-out、拆分/合并技能、换相位切分 | 结构性反复返工 |
+
+**A1 是本设计最该优先做的一档**，因为 peaks-loop 已经有 hook 层、有 gate 机制、有 `peaks gate enforce` —— **把一条老是做不到的技能步骤变成确定性强制，是这个仓库最擅长的事**，而 Hermes 与 `skill-comply` 都把它当成低遵守率的默认出路。
+
+**S3.4 proposal 的快照与证据必须落地。** `before_snapshot` = 改前 SKILL.md 全文（或门禁定义全文）；`diff` = 真实 diff；`rubric` = 该 metric 的定义与方向；`red_lines` = 该目标不可违反的约束（取自 `.peaks/standards/**`）；`source_traces` = 事件指针 + 证据 artifact 路径。**这五项是本次改造的验收重点**：它们全部非空，`evolution_evaluation` 才第一次承载它 schema 里预留的信息。
+
+**S3.5 指标必须能跨机器、跨时间比较。** 原始事件在 gitignored 的 `.peaks/_runtime/**` 里，CI 与新克隆都拿不到。因此每个 session 结束时，把该 session 的**聚合指标行**（不是原始事件）写到受版本控制的 `.peaks/observability/sessions/<sessionId>.json`（复用 `src/services/log/redact.ts` 的脱敏；自由文本 `reason` 必须脱敏后再落盘）。这是"改前窗口"与"改后窗口"可比的前提 —— 否则棘轮只能比较同一台机器同一段本地历史。
+
+**S3.6 反事实配对 —— 让"改前 / 改后"从相关变成因果。**
+
+原 spec 的"改前窗口 / 改后窗口"只是**观察性**对比：改了技能 A 之后指标变了，但不能排除是"这批 slice 恰好更难"。CTA 的方法给出了正解：**配对比较**。
+
+- **配对单元**：同一个任务族（同一 request type + 同一 slice 类别）在技能版本 N 与 N' 下各跑一次
+- **配对内容**：S1.7 的 tool-trace，按 CTA 的方式做相位对齐
+- **读出的量**：不是通过率，而是 **Skill Influence Pattern 的方向与数量**（构造性 / 中性 / 破坏性）
+- **成本现实**：CTA 实测配对实验 token 开销约 1.91×，个别 22×。**因此配对实验不可能覆盖所有 slice，只能对少数"候选改动"做** —— 这正好和 S3.3 的动作空间一致：先由观察性数据筛出候选，再对候选做昂贵的配对验证。
+
+**首组配对的范围（决定 D2）**：先只跑 **1 组** —— 同一个任务族，技能版本 N 与 N' 各一次。目的不是得出统计结论，而是**把流程跑通并量出真实开销**（本仓库的 slice 规模比论文样本大，开销比值可能完全不同）。跑完之后再决定是否扩到固定任务集。
+
+**这直接改变了 S3→S4 的门槛：没有配对验证的改动只能停在 `needs-user-decision`，不能 `keep`。**
+
+### 2.6 闸2（硬闸）
+
+> **`mine` 产出的每一条候选，其 `observed` 必须等于按 §2.5 定义在事件流上实算出来的值 —— 不是估计、不是 LLM 判断。**
+
+不满足 → 指标定义不可复算 → 不许进入 S4。
+
+### 2.7 S4 —— 棘轮真跑起来 + 度量
+
+**S4.1 跑通一次完整棘轮。** `peaks evolution evaluate`（独立评审 + 回归怀疑者）已实现但从未执行。本切片的目标是**在真实目标上跑完一次 `propose → evaluate → mark-keep`**，让 `evolution_evaluation` 第一次有行。
+
+**S4.2 `after` 取自实测。** 改动落地后，取改动后 K 个 slice 的同 metric 实测值作为 `after_score` 的投影。**若该改动尚未通过 S3.6 的配对验证，则 `after` 只能作为观察性证据，`verdict` 最高只能是 `needs-user-decision`。**
+
+**S4.2b 候选必须过约束闸 —— 抄 Hermes 的这一条。**
+
+Hermes 的一条原则值得原样借来：**"Benchmarks are GATES, not fitness functions."** —— 候选可以任务分更高，但只要触发任何一条回归闸就必须被否。peaks-loop 的对应闸：
+
+| 闸 | 内容 | 为什么 |
+|---|---|---|
+| 全套测试通过 | `pnpm test` 绿 | 硬底线 |
+| 近失率不得变差 | `near-miss-rate` after ≤ before | 主指标 |
+| 遵守率不得变差 | `compliance-rate` after ≥ before | 次指标 |
+| 成本闸 | `token-overhead` 不得超过 before 的 1.2× | CTA 实测技能开销均值 1.91×，必须设闸 |
+| 语义不漂移 | 改动后的 SKILL.md 与原文的语义相似度不低于阈值 | Hermes 的硬约束，防"越改越不像" |
+| 不得删除安全检查 | 演化不得移除任何 `red_lines` / 门禁 | Hermes 同款 |
+| 不得热替换 | 不得把演化产物替换进进行中的会话 | Hermes 同款 |
+| 独立 holdout | 用一批未参与筛选的 slice 复测 | 防过拟合 |
+
+**S4.3 样本量不足时必须说"不足"。** K 个 slice 的窗口若不足以判定，必须让提案停在 `needs-user-decision` 并在 `rubric` 里写明样本量不足，**不得产出伪造的 delta**。这与仓库既有原则一致：缺失的过程绝不能读成一个判定。
+
+**S4.3b 落地只走 PR，永不直提。** Hermes 的规则是 "Deployment via PR (Never Direct Commit)"，且人工评审合并、保留 Git 血缘便于回滚。本仓库的 AGENTS.md 另有更严的红线（提交作者唯一、不得带任何 AI 署名 trailer）。**两者叠加的结果是：演化产物只能以 PR 形式落到一个分支上，由人评审后合并。** `peaks evolution revert` 是回滚通道 —— 回滚的是**产物**，不是 Git 历史。
+
+**S4.4 落地后的自动验证。** `peaks observability baseline --write / --check` 已存在（`src/services/observability/results-baseline.ts`），容差为 rate ±0.02 / peak ±1 / mean ±0.5，且**明确不是 CI 门禁**（源数据 gitignored）。棘轮每次落地后应当跑一次 `--check`，把"这次改动有没有让指标变差"变成一次显式检查。
+
+**S4.5 与既有 baseline 的关系。** `results-baseline.json` 是**全项目结果层**的基线；本设计新增的 `.peaks/observability/sessions/*.json` 是**按 session、按技能/门禁**的指标行。两者层级不同，不合并、不替代：前者回答"项目整体健康吗"，后者回答"这个技能变好了吗"。
+
+### 2.8 反馈回路的复接线
+
+`.peaks/retrospective/index.json` 停在 6 月 9 日这件事，本设计**不单独修** —— 但 S3.4 的 per-session 指标落盘，正是 retrospective 该消费的东西。等 S3 落地后，retrospective 的续接可以基于指标行重建，而不是基于 4 个月前的自由文本。这是后续切片，不在本轮范围。
+
+---
+
+## 3. Non-goals
+
+- **不做** SKILL.md 的自动改写。`mine` 只出候选清单 + 证据；具体怎么改由人或 LLM 另行决定。
+- **不做** CI 门禁。观测数据在 gitignored 的 session 目录里，CI 拿不到；这一点 `results-baseline.json` 已经在自己的 `ciEnforceableReason` 里说清楚了，不重复制造第二个假门禁。
+- **不做**对 `peaks-doctor` / `peaks-maker` / `darwin-skill`（外部）的整合。它们是不同机制。
+- **不做** GEPA / DSPy 全栈移植。Hermes 用的是 Python + DSPy；本仓库是 TS + Node。**移植设计思想，不移植运行时**（§1.5.2）。
+- **不直接搬用 `skill-comply` 的代码**，除非用户单独批准（AGENTS.md：外部仓库"未经明确批准不得执行或安装"）。实现走 peaks-loop 自己的 hook 层与 artifact contract。
+- **不读运行时的私有 transcript**（如 Claude Code 的 `~/.claude/projects/` 会话记录）。轨迹从 peaks-loop 自己的 hook 层来（S1.7）。
+- **不做**全量技能的 ComplianceSpec。试点 2–3 个，其余靠 prereq 表与近失率覆盖。
+- **不做**把 `evolution_evaluation` 的 0..10 分制改成任意实数制。改为**并存**：原始 metric 是权威，分数是投影，既有 CHECK 约束与棘轮语义不变。
+- **不伪造从未发出过的原始事件。** v2.11.1 起不 backfill 原始事件流是既有决定，本次沿用。**但"追认归属"不是补事件** —— S1.6 不新增任何事件，只用已发事件 + 确定性规则（prereq 表是纯函数）重算归属，且置信度封顶为 `inferred`。这条界线必须守住：追认是**再解释**，不是**再发生**。
+- **不把门禁事件化说成"门禁改造"。** S1.5 只让门禁的判定**变得可见**，不改任何门禁的语义、阈值或放行条件。门禁该不该这么判，是 S3 之后由数据驱动的事。
+- **不改** `peaks evolution` 的七条硬规则。那套规则是对的，缺的是喂给它的数据。
+
+---
+
+## 4. Slices（实施顺序与判据）
+
+| # | 内容 | 完成判据 |
+|---|---|---|
+| **S1** | schema v2：`missing[]` 落地 + `ownerSkill` 推导表 + 6 个哑 category 清算 + **新增 `gate` category（门禁事件化）** + **S1.7 tool-trace 采集（PostToolUse 记录器 + presence 归属）** + session 记 `skills/` blob sha + **S1.6 追认器** | 新发生的 prereq 失败能落地"哪个技能缺了哪个 artifact"；门禁的 pass/block/bypass 全部有事件；tool-trace 能按时间 join 到当时激活的技能；历史 113 次经追认后报出 inferred / ambiguous 的实际占比；v1 行仍可读 |
+| **S2** | `--all-sessions` 铺到四个查询 + 空结果 warning + 修 fail count 口径（8 个失败 slice 被记成 0）+ **`near-miss` 命令（头号产出）** + `hotspots` 命令 + 报告加"近失 / 卡点"两节 + **ComplianceSpec（试点：`peaks-rd` + `peaks-race-code`，决定 D1）** | `near-miss` 能报出近失率与清单；`hotspots --json` 输出可指名到真实 SKILL.md 路径；两个试点技能的遵守率**由确定性检查算出**（不依赖 LLM judge）；**闸1**通过 |
+| **S3** | 四层指标实算器 + ComplianceSpec 判定器 + `evolution mine` + **四种动作空间（A1 提升为 hook / A2 改文案 / A3 调契约 / A4 调编排）** + proposal 五项快照落地 + per-session 指标落盘 + **S3.6 反事实配对协议** | `mine` 输出的 `observed` 与实算值逐条相等；配对协议能对同一任务族产出"有技能 / 无技能"的可对齐轨迹；**闸2**通过 |
+| **S4** | 真实目标上跑通一次 `propose → evaluate → mark-keep`；`after` 取实测；**S4.2b 约束闸（8 条）**；**S4.3b 只走 PR**；样本不足说不足；落地后跑 `baseline --check` | `evolution_evaluation` 表首次有行，且该行的 `before/after_snapshot`、`diff`、`rubric`、`source_traces` **均非空**；该行至少有一条约束闸被实际评估并记录 |
+
+S1 与 S2 可并行开工（S2 的实现不依赖 S1 的 schema，只依赖 S1 的 ownerSkill 推导表）。S3 依赖 S2 通过闸1。S4 依赖 S3 通过闸2。
+
+---
+
+## 5. Risks
+
+| 风险 | 缓解 |
+|---|---|
+| **统计功效不足。** 全部记录历史只有 1533 条事件 / 12 个 session。多数 skill metric 的窗口会长期样本不足 | S4.3 把"不足"作为一等结论；`score_delta_min` 只在达到最小样本量后生效；绝不用小样本产出 delta |
+| **指标可被优化（Goodhart）。** 门禁一旦知道自己被度量，就可能被绕过 | 指标只作**回归护栏**（改动后不得变差），不作为唯一目标；人工确认仍是硬闸；`gate-false-block-rate` 与 `artifact-missing-rate` 同时看。MAC-Bench（*Beyond Goodhart's Law*）提出的 CSR / Machiavellian Gap 正是针对这一类 |
+| **用错了主指标。** 最大的风险不是"没数据"，而是"数据齐了但盯的是通过率" —— CTA / AgentPex / Near-Miss 三方独立证明通过率在技能质量上是失明的 | 本 spec 已把通过率降到 T4 参考层；头号产出是近失率；遵守率是 T2；**任何"通过率上升"的提案必须附带近失率与遵守率**（S4.2b 的约束闸已强制） |
+| **轨迹采集的隐私面。** tool-trace 记录工具调用的输入输出 | 只记**脱敏 + 截断**后的 input/output（复用 `src/services/log/redact.ts`）；**不读运行时私有 transcript**（S1.7 已说明理由）；落盘前再过一遍脱敏 |
+| **配对实验成本失控。** CTA 实测配对实验 token 开销均值 1.91×、个别 22× | 配对**只对候选改动做**，不做全量；观察性数据负责筛选候选；成本闸（S4.2b）拦住 token 开销超 1.2× 的候选 |
+| **门禁事件会放大事件量。** 每个门禁判定发一条事件，一个 slice 的门禁判定次数是现有 slice-transition 的数倍 | `gate` 事件的 detail 不含大字段；`bypass` 的 reason 文本截断；沿用 jsonl-store 既有的 mtime 剪枝（`MAX_METRICS_FILES = 10`）。**必须在 S1 就把事件量实测出来并报数**，若超出预期则改为按"每次迁移聚合一条"而非"每次判定一条" |
+| **轨迹事件量更大。** tool-trace 是每次工具调用一条，比 gate 事件还密 | `tool-trace` 采用**热窗口 + 冷摘要**：会话内最近 N 条保留明细，更早的只留聚合行；`MAX_METRICS_FILES = 10` 的 mtime 剪枝照旧。**S1 必须把事件量实测出来并报数** |
+| **归属推导表会腐化。** `ownerSkill` 靠 path 前缀映射，新增 artifact 类型就可能落空 | 推导表是受版本控制的常量 + 一条测试断言"每个 prereq 路径都能解析出 ownerSkill"，新增 prereq 路径时测试会红 |
+| **prereq 表漂移会让追认归错。** 追认用的是今天的表，历史事件发生在过去的表版本下 | 追认置信度封顶为 `inferred`（永不到 `exact`）；热点榜显式区分三档；S1.6 的完成判据必须报出 inferred / ambiguous 实际占比，**不允许用追认结果直接驱动 S3 的提案**（提案需引用 `exact` 或人工复核过的证据） |
+| **自由文本落盘会泄漏敏感内容。** `reason` 里有路径与代码片段 | 落盘前过 `src/services/log/redact.ts`；per-session 指标行只存聚合计数与截断后的指针，不存 reason 全文 |
+| **棘轮被污染。** 自动提案直接写 `evolution_evaluation` 会让历史失真 | `mine` 不写表；只有人确认后才走 `propose` |
+| **范围膨胀。** "让 peaks-loop 自进化"很容易一路扩到所有技能 | Non-goals 已划界；S3 只做指标 + mine，不做自动改写 |
+
+---
+
+## 6. Assumptions made on the user's behalf
+
+1. **本仓库自身的可观测性优先于对外功能。** 用户说的是"优化技能、脚本"，而这个仓库本身就是那套技能。默认理解为**先修 peaks-loop 自己**。
+2. **"自进化"指带度量与回滚的闭环，不是"自动改写 SKILL.md"。** 依据是用户同时说了"没有实际的日志等数据"—— 缺的是尺子，不是手。
+3. **接受一次完整改造的量级。** 用户在被问及范围时回答"我其实也没有什么思路，我需要你结合项目分析下"，即授权按分析结论定范围。四个切片跨 schema、CLI、棘轮三层，不是小改动。
+4. **门禁层与技能层同等重要。** 现有失败数据里，反复出现的是门禁缺陷（作用域 / 状态机 / 认领表），不是技能文案缺陷。因此归属设计以 `ownerSkill` 为主，同时保留 `artifactRole` 维度。
+5. **"抄作业"优先于自己发明。** 用户明确提议借鉴 Hermes 与外部论文。因此本 spec 的每个关键机制都注明了出处（§1.5），而不是自造一套。
+6. **外部代码默认不搬。** 按 AGENTS.md，外部仓库只作策展参考。因此本设计采用"移植思想、TS 自实现"，若要直接搬 `skill-comply` 的 MIT 代码，需单独批准。
+7. **通过率不是目标指标。** 用户没有反对，但这一条是调研得出的、且与用户的原始直觉（"想优化技能"）一致 —— 通过率恰恰是优化技能**不该**看的东西。
+
+---
+
+## 7. Open questions
+
+### 7.1 已决定（2026-10-26）
+
+| # | 决定 | 理由 |
+|---|---|---|
+| **D1** | **ComplianceSpec 试点 = `peaks-rd` + `peaks-race-code`** | `peaks-rd` 产出 artifact 最多、门禁交互最密（高价值）；`peaks-race-code` 最轻、最快出结果（快反馈）。一个高价值 + 一个快，比"三个都上"更可能跑完 |
+| **D2** | **配对实验先只跑 1 组**（同一任务族 × 两个技能版本），把流程跑通、量出真实开销再谈规模 | CTA 实测开销 1.91×–22×，盲试容易失控；且 peaks-loop 的 slice 本身比论文样本大得多 |
+| **D3** | **不移植 `skill-comply` 代码，只借思想** | AGENTS.md 红线（外部内容未经明确批准不得执行/安装）；且我们底座更好 —— prereq 表 + hook 层 + presence lease，判定器自写可做到**纯代码、不需 LLM judge** |
+
+### 7.2 仍待定
+
+1. **`ownerSkill` 推导表放哪？** 候选：`src/services/observability/`（与观测同源）vs `src/services/artifacts/`（与 prereq 同源）。倾向后者 —— 它是 artifact 语义的产物，观测只是消费者。
+2. **per-session 指标行的落盘路径**：`.peaks/observability/sessions/<sessionId>.json`（非下划线段，受版本控制）是否符合 `.peaks/` 的 underscore 约定（`PROJECT.md` 记载：下划线前缀 = 临时，非下划线 = 真相源）—— 需要确认"聚合指标行"应属真相源还是临时。
+3. **`mode-gate` / `post-compact` 这两个从未发出的 category**：是接线（补 emitter）还是删除（承认当前流程不需要）—— 需要先查它们的 emitter 是否存在但从未被触发。
+4. **本次是否同步复接 retrospective**（§2.8）。默认不同步，列为后续切片。
+5. **实施是否走 peaks-code 全流程**（`peaks audit` → prd → rd → qa）。考虑到 S1/S2 改动面小、且涉及 `evolution_evaluation` 这种契约层，是否每个切片单独走一次完整 QA，需用户定。
+6. **A1（提升为 hook）的第一批候选。** 近失率算出来后，第一个该被"提升为 hook"的步骤是哪个？**这需要 S2 的近失数据才能回答，现在无法预判** —— 但设计必须保证答案出来后有一条明确的落地路径（`peaks gate enforce` + hook 安装）。
+
+---
+
+## 8. 一页纸速览
+
+| 问题 | 答案 |
+|---|---|
+| 为什么现在做 | Darwin 棘轮有完整 CLI 但**从未跑过**，`before/after_score` 是 LLM 自报；观测有 1533 条事件但**默认口径看不见**、**缺件清单被 `.length` 丢掉**、**门禁层完全没被事件化** |
+| 头号产出 | **`peaks observability near-miss`** —— 我们过去的"通过"，有多少是靠跳过检查换来的 |
+| 主指标 | 近失率 > 遵守率 > token/干预成本 > 通过率（**通过率降为参考**） |
+| 轨迹从哪来 | peaks-loop 自己的 hook 层（PostToolUse 记录器），归属由**已有的 presence lease** 按时间 join |
+| 改什么 | 四种动作：提升为 hook / 改文案 / 调门禁契约 / 调编排结构 —— **A1 优先** |
+| 怎么防自欺 | 8 条约束闸（测试、近失率、遵守率、成本、语义不漂移、不得删安全检查、不得热替换、holdout）+ 只走 PR |
+| 怎么证明因果 | CTA 式配对反事实：有技能 vs 无技能的同任务族轨迹对齐 |
+
+---
+
+## 9. 引用
+
+**外部代码 / 仓库**
+- Hermes Agent Self-Evolution — https://github.com/Karanlashkari/hermes-agent-self-evolution/blob/main/PLAN.md （MIT；DSPy + GEPA；"Benchmarks are GATES, not fitness functions"；"Deployment via PR (Never Direct Commit)"）
+- Hermes Learning Loop — https://hermes-agent.ai/features/learning-loop
+- Hermes Self-Improving Skills — https://hermes-growth.dev/features/self-improving-skills
+- `skill-comply`（ecc-universal 2.2.3，MIT，本地 `node_modules` 内）— 技能→ComplianceSpec→trace→分类→确定性时序判定→遵守率 + hook 提升建议
+- `everything-claude-code`（AGENTS.md 指定的策展参考）— https://github.com/affaan-m/everything-claude-code
+
+**论文 / 基准**
+- SOPBench（ICLR 2026）— https://lacuna.tiptreesystems.com/paper/sopbench-evaluating-language-agents-at-following-standard-operating-procedures/art_82048e2d5f174a7da70c6c37b223c3f0
+- CTA / Counterfactual Trace Auditing of LLM Agent Skills（arXiv 2605.11946）— https://www.emergentmind.com/papers/2605.11946
+- Near-Miss: Latent Policy Failure Detection in Agentic Workflows（IBM，arXiv 2603.29665）— https://api.emergentmind.com/papers/2603.29665
+- AgentPex / Willful Disobedience（arXiv 2603.23806）— https://www.emergentmind.com/papers/2603.23806
+- MAC-Bench / Beyond Goodhart's Law（arXiv 2606.07805）— https://arxivlens.com/PaperView/ViewPdf/beyond-goodhart-s-law-a-dynamic-benchmark-for-evaluating-compliance-in-multi-agent-systems-6855-46bc4aaa
+- ScopeBench — https://qingyuntop.ai/article/scopebench-agent-boundary-adherence-benchmark
+- Hermes Agent Self-Evolution 报道（GEPA）— https://the-agent-report.com/2026/06/hermes-agent-self-evolution-dspy-gepa-june2026
+
+**注**：部分 2026 年的来源是二手聚合页，核心结论已尽量回到一手（PLAN.md、arXiv 摘要）核对。
