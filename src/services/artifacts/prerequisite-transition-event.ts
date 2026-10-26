@@ -1,4 +1,5 @@
 import { emitObservabilityEvent } from '../observability/observability-service.js';
+import { ownerSkillForPath } from '../observability/owner-skill-map.js';
 import type { PrerequisiteCheckResult } from './artifact-prerequisites.js';
 import type { RequestArtifactRole } from './artifact-templates.js';
 import type { RequestArtifactState } from './request-artifact-state-helpers.js';
@@ -32,7 +33,18 @@ export function emitPrereqTransitionEvent(opts: {
         artifactRole: opts.role,
         to: opts.newState,
         prereqOk: opts.result.ok,
-        missingCount: opts.result.missing.length
+        missingCount: opts.result.missing.length,
+        // The LIST, not only its length: the count says how many artifacts were
+        // missing, and the list says which ones and which skill owns each, so a
+        // reader can name the skill that failed to deliver. Ownership is per
+        // missing item; an aggregate owner is the reader's job, not the
+        // writer's.
+        missing: opts.result.missing.map((m) => ({
+          path: m.path,
+          description: m.description,
+          kind: m.kind,
+          ownerSkill: ownerSkillForPath(m.path)
+        }))
       }
     },
     { projectRoot: opts.projectRoot }

@@ -439,7 +439,7 @@ const CONFIG_TABLE: PrerequisiteTable = {
   'qa:verdict-issued': [TEST_REPORT]
 };
 
-const PREREQUISITES_BY_TYPE: Record<RequestType, PrerequisiteTable> = {
+export const PREREQUISITES_BY_TYPE: Record<RequestType, PrerequisiteTable> = {
   feature: FEATURE_TABLE,
   bugfix: BUGFIX_TABLE,
   refactor: REFACTOR_TABLE,
