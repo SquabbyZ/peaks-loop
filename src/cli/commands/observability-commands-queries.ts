@@ -15,6 +15,10 @@
  * LATER ADDITION — `peaks observability repair-cycles` also grew an
  * `--all-sessions` scope, so the whole recorded history of a project can be
  * measured from the command itself.
+ *
+ * TASK 4 — the same `--all-sessions` scope now reaches `status` / `slices` /
+ * `fanout` / `report`, and every scoped query says so when its scope holds no
+ * events while OTHER sessions hold some.
  */
 
 import { fail, ok } from 'peaks-loop-shared/result';
@@ -38,42 +42,121 @@ export function resolveProjectRoot(optionProject: string | undefined): string {
     : (findProjectRoot(process.cwd()) ?? process.cwd());
 }
 
+/**
+ * The options every read-only observability query accepts.
+ *
+ * `allSessions` widens the scope from the canonical session binding to the
+ * WHOLE recorded history of the project — the same flag, and the same
+ * meaning, that `repair-cycles` already carries.
+ */
+export type ObservabilityQueryOptions = {
+  project?: string;
+  session?: string;
+  json?: boolean;
+  allSessions?: boolean;
+};
+
+/**
+ * The session a query reads, or `undefined` for EVERY session.
+ *
+ * `allSessions` short-circuits the resolution: the whole recorded history is
+ * read instead of the canonical session binding, and an explicit `--session`
+ * does not narrow it back. That is the precedence `repair-cycles
+ * --all-sessions` already has.
+ */
 export function resolveSessionId(
   optionSession: string | undefined,
-  projectRoot: string
+  projectRoot: string,
+  allSessions: boolean
 ): string | undefined {
+  if (allSessions) return undefined;
   if (optionSession !== undefined) return optionSession;
   return getSessionIdCanonical(projectRoot) ?? undefined;
 }
 
-export function runStatus(
-  io: ProgramIO,
-  options: { project?: string; session?: string; json?: boolean }
-): void {
+/**
+ * The warnings a scoped query carries.
+ *
+ * A scoped query that reads zero events reads exactly like a project that
+ * recorded nothing, and the reader concludes the second — the events that ARE
+ * there stay invisible. So when the scope is empty while OTHER sessions hold
+ * events, the warning says how many sessions hold them, how many events in
+ * total, and names the flag that reaches them.
+ *
+ * Empty otherwise: either the scope holds events, or the scope already
+ * covers every session.
+ */
+export function scopeWarnings(
+  projectRoot: string,
+  scopedSessionId: string | undefined,
+  scopedEventCount: number
+): string[] {
+  if (scopedSessionId === undefined) return [];
+  if (scopedEventCount > 0) return [];
+  const sessions = new Set<string>();
+  let eventCount = 0;
+  for (const event of readAllSessionEvents(projectRoot)) {
+    if (event.sessionId === scopedSessionId) continue;
+    sessions.add(event.sessionId);
+    eventCount += 1;
+  }
+  if (eventCount === 0) return [];
+  return [
+    `No observability events in session \`${scopedSessionId}\`; ` +
+      `${sessions.size} other session(s) hold ${eventCount} event(s) in total — ` +
+      'use `--all-sessions` to read them.'
+  ];
+}
+
+/**
+ * Write each warning to stderr — the channel `printResult` uses for them, so
+ * a warning reads the same way whichever command raised it.
+ */
+export function printScopeWarnings(io: ProgramIO, warnings: readonly string[]): void {
+  for (const warning of warnings) io.stderr(`warning: ${warning}`);
+}
+
+/** What a scoped query reads: the session it was scoped to, and its events. */
+export type ScopedRead = {
+  readonly sessionId: string | undefined;
+  readonly events: ReturnType<typeof readAllSessionEvents>;
+};
+
+/**
+ * The events a scoped query answers for: the one session the scope names, or
+ * every session the project recorded.
+ */
+export function readScopedEvents(
+  projectRoot: string,
+  options: ObservabilityQueryOptions
+): ScopedRead {
+  const sessionId = resolveSessionId(options.session, projectRoot, options.allSessions === true);
+  const events =
+    sessionId !== undefined
+      ? readSessionEvents(projectRoot, sessionId)
+      : readAllSessionEvents(projectRoot);
+  return { sessionId, events };
+}
+
+/** The scope a query answered for: one session, or every session. */
+function scopeOf(sessionId: string | undefined): { sessionId: string } | { allSessions: true } {
+  return sessionId !== undefined ? { sessionId } : { allSessions: true };
+}
+
+export function runStatus(io: ProgramIO, options: ObservabilityQueryOptions): void {
   const projectRoot = resolveProjectRoot(options.project);
-  const sessionId = resolveSessionId(options.session, projectRoot);
   try {
-    const events =
-      sessionId !== undefined
-        ? readSessionEvents(projectRoot, sessionId)
-        : readAllSessionEvents(projectRoot);
+    const { sessionId, events } = readScopedEvents(projectRoot, options);
     const status = aggregateStatus(events);
-    const warnings: string[] =
-      sessionId === undefined && status.totalEvents === 0
-        ? [
-            'No observability events found in any session — emit a slice transition via `peaks request transition` to populate.'
-          ]
-        : [];
+    const warnings = scopeWarnings(projectRoot, sessionId, status.totalEvents);
+    if (sessionId === undefined && status.totalEvents === 0) {
+      warnings.push(
+        'No observability events found in any session — emit a slice transition via `peaks request transition` to populate.'
+      );
+    }
     printResult(
       io,
-      ok(
-        'observability.status',
-        {
-          scope: sessionId !== undefined ? { sessionId } : { allSessions: true },
-          status
-        },
-        warnings
-      ),
+      ok('observability.status', { scope: scopeOf(sessionId), status }, warnings),
       options.json
     );
   } catch (error) {
@@ -92,28 +175,18 @@ export function runStatus(
   }
 }
 
-export function runSlices(
-  io: ProgramIO,
-  options: { project?: string; session?: string; json?: boolean }
-): void {
+export function runSlices(io: ProgramIO, options: ObservabilityQueryOptions): void {
   const projectRoot = resolveProjectRoot(options.project);
-  const sessionId = resolveSessionId(options.session, projectRoot);
   try {
-    const events =
-      sessionId !== undefined
-        ? readSessionEvents(projectRoot, sessionId)
-        : readAllSessionEvents(projectRoot);
+    const { sessionId, events } = readScopedEvents(projectRoot, options);
     const slices = aggregateSlices(events);
+    const warnings = scopeWarnings(projectRoot, sessionId, events.length);
     printResult(
       io,
       ok(
         'observability.slices',
-        {
-          scope: sessionId !== undefined ? { sessionId } : { allSessions: true },
-          total: slices.length,
-          slices
-        },
-        []
+        { scope: scopeOf(sessionId), total: slices.length, slices },
+        warnings
       ),
       options.json
     );
@@ -133,34 +206,20 @@ export function runSlices(
   }
 }
 
-export function runFanout(
-  io: ProgramIO,
-  options: { project?: string; session?: string; json?: boolean }
-): void {
+export function runFanout(io: ProgramIO, options: ObservabilityQueryOptions): void {
   const projectRoot = resolveProjectRoot(options.project);
-  const sessionId = resolveSessionId(options.session, projectRoot);
   try {
-    const events =
-      sessionId !== undefined
-        ? readSessionEvents(projectRoot, sessionId)
-        : readAllSessionEvents(projectRoot);
+    const { sessionId, events } = readScopedEvents(projectRoot, options);
     const fanout = aggregateFanout(events);
-    const warnings: string[] =
-      fanout.total === 0
-        ? [
-            'No dispatch events recorded yet — Slice C will wire `peaks sub-agent dispatch`; until then fanout is empty.'
-          ]
-        : [];
+    const warnings = scopeWarnings(projectRoot, sessionId, events.length);
+    if (fanout.total === 0) {
+      warnings.push(
+        'No dispatch events recorded yet — Slice C will wire `peaks sub-agent dispatch`; until then fanout is empty.'
+      );
+    }
     printResult(
       io,
-      ok(
-        'observability.fanout',
-        {
-          scope: sessionId !== undefined ? { sessionId } : { allSessions: true },
-          fanout
-        },
-        warnings
-      ),
+      ok('observability.fanout', { scope: scopeOf(sessionId), fanout }, warnings),
       options.json
     );
   } catch (error) {
@@ -179,32 +238,17 @@ export function runFanout(
   }
 }
 
-export function runRepairCycles(
-  io: ProgramIO,
-  options: { project?: string; session?: string; json?: boolean; allSessions?: boolean }
-): void {
+export function runRepairCycles(io: ProgramIO, options: ObservabilityQueryOptions): void {
   const projectRoot = resolveProjectRoot(options.project);
-  // `--all-sessions` is the escape from the canonical-session binding: the
-  // recorded history (every session in the project) is the population the
-  // results baseline and the metric comparison are measured over.
-  const sessionId =
-    options.allSessions === true ? undefined : resolveSessionId(options.session, projectRoot);
   try {
-    const events =
-      sessionId !== undefined
-        ? readSessionEvents(projectRoot, sessionId)
-        : readAllSessionEvents(projectRoot);
+    // `--all-sessions` is the escape from the canonical-session binding: the
+    // recorded history (every session in the project) is the population the
+    // results baseline and the metric comparison are measured over.
+    const { sessionId, events } = readScopedEvents(projectRoot, options);
     const cycles = aggregateRepairCycles(events);
     printResult(
       io,
-      ok(
-        'observability.repair-cycles',
-        {
-          scope: sessionId !== undefined ? { sessionId } : { allSessions: true },
-          cycles
-        },
-        []
-      ),
+      ok('observability.repair-cycles', { scope: scopeOf(sessionId), cycles }, []),
       options.json
     );
   } catch (error) {

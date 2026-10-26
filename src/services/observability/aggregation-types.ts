@@ -18,6 +18,16 @@ export type StatusAggregate = {
   totalSlices: number;
   successCount: number;
   failCount: number;
+  /**
+   * Slices that reached a state which is neither a success terminal state nor
+   * a terminal failure — the ones stuck mid-flight, e.g. at `qa-handoff`.
+   *
+   * The three outcome counts partition the slice set, so
+   * `successCount + failCount + stalledCount === totalSlices` holds for every
+   * event set. A slice whose transitions recorded no final state at all also
+   * lands here: it reached no terminal outcome either.
+   */
+  readonly stalledCount: number;
   repairCyclePeak: number;
   fanoutCostTotal: number;
 };

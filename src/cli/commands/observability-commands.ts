@@ -30,8 +30,6 @@ import {
   aggregateStatus,
   filterByPeriod,
   periodStartIso,
-  readAllSessionEvents,
-  readSessionEvents,
   type Period
 } from '../../services/observability/aggregation.js';
 import { renderObservabilityReport } from '../../services/observability/report-formatter.js';
@@ -43,32 +41,32 @@ import { renderObservabilityReport } from '../../services/observability/report-f
 // `runReport` — the one function here carrying a finding — stayed behind, so no
 // finding moved into the new module.
 import {
+  printScopeWarnings,
+  readScopedEvents,
   resolveProjectRoot,
-  resolveSessionId,
   runFanout,
   runRepairCycles,
   runSlices,
-  runStatus
+  runStatus,
+  scopeWarnings,
+  type ObservabilityQueryOptions
 } from './observability-commands-queries.js';
 import { runBaseline } from './observability-commands-baseline.js';
 
 const VALID_PERIODS: ReadonlyArray<Period> = ['day', 'week', 'month'];
 
-function runReport(
-  io: ProgramIO,
-  options: { project?: string; session?: string; period?: string; json?: boolean }
-): void {
+/** The `--all-sessions` help text, ONE string for every command that carries it. */
+const ALL_SESSIONS_DESCRIPTION =
+  'measure the whole recorded history of the project instead of the canonical session binding';
+
+function runReport(io: ProgramIO, options: ObservabilityQueryOptions & { period?: string }): void {
   const projectRoot = resolveProjectRoot(options.project);
-  const sessionId = resolveSessionId(options.session, projectRoot);
   const period: Period =
     options.period !== undefined && (VALID_PERIODS as readonly string[]).includes(options.period)
       ? (options.period as Period)
       : 'day';
   try {
-    const allEvents =
-      sessionId !== undefined
-        ? readSessionEvents(projectRoot, sessionId)
-        : readAllSessionEvents(projectRoot);
+    const { sessionId, events: allEvents } = readScopedEvents(projectRoot, options);
     const periodStart = periodStartIso(period);
     const events = filterByPeriod(allEvents, period);
     const markdown = renderObservabilityReport({
@@ -81,6 +79,7 @@ function runReport(
       fanout: aggregateFanout(events),
       repairCycles: aggregateRepairCycles(events)
     });
+    const warnings = scopeWarnings(projectRoot, sessionId, allEvents.length);
     if (options.json === true) {
       // --json on report: emit a metadata envelope so callers can
       // machine-parse the markdown body without losing the envelope
@@ -97,13 +96,14 @@ function runReport(
             totalEventsInPeriod: events.length,
             markdown
           },
-          []
+          warnings
         ),
         true
       );
       return;
     }
     io.stdout(markdown);
+    printScopeWarnings(io, warnings);
   } catch (error) {
     printResult(
       io,
@@ -138,7 +138,8 @@ export function registerObservabilityCommands(program: Command, io: ProgramIO): 
         '--session <sessionId>',
         'scope to one session (defaults to the canonical session binding)'
       )
-  ).action((options: { project?: string; session?: string; json?: boolean }) => {
+      .option('--all-sessions', ALL_SESSIONS_DESCRIPTION)
+  ).action((options: ObservabilityQueryOptions) => {
     runStatus(io, options);
   });
 
@@ -153,7 +154,8 @@ export function registerObservabilityCommands(program: Command, io: ProgramIO): 
         '--session <sessionId>',
         'scope to one session (defaults to the canonical session binding)'
       )
-  ).action((options: { project?: string; session?: string; json?: boolean }) => {
+      .option('--all-sessions', ALL_SESSIONS_DESCRIPTION)
+  ).action((options: ObservabilityQueryOptions) => {
     runSlices(io, options);
   });
 
@@ -168,7 +170,8 @@ export function registerObservabilityCommands(program: Command, io: ProgramIO): 
         '--session <sessionId>',
         'scope to one session (defaults to the canonical session binding)'
       )
-  ).action((options: { project?: string; session?: string; json?: boolean }) => {
+      .option('--all-sessions', ALL_SESSIONS_DESCRIPTION)
+  ).action((options: ObservabilityQueryOptions) => {
     runFanout(io, options);
   });
 
@@ -183,15 +186,10 @@ export function registerObservabilityCommands(program: Command, io: ProgramIO): 
         '--session <sessionId>',
         'scope to one session (defaults to the canonical session binding)'
       )
-      .option(
-        '--all-sessions',
-        'measure the whole recorded history of the project instead of the canonical session binding'
-      )
-  ).action(
-    (options: { project?: string; session?: string; json?: boolean; allSessions?: boolean }) => {
-      runRepairCycles(io, options);
-    }
-  );
+      .option('--all-sessions', ALL_SESSIONS_DESCRIPTION)
+  ).action((options: ObservabilityQueryOptions) => {
+    runRepairCycles(io, options);
+  });
 
   addJsonOption(
     observability
@@ -220,7 +218,8 @@ export function registerObservabilityCommands(program: Command, io: ProgramIO): 
       'scope to one session (defaults to the canonical session binding)'
     )
     .option('--period <period>', 'one of: day | week | month (defaults to day)', 'day')
-    .action((options: { project?: string; session?: string; period?: string; json?: boolean }) => {
+    .option('--all-sessions', ALL_SESSIONS_DESCRIPTION)
+    .action((options: ObservabilityQueryOptions & { period?: string }) => {
       runReport(io, options);
     });
 }

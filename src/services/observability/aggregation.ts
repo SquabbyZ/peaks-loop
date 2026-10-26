@@ -109,6 +109,13 @@ export function aggregateStatus(events: readonly ObservabilityEvent[]): StatusAg
   const failCount = Array.from(bySlice.values()).filter(
     (r) => r.finalState !== null && TERMINAL_FAIL_STATES.has(r.finalState)
   ).length;
+  // The third outcome bucket: a slice that reached no terminal outcome at all —
+  // it advanced partway and stopped (at `qa-handoff`, typically). Without this
+  // counter such a slice was in NEITHER the success nor the fail count, so the
+  // summary reported fewer outcomes than the slice table showed rows. Counted
+  // as the remainder of the two named buckets, so the three counts partition
+  // the slice set and their sum is `totalSlices` for every event set.
+  const stalledCount = bySlice.size - successCount - failCount;
   const fanoutCostTotal = events.filter((e) => e.category === 'dispatch').length;
 
   return {
@@ -116,6 +123,7 @@ export function aggregateStatus(events: readonly ObservabilityEvent[]): StatusAg
     totalSlices: bySlice.size,
     successCount,
     failCount,
+    stalledCount,
     repairCyclePeak,
     fanoutCostTotal
   };
