@@ -69,7 +69,7 @@
 | 路径 | 改什么 |
 |---|---|
 | `src/services/observability/observability-schema.ts` | `OBSERVABILITY_CATEGORIES` 增加 `'gate'` |
-| `src/services/observability/observability-service.ts` | 新增 `emitGateEvent` |
+| `src/services/observability/observability-service.ts` | **不改**（285 行 / 上限 300）—— 门禁发射器不进这个文件 |
 | `src/services/artifacts/artifact-prerequisites.ts` | `const PREREQUISITES_BY_TYPE` → `export const`（**净增 0 行**） |
 | `src/services/artifacts/prerequisite-transition-event.ts` | `detail` 增加 `missing[]` |
 | `src/services/artifacts/rd-transition-gates.ts` | 每个门禁判定点发一条 `gate` 事件 |
@@ -347,18 +347,19 @@ git commit -m "feat(observability): attribute the historical prereq failures wit
   }): void;
 
   // src/services/observability/observability-service.ts（新增）
-  export function emitGateEvent(opts: {
+  export function emitRdGateEvent(opts: {
     readonly projectRoot: string;
     readonly sessionId: string;
     readonly sliceRid: string;
-    readonly gateId: string;
-    readonly phase: string;
+    readonly gateId: RdGateId;
+    readonly phase: RdGatePhase;
+    readonly declaredType: RequestType;
     readonly outcome: 'pass' | 'block' | 'bypass';
-    readonly violationKind?: string;
+    readonly violationKind?: 'source-touched' | 'source-unclaimed' | 'diff-unavailable';
     readonly reason?: string;
   }): void;
   ```
-  **修订（2026-10-27）**：`emitGateEvent` **不进 `observability-service.ts`**（该文件 285 行 / 上限 300）。它落在新建的 `src/services/artifacts/rd-gate-event.ts`，直接调 `emitObservabilityEvent`（与 `prerequisite-transition-event.ts` 同形）。`observability-service.ts` 不改。
+  **修订（2026-10-27）**：门禁发射器（`emitRdGateEvent`）**不进 `observability-service.ts`**（该文件 285 行 / 上限 300）。它落在新建的 `src/services/artifacts/rd-gate-event.ts`，直接调 `emitObservabilityEvent`（与 `prerequisite-transition-event.ts` 同形）。`observability-service.ts` **不改**。
   `ObservabilityEvent.category` 新增 `'gate'`；`detail` 形状：
   ```ts
   { gateId: string; phase: string; declaredType: string; outcome: 'pass'|'block'|'bypass'; violationKind?: string; reason?: string }
@@ -368,23 +369,23 @@ git commit -m "feat(observability): attribute the historical prereq failures wit
 - [ ] **Step 1: 写失败的测试**
 
 `tests/unit/services/observability/gate-event-emission.test.ts`：
-1. `emitGateEvent` 写出后，session 的 `slices.jsonl` 里有一条 `category === 'gate'` 的事件，`detail` 含 `gateId` / `phase` / `outcome`。
-2. **`emitGateEvent` 在 session id 非法时不得抛出**（复用 `observability-service.ts` 里 `tryMetricsFilePath` 的既有失败路径）。
+1. `emitRdGateEvent` 写出后，session 的 `slices.jsonl` 里有一条 `category === 'gate'` 的事件，`detail` 含 `gateId` / `phase` / `outcome`。
+2. **`emitRdGateEvent` 在 session id 非法时不得抛出**（复用 `observability-service.ts` 里 `tryMetricsFilePath` 的既有失败路径）。
 3. **发射器抛异常时调用方结果不变** —— 直接对 `emitObservabilityEvent` 的失败路径做一次"写入失败后 `written === false`"的断言。
 
 - [ ] **Step 2: 跑测试确认失败**
 
 Run: `npx vitest run tests/unit/services/observability/gate-event-emission.test.ts`
-Expected: FAIL —— `emitGateEvent` 不存在
+Expected: FAIL —— `emitRdGateEvent` 不存在
 
 - [ ] **Step 3: 加 category 与发射器**
 
 - `src/services/observability/observability-schema.ts`：在 `OBSERVABILITY_CATEGORIES` 数组里增加 `'gate'`（**放在数组末尾**，避免改动已有下标）。
-- `src/services/observability/observability-service.ts`：新增 `emitGateEvent`，实现与 `emitCycleEvent` **完全同构** —— 构造 `ObservabilityEvent` 后交给 `emitObservabilityEvent`，**不新增任何 try/catch**（`emitObservabilityEvent` 自己永不抛出）。
+- `src/services/observability/observability-service.ts`：**不改**。门禁发射器在新建的 `src/services/artifacts/rd-gate-event.ts`，直接调 `emitObservabilityEvent`（与 `prerequisite-transition-event.ts` 同形），**不新增任何 try/catch**（`emitObservabilityEvent` 自己永不抛出）。
 
 - [ ] **Step 4: 实现 `rd-gate-event.ts`**
 
-薄封装：把 `opts` 映射成 `emitGateEvent` 的参数并调用。**不吞异常之外做任何事** —— 但要保证 `emitRdGateEvent` 自己永不抛出（包一层 try/catch 吞掉一切）。
+薄封装：把 `opts` 映射成 `emitRdGateEvent` 的参数并调用。**不吞异常之外做任何事** —— 但要保证 `emitRdGateEvent` 自己永不抛出（包一层 try/catch 吞掉一切）。
 
 - [ ] **Step 5: 在 `rd-transition-gates.ts` 的判定点发事件**
 
