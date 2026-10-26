@@ -33,7 +33,13 @@ export const OBSERVABILITY_CATEGORIES = [
   // 3.A). Read by `peaks lease metrics`. The `detail.kind` field
   // discriminates spawn / renew / release / gc / autoRelease /
   // autoRelease-failed / autoRelease-skipped.
-  'lease'
+  'lease',
+  // The RD transition gates' verdicts. One event per gate DECISION, so a
+  // reader can ask which gate was never evaluated: `detail.gateId` names it
+  // ('file-size-ratchet' / 'declared-type-corroboration' / 'claim-table'),
+  // `detail.outcome` says what it decided ('pass' / 'block' / 'bypass').
+  // APPENDED, so no existing category's index shifts.
+  'gate'
 ] as const;
 export type ObservabilityCategory = (typeof OBSERVABILITY_CATEGORIES)[number];
 

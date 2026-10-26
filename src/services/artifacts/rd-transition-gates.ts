@@ -24,13 +24,22 @@
  * table cannot prove "nobody claimed it", and guessing there would blame one
  * slice for another's change. When it does not run, the returned note says so:
  * a silently skipped check is indistinguishable from a passing one.
+ *
+ * EVERY DECISION IS RECORDED. Each gate that runs emits one `gate` event
+ * carrying its stable id and what it decided (`pass` / `block` / `bypass`), so
+ * the layer that decides can be read back instead of inferred from the absence
+ * of an error. A refusal is recorded BEFORE it is thrown.
  */
 import type { RequestType } from './artifact-prerequisites.js';
 import {
   FileSizeViolationError,
   type RequestArtifactState
 } from './request-artifact-state-helpers.js';
-import { readGitChangeSet, type GitChangeSet } from '../scan/file-size-baseline.js';
+import {
+  readGitChangeSet,
+  type ChangedFiles,
+  type GitChangeSet
+} from '../scan/file-size-baseline.js';
 import { scanFileSize } from '../scan/file-size-scan.js';
 import {
   corroborateDeclaredType,
@@ -42,6 +51,12 @@ import { isArtifactWorkspaceFile } from '../scan/type-sanity-service.js';
 import { listSessionRdArtifactIds, readRidChangeClaims } from '../scan/rid-change-claims.js';
 import { slugifyDescription } from '../../shared/incrementing-number.js';
 import { normalizePath } from '../../shared/path-utils.js';
+import {
+  bypassedGateIds,
+  gateLabel,
+  rdGateRecorder,
+  type RdGateRecorder
+} from './rd-gate-event.js';
 
 export type RdGatePhase = 'implemented' | 'qa-handoff' | 'handed-off';
 
@@ -74,22 +89,42 @@ export class TypeCorroborationViolationError extends Error {
 /** Written into the artifact when `--allow-incomplete` skips a gate that COULD
  *  have judged this type: a silent bypass is indistinguishable from a pass. */
 export function rdGatesBypassNote(phase: RdGatePhase): string {
-  const gates =
-    phase === 'implemented'
-      ? 'file-size ratchet, declared-type corroboration'
-      : 'declared-type corroboration';
+  const gates = bypassedGateIds(phase)
+    .map((gateId) => gateLabel(gateId))
+    .join(', ');
   return (
     `bypassed the rd ${phase} gates (${gates}) via --allow-incomplete; ` +
     'none of them was evaluated'
   );
 }
 
+/**
+ * The gates a bypassed transition skipped, each with its own event. The note
+ * names them, and a reader has to be able to ask which one was never
+ * evaluated — one aggregate event per transition cannot answer that.
+ */
+function reportBypass(record: RdGateRecorder, phase: RdGatePhase): string {
+  const note = rdGatesBypassNote(phase);
+  for (const gateId of bypassedGateIds(phase)) {
+    record(gateId, 'bypass', { reason: note });
+  }
+  return note;
+}
+
 /** The shared read, or the fail-closed verdict built from the same message. */
-function readOrRefuse(projectRoot: string, declaredType: RequestType): GitChangeSet {
+function readOrRefuse(
+  record: RdGateRecorder,
+  projectRoot: string,
+  declaredType: RequestType
+): GitChangeSet {
   try {
     return readGitChangeSet(projectRoot, 'HEAD');
   } catch {
-    throw new TypeCorroborationViolationError(declaredType, diffUnavailableVerdict(declaredType));
+    const verdict = diffUnavailableVerdict(declaredType);
+    // BEFORE the throw: after it the event would never fire, and "the diff
+    // could not be read" is one of the facts this stream exists to keep.
+    record('claim-table', 'block', { violationKind: 'diff-unavailable', reason: verdict.message });
+    throw new TypeCorroborationViolationError(declaredType, verdict);
   }
 }
 
@@ -138,6 +173,7 @@ type ScopedVerdict = { ok: true; note: string | null } | RdGateViolation;
  * fallback beside it.
  */
 function judgeDeclaredType(options: {
+  record: RdGateRecorder;
   projectRoot: string;
   declaredType: RequestType;
   requestId: string;
@@ -156,14 +192,19 @@ function judgeDeclaredType(options: {
   if (tableComplete) {
     const unclaimed = unclaimedSourcePaths(options.worktreePaths, claims);
     if (unclaimed.length > 0) {
-      return {
-        ok: false,
-        kind: 'source-unclaimed',
-        message: unclaimedMessage(options.declaredType, unclaimed)
-      };
+      const message = unclaimedMessage(options.declaredType, unclaimed);
+      options.record('claim-table', 'block', {
+        violationKind: 'source-unclaimed',
+        reason: message
+      });
+      return { ok: false, kind: 'source-unclaimed', message };
     }
+    options.record('claim-table', 'pass');
   } else {
     note = fallbackDisabledNote(options.sessionId, missing.length, artifactIds.length);
+    // The fallback STOOD DOWN — it did not pass. A bypass says so; a pass
+    // would claim a check that never ran.
+    options.record('claim-table', 'bypass', { reason: note });
   }
 
   // (B) The rid's own declaration; the whole working tree when it declared none.
@@ -178,9 +219,33 @@ function judgeDeclaredType(options: {
     // anti-lie fallback stood down, a reader of the refusal alone must not be
     // left thinking it was in force.
     const message = note === null ? verdict.message : `${verdict.message} ${note}`;
+    const refusal = { violationKind: verdict.kind, reason: message };
+    options.record('declared-type-corroboration', 'block', refusal);
     return { ok: false, kind: verdict.kind, message };
   }
+  options.record('declared-type-corroboration', 'pass');
   return { ok: true, note };
+}
+
+/**
+ * The size ratchet, and the event that records what it decided. The refusal
+ * is recorded BEFORE the throw — after it the event would never fire.
+ */
+function runSizeRatchet(
+  record: RdGateRecorder,
+  projectRoot: string,
+  changedFiles?: ChangedFiles
+): void {
+  const size =
+    changedFiles === undefined
+      ? scanFileSize({ projectRoot })
+      : scanFileSize({ projectRoot, changedFiles });
+  if (!size.ok) {
+    const error = new FileSizeViolationError(size.violations);
+    record('file-size-ratchet', 'block', { reason: error.message });
+    throw error;
+  }
+  record('file-size-ratchet', 'pass');
 }
 
 export function runRdTransitionGates(options: {
@@ -191,20 +256,26 @@ export function runRdTransitionGates(options: {
   requestId: string;
   sessionId: string;
 }): string | null {
+  const record = rdGateRecorder({
+    projectRoot: options.projectRoot,
+    sessionId: options.sessionId,
+    sliceRid: options.requestId,
+    phase: options.phase
+  });
   const judged = isToolingOnlyDeclaredType(options.declaredType);
-  if (options.allowIncomplete) return judged ? rdGatesBypassNote(options.phase) : null;
+  if (options.allowIncomplete) {
+    return judged ? reportBypass(record, options.phase) : null;
+  }
   if (!judged) {
     // The size ratchet still runs at implemented; the type rule is a no-op here.
-    if (options.phase === 'implemented') {
-      const size = scanFileSize({ projectRoot: options.projectRoot });
-      if (!size.ok) throw new FileSizeViolationError(size.violations);
-    }
+    if (options.phase === 'implemented') runSizeRatchet(record, options.projectRoot);
     return null;
   }
   // ONE enumeration for the whole transition: the type rule judges the rid's own
   // paths against the same working-tree read the size ratchet measures.
-  const changeSet = readOrRefuse(options.projectRoot, options.declaredType);
+  const changeSet = readOrRefuse(record, options.projectRoot, options.declaredType);
   const verdict = judgeDeclaredType({
+    record,
     projectRoot: options.projectRoot,
     declaredType: options.declaredType,
     requestId: options.requestId,
@@ -213,11 +284,7 @@ export function runRdTransitionGates(options: {
   });
   if (!verdict.ok) throw new TypeCorroborationViolationError(options.declaredType, verdict);
   if (options.phase === 'implemented') {
-    const size = scanFileSize({
-      projectRoot: options.projectRoot,
-      changedFiles: changeSet.changedFiles
-    });
-    if (!size.ok) throw new FileSizeViolationError(size.violations);
+    runSizeRatchet(record, options.projectRoot, changeSet.changedFiles);
   }
   return verdict.note;
 }
