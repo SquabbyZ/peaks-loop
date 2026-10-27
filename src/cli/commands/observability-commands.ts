@@ -130,7 +130,7 @@ function runReport(io: ProgramIO, options: ObservabilityQueryOptions & { period?
       slices: aggregateSlices(events),
       fanout: aggregateFanout(events),
       repairCycles: aggregateRepairCycles(events),
-      nearMiss: computeNearMiss(events),
+      nearMiss: computeNearMiss(events, requestTypes),
       hotspots: aggregateHotspots(events, requestTypes)
     });
     const warnings = [

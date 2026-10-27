@@ -108,6 +108,38 @@ export function gate(event: GateEvent): Record<string, unknown> {
 }
 
 /**
+ * A gate decision event that carries NO PHASE.
+ *
+ * The phase is what says which transition's live gate set to reproduce, so a
+ * gate event without one cannot have its liveness decided. The brief requires
+ * such a gate to be REPORTED rather than silently counted or silently
+ * dropped, and this is the fixture for that case.
+ */
+export function phaseLessGate(gateId: string): Record<string, unknown> {
+  return {
+    category: 'gate',
+    sliceRid: 'slice-1',
+    detail: { outcome: 'pass', gateId }
+  };
+}
+
+/**
+ * A gate decision event that carries NO DECLARED TYPE.
+ *
+ * Older gate events were written before the type was carried, so the liveness
+ * has to fall back to the claim-table inference. The brief requires that the
+ * computation must NOT CRASH on such an event, and this is the fixture for
+ * that case.
+ */
+export function typelessGate(gateId: string, phase: GateEvent['phase']): Record<string, unknown> {
+  return {
+    category: 'gate',
+    sliceRid: 'slice-1',
+    detail: { phase, outcome: 'pass', gateId }
+  };
+}
+
+/**
  * The slice's whole transition history, ending in a SUCCESSFUL verdict.
  *
  * The verdict attempt carries `prereqOk: true` because that attempt is what

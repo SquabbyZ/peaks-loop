@@ -26,6 +26,7 @@ import {
   type NearMissDenominator
 } from '../../services/observability/near-miss.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
+import { hotspotRequestTypes } from './observability-commands-hotspots.js';
 import {
   readScopedEvents,
   resolveProjectRoot,
@@ -73,7 +74,12 @@ export function runNearMiss(io: ProgramIO, options: ObservabilityQueryOptions): 
   const projectRoot = resolveProjectRoot(options.project);
   try {
     const { sessionId, events } = readScopedEvents(projectRoot, options);
-    const report = computeNearMiss(events);
+    // The request types let the denominator NAME the cause of the gap between
+    // the two "passed" definitions: the slices that reached a verdict with no
+    // recorded prereq verdict are the ones whose type has no
+    // `qa:verdict-issued` prerequisite row at all.
+    const { requestTypes } = hotspotRequestTypes(projectRoot, events);
+    const report = computeNearMiss(events, requestTypes);
     const warnings = [
       ...scopeWarnings(projectRoot, sessionId, events.length),
       ...coverageWarnings(report.coverage),

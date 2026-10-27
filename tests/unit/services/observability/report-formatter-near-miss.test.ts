@@ -175,10 +175,25 @@ describe('Scenario: render — the near-miss section carries the rate and its co
   it('when the near-miss report is supplied, should list the slices it flagged', () => {
     // given: two passing slices, one of which passed with a check unsatisfied
     // when:  the report is rendered
-    // then:  the flagged slice is named, so the count has a referent
+    // then:  the flagged slice is named, so the count has a referent, and
+    //         each key carries its state at the pass moment
     const markdown = renderWithNearMiss(nearMissEvents());
     expect(markdown).toContain('### Flagged slices');
-    expect(markdown).toContain('| slice-skipped | prereq-skipped | rd -> qa-handoff |');
+    expect(markdown).toContain('| slice-skipped | prereq-skipped |');
+    expect(markdown).toContain('rd -> qa-handoff (refused)');
+  });
+
+  it('when a key had not been attempted at the pass, should say so', () => {
+    // given: a slice that passed BEFORE its qa-handoff check was ever run
+    // when:  the report is rendered
+    // then:  the key's state reads `unattempted`, so a reader can tell it
+    //         apart from a gate that was firing
+    const events = seedSession([
+      transition('slice-late', 'verdict-issued', true),
+      transition('slice-late', 'qa-handoff', false)
+    ]);
+    const markdown = renderWithNearMiss(events);
+    expect(markdown).toContain('rd -> qa-handoff (unattempted)');
   });
 });
 

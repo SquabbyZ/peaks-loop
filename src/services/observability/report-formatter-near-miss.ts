@@ -156,7 +156,24 @@ function unobservedLine(nearMiss: NearMissReport): string {
   );
 }
 
-/** The table of the slices the metric flagged, so the count has a referent. */
+/**
+ * The table of the slices the metric flagged, so the count has a referent.
+ *
+ * WHY EACH KEY CARRIES ITS STATE AT THE PASS MOMENT. "The check was
+ * unsatisfied" covers two materially different findings, and a reader has to
+ * be able to tell them apart:
+ *
+ *   - `refused` — the check WAS running at the pass moment and said no. The
+ *     gate was live, it fired, and the slice passed anyway.
+ *   - `unattempted` — the check had NOT been run at the pass moment. The
+ *     role that owns it had not yet attempted its transition.
+ *
+ * On this repository's recorded history one of the twelve findings is the
+ * first and eleven are the second — and the second is the more alarming of
+ * the two, because it means the pass was declared before the owning role had
+ * even tried. A table that said only "unsatisfied" would hide which of the
+ * two a reader is looking at.
+ */
 function flaggedSlices(nearMiss: NearMissReport): string {
   const lines: string[] = [];
   lines.push('### Flagged slices');
@@ -166,12 +183,23 @@ function flaggedSlices(nearMiss: NearMissReport): string {
     lines.push('');
     return lines.join('\n');
   }
-  lines.push('| slice | reasons | unsatisfied checks |');
-  lines.push('|---|---|---|');
+  lines.push('| slice | reasons | passed at | unsatisfied checks |');
+  lines.push('|---|---|---|---|');
   for (const record of nearMiss.records) {
-    const checks = record.unsatisfiedKeys.length === 0 ? '—' : record.unsatisfiedKeys.join(', ');
-    lines.push(`| ${record.sliceRid} | ${record.reasons.join(', ')} | ${checks} |`);
+    const checks =
+      record.unsatisfiedKeys.length === 0
+        ? '—'
+        : record.unsatisfiedKeys.map((entry) => `${entry.key} (${entry.state})`).join(', ');
+    lines.push(
+      `| ${record.sliceRid} | ${record.reasons.join(', ')} | ${record.passMoment.ts} | ${checks} |`
+    );
   }
+  lines.push('');
+  lines.push(
+    '_`refused` — the check was running at the pass moment and said no. ' +
+      '`unattempted` — the check had not been run at the pass moment at all, so the owning ' +
+      'role had not yet attempted its transition._'
+  );
   lines.push('');
   return lines.join('\n');
 }

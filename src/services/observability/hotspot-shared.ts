@@ -117,6 +117,15 @@ const PREREQ_TEMPLATES: readonly string[] = allPrerequisitePaths().filter((path)
  * comparing, which is exact. The template is then returned AS IT IS: the
  * placeholder is part of the artifact's name, and stripping it produced paths
  * that name no real file.
+ *
+ * WHY A `<rid>`-LESS PATH IS RETURNED AS IT IS. The templates matched here
+ * are the ones that CARRY a slot, so a path that came from a template
+ * without one — `qa/.initiated` is a real artifact — never matches and is
+ * returned unchanged. That asymmetry is DELIBERATE: there is nothing to
+ * canonicalise, because the path already names the artifact it is. Do not
+ * "fix" it by widening the template list — a template with no slot would
+ * match EVERY path it happened to equal, and the comparison is only exact
+ * for the form that carries the substituted id.
  */
 export function canonicalArtifact(path: string, rid: string): string {
   for (const template of PREREQ_TEMPLATES) {
@@ -155,6 +164,41 @@ export function countMeaningOf(
   confidence: HotspotConfidence
 ): 'observed-missing' | 'candidate-mentions' {
   return confidence === 'exact' ? 'observed-missing' : 'candidate-mentions';
+}
+
+/**
+ * The ranking split by what each row's count counts.
+ *
+ * WHY THE SPLIT EXISTS. A row's `count` means DIFFERENT THINGS depending on
+ * how the row was known: an `exact` row counted the artifact being MISSING,
+ * and a reconstructed row counted the artifact being one of the CANDIDATES —
+ * one real failure contributes to every candidate the attribution could not
+ * narrow, so the number is candidate mentions, not failures.
+ *
+ * A consumer that sees `count: 91` and `countMeaning` as a SIBLING field has
+ * to look up the meaning before reading the number. Splitting the rows by
+ * their meaning puts the meaning in the NAME the reader sees — the group a
+ * row is in says what its count counts — and the same split serves the
+ * markdown report, so there is ONE structure in two places.
+ */
+export type HotspotGroups = {
+  /** Rows whose count is how many times the artifact was OBSERVED missing. */
+  readonly observedOmissions: readonly HotspotRow[];
+  /** Rows whose count is how many times the artifact was a CANDIDATE mention. */
+  readonly candidateMentions: readonly HotspotRow[];
+};
+
+/**
+ * The ranking, split by what each row's count counts.
+ *
+ * The split is by the row's `countMeaning`, so it cannot disagree with the
+ * column the report renders.
+ */
+export function groupHotspotsByMeaning(rows: readonly HotspotRow[]): HotspotGroups {
+  return {
+    observedOmissions: rows.filter((row) => row.countMeaning === 'observed-missing'),
+    candidateMentions: rows.filter((row) => row.countMeaning === 'candidate-mentions')
+  };
 }
 
 /** One occurrence of an artifact, ready to be counted. */

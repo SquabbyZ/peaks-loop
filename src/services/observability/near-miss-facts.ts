@@ -39,7 +39,8 @@ import {
   failuresOf,
   passMomentOf,
   unsatisfiedKeys,
-  type PrereqAttempt
+  type PrereqAttempt,
+  type UnsatisfiedKeyState
 } from './near-miss-attempts.js';
 import type { RdGateId } from '../artifacts/rd-gate-event.js';
 import type { ObservabilityEvent } from './observability-service.js';
@@ -69,6 +70,36 @@ export type NearMissEvidence = {
 };
 
 /**
+ * The state of one transition key AT THE PASS MOMENT.
+ *
+ * WHY THE STATE IS NOT ONE THING. "The check was unsatisfied" covers two
+ * materially different situations, and a reader has to be able to tell them
+ * apart:
+ *
+ *   - `refused` — the check WAS run at the pass moment and said no. The gate
+ *     was live, it fired, and the slice passed anyway.
+ *   - `unattempted` — the check had NOT been run at the pass moment at all.
+ *     The role that owns the check had not yet attempted its transition.
+ *
+ * On this repository's recorded history one of the twelve findings is
+ * `refused` and eleven are `unattempted` — and the second is the more alarming
+ * of the two, because it means the pass was declared before the owning role
+ * had even tried. Calling all twelve "still refusing" would send a reader
+ * hunting for a gate that was firing when it was not.
+ */
+export type { UnsatisfiedKeyState } from './near-miss-attempts.js';
+
+/** One transition key that was unsatisfied when the slice was declared passing. */
+export type UnsatisfiedKey = {
+  /** The transition key: `artifactRole -> to`. */
+  readonly key: string;
+  /** The state of that key's check AT THE PASS MOMENT. */
+  readonly state: UnsatisfiedKeyState;
+  /** How many times the check refused, whenever it ran. */
+  readonly refusalCount: number;
+};
+
+/**
  * The moment the slice was declared passing, and what was still unsatisfied
  * at that moment.
  */
@@ -79,9 +110,9 @@ export type PassMoment = {
   readonly ts: string;
   /**
    * The transition keys whose check was still unsatisfied when the slice was
-   * declared passing.
+   * declared passing, each with its state at that moment.
    */
-  readonly unsatisfiedKeys: readonly string[];
+  readonly unsatisfiedKeys: readonly UnsatisfiedKey[];
   /** The failed attempts of those keys — the evidence for the finding. */
   readonly failures: readonly PrereqAttempt[];
 };
@@ -162,7 +193,7 @@ export function sliceFacts(sliceRid: string, events: readonly ObservabilityEvent
   }
   const moment = passMomentOf(attempts);
   const unsatisfied = moment === null ? [] : unsatisfiedKeys(attempts, moment.index);
-  const failures = unsatisfied.flatMap((key) => failuresOf(attempts, key));
+  const failures = unsatisfied.flatMap((entry) => failuresOf(attempts, entry.key));
   return {
     sliceRid,
     passMoment:

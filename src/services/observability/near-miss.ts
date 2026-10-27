@@ -82,7 +82,8 @@ import {
   type NearMissEvidence,
   type NearMissUndetermined,
   type NearMissReason,
-  type SliceFacts
+  type SliceFacts,
+  type UnsatisfiedKey
 } from './near-miss-facts.js';
 import { gateIdOf, liveGatesOf } from './near-miss-gates.js';
 import {
@@ -92,8 +93,15 @@ import {
 } from './near-miss-coverage.js';
 import { describeDenominator, type NearMissDenominator } from './near-miss-denominator.js';
 import type { RdGateId } from '../artifacts/rd-gate-event.js';
+import type { RequestType } from '../artifacts/artifact-prerequisites.js';
 
-export type { NearMissEvidence, NearMissUndetermined, NearMissReason } from './near-miss-facts.js';
+export type {
+  NearMissEvidence,
+  NearMissUndetermined,
+  NearMissReason,
+  UnsatisfiedKey,
+  UnsatisfiedKeyState
+} from './near-miss-facts.js';
 export type { NearMissClassCoverage } from './near-miss-coverage.js';
 export type { NearMissDenominator } from './near-miss-denominator.js';
 
@@ -101,8 +109,24 @@ export type { NearMissDenominator } from './near-miss-denominator.js';
 export type NearMissRecord = {
   readonly sliceRid: string;
   readonly reasons: readonly NearMissReason[];
-  /** The transition keys whose check was unsatisfied at the pass moment. */
-  readonly unsatisfiedKeys: readonly string[];
+  /**
+   * The moment the slice was declared passing.
+   *
+   * It travels WITH the record because it is what makes the finding
+   * actionable: a reader cannot tell from the key alone whether the check was
+   * REFUSING at that moment or had not been ATTEMPTED yet. On this
+   * repository's recorded history one of the twelve findings is the first and
+   * eleven are the second.
+   */
+  readonly passMoment: {
+    /** The instant of the successful verdict attempt. */
+    readonly ts: string;
+  };
+  /**
+   * The transition keys whose check was unsatisfied at the pass moment, each
+   * with its state there.
+   */
+  readonly unsatisfiedKeys: readonly UnsatisfiedKey[];
   readonly evidence: readonly NearMissEvidence[];
 };
 
@@ -204,7 +228,10 @@ function reasonsFor(fact: SliceFacts): {
  * that recorded a successful verdict attempt — and is 0 when there are none,
  * so an empty scope reads as "no rate" rather than as a division by zero.
  */
-export function computeNearMiss(events: readonly ObservabilityEvent[]): NearMissReport {
+export function computeNearMiss(
+  events: readonly ObservabilityEvent[],
+  requestTypes: ReadonlyMap<string, RequestType> = new Map()
+): NearMissReport {
   const bySlice = new Map<string, ObservabilityEvent[]>();
   for (const event of events) {
     const sliceRid = event.sliceRid;
@@ -234,6 +261,7 @@ export function computeNearMiss(events: readonly ObservabilityEvent[]): NearMiss
     records.push({
       sliceRid,
       reasons,
+      passMoment: { ts: fact.passMoment.ts },
       unsatisfiedKeys: fact.passMoment.unsatisfiedKeys,
       evidence: evidenceFor(neverEvaluated, gateEvents, fact.passMoment)
     });
@@ -251,6 +279,6 @@ export function computeNearMiss(events: readonly ObservabilityEvent[]): NearMiss
     undetermined,
     coverage,
     unobservedClasses: unobservableReasons(coverage),
-    denominator: describeDenominator(events, passedSliceCount)
+    denominator: describeDenominator(events, passedSliceCount, requestTypes)
   };
 }

@@ -36,6 +36,7 @@ import { extractMetadata } from '../../services/artifacts/request-artifact-metad
 import { guardRuntimeSegment, runtimeRoot } from '../../shared/runtime-root.js';
 import { slugifyDescription } from '../../shared/incrementing-number.js';
 import { aggregateHotspots } from '../../services/observability/hotspots.js';
+import { groupHotspotsByMeaning } from '../../services/observability/hotspot-shared.js';
 import type { ObservabilityEvent } from '../../services/observability/observability-service.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import {
@@ -156,7 +157,11 @@ export function runHotspots(io: ProgramIO, options: ObservabilityQueryOptions): 
     }
     printResult(
       io,
-      ok('observability.hotspots', { scope: scopeOf(sessionId), hotspots }, warnings),
+      ok(
+        'observability.hotspots',
+        { scope: scopeOf(sessionId), hotspots: groupHotspotsByMeaning(hotspots) },
+        warnings
+      ),
       options.json
     );
   } catch (error) {
@@ -181,7 +186,7 @@ export function registerHotspotsCommand(observability: Command, io: ProgramIO): 
     observability
       .command('hotspots')
       .description(
-        'Hotspot ranking: which artifact a skill keeps failing to deliver, and who owns it. Grouped by owner, artifact, mode and confidence; `exact` rows are measured, `inferred`/`ambiguous` rows are candidates recovered from a historical count and are NOT proof that the artifact was missing. Each row carries `countMeaning`: `observed-missing` (the artifact was seen missing that many times) or `candidate-mentions` (the artifact was one of the candidates that many times — one real failure counts toward EVERY candidate it could not narrow, so that number is an upper bound, not a count of failures).'
+        'Hotspot ranking: which artifact a skill keeps failing to deliver, and who owns it. The rows are split by what their count COUNTS, so the group a row is in says what its number means: `observedOmissions` are MEASURED (the artifact was seen missing that many times) and `candidateMentions` are CANDIDATES recovered from a historical count (one real failure counts toward EVERY candidate it could not narrow, so those numbers are an upper bound, NOT a count of failures). Each row also carries its owner, artifact, mode and confidence; the confidence values are unchanged.'
       )
       .option('--project <path>', 'target project root (defaults to git root or cwd)')
       .option(

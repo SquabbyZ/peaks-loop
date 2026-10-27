@@ -27,19 +27,23 @@
  */
 
 import { isRequestType, type RequestType } from '../artifacts/artifact-prerequisites.js';
-import { liveGateIds, type RdGateId } from '../artifacts/rd-gate-event.js';
+import { liveGateIds, RD_GATE_IDS, type RdGateId } from '../artifacts/rd-gate-event.js';
 import { isToolingOnlyDeclaredType } from '../scan/type-corroboration.js';
 import type { ObservabilityEvent } from './observability-service.js';
 
 /** The gate that only a tooling-only slice runs. */
 export const CLAIM_TABLE_GATE: RdGateId = 'claim-table';
 
-/** The gate ids this metric knows how to judge. */
-export const KNOWN_GATE_IDS: readonly RdGateId[] = [
-  'file-size-ratchet',
-  'declared-type-corroboration',
-  CLAIM_TABLE_GATE
-];
+/**
+ * The gate ids this metric knows how to judge.
+ *
+ * READ FROM THE CANONICAL LIST, not re-typed here: a second copy of the
+ * vocabulary is a list that rots, and it rots SILENTLY — a gate id added
+ * upstream would not be in the copy, so `gateIdOf` would answer null for it
+ * and a gate that PASSED would never be counted as evaluated, reading as
+ * "never evaluated" — a false near-miss.
+ */
+export const KNOWN_GATE_IDS: readonly RdGateId[] = RD_GATE_IDS;
 
 /** A gate whose liveness could not be decided from the event stream. */
 export type NearMissUndetermined = {

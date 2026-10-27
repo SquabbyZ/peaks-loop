@@ -49,9 +49,11 @@ import { declareDimensions } from '../../_setup/4dim-template.js';
 import {
   cleanupRoots,
   gate,
+  phaseLessGate,
   reachingVerdict,
   seedSession,
-  transition
+  transition,
+  typelessGate
 } from './near-miss-fixture.js';
 
 declareDimensions(
@@ -236,7 +238,50 @@ describe('Scenario: behavior — the reference moment is the successful pass', (
 
     expect(report.nearMissSliceCount).toBe(1);
     expect(report.records[0]?.reasons).toContain('prereq-skipped');
-    expect(report.records[0]?.unsatisfiedKeys).toContain('rd -> qa-handoff');
+    expect(report.records[0]?.unsatisfiedKeys.map((entry) => entry.key)).toContain(
+      'rd -> qa-handoff'
+    );
+  });
+
+  it('when a key was still failing at the pass, should say it was refused', () => {
+    // given: a slice whose qa-handoff prereq refused and was never satisfied
+    // when: the near-miss metric is computed over the session
+    // then: the key's state at the pass moment is `refused` — the check was
+    //        running and saying no
+    const events = seedSession([
+      transition('implemented', { prereqOk: true, missingCount: 0 }),
+      transition('qa-handoff', { prereqOk: false, missingCount: 3 }),
+      transition('verdict-issued', { prereqOk: true, missingCount: 0 })
+    ]);
+
+    const report = computeNearMiss(events);
+
+    const entry = report.records[0]?.unsatisfiedKeys.find(
+      (item) => item.key === 'rd -> qa-handoff'
+    );
+    expect(entry?.state).toBe('refused');
+    expect(entry?.refusalCount).toBe(1);
+  });
+
+  it('when a key had not been attempted at the pass, should say it was unattempted', () => {
+    // given: a slice that passed BEFORE its qa-handoff check was ever run
+    // when: the near-miss metric is computed over the session
+    // then: the key's state at the pass moment is `unattempted` — the owning
+    //        role had not tried its transition yet, which is a different
+    //        finding from a gate that was firing
+    const events = seedSession([
+      transition('implemented', { prereqOk: true, missingCount: 0 }),
+      transition('verdict-issued', { prereqOk: true, missingCount: 0 }),
+      transition('qa-handoff', { prereqOk: false, missingCount: 3 })
+    ]);
+
+    const report = computeNearMiss(events);
+
+    const entry = report.records[0]?.unsatisfiedKeys.find(
+      (item) => item.key === 'rd -> qa-handoff'
+    );
+    expect(entry?.state).toBe('unattempted');
+    expect(entry?.refusalCount).toBe(1);
   });
 
   it('when a key was satisfied only AFTER the pass, should report the slice as a near-miss', () => {
@@ -254,7 +299,9 @@ describe('Scenario: behavior — the reference moment is the successful pass', (
     const report = computeNearMiss(events);
 
     expect(report.nearMissSliceCount).toBe(1);
-    expect(report.records[0]?.unsatisfiedKeys).toContain('rd -> qa-handoff');
+    expect(report.records[0]?.unsatisfiedKeys.map((entry) => entry.key)).toContain(
+      'rd -> qa-handoff'
+    );
   });
 
   it('when one key failed and another key succeeded, should still report the near-miss', () => {
@@ -293,6 +340,39 @@ describe('Scenario: behavior — the reference moment is the successful pass', (
   });
 });
 
+describe('Scenario: behavior — a gate whose liveness cannot be decided is reported', () => {
+  it('when a gate event carries no phase, should report it as undetermined', () => {
+    // given: a slice with a gate event that carries NO phase, so the live set
+    //        it belonged to cannot be reproduced
+    // when: the near-miss metric is computed over the session
+    // then: the gate is REPORTED as undetermined — not silently counted as
+    //        evaluated and not silently dropped
+    const events = seedSession([...reachingVerdict(), phaseLessGate('file-size-ratchet')]);
+
+    const report = computeNearMiss(events);
+
+    expect(report.undetermined.length).toBe(1);
+    expect(report.undetermined[0]?.gateId).toBe('file-size-ratchet');
+    expect(report.undetermined[0]?.sliceRid).toBe('slice-1');
+  });
+
+  it('when a gate event carries no declared type, should not crash the computation', () => {
+    // given: a slice with a gate event written BEFORE the type was carried
+    // when: the near-miss metric is computed over the session
+    // then: the computation completes — the liveness falls back to the
+    //        claim-table inference rather than raising
+    const events = seedSession([
+      ...reachingVerdict(),
+      typelessGate('file-size-ratchet', 'implemented')
+    ]);
+
+    const report = computeNearMiss(events);
+
+    expect(report.passedSliceCount).toBe(1);
+    expect(report.undetermined.length).toBe(0);
+  });
+});
+
 describe('Scenario: behavior — the rate divides by the passing slices', () => {
   it('when one of two passing slices skipped a gate, should report the rate as one half', () => {
     // given: two passing slices, one of which skipped a gate
@@ -324,98 +404,6 @@ describe('Scenario: behavior — the rate divides by the passing slices', () => 
 
     expect(report.nearMissRate).toBe(0);
     expect(report.passedSliceCount).toBe(0);
-  });
-});
-
-describe('Scenario: render — the report states its own denominator', () => {
-  it('when the denominator is computed, should state its definition and its size', () => {
-    // given: a session with one passing slice
-    // when: the near-miss metric is computed over the session
-    // then: the report states what "passed" means and how many slices that
-    //        definition admits
-    const events = seedSession([
-      transition('implemented', { prereqOk: true, missingCount: 0 }),
-      transition('verdict-issued', { prereqOk: true, missingCount: 0 })
-    ]);
-
-    const report = computeNearMiss(events);
-
-    expect(report.denominator.sliceCount).toBe(1);
-    expect(report.denominator.definition).toContain('verdict-issued');
-    expect(report.denominator.statusSuccessCount).toBe(1);
-  });
-
-  it('when the two definitions of passed disagree, should say so and why', () => {
-    // given: a slice the status summary counts successful but that recorded
-    //        no successful verdict attempt
-    // when: the near-miss metric is computed over the session
-    // then: the report states BOTH counts and reconciles them
-    const events = seedSession([
-      transition('implemented', { prereqOk: true, missingCount: 0 }),
-      transition('verdict-issued', { prereqOk: false, missingCount: 1 })
-    ]);
-
-    const report = computeNearMiss(events);
-
-    expect(report.denominator.sliceCount).toBe(0);
-    expect(report.denominator.statusSuccessCount).toBe(1);
-    expect(report.denominator.difference).not.toBeNull();
-    expect(report.denominator.difference?.successWithoutPassMoment).toBe(1);
-    expect(report.denominator.difference?.note).toContain('terminal-happy');
-  });
-
-  it('when the two definitions agree, should report no difference', () => {
-    // given: a session whose one slice both definitions count as passed
-    // when: the near-miss metric is computed over the session
-    // then: there is no difference to reconcile
-    const events = seedSession([
-      transition('implemented', { prereqOk: true, missingCount: 0 }),
-      transition('verdict-issued', { prereqOk: true, missingCount: 0 })
-    ]);
-
-    const report = computeNearMiss(events);
-
-    expect(report.denominator.difference).toBeNull();
-  });
-});
-
-describe('Scenario: render — the evidence points at the events the count came from', () => {
-  it('when a slice is a near-miss, should carry the session and timestamp of its gate event', () => {
-    // given: a slice whose size ratchet was bypassed
-    // when: the near-miss metric is computed over the session
-    // then: the evidence names the session and the instant of the gate event
-    const events = seedSession([
-      ...reachingVerdict(),
-      gate({ gateId: 'file-size-ratchet', phase: 'implemented', outcome: 'bypass' })
-    ]);
-
-    const report = computeNearMiss(events);
-
-    const evidence = report.records[0]?.evidence ?? [];
-    expect(evidence.length).toBeGreaterThan(0);
-    for (const pointer of evidence) {
-      expect(pointer.sessionId).not.toBe('');
-      expect(pointer.ts).not.toBe('');
-    }
-  });
-
-  it('when a key was unsatisfied at the pass, should name the transition key', () => {
-    // given: a slice whose qa-handoff prereq failed and never passed
-    // when: the near-miss metric is computed over the session
-    // then: the evidence names the key the refusal belongs to, so a reader
-    //        can check the pairing against the raw stream
-    const events = seedSession([
-      transition('implemented', { prereqOk: true, missingCount: 0 }),
-      transition('qa-handoff', { prereqOk: false, missingCount: 3 }),
-      transition('verdict-issued', { prereqOk: true, missingCount: 0 })
-    ]);
-
-    const report = computeNearMiss(events);
-
-    const pointer = (report.records[0]?.evidence ?? []).find(
-      (item) => item.transitionKey !== undefined
-    );
-    expect(pointer?.transitionKey).toBe('rd -> qa-handoff');
   });
 });
 

@@ -30,6 +30,20 @@ import type { RdGatePhase, RdGateViolationKind } from './rd-transition-gates.js'
 /** The gates the RD transition layer decides, by their stable ids. */
 export type RdGateId = 'file-size-ratchet' | 'declared-type-corroboration' | 'claim-table';
 
+/**
+ * Every gate id, as a list.
+ *
+ * A consumer that has to RECOGNISE a gate id cannot re-type the union: a
+ * second copy of the vocabulary is a list that rots, and it rots silently —
+ * a gate id added upstream would not be in the copy, so a gate that PASSED
+ * would be read as "not a gate we know" and never counted as evaluated.
+ */
+export const RD_GATE_IDS: readonly RdGateId[] = [
+  'file-size-ratchet',
+  'declared-type-corroboration',
+  'claim-table'
+];
+
 /** What the gate decided about the transition. */
 export type RdGateOutcome = 'pass' | 'block' | 'bypass';
 

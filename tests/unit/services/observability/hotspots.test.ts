@@ -30,23 +30,20 @@
 //   - render:     the row's evidence and timestamps, as a reader sees them
 //   - a11y:       OMITTED — the module returns a structure, it renders no surface
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import {
-  getPrerequisitesFor,
-  type RequestType
-} from '~/src/services/artifacts/artifact-prerequisites.js';
-import type { RequestArtifactRole } from '~/src/services/artifacts/artifact-templates.js';
-import type { RequestArtifactState } from '~/src/services/artifacts/request-artifact-state-helpers.js';
+import type { RequestType } from '~/src/services/artifacts/artifact-prerequisites.js';
 import { aggregateHotspots } from '~/src/services/observability/hotspots.js';
-import {
-  readObservabilityEvents,
-  type ObservabilityEvent
-} from '~/src/services/observability/observability-service.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
+import {
+  cleanupRoots,
+  forwardMissing,
+  historicalFailure,
+  prereqPaths,
+  SESSION_A,
+  SESSION_B,
+  seedSession
+} from './hotspot-fixture.js';
 
 declareDimensions(
   'tests/unit/services/observability/hotspots.test.ts',
@@ -54,82 +51,9 @@ declareDimensions(
   [{ dim: 'a11y', reason: 'the module returns a structure; it renders no surface' }]
 );
 
-const SESSION_A = '2026-10-27-session-hotspots-a';
-const SESSION_B = '2026-10-27-session-hotspots-b';
-
-const roots: string[] = [];
-
 afterEach(() => {
-  while (roots.length > 0) {
-    const root = roots.pop();
-    if (root !== undefined) rmSync(root, { recursive: true, force: true });
-  }
+  cleanupRoots();
 });
-
-/**
- * Write a session's metrics file with the given events, then read them back
- * through the real reader — so the shapes under test are the shapes on disk.
- */
-function seedSession(
-  sessionId: string,
-  events: ReadonlyArray<Record<string, unknown>>
-): readonly ObservabilityEvent[] {
-  const root = mkdtempSync(join(tmpdir(), 'peaks-hotspots-'));
-  roots.push(root);
-  const dir = join(root, '.peaks', '_runtime', sessionId, 'metrics');
-  mkdirSync(dir, { recursive: true });
-  const lines = events.map((event, index) =>
-    JSON.stringify({
-      schemaVersion: 1,
-      ts: new Date(Date.UTC(2026, 9, 27, 0, 0, index)).toISOString(),
-      sessionId,
-      ...event
-    })
-  );
-  writeFileSync(join(dir, 'slices.jsonl'), `${lines.join('\n')}\n`, 'utf8');
-  return readObservabilityEvents(root, sessionId);
-}
-
-/** A forward event whose missing list was measured when it was recorded. */
-function forwardMissing(
-  sliceRid: string,
-  missing: ReadonlyArray<{ path: string; kind: 'absent' | 'body'; ownerSkill: string | null }>
-): Record<string, unknown> {
-  return {
-    category: 'slice-transition',
-    sliceRid,
-    detail: {
-      artifactRole: 'rd',
-      to: 'qa-handoff',
-      prereqOk: false,
-      missingCount: missing.length,
-      missing: missing.map((entry) => ({ ...entry, description: 'missing' }))
-    }
-  };
-}
-
-/** A historical event that recorded only a count. */
-function historicalFailure(
-  sliceRid: string,
-  missingCount: number,
-  role: RequestArtifactRole = 'rd',
-  to: RequestArtifactState = 'qa-handoff'
-): Record<string, unknown> {
-  return {
-    category: 'slice-transition',
-    sliceRid,
-    detail: { artifactRole: role, to, prereqOk: false, missingCount }
-  };
-}
-
-/** The prerequisite list of one transition, read from the real table. */
-function prereqPaths(
-  role: RequestArtifactRole,
-  to: RequestArtifactState,
-  type: RequestType
-): readonly string[] {
-  return getPrerequisitesFor(role, to, type).map((prereq) => prereq.relativePath);
-}
 
 describe('Scenario: behavior — the same artifact counts once per occurrence', () => {
   it('when two sessions miss the same artifact, should count them in one row', () => {
@@ -416,6 +340,40 @@ describe('Scenario: render — the row carries what a reader checks the number a
     const total = rows.reduce((sum, row) => sum + row.count, 0);
     expect(total).toBe(paths.length);
     expect(total).toBeGreaterThan(1);
+  });
+});
+
+describe('Scenario: behavior — one artifact can be a candidate under two transitions', () => {
+  it('when two transitions of different length name the same artifact, should keep the confidences apart', () => {
+    // given: two historical failures — one whose transition demands a single
+    //        artifact, one whose transition demands many — and the artifact
+    //        BOTH name is the one the short transition could localise
+    // when: the ranking is computed over that session
+    // then: that artifact is TWO rows, one per confidence, each counting only
+    //        the failures of its own transition — a reader who adds the two
+    //        counts together would read one artifact as failing twice as often
+    //        as it did
+    const type: RequestType = 'bugfix';
+    const narrow = prereqPaths('rd', 'implemented', type);
+    const wide = prereqPaths('rd', 'qa-handoff', type);
+    const shared = narrow.filter((path) => wide.includes(path));
+    expect(shared.length).toBe(1);
+    expect(wide.length).toBeGreaterThan(narrow.length);
+    const events = seedSession(SESSION_A, [
+      historicalFailure('slice-narrow', 1, 'rd', 'implemented'),
+      historicalFailure('slice-wide', 1, 'rd', 'qa-handoff')
+    ]);
+    const requestTypes = new Map([
+      ['slice-narrow', type],
+      ['slice-wide', type]
+    ]);
+
+    const rows = aggregateHotspots(events, requestTypes);
+
+    const sharedRows = rows.filter((row) => row.artifact === shared[0]);
+    expect(sharedRows.length).toBe(2);
+    expect(sharedRows.map((row) => row.confidence).sort()).toEqual(['ambiguous', 'inferred']);
+    expect(sharedRows.every((row) => row.count === 1)).toBe(true);
   });
 });
 

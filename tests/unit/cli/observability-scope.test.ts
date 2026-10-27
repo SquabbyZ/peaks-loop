@@ -389,13 +389,20 @@ describe('Scenario: integration — near-miss and hotspots read the scope the ot
   it('when hotspots is asked for as json, should answer with a ranking', async () => {
     // given: a session with one recorded slice
     // when:  the hotspot ranking is asked for as json
-    // then:  the envelope carries the ranking it says it carries
+    // then:  the envelope carries the ranking it says it carries, SPLIT by
+    //        what each row's count counts
     writeEvents(SESSION_A, [seedEvent(SESSION_A, 'slice-a', 'verdict-issued', 0)]);
     const envelope = await runObservability('hotspots');
     expect(envelope['ok']).toBe(true);
     expect(envelope['command']).toBe('observability.hotspots');
-    const data = envelope['data'] as { readonly hotspots?: unknown };
-    expect(Array.isArray(data.hotspots)).toBe(true);
+    const data = envelope['data'] as {
+      readonly hotspots?: {
+        readonly observedOmissions?: unknown;
+        readonly candidateMentions?: unknown;
+      };
+    };
+    expect(Array.isArray(data.hotspots?.observedOmissions)).toBe(true);
+    expect(Array.isArray(data.hotspots?.candidateMentions)).toBe(true);
   });
 });
 

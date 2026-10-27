@@ -28,7 +28,7 @@
  * missing artifact.
  */
 
-import type { HotspotRow } from './hotspot-shared.js';
+import { groupHotspotsByMeaning, type HotspotRow } from './hotspot-shared.js';
 
 /** The markdown for the hotspot section, including its heading. */
 export function markdownHotspotTables(hotspots: readonly HotspotRow[]): string {
@@ -47,10 +47,11 @@ export function markdownHotspotTables(hotspots: readonly HotspotRow[]): string {
       'failures._'
   );
   lines.push('');
-  const measured = hotspots.filter((row) => row.countMeaning === 'observed-missing');
-  const candidates = hotspots.filter((row) => row.countMeaning === 'candidate-mentions');
-  table(lines, measured, 'Measured missing artifacts', 'times observed missing');
-  table(lines, candidates, 'Candidate artifacts', 'candidate mentions');
+  // The SAME split the CLI's JSON payload uses, so the two surfaces cannot
+  // disagree about which rows are measurements and which are candidates.
+  const groups = groupHotspotsByMeaning(hotspots);
+  table(lines, groups.observedOmissions, 'Measured missing artifacts', 'times observed missing');
+  table(lines, groups.candidateMentions, 'Candidate artifacts', 'candidate mentions');
   return lines.join('\n');
 }
 
