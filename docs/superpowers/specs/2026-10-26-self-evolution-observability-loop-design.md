@@ -558,7 +558,7 @@ prereq 表是完全可算的 —— `getPrerequisitesFor(role, newState, request
 | 5 | `peaks-qa` | `qa/.initiated` | absent | ambiguous | 78 | `skills/bee/peaks-qa/SKILL.md` | ✓ |
 | 6 | `peaks-rd` | `rd/code-review-<rid>.md` | body | ambiguous | 78 | `skills/bee/peaks-rd/SKILL.md` | ✓ |
 | 7 | `peaks-rd` | `rd/karpathy-review-<rid>.md` | body | ambiguous | 78 | `skills/bee/peaks-rd/SKILL.md` | ✓ |
-| 8 | `peaks-rd` | `rd/third-party-review-<rid>.md` | body | ambiguous | 78 | `skills/bee/peaks-rd/SKILL.md` | ✓ |
+| 8 | `peaks-reviewer` | `rd/third-party-review-<rid>.md` | body | ambiguous | 78 | `skills/bee/peaks-reviewer/SKILL.md` | ✓ |
 | 9 | `peaks-security-audit` | `audit/security-<rid>.md` | body | ambiguous | 78 | `skills/bee/peaks-security-audit/SKILL.md` | ✓ |
 | 10 | `peaks-rd` | `rd/bug-analysis-<rid>.md` | body | ambiguous | 39 | `skills/bee/peaks-rd/SKILL.md` | ✓ |
 | 11 | `peaks-qa` | `qa/test-reports/<rid>.md` | body | ambiguous | 13 | `skills/bee/peaks-qa/SKILL.md` | ✓ |
@@ -566,7 +566,9 @@ prereq 表是完全可算的 —— `getPrerequisitesFor(role, newState, request
 | 13 | `peaks-qa` | `qa/test-cases/<rid>.md` | body | inferred | 6 | `skills/bee/peaks-qa/SKILL.md` | ✓ |
 | 14 | `peaks-rd` | `rd/security-review-<rid>.md` | absent | inferred | 2 | `skills/bee/peaks-rd/SKILL.md` | ✓ |
 
-判据要求的"**至少一条**"成立（第 1 行即满足：`count = 91 ≥ 1`、`evidence` 91 条非空、`skills/bee/peaks-qa/SKILL.md` 真实存在）。**但 14 行里有 1 行的 `ownerSkill` 指向的技能，其 SKILL.md 不在 `skills/` 树里**：
+判据要求的"**至少一条**"成立（第 1 行即满足：`count = 91 ≥ 1`、`evidence` 91 条非空、`skills/bee/peaks-qa/SKILL.md` 真实存在）。**第 8 行的 owner 在 2026-10-28 修过**：`rd/third-party-review-<rid>.md` 是 **`peaks-reviewer` 的 artifact**（`artifact-prerequisites.ts` 里那条 prereq 自己写着"v2.14.0 G4 third-party reviewer (peaks-reviewer skill)"），而 owner 推导表原来只有一条 `rd/` **目录级**的行，于是**它把这份评审算给了 `peaks-rd`** —— 这张榜的全部意义就是"指名道姓到该去修的那个技能"，指错了就等于没指。推导表现在多了一条更具体的 `rd/third-party-review-` 行（按前缀长度排序，更长者先命中），第 8 行的 owner 因此是 `peaks-reviewer`，它的 SKILL.md 在 `skills/bee/peaks-reviewer/SKILL.md`，**真实存在**。
+
+**但 14 行里有 1 行的 `ownerSkill` 指向的技能，其 SKILL.md 不在 `skills/` 树里**：
 
 - **`peaks-mut` 的 SKILL.md 在 `src/skills/peaks-mut/SKILL.md`**（`git ls-files` 可查，tracked），而 `skills/peaks-mut/` 与 `skills/bee/peaks-mut/` **都不存在**。
 
@@ -595,12 +597,14 @@ prereq 表是完全可算的 —— `getPrerequisitesFor(role, newState, request
 
   | request type | 到达过 `verdict-issued` | 有 prereq 判定记录 | 没有 |
   |---|---|---|---|
-  | `feature` | 45 | 45 | **0** |
+  | `feature` | 44 | 44 | **0** |
   | `bugfix` | 30 | 30 | **0** |
-  | `refactor` | 17 | 17 | **0** |
+  | `refactor` | 18 | 18 | **0** |
   | `config` | 1 | 1 | **0** |
   | `docs` | 5 | 1 | **4** |
   | `chore` | 5 | 0 | **5** |
+
+  **这张表用仓库自己的 reader 重测过（2026-10-28）：** `hotspotRequestTypes`（`src/cli/commands/observability-commands-hotspots.ts`）—— 它按 rid 解析 request artifact 的 `- type:` 行，**声明过的胜过默认的**（`ebcd835c` 改的 tie-breaking：一个 slug 在两个角色下各有一份 artifact 时，声明过的那份是更强的证据）。**`feature` 45→44、`refactor` 17→18 就是这条 tie-breaking 换来的**：一个 slice 从 `feature` 挪到了 `refactor`，其余各行与两个总数（103 / 94 / 9）都不变。**用这个 reader 就能重新推导这张表。**
 
   **每一个 `feature`/`bugfix`/`refactor`/`config` slice 只要到了 verdict，都有记录在案的 prereq 判定；没有判定的全部落在 `docs`/`chore` 这两个没有 `qa:verdict-issued` prereq 行的类型上。** 那些 slice 的"通过"**不是"没被验证"，而是"那道门根本不存在"**（`src/services/artifacts/artifact-prerequisites.ts:491` 在 `requirements.length === 0` 时**提前返回**，早于 `:594` 的事件发射；所以**没有事件被漏掉 —— 压根没有东西可记**）。**一个读者若被告知"检查留下了空迹"，会去找一个并不存在的 emitter bug。**
 - **逐 class 覆盖率**（`coverage` 数组，每项带 `reason` / `observable` / `scopeEventCount` / `observedSliceCount` / `nearMissSliceCount` / `rate`）：
@@ -687,10 +691,19 @@ prereq 表是完全可算的 —— `getPrerequisitesFor(role, newState, request
 
 #### 2.4.2 这次实测没有覆盖到的东西
 
-- **闸一的判据只在"至少一条"的意义上通过。** 计划 §完成定义 里的"**每行**的 `ownerSkill` 指向真实存在的 SKILL.md"**不成立**（`peaks-mut` 那行指向的 SKILL.md 不在 `skills/` 树里，也装不进 npm 包）。
+- **闸一的判据在 2026-10-27 更正后的三处路径清单下成立。** 计划 §完成定义 里的"**每行**的 `ownerSkill` 指向真实存在的 SKILL.md"**逐行可查、14/14 行都解析得到**（`peaks-mut` 那行解析到 `src/skills/peaks-mut/SKILL.md` —— 仓内真实存在、tracked）。**这次实测没有覆盖的是分发，不是解析**：`peaks-mut` 的 SKILL.md **不在 npm 包的 2935 个文件里**（`package.json` 的 `files` 白名单只有 `skills/**`），所以**一个装好的 peaks-loop 上没有任何技能生产 `mut/` 的那些 artifact**（`mut/mut-report.json` 是 `rd -> qa-handoff` 的 prereq 之一）—— **一道装好的 peaks-loop 会在这道门上永远失败，而门后没有技能去生产它。**（§2.4.1 已把它记为一条真发现；它是**后续切片**，不是本轮的修复。）
 - **两个近失 class 从未被观测过**（`gate-never-evaluated`、`tool-blocked`）。12.8% 是**只覆盖三类中一类**的数字；随着 `gate` emitter 与 tool-trace 采集器在真实 session 里跑起来，这个比例会变。
-- **追认的 17.6% 是用"今天"的 prereq 表算出来的**，而这些失败发生在过去的表版本下 —— 这是置信度封顶在 `inferred` 的原因（见上），**这个比例是重建，不是实测**。
+- **追认的 17.1%（19/111）是用"今天"的 prereq 表算出来的**，而这些失败发生在过去的表版本下 —— 这是置信度封顶在 `inferred` 的原因（见上），**这个比例是重建，不是实测**。
 - **`peaks observability report` 默认 `--period day`，在本仓库是空的**（`totalEventsInPeriod = 0`）。空的**不是**作用域（作用域有 1530 条事件），是**周期**；报告的 warning 说得很清楚："No observability events fall inside the `day` period, though the scope holds 1530 event(s) — use `--period month` to read them."。`--period month --all-sessions` 下报告的"近失"节与"卡点"节都有内容（近失 12.8%、卡点 14 行）。
+
+**这一节同时是本轮的"后续切片"清单（2026-10-28 复核时记下）。** 以下四条**都不是本轮的修复**，它们各有各的理由：
+
+| # | 后续切片 | 为什么现在不做 |
+|---|---|---|
+| **F1** | **从 `slice-transition` 流重建 live set**，让"某个 phase 一条 gate 事件都没发"也进入近失的视野 | **本轮明确不做**：declared type **只**骑在 gate 事件上（`rd-gate-event.ts` 的 `detail.declaredType`）。`slice-transition` 流里没有它，所以从那条流重建 live set **会改变这个指标的语义**（判据从"这次迁移时判定的类型"变成"猜出来的类型"）。先让 `gate` 事件真的跑起来、把覆盖率说清楚，再谈重建。**本轮先做的是把"没观测到"说出口**：覆盖输出现在带**逐 slice 的不可观测计数**（多少个 slice 根本没发过 gate 事件），报告的 Coverage 表也多一栏。 |
+| **F2** | **`peaks-mut` 的分发缺口**（§2.4.1）：它的 SKILL.md 在 `src/skills/` 里、不在 npm 包的 2935 个文件里 → 装好的 peaks-loop 上 `mut/` 的 artifact 没有生产者 | 改分发要动 `package.json` 的 `files` 白名单与/或 `scripts/copy-templates.mjs`，**是发布面的改动**，不是观测面的改动；混进这一轮会把"修记录"变成"改发布"。 |
+| **F3** | **runtime 根的 scratch 守卫**：仓库有 `tests/unit/standards/root-scratch-artifact-guard.test.ts` 管**仓库根**，但 `.peaks/_runtime/` 的**根**没有等价守卫 —— 而 `.peaks/_runtime/` 是**作用域轴的根**，直接躺在那里的 scratch 文件属于**任何 session 都不拥有**的位置，没有 session 的清理或 GC 会碰到它 | 守卫是**新的行为约束**，要连同它该拦的例外（`session.json`、`generated-artifacts.json`）一起定；这是它自己的一条切片。 |
+| **F4** | **census 应当把 `securityArtifactTiers` 当作 source 2 来读** | census 现在**只记录**了"judged-declaration 的拒绝"这个来源，**没有读它**：那四条 `securityArtifactTiers` 路径今天之所以都被覆盖，**只是因为每一条都恰好和 prereq 表里的一条路径重合**。将来一条落在新目录下的 tier 会**既没有 owner、又在 census 之外**，覆盖测试仍然是绿的 —— **同一个洞，往下一层**。 |
 
 ### 2.5 S3 —— 从数据到提案
 
