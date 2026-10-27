@@ -40,6 +40,7 @@ import {
   type RequestType
 } from '../artifacts/artifact-prerequisites.js';
 import type { RequestArtifactRole } from '../artifacts/artifact-templates.js';
+import type { RequestTypeSource } from '../artifacts/request-artifact-metadata.js';
 import type { RequestArtifactState } from '../artifacts/request-artifact-state-helpers.js';
 import { ownerSkillForPath } from './owner-skill-map.js';
 
@@ -71,10 +72,18 @@ export type AttributionConfidence = 'exact' | 'inferred' | 'ambiguous';
  * entries could be — not the artifacts that were proven missing, which only a
  * forward event records. `ownerSkill` is `null` when no skill owns the path —
  * a stated absence, not a missing field.
+ *
+ * `typeSource` says where the type that produced these candidates came from.
+ * The CANDIDATES are the same either way — the effective type is the type the
+ * prerequisite table was indexed by — but a reader asking "how many of these
+ * attributions rested on a type nobody wrote down?" cannot answer it unless
+ * the source travels with the attribution.
  */
 export type RetroAttribution = {
   readonly confidence: AttributionConfidence;
   readonly candidates: ReadonlyArray<{ path: string; ownerSkill: string | null }>;
+  /** Whether the type that produced these candidates was DECLARED or defaulted. */
+  readonly typeSource: RequestTypeSource;
 };
 
 /** The inputs one historical failure carries, all of them derivable. */
@@ -83,8 +92,10 @@ export type RetroAttributionInput = {
   readonly artifactRole: RequestArtifactRole;
   /** The state it was moving to — the event's `detail.to`. */
   readonly newState: RequestArtifactState;
-  /** The request's type, read from the request artifact's own `- type:` line. */
+  /** The request's EFFECTIVE type — read from the artifact, or the default. */
   readonly requestType: RequestType;
+  /** Where that type came from: declared on the `- type:` line, or defaulted. */
+  readonly typeSource: RequestTypeSource;
   /** How many artifacts the event recorded as missing. */
   readonly missingCount: number;
 };
@@ -179,11 +190,12 @@ function candidatesFor(
  */
 export function attributeV1Failure(opts: RetroAttributionInput): RetroAttribution {
   const prereqs = prerequisitesFor(opts.artifactRole, opts.newState, opts.requestType);
-  if (prereqs.length === 0) return { confidence: 'ambiguous', candidates: [] };
+  const typeSource = opts.typeSource;
+  if (prereqs.length === 0) return { confidence: 'ambiguous', candidates: [], typeSource };
   const candidates = candidatesFor(prereqs);
   const count = readableCount(opts.missingCount);
-  if (count === null) return { confidence: 'ambiguous', candidates };
-  if (count === 0) return { confidence: 'ambiguous', candidates: [] };
-  if (count === prereqs.length) return { confidence: 'inferred', candidates };
-  return { confidence: 'ambiguous', candidates };
+  if (count === null) return { confidence: 'ambiguous', candidates, typeSource };
+  if (count === 0) return { confidence: 'ambiguous', candidates: [], typeSource };
+  if (count === prereqs.length) return { confidence: 'inferred', candidates, typeSource };
+  return { confidence: 'ambiguous', candidates, typeSource };
 }

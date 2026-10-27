@@ -34,15 +34,15 @@
  * this directory.
  */
 
-import { forwardRows, recordedMissing, retroRows } from './hotspot-sources.js';
+import { forwardRows, isHistoricalFailure, recordedMissing, retroRows } from './hotspot-sources.js';
 import {
   countMeaningOf,
   type HotspotConfidence,
   type HotspotRequestTypes,
   type HotspotRow,
+  type RequestTypeReading,
   type RowBuilder
 } from './hotspot-shared.js';
-import type { RequestType } from '../artifacts/artifact-prerequisites.js';
 import type { ObservabilityEvent } from './observability-service.js';
 
 /** The confidence order the ranking sorts by at equal counts. */
@@ -79,19 +79,18 @@ function toRow(row: RowBuilder): HotspotRow {
  */
 export function aggregateHotspots(
   events: readonly ObservabilityEvent[],
-  requestTypes: HotspotRequestTypes = new Map<string, RequestType>()
+  requestTypes: HotspotRequestTypes = new Map<string, RequestTypeReading>()
 ): HotspotRow[] {
   const builders = new Map<string, RowBuilder>();
   for (const event of events) {
     const rid = event.sliceRid;
     if (rid === undefined) continue;
-    const detail = event.detail as { readonly prereqOk?: unknown };
-    if (recordedMissing(event) !== null) {
-      forwardRows(event, rid, builders);
+    if (isHistoricalFailure(event)) {
+      retroRows(event, rid, requestTypes.get(rid), builders);
       continue;
     }
-    if (detail.prereqOk === false) {
-      retroRows(event, rid, requestTypes.get(rid), builders);
+    if (recordedMissing(event) !== null) {
+      forwardRows(event, rid, builders);
     }
   }
   return [...builders.values()]

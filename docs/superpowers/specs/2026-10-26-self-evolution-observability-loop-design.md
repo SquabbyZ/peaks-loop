@@ -566,12 +566,20 @@ prereq 表是完全可算的 —— `getPrerequisitesFor(role, newState, request
 | 13 | `peaks-qa` | `qa/test-cases/<rid>.md` | body | inferred | 6 | `skills/bee/peaks-qa/SKILL.md` | ✓ |
 | 14 | `peaks-rd` | `rd/security-review-<rid>.md` | absent | inferred | 2 | `skills/bee/peaks-rd/SKILL.md` | ✓ |
 
-判据要求的"**至少一条**"成立（第 1 行即满足：`count = 91 ≥ 1`、`evidence` 91 条非空、`skills/bee/peaks-qa/SKILL.md` 真实存在）。**但 14 行里有 1 行的 `ownerSkill` 解析不到任何 SKILL.md**：
+判据要求的"**至少一条**"成立（第 1 行即满足：`count = 91 ≥ 1`、`evidence` 91 条非空、`skills/bee/peaks-qa/SKILL.md` 真实存在）。**但 14 行里有 1 行的 `ownerSkill` 指向的技能，其 SKILL.md 不在 `skills/` 树里**：
 
-- **`peaks-mut` 的 SKILL.md 不在 `skills/` 树里。** 它在 **`src/skills/peaks-mut/SKILL.md`**（`git ls-files` 可查，tracked），而 `skills/peaks-mut/` 与 `skills/bee/peaks-mut/` **都不存在**。
-- 这不是"路径写错了一处"：`npm pack --dry-run --ignore-scripts --json` 的 2935 个文件里，**没有任何一个 `peaks-mut` 的 SKILL.md**（`package.json` 的 `files` 白名单只有 `skills/**`，没有 `src/skills/**`；`scripts/copy-templates.mjs` 也不复制 `src/skills`）。`skills/` 下的 15 个用户可见技能与 `skills/bee/` 下的 9 个 bee 技能都在包里，**`peaks-mut` 是唯一一个 SKILL.md 存在却装不出去的技能**。
-- 所以榜上第 2 行（`count = 78`）指向的是一个**读者按名字找不到文件的技能**。判据一本身（"至少一条"）仍然通过，但计划 §完成定义 里"**每行**的 `ownerSkill` 指向真实存在的 SKILL.md"这一条**不成立** —— 13/14 行成立。
-- 这是一个**待修的缺陷，不是一个判据失败**：owner 推导表（`src/services/observability/owner-skill-map.ts:95`，`{ prefix: 'mut/', skill: 'peaks-mut' }`）指的名字是对的，是 `peaks-mut` 这个技能本身没有进 `skills/` 树。**修它不属于 Task 11 的职责**（Task 11 只测量、不改代码），记在此处交给后续切片。
+- **`peaks-mut` 的 SKILL.md 在 `src/skills/peaks-mut/SKILL.md`**（`git ls-files` 可查，tracked），而 `skills/peaks-mut/` 与 `skills/bee/peaks-mut/` **都不存在**。
+
+**判据一的 owner 路径清单已按 2026-10-27 修订更正为三处**：`skills/<ownerSkill>/SKILL.md`、`skills/bee/<ownerSkill>/SKILL.md`、**`src/skills/<ownerSkill>/SKILL.md`**。原清单只列前两处，于是一个**合法的仓内 owner**（`peaks-mut`，以及同形状的 `peaks-maker`）被读成"解析不到"。**按更正后的清单，14/14 行的 `ownerSkill` 都能解析到一个真实存在的 SKILL.md。**
+
+**但更正路径清单并没有把分布缺口消掉 —— 它只是让缺口可见。** 这条要作为**本轮的一个真发现**记下来：
+
+> **artifact 契约引用了一个生产者没有被分发出去的 artifact。**
+
+- `npm pack --dry-run --ignore-scripts --json` 的 2935 个文件里，**没有任何一个 `peaks-mut` 的 SKILL.md**（`package.json` 的 `files` 白名单只有 `skills/**`，没有 `src/skills/**`；`scripts/copy-templates.mjs` 也不复制 `src/skills`）。`skills/` 下的 15 个用户可见技能与 `skills/bee/` 下的 9 个 bee 技能**都在包里** —— **`peaks-mut` 是唯一一个 SKILL.md 存在却装不出去的技能**。
+- 于是**在一个装好的 peaks-loop 上，`mut/` 的那些 artifact 没有任何生产者**。`mut/mut-report.json` 是 `rd -> qa-handoff` 的 prereq 之一（`artifact-prerequisites.ts` 的 `MUT_REPORT`），而本仓库的 `feature`/`bugfix`/`refactor` 表都要求它 —— **一条装好的 peaks-loop 会在这道门上永远失败，而门后没有技能去生产它。**
+- **这与判据一是两件事**：判据一（"热点榜能指名道姓到某个技能"）现在**通过**（14/14，按更正后的路径清单）；**分发缺口是本计划发现的另一个缺陷**，它不在闸1 的三条判据里，但它**是**这轮测量暴露出来的**真问题**，交给后续切片。
+- owner 推导表（`src/services/observability/owner-skill-map.ts:95`，`{ prefix: 'mut/', skill: 'peaks-mut' }`）指的名字是**对的**；缺的是这个技能**没有进 `skills/` 树**、**因而没有进包**。
 
 **判据二 —— 近失报告说清自己观测到了什么：✓ 通过。**
 
@@ -620,33 +628,60 @@ prereq 表是完全可算的 —— `getPrerequisitesFor(role, newState, request
 
 （绝对数会漂是**保留策略**而不是 schema 损失：`MAX_METRICS_FILES = 10`（`src/services/observability/jsonl-store.ts`），`.peaks/_runtime/` 下现在有 **30 个 session 目录，其中只有 10 个带 `metrics/slices.jsonl`**，另外 20 个的指标文件已被按 mtime 剪掉。剪掉的那些行**不在磁盘上**，所以它们不进入上面这个比较 —— 比较的是"读到的"对"存在的"，两者相等。）
 
-**追认比例（S1.6 要求的实测数字）—— 用真实 request type。**
+**追认比例（S1.6 要求的实测数字）—— 用真实 request type，来源随类型一起带出来。**
 
-判据要求：**不得**对解析不出类型的 rid 回退到 `feature`。实测按这个规则做：
+**口径（2026-10-27 修订）**：一个 request artifact **没有可用的 `- type:` 行**时，它的**有效 type 就是 `feature`** —— 那是系统自己的 `DEFAULT_REQUEST_TYPE`（`src/services/artifacts/artifact-prerequisites.ts:31`），也是**迁移当时 prereq 表实际按之索引的类型**。所以追认**必须用 `feature`**；若因为"没写下来"就换一张表，候选集会来自错误的表，而"解析不出"是**第三种同样错的答案**。
+
+**但"有效 type"与"谁写下来的"是两个事实，必须一起报**：类型是 `feature`（真的），来源是 `default`（没人写）。所以 CLI 现在把**来源随类型一起带出来**（`requestTypeSource`），并在 `hotspots --json` 的 `attribution` 块里**把两栏分开数**。
+
+**实测数字（`peaks observability hotspots --project . --all-sessions --json` 的 `attribution`）：**
 
 | | 值 |
 |---|---|
 | 历史 v1 prereq 失败事件总数（`detail.prereqOk === false`） | **113**（全部是 v1 count-only：`detail.missing[]` 数组 **0** 条） |
 | 涉及的 rid 数 | **53** |
-| **能解析出真实 type 的 rid** | **51** |
-| **解析不出真实 type 的 rid** | **2** |
-| 用真实 type 计入追认的失败事件 | **108** |
+| **计入追认的失败事件** | **111** |
 | **`inferred`** | **19** |
-| **`ambiguous`** | **89**（其中 1 条 `candidates` 为空 —— 该迁移的 prereq 清单本身是空的） |
-| **inferred 占比（108 条中）** | **17.6%（19/108）** |
+| **`ambiguous`** | **92**（其中 1 条 `candidates` 为空 —— 该迁移的 prereq 清单本身是空的） |
+| **inferred 占比（111 条中）** | **17.1%（19/111）** |
+| **其中按"声明过的 type"追认** | **108** |
+| **其中按"没人写下来的默认 type"追认** | **3** |
+| **完全无法追认（没有 request artifact）** | **2** |
+| 读不出来的 request artifact | **0** |
+| 读得出但没有可用 `- type:` 行的 request artifact | **109** |
 
-**两个解析不出类型的 rid（是事实，不是缺口）：**
+**三个数必须一起读：`inferred`/`ambiguous` 是置信度分栏，`fromDeclaredType`/`fromDefaultedType` 是**来源**分栏，`unresolved` 是第三件事（连类型都没有）。** "19 inferred" 这个数**不**回答"有多少条建立在没人写下来的类型上"——那是 `fromDefaultedType = 3`。**这两栏分开报，是因为它们是两个不同的问题。**
+
+**与先前一次实测（19 / 89，108 条）的对账 —— 差别恰好是 3 条，全部来自同一个 rid。**
+
+| | 先前的实测（2026-10-27 早） | 本次（修订口径） |
+|---|---|---|
+| 计入追认的失败事件 | 108 | **111** |
+| `inferred` / `ambiguous` | 19 / 89 | **19 / 92** |
+| 差异 | — | **+3 条，全是 `ambiguous`** |
+
+那 3 条是 **`rid-t3-downstream-incremental-constitution` 的 3 次 prereq 失败**。它的 request artifact **存在**（`2026-10-26-session-fb8cc6/rd/requests/018-rid-t3-downstream-incremental-constitution.md`），但**没有可用的 `- type:` 行** —— canonical reader 返回 `requestTypeSource = 'default'`。
+
+- **先前的实测把那 3 条整条丢掉**（按"只采信真正声明过的类型"的规则），因为它把**"没人写下来"**当成了**"没有类型"**。**这是第三个错误答案** —— 有效 type 是 `feature`，用它追认得到的候选集来自**迁移当时真正用过的那张表**，丢掉这 3 条反而让比例失真。
+- **本次按修订口径计入这 3 条**，并**另外**把它们的来源单列（`fromDefaultedType`）。
+- **两个数都不是"错"的，是**口径不同**；记录采用修订后的口径，因为它是**与迁移当时发生的事一致**的那个。
+
+**剩下 2 条完全无法追认的失败**（是事实，不是缺口）：
 
 | rid | 原因 |
 |---|---|
 | `tmp-measure-qa-openspec` | 磁盘上**根本没有**对应的 request artifact（`.peaks/_runtime/*/requests/` 里没有这个 slug） |
-| `rid-t3-downstream-incremental-constitution` | request artifact **存在**（`2026-10-23-session-5e40e0/{rd,qa}/requests/018-rid-t3-downstream-incremental-constitution.md`），但**两份都没有可用的 `- type:` 行** —— canonical reader 返回 `requestTypeSource = 'default'`（`DEFAULT_REQUEST_TYPE`）。这是"类型没被声明"，不是"类型解析失败"。 |
+| — | （另一条是同一 rid 的第二次失败事件） |
 
-**如果按 CLI 现在的算法（`readRequestTypes` 只取 `extractMetadata(...).requestType`，不看 `requestTypeSource`）跑，会把这两条算成 `feature`**，结果是 111 条计入、19 `inferred` / 92 `ambiguous`（17.1%）。**那个数不是本记录采用的数** —— 本记录只采信 request artifact 里**真正声明过**的类型。
+**"unresolved" 与 "defaulted" 不是一件事**：前者是**连类型都没有**（artifact 缺失 → 什么都追认不了），后者是**类型是 `feature` 但没人写下来**（追认照做，只是来源弱）。CLI 现在**分开报**这两件事（`unresolved` vs `fromDefaultedType`），而**不再**用一个 `unparsed` 桶把"没写类型行"和"artifact 读不出来"混在一起。
 
-**类型冲突（声明与声明不一致）：** 19 个 slug 上存在两份类型不同的 request artifact。其中 **15 个是"一份声明了类型 vs 另一份没声明"**（默认的 `feature` 不是一次竞争性的声明，不构成冲突）；**真正两个角色各声明了一个不同类型的有 4 个**：`rid-mut-report-warning-surfacing`（bugfix/feature）、`rid-size-gate-reads-ratchet`（bugfix/feature）、`rid-count-ceiling-exemption-table`（refactor/feature）、`2026-10-21-race-batch-mode`（feature/refactor）。**这 4 个 rid 里没有一个有记录在案的 prereq 失败**，所以这个冲突**不影响**上面的比例（取"第一个声明"或"最后一个声明"，结果都是 19/89）。角色顺序（prd → ui → rd → qa → sc）因此对本次测量没有影响。
+**类型冲突（声明与声明不一致）：** 19 个 slug 上存在两份类型不同的 request artifact。其中 **15 个是"一份声明了类型 vs 另一份没声明"**（默认的 `feature` 不是一次竞争性的声明，不构成冲突）；**真正两个角色各声明了一个不同类型的有 4 个**：`rid-mut-report-warning-surfacing`（bugfix/feature）、`rid-size-gate-reads-ratchet`（bugfix/feature）、`rid-count-ceiling-exemption-table`（refactor/feature）、`2026-10-21-race-batch-mode`（feature/refactor）。**这 4 个 rid 里没有一个有记录在案的 prereq 失败**，所以这个冲突**不影响**上面的比例。**现在的 reader 让"声明过的"胜过"默认的"**（同一个 slug 在两个角色下各有一份 artifact 时，声明过的那份是更强的证据），实测这个改变**不影响任何数字**：19/92 与 108/3 在两种规则下都相同。
 
-**这张榜的形状也要读对：** `prereq-skipped` 这一个 class 的 12 次近失落在 12 个 slice 上。**独立于 near-miss 代码、直接从事件流数**（取每个 slice 那次**成功的** `verdict-issued` 尝试的时刻为"通过时刻"，看那一刻之前该 slice 有没有 `rd -> qa-handoff` 的 prereq 检查尝试、尝试有没有被拒）：**11 个是"该检查从未被尝试**，只有 1 个（`2026-10-16-coverage-ratchet-in-ci`，通过时刻 2026-10-15T17:37:42.134Z）是"检查当时正在拒绝"。而**这 12 次近失全部由 `rd -> qa-handoff` 这一条迁移产生** —— `unsatisfiedKeys` 一律是 `rd -> qa-handoff`。也就是说：**RD 交 QA 之前的那道 prereq 门，是这个仓库唯一被量到的近失来源**；另两类近失（门禁从未被评估、工具被拦）在本仓库**一件都没有发生过**。
+**这张榜的形状也要读对：** `prereq-skipped` 这一个 class 的 12 次近失落在 12 个 slice 上。**独立于 near-miss 代码、直接从事件流数**（取每个 slice 那次**成功的** `verdict-issued` 尝试的时刻为"通过时刻"，看那一刻之前该 slice 有没有 `rd -> qa-handoff` 的 prereq 检查尝试、尝试有没有被拒）：**11 个是"该检查从未被尝试"，1 个（`2026-10-16-coverage-ratchet-in-ci`，通过时刻 2026-10-15T17:37:42.134Z）是"检查当时正在拒绝"**。
+
+**这 12 不是一种发现，是两种。** "从未被尝试"（11 条）说的是**这道门压根没被走到过** —— RD 还没试过交接，QA 就已经把 slice 判成通过了；"正在拒绝"（1 条）说的是**这道门走到了，并且明确说了不行**。两者的修法完全不同（前者是"门被绕过的路径"，后者是"门的判定被忽略"），**所以"12 次近失"这个标题数字必须拆开读** —— 一个读者若只看到"12"，会以为 12 次都是同一件事。
+
+而**这 12 次全部由 `rd -> qa-handoff` 这一条迁移产生** —— `unsatisfiedKeys` 一律是 `rd -> qa-handoff`。也就是说：**RD 交 QA 之前的那道 prereq 门，是这个仓库唯一被量到的近失来源**；另两类近失（门禁从未被评估、工具被拦）在本仓库**一件都没有发生过**。
 
 **热点榜前五行的 `confidence` 全部是 `ambiguous` / `inferred`，没有一行是 `exact`** —— 因为本仓库的历史事件全是 v1（`detail.missing[]` 从未写过），没有任何一次缺件是**当场实测**的。榜上 `count = 91` 那行的 `countMeaning` 是 **`candidate-mentions`**（候选提及数），**不是**"这个 artifact 缺了 91 次"：一次无法定位的失败会向它**不能排除的每个候选各记一次**。**这一栏必须连着 `countMeaning` 读。**
 

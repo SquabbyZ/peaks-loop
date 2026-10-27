@@ -24,6 +24,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { computeNearMiss } from '~/src/services/observability/near-miss.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
+import { declaredType } from './hotspot-fixture.js';
 import {
   cleanupRoots,
   gate,
@@ -104,7 +105,7 @@ describe('Scenario: render — the report states its own denominator', () => {
       transition('verdict-issued', { prereqOk: false, missingCount: 1 })
     ]);
 
-    const report = computeNearMiss(events, new Map([['slice-1', 'docs']]));
+    const report = computeNearMiss(events, new Map([['slice-1', declaredType('docs')]]));
 
     expect(report.denominator.difference?.typesWithoutVerdictPrerequisite).toEqual(['docs']);
     expect(report.denominator.difference?.slicesWithoutVerdictPrerequisite).toEqual(['slice-1']);
@@ -124,7 +125,7 @@ describe('Scenario: render — the report states its own denominator', () => {
       transition('verdict-issued', { prereqOk: false, missingCount: 1 })
     ]);
 
-    const report = computeNearMiss(events, new Map([['slice-1', 'feature']]));
+    const report = computeNearMiss(events, new Map([['slice-1', declaredType('feature')]]));
 
     expect(report.denominator.difference?.typesWithoutVerdictPrerequisite).toEqual([]);
     expect(report.denominator.difference?.note).not.toContain('prerequisite row');

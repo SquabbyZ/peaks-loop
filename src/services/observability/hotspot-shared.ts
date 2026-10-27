@@ -30,6 +30,7 @@
 
 import { allPrerequisitePaths } from '../artifacts/prerequisite-path-census.js';
 import type { RequestType } from '../artifacts/artifact-prerequisites.js';
+import type { RequestTypeSource } from '../artifacts/request-artifact-metadata.js';
 import { ownerSkillForPath } from './owner-skill-map.js';
 import type { AttributionConfidence } from './retro-attribution.js';
 import type { ObservabilityEvent } from './observability-service.js';
@@ -102,8 +103,32 @@ export type HotspotRow = {
   readonly evidence: readonly HotspotEvidence[];
 };
 
+/**
+ * A slice's request type, AND where that type came from.
+ *
+ * WHY THE SOURCE RIDES ALONG WITH THE TYPE. The EFFECTIVE type of a request
+ * whose artifact declares no `- type:` line is the default — it is the type
+ * the prerequisite table was actually indexed by when the transition ran — so
+ * the attribution must use it. But a default and a DECLARED type are
+ * different facts, and a reader asking "how many of these attributions rested
+ * on a type nobody wrote down?" cannot answer it if the source is dropped on
+ * the way through.
+ *
+ * The two facts a reader must not confuse:
+ *
+ *   - `declared` — the request artifact carried a usable `- type:` line.
+ *   - `default`  — the artifact carried NO usable line, so the effective type
+ *     is the system's default. The type is real; nobody wrote it down.
+ */
+export type RequestTypeReading = {
+  /** The type the prerequisite table was indexed by. */
+  readonly requestType: RequestType;
+  /** Whether that type was DECLARED or fell back to the default. */
+  readonly source: RequestTypeSource;
+};
+
 /** The request type of each slice, for the retro-attribution of v1 failures. */
-export type HotspotRequestTypes = ReadonlyMap<string, RequestType>;
+export type HotspotRequestTypes = ReadonlyMap<string, RequestTypeReading>;
 
 /** The templates a path can be recognised as, with the rid slot filled. */
 const PREREQ_TEMPLATES: readonly string[] = allPrerequisitePaths().filter((path) =>

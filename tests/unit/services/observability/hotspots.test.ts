@@ -37,6 +37,7 @@ import { aggregateHotspots } from '~/src/services/observability/hotspots.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 import {
   cleanupRoots,
+  declaredType,
   forwardMissing,
   historicalFailure,
   prereqPaths,
@@ -138,7 +139,7 @@ describe('Scenario: behavior — the artifact is named by its template', () => {
     const withSlot = paths.filter((path) => path.includes('<rid>'));
     expect(withSlot.length).toBeGreaterThan(0);
     const events = seedSession(SESSION_A, [historicalFailure('slice-a', 3)]);
-    const requestTypes = new Map([['slice-a', type]]);
+    const requestTypes = new Map([['slice-a', declaredType(type)]]);
 
     const rows = aggregateHotspots(events, requestTypes);
 
@@ -196,7 +197,7 @@ describe('Scenario: behavior — the confidence says which source a row came fro
     const paths = prereqPaths('rd', 'qa-handoff', type);
     expect(paths.length).toBeGreaterThan(0);
     const events = seedSession(SESSION_A, [historicalFailure('slice-a', paths.length)]);
-    const requestTypes = new Map([['slice-a', type]]);
+    const requestTypes = new Map([['slice-a', declaredType(type)]]);
 
     const rows = aggregateHotspots(events, requestTypes);
 
@@ -212,7 +213,7 @@ describe('Scenario: behavior — the confidence says which source a row came fro
     const paths = prereqPaths('rd', 'qa-handoff', type);
     expect(paths.length).toBeGreaterThan(1);
     const events = seedSession(SESSION_A, [historicalFailure('slice-a', 1)]);
-    const requestTypes = new Map([['slice-a', type]]);
+    const requestTypes = new Map([['slice-a', declaredType(type)]]);
 
     const rows = aggregateHotspots(events, requestTypes);
 
@@ -235,7 +236,7 @@ describe('Scenario: behavior — the ranking is ordered by count, then by confid
       ])
     ]);
     const candidate = seedSession(SESSION_B, [historicalFailure('slice-b', 1)]);
-    const requestTypes = new Map([['slice-b', type]]);
+    const requestTypes = new Map([['slice-b', declaredType(type)]]);
 
     const rows = aggregateHotspots([...measured, ...candidate], requestTypes);
 
@@ -316,7 +317,7 @@ describe('Scenario: render — the row carries what a reader checks the number a
     const paths = prereqPaths('rd', 'qa-handoff', type);
     expect(paths.length).toBeGreaterThan(1);
     const events = seedSession(SESSION_A, [historicalFailure('slice-a', 1)]);
-    const requestTypes = new Map([['slice-a', type]]);
+    const requestTypes = new Map([['slice-a', declaredType(type)]]);
 
     const rows = aggregateHotspots(events, requestTypes);
 
@@ -333,7 +334,7 @@ describe('Scenario: render — the row carries what a reader checks the number a
     const paths = prereqPaths('rd', 'qa-handoff', type);
     expect(paths.length).toBeGreaterThan(1);
     const events = seedSession(SESSION_A, [historicalFailure('slice-a', 1)]);
-    const requestTypes = new Map([['slice-a', type]]);
+    const requestTypes = new Map([['slice-a', declaredType(type)]]);
 
     const rows = aggregateHotspots(events, requestTypes);
 
@@ -364,8 +365,8 @@ describe('Scenario: behavior — one artifact can be a candidate under two trans
       historicalFailure('slice-wide', 1, 'rd', 'qa-handoff')
     ]);
     const requestTypes = new Map([
-      ['slice-narrow', type],
-      ['slice-wide', type]
+      ['slice-narrow', declaredType(type)],
+      ['slice-wide', declaredType(type)]
     ]);
 
     const rows = aggregateHotspots(events, requestTypes);
@@ -397,9 +398,9 @@ describe('Scenario: behavior — a ranking built only from historical failures',
       historicalFailure('slice-c', 1)
     ]);
     const requestTypes = new Map([
-      ['slice-a', type],
-      ['slice-b', type],
-      ['slice-c', type]
+      ['slice-a', declaredType(type)],
+      ['slice-b', declaredType(type)],
+      ['slice-c', declaredType(type)]
     ]);
 
     const rows = aggregateHotspots(events, requestTypes);

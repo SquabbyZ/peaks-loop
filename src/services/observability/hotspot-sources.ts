@@ -23,8 +23,14 @@ import {
   ALLOWED_STATES_PER_ROLE,
   type RequestArtifactState
 } from '../artifacts/request-artifact-state-helpers.js';
-import { attributeV1Failure } from './retro-attribution.js';
-import { canonicalArtifact, count, ownerOf, type RowBuilder } from './hotspot-shared.js';
+import { attributeV1Failure, type RetroAttribution } from './retro-attribution.js';
+import {
+  canonicalArtifact,
+  count,
+  ownerOf,
+  type RequestTypeReading,
+  type RowBuilder
+} from './hotspot-shared.js';
 import type { ObservabilityEvent } from './observability-service.js';
 
 /**
@@ -49,6 +55,18 @@ export function recordedMissing(event: ObservabilityEvent): readonly RecordedMis
   const detail = event.detail as { readonly missing?: unknown };
   if (!Array.isArray(detail.missing)) return null;
   return detail.missing as readonly RecordedMissing[];
+}
+
+/**
+ * Whether the event is a HISTORICAL failure — a count-only one the
+ * retro-attribution can speak about.
+ *
+ * A forward event carries the missing list as it was measured, so it is not
+ * a reconstruction and never enters the retro-attribution.
+ */
+export function isHistoricalFailure(event: ObservabilityEvent): boolean {
+  if (recordedMissing(event) !== null) return false;
+  return (event.detail as { readonly prereqOk?: unknown }).prereqOk === false;
 }
 
 /**
@@ -104,14 +122,20 @@ export function forwardRows(
   }
 }
 
-/** The rows a slice's historical (count-only) failure contributes. */
-export function retroRows(
+/**
+ * The attribution of one historical failure, or null when the event is not
+ * one the retro-attribution can speak about.
+ *
+ * ONE IMPLEMENTATION, TWO CALLERS. The rows and the attribution summary must
+ * agree about which failures were attributed — a copy of this gate would
+ * drift, and the drift would show up as two numbers that disagree.
+ */
+export function attributeFailure(
   event: ObservabilityEvent,
-  rid: string,
-  requestType: RequestType | undefined,
-  into: Map<string, RowBuilder>
-): void {
-  if (requestType === undefined) return;
+  reading: RequestTypeReading | undefined
+): { attribution: RetroAttribution; role: string; state: string } | null {
+  if (reading === undefined) return null;
+  const requestType = reading.requestType;
   const detail = event.detail as {
     readonly artifactRole?: unknown;
     readonly to?: unknown;
@@ -120,21 +144,38 @@ export function retroRows(
   const role = typeof detail.artifactRole === 'string' ? detail.artifactRole : '';
   const state = typeof detail.to === 'string' ? detail.to : '';
   const missingCount = typeof detail.missingCount === 'number' ? detail.missingCount : 0;
-  if (!TRANSITION_ROLES.includes(role)) return;
+  if (!TRANSITION_ROLES.includes(role)) return null;
   if (
     !ALLOWED_STATES_PER_ROLE[role as RequestArtifactRole].includes(state as RequestArtifactState)
   ) {
-    return;
+    return null;
   }
-  const attribution = attributeV1Failure({
-    artifactRole: role as RequestArtifactRole,
-    newState: state as RequestArtifactState,
-    requestType,
-    missingCount
-  });
+  return {
+    attribution: attributeV1Failure({
+      artifactRole: role as RequestArtifactRole,
+      newState: state as RequestArtifactState,
+      requestType,
+      typeSource: reading.source,
+      missingCount
+    }),
+    role,
+    state
+  };
+}
+
+/** The rows a slice's historical (count-only) failure contributes. */
+export function retroRows(
+  event: ObservabilityEvent,
+  rid: string,
+  reading: RequestTypeReading | undefined,
+  into: Map<string, RowBuilder>
+): void {
+  const resolved = attributeFailure(event, reading);
+  if (resolved === null) return;
+  const { attribution, role, state } = resolved;
   for (const candidate of attribution.candidates) {
     const artifact = canonicalArtifact(candidate.path, rid);
-    const kind = failureSurface(candidate.path, role, state, requestType);
+    const kind = failureSurface(candidate.path, role, state, reading?.requestType ?? 'feature');
     const ownerSkill = candidate.ownerSkill ?? ownerOf(artifact);
     count(into, {
       ownerSkill,

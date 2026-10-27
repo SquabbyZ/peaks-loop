@@ -19,6 +19,7 @@ import {
 } from '~/src/services/artifacts/artifact-prerequisites.js';
 import type { RequestArtifactRole } from '~/src/services/artifacts/artifact-templates.js';
 import type { RequestArtifactState } from '~/src/services/artifacts/request-artifact-state-helpers.js';
+import type { RequestTypeReading } from '~/src/services/observability/hotspot-shared.js';
 import {
   readObservabilityEvents,
   type ObservabilityEvent
@@ -101,4 +102,27 @@ export function prereqPaths(
   type: RequestType
 ): readonly string[] {
   return getPrerequisitesFor(role, to, type).map((prereq) => prereq.relativePath);
+}
+
+/**
+ * A request type a human WROTE DOWN.
+ *
+ * The retro-attribution now carries the type's PROVENANCE beside the type,
+ * because a declared type and a defaulted one produce the same candidates
+ * but are different facts. Most cases here are about the candidates, so the
+ * declared reading is the one that reads naturally.
+ */
+export function declaredType(type: RequestType): RequestTypeReading {
+  return { requestType: type, source: 'declared' };
+}
+
+/**
+ * A request type NOBODY WROTE DOWN — the effective type is the default.
+ *
+ * The candidates are the same as the declared reading's; only the
+ * provenance differs, and that is exactly what a case about provenance
+ * needs to set up.
+ */
+export function defaultedType(type: RequestType): RequestTypeReading {
+  return { requestType: type, source: 'default' };
 }

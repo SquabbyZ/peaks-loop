@@ -22,6 +22,7 @@ import { groupHotspotsByMeaning } from '~/src/services/observability/hotspot-sha
 import { aggregateHotspots } from '~/src/services/observability/hotspots.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 import {
+  declaredType,
   forwardMissing,
   historicalFailure,
   SESSION_A,
@@ -56,7 +57,7 @@ describe('Scenario: behavior — the ranking splits by what each count counts', 
       ])
     ]);
     const candidate = seedSession(SESSION_B, [historicalFailure('slice-b', 1)]);
-    const requestTypes = new Map([['slice-b', type]]);
+    const requestTypes = new Map([['slice-b', declaredType(type)]]);
 
     const groups = groupHotspotsByMeaning(
       aggregateHotspots([...measured, ...candidate], requestTypes)
@@ -76,7 +77,7 @@ describe('Scenario: behavior — the ranking splits by what each count counts', 
     // then: the observed group is empty — the split cannot lose a row
     const type: RequestType = 'feature';
     const events = seedSession(SESSION_A, [historicalFailure('slice-a', 1)]);
-    const requestTypes = new Map([['slice-a', type]]);
+    const requestTypes = new Map([['slice-a', declaredType(type)]]);
 
     const groups = groupHotspotsByMeaning(aggregateHotspots(events, requestTypes));
 
@@ -96,7 +97,7 @@ describe('Scenario: behavior — the ranking splits by what each count counts', 
       ])
     ]);
     const candidate = seedSession(SESSION_B, [historicalFailure('slice-b', 1)]);
-    const requestTypes = new Map([['slice-b', type]]);
+    const requestTypes = new Map([['slice-b', declaredType(type)]]);
 
     const rows = aggregateHotspots([...measured, ...candidate], requestTypes);
     const groups = groupHotspotsByMeaning(rows);

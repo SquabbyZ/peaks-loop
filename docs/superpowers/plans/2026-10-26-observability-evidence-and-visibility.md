@@ -945,16 +945,29 @@ git commit -m "docs(observability): the gate is open, with the numbers that open
 
 本计划完成时，以下**全部**为真：
 
-- [x] `peaks observability near-miss --all-sessions` 报出近失率与清单 —— **实测 2026-10-27**：近失率 **12.8%（12/94）**，清单 12 条。分母 94 带定义，且与 status 摘要的 103 的差（17 减 8）被摊开说明。逐 class 覆盖率在 `coverage` 里：3 个 reason class 中**只有 `prereq-skipped` 可观测**（536 事件），另两个（`gate-never-evaluated`、`tool-blocked`）**零事件**，`rate` 为 `null` 并进 `unobservedClasses`。**12.8% 只覆盖了 3 类里的 1 类** —— 详见 spec §2.4.1。
-- [ ] `peaks observability hotspots --all-sessions` 报出卡点榜，且每行的 `ownerSkill` 指向真实存在的 SKILL.md —— **部分成立，故不勾**：榜报出来了（14 行，每行 `count ≥ 1`、`evidence` 非空），但**14 行里 1 行的 `ownerSkill` 解析不到 SKILL.md** —— `peaks-mut` 的 SKILL.md 在 `src/skills/peaks-mut/SKILL.md`，既不在 `skills/` 也不在 `skills/bee/`，**且不在 npm 包的 2935 个文件里**（`files` 白名单只有 `skills/**`）。其余 13 行成立。**闸1 的判据（"至少一条"）通过**；这一条要求"每行"，故不勾。详见 spec §2.4.1。
+- [x] `peaks observability near-miss --all-sessions` 报出近失率与清单 —— **实测 2026-10-27**：近失率 **12.8%（12/94）**，清单 12 条。分母 94 带定义，且与 status 摘要的 103 的差（17 减 8）被摊开说明。逐 class 覆盖率在 `coverage` 里：3 个 reason class 中**只有 `prereq-skipped` 可观测**（536 事件），另两个（`gate-never-evaluated`、`tool-blocked`）**零事件**，`rate` 为 `null` 并进 `unobservedClasses`。
+  > **两条硬规矩，引用这个数字时必须一起带上：**
+  > **(1) 覆盖率永远跟着率走** —— 12.8% 是**在 3 个 reason class 里的 1 个上**量出来的。**裸引 "12.8%" 会读成"近失率 12.8%"，而真相是"我们只量到了三类里的一类"。**
+  > **(2) "12"不是一个形状，是两个** —— 独立于 near-miss 代码、直接从事件流数：**11 个是"该检查从未被尝试"**（RD 还没试过交接，QA 就已判它通过）、**1 个是"检查当时正在拒绝"**（门走到了并明确说了不行）。**两者的修法完全不同**（前者是"门被绕过的路径"，后者是"门的判定被忽略"），所以"12 次近失"这个标题数字**必须拆开读** —— 一个读者若只看到 12，会以为 12 次是同一件事。
+- [x] `peaks observability hotspots --all-sessions` 报出卡点榜，且每行的 `ownerSkill` 指向真实存在的 SKILL.md —— **实测 2026-10-27（判据一的 owner 路径清单已按修订更正为三处：`skills/<owner>/SKILL.md`、`skills/bee/<owner>/SKILL.md`、`src/skills/<owner>/SKILL.md`）**：榜 **14 行**，每行 `count ≥ 1`、`evidence` 非空，**14/14 行的 `ownerSkill` 都能解析到一个真实存在的 SKILL.md**。原清单只列前两处，把一个合法的仓内 owner（`peaks-mut`）读成了"解析不到" —— **清单已更正**。
+  > **但更正清单没有消掉分布缺口 —— 缺口只是变得可见了，这是一条真发现：artifact 契约引用了一个生产者没有被分发出去的 artifact。** `peaks-mut` 的 SKILL.md 在 `src/skills/peaks-mut/SKILL.md`，**不在 npm 包的 2935 个文件里**（`files` 白名单只有 `skills/**`）。**在一个装好的 peaks-loop 上，`mut/` 的那些 artifact 没有任何生产者** —— 而 `mut/mut-report.json` 是 `rd -> qa-handoff` 的 prereq 之一，**一条装好的 peaks-loop 会在这道门上永远失败，而门后没有技能去生产它**。详见 spec §2.4.1。
 - [x] **历史没丢**：`peaks observability status --all-sessions` 读出的 `totalEvents` **等于** `.peaks/_runtime/*/metrics/slices.jsonl` 里**磁盘上实际的总行数** —— **实测 2026-10-27**：`totalEvents = 1530`，磁盘实际总行数 = **1530**（逐文件 `node` 数行，含 `safeParse` 会跳过的行；10 个文件，0 空行），**差 = 0**。绝对数会因存储的 `MAX_METRICS_FILES = 10` 剪枝策略而漂（30 个 session 目录里只有 10 个还带指标文件），判据是"读到的 == 存在的"。
 - [x] `status` 的 `successCount + failCount + stalledCount === totalSlices` —— **实测 2026-10-27**：103 + 0 + 12 = **115** = `totalSlices` 115。
+- [x] 追认比例报出**来源**（S1.6 的实测数字）—— **实测 2026-10-27（口径已修订）**：计入追认的失败事件 **111** 条，`inferred` **19** / `ambiguous` **92**（**17.1%**）；**其中 108 条按"声明过的 type"追认、3 条按"没人写下来的默认 type"追认、2 条完全无法追认**（连 request artifact 都没有）。CLI 的 `hotspots --json` 现在有 `attribution` 块，**置信度分栏与来源分栏分开报**，因为"有多少条 inferred"**不**回答"有多少条建立在没人写下来的类型上"。
+  > **口径修订**：一个 request artifact 没有可用的 `- type:` 行时，它的**有效 type 就是 `feature`**（系统自己的 `DEFAULT_REQUEST_TYPE`，也是迁移当时 prereq 表实际按之索引的类型），所以追认**必须用它** —— 换一张表会给出错误的候选集，而"解析不出"是第三种同样错的答案。**先前一次实测（19/89，108 条）把这类失败整条丢掉，那是不对的**；差别恰好是 `rid-t3-downstream-incremental-constitution` 的 **3 次失败**，现已计入并**单列来源**。
 - [x] `peaks observability report` 开头是"近失"节，其后是"卡点"节 —— **实测 2026-10-27**：节序为 `Status summary` → `Near-misses` → `Slices` → `Hotspots` → `Fanout` → `Repair cycles`。**注意默认 `--period day` 在本仓库是空的**（周期轴为空，不是作用域轴 —— warning 明写 "use `--period month` to read them"）；`--period month --all-sessions` 下两节都有内容（近失 12.8%、卡点 14 行）。
 - [ ] 两个试点技能（`peaks-rd` / `peaks-race-code`）的遵守率由**确定性检查**算出，不依赖 LLM judge —— **机制已就位，但读者还拿不到数，故不勾**：`judgeCompliance`（`src/services/observability/compliance-judge.ts`）与两份试点 spec 都在盘上，判定是**确定性**的（只读磁盘上 artifact 在不在），Batch D 的 `session-metric-rows.ts` 也已把它们接进 session 行。**但那两行还没有生产调用方** —— `buildSessionMetricRow` / `writeSessionMetricRow` 只被测试调用，`peaks observability` 下也**没有 compliance 子命令**。所以"遵守率由确定性检查算出"这件事目前**只有代码与测试证明，没有一个读者能拿到的数**。
-- [ ] `pnpm test:unit` 全绿 —— **实测 2026-10-27：3 个失败 / 7128 通过（2 个文件）**。**失败不来自本计划**：把 Task 11 的改动撤掉后**同样 3 个失败**（`session-dir-canonical.test.ts` 1 个、`spawn-windows-hide-guard.test.ts` 2 个），根因是并发 agent 的 `d143fe0d` 引入的 `session-metric-rows.test.ts` 里的 `execFileSync` 调用点缺 `windowsHide`，以及它对 `.peaks` + sessionId 拼接的静态扫描。**观察到的 `observability` 全套 16 文件 / 193 测试全绿。**
-- [x] `pnpm lint` 不让任何 ceiling 上升；`npx eslint tests/` 无新增 findings —— **实测 2026-10-27**：`pnpm lint` 报 **1670 problems (553 errors)**，与基线 `eslintFindings ≤ 1670` / `eslintErrors ≤ 553` **恰好相等**（未上升）。本任务的三次提交**只碰 `docs/` 与 `tests/unit/services/observability/hotspots.test.ts`**，未动 `.peaks/lint/gate-baseline.json`。`tests/` 目录另跑 eslint（`config/eslint/.peaks-rules.cjs`）：**该文件 0 findings / 0 errors**。
-- [x] 全部提交不含任何 AI 署名 trailer —— **实测 2026-10-27**：Task 11 的三次提交（`1005fe00`、`236921bb`、`38599cef`）的 message **无 `Co-Authored-By:`、无 `Generated with`**，作者为 `SquabbyZ`。
+- [x] `pnpm test:unit` 全绿 —— **实测 2026-10-28（重跑，redirected 后读真实退出码）**：**657 文件全过，7138 通过 | 4 跳过，EXIT=0**。（先前一次实测的 3 个失败来自并发 agent 的 `d143fe0d` —— 它引入的 `session-metric-rows.test.ts` 里 `execFileSync` 调用点缺 `windowsHide`，加上它对 `.peaks` + sessionId 拼接的静态扫描；那两个问题已由该 agent 修掉，**分支现在是绿的**。）
+- [x] `pnpm lint` 不让任何 ceiling 上升；`npx eslint tests/` 无新增 findings —— **实测 2026-10-28**：`pnpm lint` 报 **1670 problems (553 errors)**，与基线 `eslintFindings ≤ 1670` / `eslintErrors ≤ 553` **恰好相等**（未上升）。本轮**改动了 `src/`**（Ruling 22：类型来源随类型一起带出来），所以 `.peaks/lint/gate-baseline.json` **必须重生成**（census 读 `git ls-files`，新源文件没有 `files[]` 行就会让 `file-size-cap.test.ts` 失败）—— 用仓库自己的生成器重生成后，**唯一的变化是多了一行新源文件的 `files[]` 记录（eslint 0 / eslintErrors 0 / prettierClean true）+ scope 计数 1406 → 1407 + 时间戳；生成器自报 "every ceiling held — nothing rose and nothing dropped"**。全部 ceiling 与要求值逐项相同。改动的源文件另跑 eslint：**0 findings / 0 errors**；`tests/` 目录的改动文件同样 **0 findings / 0 errors**。
+- [x] 全部提交不含任何 AI 署名 trailer —— **实测 2026-10-27 / 2026-10-28**：Task 11 的提交（`1005fe00`、`236921bb`、`38599cef`、`70fe5318`）与本轮修复的提交，message **无 `Co-Authored-By:`、无 `Generated with`**，作者为 `SquabbyZ`。
 
 **然后**：闸1 通过 → 用真实的近失数据回答 spec §7.2 第 6 条（第一个该被提升为 hook 的步骤是谁）→ 写 S3/S4 的计划 → 再碰 `evolution_evaluation` 表。
+
+> **闸1 实测记录在 spec §2.4.1**（2026-10-27，Task 11）。三条判据**都通过**，但记录里有三件必须一起读的事：
+> **(1)** 近失率 **12.8% 只覆盖了 3 个 reason class 里的 1 个**；
+> **(2)** **"12 次近失"是两个形状** —— 11 个"从未被尝试" + 1 个"正在拒绝"，修法不同；
+> **(3)** 追认比例 **19/92（111 条）**，其中 **3 条建立在没人写下来的默认 type 上** —— 置信度与来源**分开报**。
+>
+> **另有一条本轮量出来的真发现**（不在闸1 三条判据里）：**artifact 契约引用了一个生产者没有被分发出去的 artifact** —— `peaks-mut` 的 SKILL.md 不在 npm 包里，**一条装好的 peaks-loop 上 `mut/` 的 artifact 没有任何生产者**。
 
 > **闸1 实测记录在 spec §2.4.1**（2026-10-27，Task 11）。三条判据**都通过**，但记录里有两件必须一起读的事：**近失率 12.8% 只覆盖了三个 reason class 里的一个**；**热点榜有 1/14 行的 ownerSkill 指向一个装不出去的技能**。

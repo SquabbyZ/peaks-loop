@@ -93,7 +93,7 @@ import {
 } from './near-miss-coverage.js';
 import { describeDenominator, type NearMissDenominator } from './near-miss-denominator.js';
 import type { RdGateId } from '../artifacts/rd-gate-event.js';
-import type { RequestType } from '../artifacts/artifact-prerequisites.js';
+import type { RequestTypeReading } from './hotspot-shared.js';
 
 export type {
   NearMissEvidence,
@@ -230,7 +230,7 @@ function reasonsFor(fact: SliceFacts): {
  */
 export function computeNearMiss(
   events: readonly ObservabilityEvent[],
-  requestTypes: ReadonlyMap<string, RequestType> = new Map()
+  requestTypes: ReadonlyMap<string, RequestTypeReading> = new Map()
 ): NearMissReport {
   const bySlice = new Map<string, ObservabilityEvent[]>();
   for (const event of events) {

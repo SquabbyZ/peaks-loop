@@ -45,6 +45,7 @@
 import { aggregateSlices, type SliceRollup } from './aggregation.js';
 import { passMomentOf, collectAttempts } from './near-miss-attempts.js';
 import { getPrerequisitesFor, type RequestType } from '../artifacts/artifact-prerequisites.js';
+import type { RequestTypeReading } from './hotspot-shared.js';
 import type { ObservabilityEvent } from './observability-service.js';
 
 /**
@@ -124,7 +125,7 @@ export const PASSED_DEFINITION =
 function countDifferences(
   events: readonly ObservabilityEvent[],
   rollups: readonly SliceRollup[],
-  requestTypes: ReadonlyMap<string, RequestType>
+  requestTypes: ReadonlyMap<string, RequestTypeReading>
 ): {
   readonly successWithoutPassMoment: number;
   readonly successWithoutPassMomentButReachedVerdict: number;
@@ -150,13 +151,13 @@ function countDifferences(
       );
       if (reachedVerdict) {
         successWithoutPassMomentButReachedVerdict += 1;
-        const type = requestTypes.get(rollup.sliceRid);
+        const reading = requestTypes.get(rollup.sliceRid);
         // The cause: the type's prerequisite table has NO row for the
         // `qa -> verdict-issued` transition, so the check had nothing to
         // verify and emitted no event. The pass was never gated, rather
         // than gated-and-unrecorded.
-        if (type !== undefined && !hasVerdictPrerequisite(type)) {
-          types.add(type);
+        if (reading !== undefined && !hasVerdictPrerequisite(reading.requestType)) {
+          types.add(reading.requestType);
           slices.push(rollup.sliceRid);
         }
       }
@@ -194,7 +195,7 @@ function hasVerdictPrerequisite(type: RequestType): boolean {
 export function describeDenominator(
   events: readonly ObservabilityEvent[],
   sliceCount: number,
-  requestTypes: ReadonlyMap<string, RequestType> = new Map()
+  requestTypes: ReadonlyMap<string, RequestTypeReading> = new Map()
 ): NearMissDenominator {
   const rollups = aggregateSlices(events);
   const statusSuccessCount = rollups.filter((rollup) => rollup.success).length;

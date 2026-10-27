@@ -45,10 +45,16 @@
 
 export { aggregateHotspots } from './hotspot-rows.js';
 export {
+  summarizeAttribution,
+  type HotspotAttributionSummary,
+  type RequestArtifactCounts
+} from './hotspot-attribution-summary.js';
+export {
   canonicalArtifact,
   countMeaningOf,
   type HotspotConfidence,
   type HotspotEvidence,
   type HotspotRequestTypes,
-  type HotspotRow
+  type HotspotRow,
+  type RequestTypeReading
 } from './hotspot-shared.js';

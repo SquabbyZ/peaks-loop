@@ -138,6 +138,7 @@ describe('Scenario: behavior — the retro-attribution names the candidates the 
       artifactRole: transition.role,
       newState: transition.state,
       requestType: transition.type,
+      typeSource: 'declared',
       missingCount: 1
     });
     expect(prereqs).toHaveLength(1);
@@ -156,6 +157,7 @@ describe('Scenario: behavior — the retro-attribution names the candidates the 
       artifactRole: transition.role,
       newState: transition.state,
       requestType: transition.type,
+      typeSource: 'declared',
       missingCount: 1
     });
     expect(prereqs.length).toBeGreaterThan(1);
@@ -173,6 +175,7 @@ describe('Scenario: behavior — the retro-attribution names the candidates the 
       artifactRole: transition.role,
       newState: transition.state,
       requestType: transition.type,
+      typeSource: 'declared',
       missingCount: prereqs.length
     });
     expect(result.confidence).toBe('inferred');
@@ -189,6 +192,7 @@ describe('Scenario: behavior — the retro-attribution names the candidates the 
       artifactRole: transition.role,
       newState: transition.state,
       requestType: transition.type,
+      typeSource: 'declared',
       missingCount: prereqs.length - 1
     });
     expect(prereqs.length).toBeGreaterThan(1);
@@ -206,6 +210,7 @@ describe('Scenario: behavior — the retro-attribution names the candidates the 
       artifactRole: transition.role,
       newState: transition.state,
       requestType: transition.type,
+      typeSource: 'declared',
       missingCount: prereqs.length + 1
     });
     expect(result.confidence).toBe('ambiguous');
@@ -225,6 +230,7 @@ describe('Scenario: behavior — the retro-attribution names the candidates the 
       artifactRole: empty.role,
       newState: empty.state,
       requestType: empty.type,
+      typeSource: 'declared',
       missingCount: 1
     });
     expect(result.confidence).toBe('ambiguous');
@@ -240,6 +246,7 @@ describe('Scenario: behavior — the retro-attribution names the candidates the 
       artifactRole: transition.role,
       newState: transition.state,
       requestType: transition.type,
+      typeSource: 'declared',
       missingCount: 0
     });
     expect(result.confidence).toBe('ambiguous');
@@ -258,6 +265,7 @@ describe('Scenario: behavior — the retro-attribution names the candidates the 
         artifactRole: transition.role,
         newState: transition.state,
         requestType: transition.type,
+        typeSource: 'declared',
         missingCount: unreadable as number
       });
       expect(result.confidence, `count ${String(unreadable)} was not treated as unreadable`).toBe(
@@ -276,6 +284,7 @@ describe('Scenario: behavior — the retro-attribution names the candidates the 
       artifactRole: transition.role,
       newState: transition.state,
       requestType: 'not-a-request-type' as RequestType,
+      typeSource: 'declared',
       missingCount: 1
     });
     expect(result.confidence).toBe('ambiguous');
@@ -293,6 +302,7 @@ describe('Scenario: behavior — the retro-attribution names the candidates the 
           artifactRole: transition.role,
           newState: transition.state,
           requestType: transition.type,
+          typeSource: 'declared',
           missingCount: count
         });
         expect(result.confidence).not.toBe('exact');
@@ -312,6 +322,7 @@ describe('Scenario: integration — the derivation reads the real prerequisite t
       artifactRole: transition.role,
       newState: transition.state,
       requestType: transition.type,
+      typeSource: 'declared',
       missingCount: 1
     });
     expect(result.candidates).toHaveLength(prereqs.length);
@@ -332,6 +343,7 @@ describe('Scenario: integration — the derivation reads the real prerequisite t
         artifactRole: transition.role,
         newState: transition.state,
         requestType: transition.type,
+        typeSource: 'declared',
         missingCount: 1
       });
       for (const candidate of result.candidates) {
