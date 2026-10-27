@@ -36,6 +36,7 @@
 
 import { forwardRows, recordedMissing, retroRows } from './hotspot-sources.js';
 import {
+  countMeaningOf,
   type HotspotConfidence,
   type HotspotRequestTypes,
   type HotspotRow,
@@ -59,6 +60,7 @@ function toRow(row: RowBuilder): HotspotRow {
     kind: row.kind,
     confidence: row.confidence,
     count: row.count,
+    countMeaning: countMeaningOf(row.confidence),
     sessions: row.sessions.size,
     firstSeen: row.firstSeen,
     lastSeen: row.lastSeen,

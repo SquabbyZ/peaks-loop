@@ -155,7 +155,7 @@ export function registerHotspotsCommand(observability: Command, io: ProgramIO): 
     observability
       .command('hotspots')
       .description(
-        'Hotspot ranking: which artifact a skill keeps failing to deliver, and who owns it. Grouped by owner, artifact, mode and confidence; `exact` rows are measured, `inferred`/`ambiguous` rows are candidates recovered from a historical count and are NOT proof that the artifact was missing.'
+        'Hotspot ranking: which artifact a skill keeps failing to deliver, and who owns it. Grouped by owner, artifact, mode and confidence; `exact` rows are measured, `inferred`/`ambiguous` rows are candidates recovered from a historical count and are NOT proof that the artifact was missing. Each row carries `countMeaning`: `observed-missing` (the artifact was seen missing that many times) or `candidate-mentions` (the artifact was one of the candidates that many times — one real failure counts toward EVERY candidate it could not narrow, so that number is an upper bound, not a count of failures).'
       )
       .option('--project <path>', 'target project root (defaults to git root or cwd)')
       .option(

@@ -204,18 +204,24 @@ describe('Scenario: behavior — the same artifact counts once per occurrence', 
 });
 
 describe('Scenario: behavior — the artifact is named by its template', () => {
-  it('when the artifact path carries the rid placeholder, should strip it', () => {
+  it('when the artifact path carries the rid placeholder, should keep it in the name', () => {
     // given: a historical failure whose candidate list is the table's templates
     // when: the ranking is computed over that session
-    // then: every artifact is named without the rid placeholder
+    // then: the templates that carry a rid slot still name it, so the name
+    //        still names a real file rather than an empty segment
+    const type: RequestType = 'feature';
+    const paths = prereqPaths('rd', 'qa-handoff', type);
+    const withSlot = paths.filter((path) => path.includes('<rid>'));
+    expect(withSlot.length).toBeGreaterThan(0);
     const events = seedSession(SESSION_A, [historicalFailure('slice-a', 3)]);
-    const requestTypes = new Map<string, RequestType>([['slice-a', 'feature']]);
+    const requestTypes = new Map([['slice-a', type]]);
 
     const rows = aggregateHotspots(events, requestTypes);
 
     expect(rows.length).toBeGreaterThan(0);
     for (const row of rows) {
-      expect(row.artifact).not.toContain('<rid>');
+      expect(paths).toContain(row.artifact);
+      if (withSlot.includes(row.artifact)) expect(row.artifact).toContain('<rid>');
     }
   });
 
@@ -360,6 +366,56 @@ describe('Scenario: render — the row carries what a reader checks the number a
     expect(rows[0]?.firstSeen).toBe('2026-10-27T00:00:00.000Z');
     expect(rows[0]?.lastSeen).toBe('2026-10-27T00:00:00.000Z');
     expect(rows[0]?.evidence.length).toBe(2);
+  });
+
+  it('when the missing list was measured, should say the count is missing artifacts', () => {
+    // given: a forward event whose missing list was measured
+    // when: the ranking is computed over that session
+    // then: the row says its count counts OBSERVED missing artifacts
+    const events = seedSession(SESSION_A, [
+      forwardMissing('slice-a', [
+        { path: 'rd/code-review-slice-a.md', kind: 'absent', ownerSkill: 'peaks-rd' }
+      ])
+    ]);
+
+    const rows = aggregateHotspots(events);
+
+    expect(rows[0]?.countMeaning).toBe('observed-missing');
+  });
+
+  it('when the row is a candidate, should say the count is candidate mentions', () => {
+    // given: a historical failure whose artifact is only a candidate
+    // when: the ranking is computed over that session
+    // then: the row says its count counts CANDIDATE MENTIONS — one real
+    //        failure counts toward every candidate it could not narrow
+    const type: RequestType = 'feature';
+    const paths = prereqPaths('rd', 'qa-handoff', type);
+    expect(paths.length).toBeGreaterThan(1);
+    const events = seedSession(SESSION_A, [historicalFailure('slice-a', 1)]);
+    const requestTypes = new Map([['slice-a', type]]);
+
+    const rows = aggregateHotspots(events, requestTypes);
+
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) expect(row.countMeaning).toBe('candidate-mentions');
+  });
+
+  it('when a candidate row counts more mentions than there were failures, should say so', () => {
+    // given: ONE historical failure whose candidates could not be narrowed
+    // when: the ranking is computed over that session
+    // then: every candidate row counts that one failure — the number is a
+    //        mention count, which is why the row carries the meaning
+    const type: RequestType = 'feature';
+    const paths = prereqPaths('rd', 'qa-handoff', type);
+    expect(paths.length).toBeGreaterThan(1);
+    const events = seedSession(SESSION_A, [historicalFailure('slice-a', 1)]);
+    const requestTypes = new Map([['slice-a', type]]);
+
+    const rows = aggregateHotspots(events, requestTypes);
+
+    const total = rows.reduce((sum, row) => sum + row.count, 0);
+    expect(total).toBe(paths.length);
+    expect(total).toBeGreaterThan(1);
   });
 });
 

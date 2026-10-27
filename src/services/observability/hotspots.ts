@@ -21,6 +21,15 @@
  * missing". A reader who sorts by count must be able to see which rows are
  * measurements and which are reconstructions.
  *
+ * WHY THE ROW SAYS WHAT ITS COUNT COUNTS. The confidence label names HOW the
+ * row was known, but a reader sorting by `count` sees a NUMBER and reaches
+ * for the obvious meaning — how many times the artifact was missing. For a
+ * reconstructed row that meaning is wrong: one real failure contributes to
+ * every candidate the attribution could not narrow, so the count is CANDIDATE
+ * MENTIONS. The row therefore carries `countMeaning` beside the count, so the
+ * number cannot be read the wrong way without the reader having to know the
+ * rule.
+ *
  * A ROW WITH NO OWNER IS STILL A ROW. An artifact whose directory the
  * owner map does not know is a NEW artifact type, and a new artifact type is
  * exactly what a reader needs to see — the gate is that it is COUNTED, not
@@ -37,6 +46,7 @@
 export { aggregateHotspots } from './hotspot-rows.js';
 export {
   canonicalArtifact,
+  countMeaningOf,
   type HotspotConfidence,
   type HotspotEvidence,
   type HotspotRequestTypes,

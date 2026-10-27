@@ -10,13 +10,22 @@
  * the shared vocabulary cannot live in the ranking without a cycle. This
  * module is the seam.
  *
- * WHY THE ARTIFACT IS ITS TEMPLATE. The path a forward event carries has
- * the slice's rid substituted into it, so the same artifact missed by two
- * slices would be two rows and the count would be useless. The template the
- * path came from is recognised by re-filling the slot with the rid and
- * comparing, which is exact — a substring search could match the wrong
- * template. Paths no template claims (a declaration key, a legacy
- * location) keep their own shape.
+ * WHY THE ARTIFACT IS ITS TEMPLATE, AND WHY THE PLACEHOLDER STAYS. The path
+ * a forward event carries has the slice's rid substituted into it, so the same
+ * artifact missed by two slices would be two rows and the count would be
+ * useless. The template the path came from is recognised by re-filling the
+ * slot with the rid and comparing, which is exact — a substring search could
+ * match the wrong template.
+ *
+ * The template is named WITH its `<rid>` placeholder intact. Stripping the
+ * placeholder produced paths that name no real file — `qa/test-cases/.md` is
+ * a directory and a dot, not an artifact — and a reader could not tell which
+ * artifact the row was about. The placeholder is the template's own way of
+ * saying "the slice's id goes here", and it is what makes a forward row and a
+ * retro-attributed row for the same artifact land on the SAME row.
+ *
+ * Paths no template claims (a declaration key, a legacy location) keep their
+ * own shape.
  */
 
 import { allPrerequisitePaths } from '../artifacts/prerequisite-path-census.js';
@@ -40,7 +49,7 @@ export type HotspotEvidence = {
 export type HotspotRow = {
   /** The skill that owns the artifact, or null when no row claims it. */
   readonly ownerSkill: string | null;
-  /** The artifact path, with the rid slot emptied. */
+  /** The artifact path, with the `<rid>` placeholder left in place. */
   readonly artifact: string;
   /**
    * The failure mode. For an `exact` row this is MEASURED — the file was
@@ -62,12 +71,29 @@ export type HotspotRow = {
    */
   readonly confidence: HotspotConfidence;
   /**
-   * How many times the artifact was missing — or, for a reconstructed row,
-   * how many times it appeared in the candidate set. A reconstructed row's
-   * count is therefore an UPPER BOUND on the real number, and the
-   * confidence column is what says so.
+   * How many times the artifact was COUNTED.
+   *
+   * WHAT THE NUMBER COUNTS DEPENDS ON THE CONFIDENCE, and the row says which
+   * — see `countMeaning`. For an `exact` row it is how many times the
+   * artifact was observed MISSING. For a reconstructed row it is how many
+   * times the artifact appeared in the CANDIDATE SET, which is not the same
+   * thing at all: one real failure contributes to every candidate the
+   * attribution could not narrow, so the number is candidate mentions, not
+   * failures.
    */
   readonly count: number;
+  /**
+   * What `count` counts, so a reader cannot take a candidate mention for a
+   * missing artifact.
+   *
+   *   - `observed-missing` — the artifact was seen to be missing, this many
+   *     times. Only an `exact` row says this.
+   *   - `candidate-mentions` — the artifact was one of the candidates, this
+   *     many times. One real failure contributes to SEVERAL candidates, so
+   *     this number is an UPPER BOUND on the real count and is NOT a count of
+   *     failures.
+   */
+  readonly countMeaning: 'observed-missing' | 'candidate-mentions';
   /** How many sessions the occurrences came from. */
   readonly sessions: number;
   readonly firstSeen: string;
@@ -84,12 +110,19 @@ const PREREQ_TEMPLATES: readonly string[] = allPrerequisitePaths().filter((path)
   path.includes('<rid>')
 );
 
-/** The artifact path with the rid slot emptied. */
+/**
+ * The artifact path with the `<rid>` placeholder left in place.
+ *
+ * The template is recognised by re-filling the slot with the rid and
+ * comparing, which is exact. The template is then returned AS IT IS: the
+ * placeholder is part of the artifact's name, and stripping it produced paths
+ * that name no real file.
+ */
 export function canonicalArtifact(path: string, rid: string): string {
   for (const template of PREREQ_TEMPLATES) {
-    if (template.replace('<rid>', rid) === path) return template.replace('<rid>', '');
+    if (template.replace('<rid>', rid) === path) return template;
   }
-  return path.split('<rid>').join('');
+  return path;
 }
 
 /** The owner of an artifact, or null when no row claims it. */
@@ -109,6 +142,20 @@ export type RowBuilder = {
   lastSeen: string;
   readonly evidence: HotspotEvidence[];
 };
+
+/**
+ * What a row's count counts, decided by the row's confidence.
+ *
+ * Only a row whose missing list was MEASURED counts missing artifacts. A
+ * reconstructed row counts CANDIDATE MENTIONS, and one real failure
+ * contributes to every candidate the attribution could not narrow — so the
+ * number is not a count of failures and must not be read as one.
+ */
+export function countMeaningOf(
+  confidence: HotspotConfidence
+): 'observed-missing' | 'candidate-mentions' {
+  return confidence === 'exact' ? 'observed-missing' : 'candidate-mentions';
+}
 
 /** One occurrence of an artifact, ready to be counted. */
 export type Occurrence = {
