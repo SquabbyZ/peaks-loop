@@ -77,6 +77,25 @@ describe('Scenario: behavior — a class with no events is not measurable', () =
     expect(prereq?.rate).toBe(0);
   });
 
+  it('when a class reached no passing slice, should report no rate for it', () => {
+    // given: a session whose slice never passed, so the class reached no
+    //        slice in the denominator
+    // when: the near-miss metric is computed over the session
+    // then: the class had events but reached no passing slice, so it carries
+    //        no rate — a rate over zero slices is not a rate
+    const events = seedSession([
+      transition('implemented', { prereqOk: true, missingCount: 0 }),
+      transition('verdict-issued', { prereqOk: false, missingCount: 1 })
+    ]);
+
+    const report = computeNearMiss(events);
+
+    const prereq = report.coverage.find((item) => item.reason === 'prereq-skipped');
+    expect(prereq?.observable).toBe(true);
+    expect(prereq?.observedSliceCount).toBe(0);
+    expect(prereq?.rate).toBeNull();
+  });
+
   it('when every class had no events, should report every class as not observable', () => {
     // given: a session whose only event is a verdict-less transition
     // when: the near-miss metric is computed over the session

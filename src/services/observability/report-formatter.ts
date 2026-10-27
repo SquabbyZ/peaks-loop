@@ -8,6 +8,7 @@
  *
  *   - Header: scope, period, generated-at timestamp
  *   - Slice table: rid | transitions | finalState | durationMs | success
+ *   - Hotspots table: artifact | owner | mode | confidence | count
  *   - Fanout table: role | count
  *   - Repair-cycle table: sliceRid | cycleCount
  *   - Top-N slowest slices: same as slice table, sorted by durationMs desc
@@ -23,6 +24,8 @@ import {
   type SliceRollup,
   type StatusAggregate
 } from './aggregation.js';
+import type { HotspotRow } from './hotspot-shared.js';
+import { markdownHotspotTables } from './report-formatter-hotspots.js';
 
 export type ReportInput = {
   scope: 'session' | 'all-sessions';
@@ -33,6 +36,20 @@ export type ReportInput = {
   slices: SliceRollup[];
   fanout: FanoutBreakdown;
   repairCycles: RepairCycleReport;
+  /**
+   * The hotspot ranking, rendered when it is supplied.
+   *
+   * It is OPTIONAL, and absent means the section is not rendered at all — a
+   * caller that does not compute the ranking gets exactly the report it got
+   * before the ranking existed.
+   *
+   * THE SHAPE IS SET HERE, THE WIRING IS TASK 7's. The count column is
+   * named for what it counts — "times observed missing" and "candidate
+   * mentions" — so a reader cannot take a candidate mention for a missing
+   * artifact. The CLI command that supplies the ranking is Task 7's to
+   * wire; this file states the contract it will fill.
+   */
+  hotspots?: readonly HotspotRow[];
 };
 
 const SLOWEST_TOP_N = 5;
@@ -119,6 +136,12 @@ function markdownSliceTable(slices: SliceRollup[]): string {
   return lines.join('\n');
 }
 
+/**
+ * The hotspot section: the rows, split by what their count actually counts.
+ *
+ * The section lives in `report-formatter-hotspots.ts` — this file was near
+ * its cap — and the split of the tables is explained there.
+ */
 function markdownFanoutTable(fanout: FanoutBreakdown): string {
   const lines: string[] = [];
   lines.push('## Fanout');
@@ -211,11 +234,16 @@ export function renderObservabilityReport(input: ReportInput): string {
   const sections: string[] = [
     markdownHeader(input),
     markdownStatusSummary(input.status),
-    markdownSliceTable(input.slices),
+    markdownSliceTable(input.slices)
+  ];
+  // The hotspot section is rendered ONLY when the ranking is supplied, so a
+  // caller that does not compute it gets exactly the report it got before.
+  if (input.hotspots !== undefined) sections.push(markdownHotspotTables(input.hotspots));
+  sections.push(
     markdownFanoutTable(input.fanout),
     markdownRepairCycleTable(input.repairCycles),
     markdownSlowestSlices(input.slices)
-  ];
+  );
   return sections.join('\n').trimEnd() + '\n';
 }
 

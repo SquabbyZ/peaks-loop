@@ -30,6 +30,7 @@ import {
   type Period
 } from '~/src/services/observability/aggregation.js';
 import { renderObservabilityReport } from '~/src/services/observability/report-formatter.js';
+import type { HotspotRow } from '~/src/services/observability/hotspot-shared.js';
 import type { ObservabilityEvent } from '~/src/services/observability/observability-service.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 
@@ -150,5 +151,89 @@ describe('Scenario: a11y — the marker says what it means', () => {
     // then:  the reader is told which marker means "did not finish"
     const markdown = render();
     expect(markdown).toContain('did not finish');
+  });
+});
+
+describe('Scenario: render — the hotspot count column names what it counts', () => {
+  /** One hotspot row, in the shape the ranking produces. */
+  function hotspot(over: Partial<HotspotRow> = {}): HotspotRow {
+    return {
+      ownerSkill: 'peaks-qa',
+      artifact: 'qa/test-cases/<rid>.md',
+      kind: 'body',
+      confidence: 'ambiguous',
+      count: 91,
+      countMeaning: 'candidate-mentions',
+      sessions: 8,
+      firstSeen: '2026-10-14T11:10:50.453Z',
+      lastSeen: '2026-10-25T16:05:10.290Z',
+      evidence: [],
+      ...over
+    };
+  }
+
+  /** The report with a hotspot ranking, as a reader receives it. */
+  function renderWithHotspots(hotspots: readonly HotspotRow[]): string {
+    const period: Period = 'month';
+    return renderObservabilityReport({
+      scope: 'session',
+      scopeId: SESSION_ID,
+      period,
+      generatedAt: '2026-10-27T00:00:00.000Z',
+      status: aggregateStatus(EVENTS),
+      slices: aggregateSlices(EVENTS),
+      fanout: aggregateFanout(EVENTS),
+      repairCycles: aggregateRepairCycles(EVENTS),
+      hotspots
+    });
+  }
+
+  it('when a candidate row is shown, should name the column as candidate mentions', () => {
+    // given: a ranking with one reconstructed row, whose count is the number
+    //        of candidate MENTIONS rather than the number of failures
+    // when:  the report is rendered
+    // then:  the column heading says it counts candidate mentions, so a
+    //         reader cannot take 91 as "91 times missing"
+    const markdown = renderWithHotspots([hotspot()]);
+    expect(markdown).toContain('candidate mentions');
+    expect(markdown).toContain('### Candidate artifacts');
+  });
+
+  it('when a measured row is shown, should name the column as times observed missing', () => {
+    // given: a ranking with one measured row, whose count IS the number of
+    //        times the artifact was seen missing
+    // when:  the report is rendered
+    // then:  the column heading says it counts observed missing artifacts
+    const markdown = renderWithHotspots([
+      hotspot({
+        confidence: 'exact',
+        countMeaning: 'observed-missing',
+        artifact: 'rd/code-review-<rid>.md',
+        ownerSkill: 'peaks-rd'
+      })
+    ]);
+    expect(markdown).toContain('times observed missing');
+    expect(markdown).toContain('### Measured missing artifacts');
+  });
+
+  it('when both kinds of row are shown, should keep them in their own tables', () => {
+    // given: a ranking with one measured row and one candidate row
+    // when:  the report is rendered
+    // then:  each table carries the heading for its own meaning, so the two
+    //         numbers are never read under one heading
+    const markdown = renderWithHotspots([
+      hotspot({ confidence: 'exact', countMeaning: 'observed-missing', artifact: 'rd/a-<rid>.md' }),
+      hotspot({ artifact: 'qa/b-<rid>.md' })
+    ]);
+    expect(markdown).toContain('times observed missing');
+    expect(markdown).toContain('candidate mentions');
+  });
+
+  it('when no ranking is supplied, should not render the hotspot section at all', () => {
+    // given: a report whose caller did not compute the ranking
+    // when:  the report is rendered
+    // then:  there is no hotspot section — the section is opt-in
+    const markdown = render();
+    expect(markdown).not.toContain('## Hotspots');
   });
 });

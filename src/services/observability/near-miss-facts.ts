@@ -3,8 +3,8 @@
  *
  * The event-stream readers the near-miss metric is computed from: what one
  * slice's events say about the gates that were live, the gates that were
- * evaluated, what the slice could be OBSERVED for at all, and what its
- * prerequisite attempts recorded.
+ * evaluated, when the slice was declared PASSING, what its prerequisite
+ * attempts recorded, and what the slice could be OBSERVED for at all.
  *
  * WHY THIS IS A SEPARATE MODULE. The near-miss metric reads the observability
  * stream the same way the slice aggregation does — the same event shapes, the
@@ -34,14 +34,17 @@
  */
 
 import { readGate, type GateFacts, type NearMissUndetermined } from './near-miss-gates.js';
-import { collectAttempts, unrecoveredFailures, type PrereqAttempt } from './near-miss-attempts.js';
+import {
+  collectAttempts,
+  failuresOf,
+  passMomentOf,
+  unsatisfiedKeys,
+  type PrereqAttempt
+} from './near-miss-attempts.js';
 import type { RdGateId } from '../artifacts/rd-gate-event.js';
 import type { ObservabilityEvent } from './observability-service.js';
 
 export { KNOWN_GATE_IDS, type NearMissUndetermined } from './near-miss-gates.js';
-
-/** The QA verdict state: the slice reached it, so the slice passed. */
-export const VERDICT_STATE = 'verdict-issued';
 
 /** The event category a tool trace carries once that slice lands. */
 export const TOOL_TRACE_CATEGORY = 'tool-trace';
@@ -65,30 +68,39 @@ export type NearMissEvidence = {
   readonly transitionKey?: string;
 };
 
+/**
+ * The moment the slice was declared passing, and what was still unsatisfied
+ * at that moment.
+ */
+export type PassMoment = {
+  /** The position of the successful verdict attempt in the slice's stream. */
+  readonly index: number;
+  /** The instant of the successful verdict attempt. */
+  readonly ts: string;
+  /**
+   * The transition keys whose check was still unsatisfied when the slice was
+   * declared passing.
+   */
+  readonly unsatisfiedKeys: readonly string[];
+  /** The failed attempts of those keys — the evidence for the finding. */
+  readonly failures: readonly PrereqAttempt[];
+};
+
 /** What one slice's events say about it. */
 export type SliceFacts = {
   readonly sliceRid: string;
-  /** The slice reached the QA verdict state. */
-  readonly passed: boolean;
   /**
-   * The stream position at which the slice reached the verdict, or null when it
-   * never did. A POSITION and not a timestamp: two events can share a
-   * millisecond, and the rule asks what came BEFORE the verdict, which a
-   * timestamp cannot answer when the clock does not advance.
+   * The moment the slice was declared PASSING, or null when it never was.
+   *
+   * A slice with no pass moment is not in the metric's denominator: it was
+   * never declared passing, so there is no pass to have been bought by
+   * skipping a check.
    */
-  readonly verdictIndex: number | null;
+  readonly passMoment: PassMoment | null;
   /** The gate ids that were live at some transition of this slice. */
   readonly liveGates: ReadonlySet<RdGateId>;
   /** The gate ids that got a `pass` or a `block` — i.e. WERE evaluated. */
   readonly evaluatedGates: ReadonlySet<RdGateId>;
-  /**
-   * The prereq failures this slice recorded that were NEVER satisfied.
-   *
-   * A failure that a later attempt at the same transition key satisfied is
-   * NOT here: that is a gate refusing and then letting the slice through,
-   * which is a gate working as designed.
-   */
-  readonly unrecoveredPrereqFailures: readonly PrereqAttempt[];
   /** Whether a tool trace blocked on this slice. */
   readonly toolBlocked: boolean;
   /** The gates whose liveness the stream did not decide. */
@@ -111,22 +123,10 @@ export type SliceFacts = {
 
 /** The facts one slice's events carry, accumulated as the stream is walked. */
 type Accumulator = {
-  readonly sliceRid: string;
   readonly gates: GateFacts;
-  verdictIndex: number | null;
   toolBlocked: boolean;
   toolTraces: number;
 };
-
-/** Fold one transition event into the accumulator. */
-function readTransition(acc: Accumulator, event: ObservabilityEvent, index: number): void {
-  const detail = event.detail as { to?: unknown; prereqOk?: unknown };
-  const target = typeof detail.to === 'string' ? detail.to : '';
-  // A REFUSED attempt at the verdict state is not an arrival there.
-  if (target === VERDICT_STATE && acc.verdictIndex === null && detail.prereqOk !== false) {
-    acc.verdictIndex = index;
-  }
-}
 
 /** Fold one tool-trace event into the accumulator. */
 function readToolTrace(acc: Accumulator, event: ObservabilityEvent): void {
@@ -155,25 +155,22 @@ export function sliceFacts(sliceRid: string, events: readonly ObservabilityEvent
     evaluatedGates: new Set<RdGateId>(),
     undetermined: []
   };
-  const acc: Accumulator = {
-    sliceRid,
-    gates,
-    verdictIndex: null,
-    toolBlocked: false,
-    toolTraces: 0
-  };
-  for (const [index, event] of events.entries()) {
-    if (event.category === 'slice-transition') readTransition(acc, event, index);
-    else if ((event.category as string) === TOOL_TRACE_CATEGORY) readToolTrace(acc, event);
+  const acc: Accumulator = { gates, toolBlocked: false, toolTraces: 0 };
+  for (const event of events) {
+    if ((event.category as string) === TOOL_TRACE_CATEGORY) readToolTrace(acc, event);
     else if (event.category === 'gate') readGate(gates, event, sliceRid, gateEvents);
   }
+  const moment = passMomentOf(attempts);
+  const unsatisfied = moment === null ? [] : unsatisfiedKeys(attempts, moment.index);
+  const failures = unsatisfied.flatMap((key) => failuresOf(attempts, key));
   return {
     sliceRid,
-    passed: acc.verdictIndex !== null,
-    verdictIndex: acc.verdictIndex,
+    passMoment:
+      moment === null
+        ? null
+        : { index: moment.index, ts: moment.ts, unsatisfiedKeys: unsatisfied, failures },
     liveGates: gates.liveGates,
     evaluatedGates: gates.evaluatedGates,
-    unrecoveredPrereqFailures: unrecoveredFailures(attempts, acc.verdictIndex),
     toolBlocked: acc.toolBlocked,
     undetermined: gates.undetermined,
     observed: {

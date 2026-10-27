@@ -107,14 +107,20 @@ export function gate(event: GateEvent): Record<string, unknown> {
   };
 }
 
-/** The slice's whole transition history, ending in a QA verdict. */
+/**
+ * The slice's whole transition history, ending in a SUCCESSFUL verdict.
+ *
+ * The verdict attempt carries `prereqOk: true` because that attempt is what
+ * declared the slice passing. A test that means "the slice never passed"
+ * builds its own history instead of using this.
+ */
 export function reachingVerdict(
   extra: readonly Transition[] = []
 ): readonly Record<string, unknown>[] {
   return [
-    transition('implemented'),
+    transition('implemented', { prereqOk: true, missingCount: 0 }),
     ...extra.map((t) => transition(t.to, { prereqOk: t.prereqOk, missingCount: t.missingCount })),
-    transition('qa-handoff'),
-    transition('verdict-issued')
+    transition('qa-handoff', { prereqOk: true, missingCount: 0 }),
+    transition('verdict-issued', { prereqOk: true, missingCount: 0 })
   ];
 }

@@ -1,8 +1,8 @@
 /**
  * `src/services/observability/near-miss.ts`
  *
- * The near-miss rate: of the slices that passed, how many passed ANYWAY
- * after a gate that was live never got evaluated?
+ * The near-miss rate: of the slices that were declared PASSING, how many
+ * passed anyway after a required check was still unsatisfied?
  *
  * WHY THIS EXISTS. The premise of the whole programme is that "the QA verdict
  * says pass" is a metric that is blind: it cannot see a pass that was bought
@@ -12,18 +12,17 @@
  * evaluated" and "gate evaluated and passed" — the latter is normal flow, and
  * misreading it as the former would inflate the metric past meaning.
  *
- * THE PASSING SET IS THE QA VERDICT. A slice counts as passed when it
- * REACHED `verdict-issued` — the state the QA verdict is issued at, and a
- * member of `TERMINAL_HAPPY_STATES`, the aggregation's own success
- * vocabulary. There is no second notion of "passed" here: the repo has no
- * separate "QA judged pass" event, so the verdict state IS the pass fact.
+ * THE REFERENCE MOMENT IS THE SUCCESSFUL PASS. The question this metric asks
+ * is "at the moment the slice was declared passing, had the required check
+ * been satisfied?" — so the reference is the PASS, not the first
+ * `verdict-issued` event and not the last attempt at a key. A `verdict-issued`
+ * attempt whose prereq check FAILED is not a pass at all; it is a refused
+ * transition recorded under the same `to` state. The pass moment is therefore
+ * the first `verdict-issued` attempt whose prereq check SUCCEEDED.
  *
- * WHY "REACHED" AND NOT "ENDED AT". A slice that got a verdict and was then
- * sent back for rework still got a verdict, and if THAT verdict was bought by
- * a skipped gate, it is exactly the case this metric exists to catch. Only
- * slices that never reached the verdict are outside the question, and they
- * are in neither the numerator nor the denominator: a slice that was blocked
- * is not a pass anybody bought by skipping a check.
+ * A slice with no pass moment was never declared passing, so it is in
+ * neither the numerator nor the denominator: there is no pass to have been
+ * bought by skipping a check.
  *
  * THE LIVE SET IS A UNION OVER THE SLICE'S WHOLE HISTORY. A gate is "live"
  * for a transition when it WOULD have run had the transition not been
@@ -67,6 +66,10 @@
  * says, per class, whether the class was observable at all, and the CLI
  * warns when one was not.
  *
+ * WHY THE REPORT CARRIES ITS DENOMINATOR. "Passed" has two definitions here
+ * and they do not count the same slices, so the report states the one it
+ * uses and reconciles it with the status summary's.
+ *
  * WHY THE READERS LIVE NEXT DOOR. `near-miss-facts.ts` holds the event-shape
  * readers this metric is computed from, so this file holds the METRIC and
  * nothing else — the same split `aggregation.ts` and
@@ -87,15 +90,19 @@ import {
   unobservableReasons,
   type NearMissClassCoverage
 } from './near-miss-coverage.js';
+import { describeDenominator, type NearMissDenominator } from './near-miss-denominator.js';
 import type { RdGateId } from '../artifacts/rd-gate-event.js';
 
 export type { NearMissEvidence, NearMissUndetermined, NearMissReason } from './near-miss-facts.js';
 export type { NearMissClassCoverage } from './near-miss-coverage.js';
+export type { NearMissDenominator } from './near-miss-denominator.js';
 
 /** One slice that passed with a check skipped. */
 export type NearMissRecord = {
   readonly sliceRid: string;
   readonly reasons: readonly NearMissReason[];
+  /** The transition keys whose check was unsatisfied at the pass moment. */
+  readonly unsatisfiedKeys: readonly string[];
   readonly evidence: readonly NearMissEvidence[];
 };
 
@@ -125,6 +132,11 @@ export type NearMissReport = {
    * `coverage` entry says the same thing with the numbers behind it.
    */
   readonly unobservedClasses: readonly NearMissReason[];
+  /**
+   * The denominator the rate divides by, and how it relates to the status
+   * summary's success count.
+   */
+  readonly denominator: NearMissDenominator;
 };
 
 /**
@@ -133,17 +145,13 @@ export type NearMissReport = {
  * For a gate that was live and never evaluated, the evidence is the events
  * that let a reader CHECK that claim: the events about that gate (a bypass
  * is the primary one) and the sibling gate events of the same transition,
- * which are what establish the live set. For a prerequisite failure, it is
- * the refusal itself, named by the transition key it refused.
+ * which are what establish the live set. For an unsatisfied prerequisite, it
+ * is the refusal itself, named by the transition key it refused.
  */
 function evidenceFor(
   neverEvaluated: readonly RdGateId[],
   gateEvents: readonly ObservabilityEvent[],
-  prereqSkipped: readonly {
-    readonly sessionId: string;
-    readonly ts: string;
-    readonly key: string;
-  }[]
+  unsatisfied: NonNullable<SliceFacts['passMoment']>
 ): readonly NearMissEvidence[] {
   const pointers: NearMissEvidence[] = [];
   for (const gateId of neverEvaluated) {
@@ -159,7 +167,7 @@ function evidenceFor(
       });
     }
   }
-  for (const failure of prereqSkipped) {
+  for (const failure of unsatisfied.failures) {
     pointers.push({
       sessionId: failure.sessionId,
       ts: failure.ts,
@@ -172,9 +180,10 @@ function evidenceFor(
 /**
  * The reasons one passing slice carries.
  *
- * The prereq failures that count are the ones that were NEVER SATISFIED: a
- * check that refused and was then satisfied on a retry is a gate working as
- * designed, and counting it would put a working gate in the near-miss column.
+ * A prerequisite key counts when its check was STILL UNSATISFIED at the pass
+ * moment: the slice was declared passing while a required check had not been
+ * satisfied. A check that refused and was then satisfied before the pass is
+ * a gate working as designed, and it is not a near-miss.
  */
 function reasonsFor(fact: SliceFacts): {
   readonly reasons: NearMissReason[];
@@ -183,7 +192,7 @@ function reasonsFor(fact: SliceFacts): {
   const neverEvaluated = [...fact.liveGates].filter((gateId) => !fact.evaluatedGates.has(gateId));
   const reasons: NearMissReason[] = [];
   if (neverEvaluated.length > 0) reasons.push('gate-never-evaluated');
-  if (fact.unrecoveredPrereqFailures.length > 0) reasons.push('prereq-skipped');
+  if ((fact.passMoment?.unsatisfiedKeys.length ?? 0) > 0) reasons.push('prereq-skipped');
   if (fact.toolBlocked) reasons.push('tool-blocked');
   return { reasons, neverEvaluated };
 }
@@ -192,8 +201,8 @@ function reasonsFor(fact: SliceFacts): {
  * The near-miss metric over a set of events.
  *
  * The rate divides the near-miss slices by the PASSING slices — the slices
- * that reached the QA verdict — and is 0 when there are none, so an empty
- * scope reads as "no rate" rather than as a division by zero.
+ * that recorded a successful verdict attempt — and is 0 when there are none,
+ * so an empty scope reads as "no rate" rather than as a division by zero.
  */
 export function computeNearMiss(events: readonly ObservabilityEvent[]): NearMissReport {
   const bySlice = new Map<string, ObservabilityEvent[]>();
@@ -213,7 +222,8 @@ export function computeNearMiss(events: readonly ObservabilityEvent[]): NearMiss
 
   for (const [sliceRid, sliceEvents] of bySlice) {
     const fact = sliceFacts(sliceRid, sliceEvents);
-    if (!fact.passed) continue;
+    // A slice with no pass moment was never declared passing.
+    if (fact.passMoment === null) continue;
     passedSliceCount += 1;
     passingFacts.push(fact);
     const { reasons, neverEvaluated } = reasonsFor(fact);
@@ -224,7 +234,8 @@ export function computeNearMiss(events: readonly ObservabilityEvent[]): NearMiss
     records.push({
       sliceRid,
       reasons,
-      evidence: evidenceFor(neverEvaluated, gateEvents, fact.unrecoveredPrereqFailures)
+      unsatisfiedKeys: fact.passMoment.unsatisfiedKeys,
+      evidence: evidenceFor(neverEvaluated, gateEvents, fact.passMoment)
     });
   }
 
@@ -239,6 +250,7 @@ export function computeNearMiss(events: readonly ObservabilityEvent[]): NearMiss
     records,
     undetermined,
     coverage,
-    unobservedClasses: unobservableReasons(coverage)
+    unobservedClasses: unobservableReasons(coverage),
+    denominator: describeDenominator(events, passedSliceCount)
   };
 }

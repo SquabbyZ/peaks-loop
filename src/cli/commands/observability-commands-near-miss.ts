@@ -22,7 +22,8 @@ import { fail, ok } from 'peaks-loop-shared/result';
 
 import {
   computeNearMiss,
-  type NearMissClassCoverage
+  type NearMissClassCoverage,
+  type NearMissDenominator
 } from '../../services/observability/near-miss.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import {
@@ -53,6 +54,18 @@ function coverageWarnings(coverage: readonly NearMissClassCoverage[]): string[] 
 }
 
 /**
+ * The warning that says the denominator differs from the status summary's.
+ *
+ * "Passed" has two definitions in this repository and they do not count the
+ * same slices. A reader who sees one number and assumes it is the other's
+ * would be wrong, so the difference is stated rather than smoothed over.
+ */
+function denominatorWarnings(denominator: NearMissDenominator): string[] {
+  if (denominator.difference === null) return [];
+  return [denominator.difference.note];
+}
+
+/**
  * `peaks observability near-miss` — print the near-miss rate and the list of
  * slices it came from.
  */
@@ -63,7 +76,8 @@ export function runNearMiss(io: ProgramIO, options: ObservabilityQueryOptions): 
     const report = computeNearMiss(events);
     const warnings = [
       ...scopeWarnings(projectRoot, sessionId, events.length),
-      ...coverageWarnings(report.coverage)
+      ...coverageWarnings(report.coverage),
+      ...denominatorWarnings(report.denominator)
     ];
     printResult(
       io,
@@ -92,7 +106,7 @@ export function registerNearMissCommand(observability: Command, io: ProgramIO): 
     observability
       .command('near-miss')
       .description(
-        'Near-miss rate: of the slices that reached a QA verdict, how many passed anyway after a live gate never got evaluated (a `bypass`, or no verdict at all). Also reports the prerequisite failures that were NEVER satisfied on the way to the verdict, and the gates whose liveness the event stream did not decide. The `coverage` field says, per reason class, whether that class had any events to observe: a class with none was not measured, so its share of the rate is an absence of data rather than a result.'
+        'Near-miss rate: of the slices that were DECLARED PASSING (a `verdict-issued` attempt whose prereq check succeeded), how many passed anyway after a required check was still unsatisfied at that moment, or after a live gate never got evaluated? The `denominator` field states the definition and size of the population the rate divides by, and reconciles it with the status summary\'s success count — the two "passed" definitions do not count the same slices, and the difference is reported rather than smoothed over. The `coverage` field says, per reason class, whether that class had any events to observe: a class with none was not measured, so its share of the rate is an absence of data rather than a result.'
       )
       .option('--project <path>', 'target project root (defaults to git root or cwd)')
       .option(

@@ -367,6 +367,25 @@ describe('Scenario: integration — near-miss and hotspots read the scope the ot
     expect(warningsOf(envelope)).toContain('gate-never-evaluated');
   });
 
+  it('when near-miss is asked for as json, should state its own denominator', async () => {
+    // given: a session with one recorded slice that reached a verdict
+    // when:  the near-miss rate is asked for as json
+    // then:  the envelope states what "passed" means and how many slices
+    //        that definition admits
+    writeEvents(SESSION_A, [seedEvent(SESSION_A, 'slice-a', 'verdict-issued', 0)]);
+    const envelope = await runObservability('near-miss');
+    const data = envelope['data'] as {
+      readonly denominator?: {
+        definition?: string;
+        sliceCount?: number;
+        statusSuccessCount?: number;
+      };
+    };
+    expect(typeof data.denominator?.definition).toBe('string');
+    expect(typeof data.denominator?.sliceCount).toBe('number');
+    expect(typeof data.denominator?.statusSuccessCount).toBe('number');
+  });
+
   it('when hotspots is asked for as json, should answer with a ranking', async () => {
     // given: a session with one recorded slice
     // when:  the hotspot ranking is asked for as json
