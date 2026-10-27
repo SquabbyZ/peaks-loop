@@ -18,6 +18,20 @@ import { z } from 'zod';
 
 export const OBSERVABILITY_SCHEMA_VERSION = 1 as const;
 
+/**
+ * The event vocabulary every observability record is drawn from.
+ *
+ * EVERY CATEGORY MUST BE ABLE TO NAME ITS TRIGGER. A category that cannot say
+ * what makes it fire is a promise the schema makes and the program does not
+ * keep. The audit that records, for every category, where it is emitted, what
+ * triggers it and whether it has ever fired, lives at
+ * `.peaks/docs/observability-category-audit.md`; a category added to this list
+ * joins that table in the same change that declares it.
+ *
+ * THE ORDER IS THE ON-DISK ORDER, and the list is APPENDED, never reordered:
+ * a reader that stores a category by its index must never watch its meaning
+ * change under it.
+ */
 export const OBSERVABILITY_CATEGORIES = [
   'slice-transition',
   'dispatch',
