@@ -315,6 +315,37 @@ describe('Scenario: integration — repair-cycles reads the scope the other quer
   });
 });
 
+describe('Scenario: integration — near-miss and hotspots read the scope the other queries read', () => {
+  it('when the scope holds no events but others do, should warn where the events are', async () => {
+    // given: a canonical session with NO events, and another session with some
+    // when:  the near-miss rate of the canonical session is asked for
+    // then:  the envelope carries a warning naming the other sessions
+    writeEvents(SESSION_B, [
+      seedEvent(SESSION_B, 'slice-b', 'handed-off', 0),
+      seedEvent(SESSION_B, 'slice-b', 'verdict-issued', 1)
+    ]);
+    const envelope = await runObservability('near-miss');
+    expect(warningsOf(envelope)).toContain('other session(s)');
+    expect(warningsOf(envelope)).toContain('--all-sessions');
+  });
+
+  it('when near-miss is asked for as json, should answer with a rate and a record list', async () => {
+    // given: a session with one recorded slice
+    // when:  the near-miss rate is asked for as json
+    // then:  the envelope carries the rate and the record list it says it carries
+    writeEvents(SESSION_A, [seedEvent(SESSION_A, 'slice-a', 'verdict-issued', 0)]);
+    const envelope = await runObservability('near-miss');
+    expect(envelope['ok']).toBe(true);
+    expect(envelope['command']).toBe('observability.near-miss');
+    const data = envelope['data'] as {
+      readonly nearMissRate?: number;
+      readonly records?: unknown;
+    };
+    expect(typeof data.nearMissRate).toBe('number');
+    expect(Array.isArray(data.records)).toBe(true);
+  });
+});
+
 describe('Scenario: render — the report answers with the envelope it advertises', () => {
   it('when the report is asked for as json, should answer with an envelope carrying the markdown', async () => {
     // given: a session with one recorded slice

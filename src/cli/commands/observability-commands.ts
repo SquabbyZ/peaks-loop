@@ -54,6 +54,7 @@ import {
   type ObservabilityQueryOptions
 } from './observability-commands-queries.js';
 import { runBaseline } from './observability-commands-baseline.js';
+import { registerNearMissCommand } from './observability-commands-near-miss.js';
 
 const VALID_PERIODS: ReadonlyArray<Period> = ['day', 'week', 'month'];
 
@@ -270,4 +271,6 @@ export function registerObservabilityCommands(program: Command, io: ProgramIO): 
   ).action((options: ObservabilityQueryOptions & { period?: string }) => {
     runReport(io, options);
   });
+
+  registerNearMissCommand(observability, io);
 }
