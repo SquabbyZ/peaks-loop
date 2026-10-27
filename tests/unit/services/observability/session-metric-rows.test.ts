@@ -444,10 +444,10 @@ describe('Scenario: behavior — the skills version is read from the git tree', 
     // when: the skills version is read
     // then: the object id of that tree is reported
     const root = makeRoot();
-    execFileSync('git', ['init'], { cwd: root, stdio: 'ignore' });
+    execFileSync('git', ['init'], { cwd: root, stdio: 'ignore', windowsHide: true });
     mkdirSync(join(root, 'skills'), { recursive: true });
     writeFileSync(join(root, 'skills', 'demo.md'), '# demo\n', 'utf8');
-    execFileSync('git', ['add', 'skills'], { cwd: root, stdio: 'ignore' });
+    execFileSync('git', ['add', 'skills'], { cwd: root, stdio: 'ignore', windowsHide: true });
     execFileSync(
       'git',
       [
@@ -461,7 +461,7 @@ describe('Scenario: behavior — the skills version is read from the git tree', 
         '-m',
         'seed'
       ],
-      { cwd: root, stdio: 'ignore' }
+      { cwd: root, stdio: 'ignore', windowsHide: true }
     );
 
     const sha = readSkillsBlobSha(root);

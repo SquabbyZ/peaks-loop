@@ -148,6 +148,17 @@ export function buildSessionMetricRow(opts: {
  * The row lives OUTSIDE the session directory, so it cannot route through
  * the session-dir resolver; the SAME predicate is used, so the two cannot
  * disagree about what a legal session id is.
+ *
+ * WHY NOT THE SESSION-DIR RESOLVER. The row is tracked ON PURPOSE — the
+ * underscore convention makes a non-underscore `.peaks/` segment git-tracked
+ * source of truth, and `.peaks/_runtime/<sid>/` is gitignored. The row is
+ * the artifact a CI runner or a fresh clone compares a session against, so
+ * putting it in the runtime tree would make it untrackable and the row
+ * pointless. The session id here names a FILE inside a tracked directory, not
+ * a session runtime directory.
+ *
+ * `SESSION_METRIC_ROWS_RELATIVE_PATH` is the same path written relatively;
+ * a test pins the two together, so they cannot drift.
  */
 export function sessionMetricRowPath(projectRoot: string, sessionId: string): string {
   assertSinglePathSegment(sessionId);

@@ -16,7 +16,9 @@
 //  (b) A static scan over `src/**` flags any direct join of `.peaks` +
 //      `sessionId` that does NOT route through `getSessionDir`. The
 //      back-compat **read** sites are excluded by an explicit allow-list
-//      (the bug is write-paths only).
+//      (the bug is write-paths only). A second, SEPARATE allow-list covers
+//      the one other legitimate shape: a session id that names a FILE inside
+//      a git-TRACKED `.peaks/` tree, not a session runtime directory.
 //
 //  (c) A static scan over `skills/**` flags a session-scoped artifact path
 //      (`<root>/.peaks/<sid>/...`, missing `_runtime/`) that a sub-agent
@@ -118,6 +120,39 @@ const ALLOWED_LEGACY_READ_PATHS: ReadonlyArray<string> = [
   'src/services/artifacts/prerequisite-path-resolver.ts'
 ];
 
+// `src/` files exempt from invariant (b) because the session id they join is
+// NOT a session RUNTIME directory — it names a FILE inside a git-TRACKED
+// `.peaks/` tree. This list is SEPARATE from the legacy-read list above on
+// purpose: the two exemptions have different reasons, and merging them would
+// let a legacy-read exemption silently authorise a new tracked write (and the
+// other way round). Every entry here is load-bearing under the same assertion
+// as the list above, so an inert entry cannot accumulate either.
+const ALLOWED_TRACKED_SESSION_ARTIFACT_PATHS: ReadonlyArray<string> = [
+  // The tracked per-session metric row lives at
+  // `.peaks/observability/sessions/<sessionId>.json`.
+  //
+  // WHY THIS IS NOT A SESSION RUNTIME DIR. The underscore convention
+  // (`.peaks/memory/workspace-underscore-convention.md`) makes a
+  // non-underscore `.peaks/` segment a git-TRACKED truth source and an
+  // underscore-prefixed one ephemeral. This row is tracked ON PURPOSE: it is
+  // the artifact a CI runner or a fresh clone compares a session against, and
+  // `.peaks/_runtime/<sid>/` is gitignored — routing the row through
+  // `getSessionDir` would put the tracked row where git can never see it,
+  // which defeats the only reason the row exists.
+  //
+  // The session id here is the FILE NAME inside a tracked directory, not a
+  // directory of its own: nothing is written under a session-shaped
+  // directory, so the slice-005 bug this scan exists for (a session-scoped
+  // artifact landing at `.peaks/<sid>/…`) cannot be reproduced by this shape.
+  'src/services/observability/session-metric-rows.ts'
+];
+
+/** Every `src/` allow-list entry, in one place, for the scanner and the test. */
+const ALLOWED_SRC_PATHS: ReadonlyArray<string> = [
+  ...ALLOWED_LEGACY_READ_PATHS,
+  ...ALLOWED_TRACKED_SESSION_ARTIFACT_PATHS
+];
+
 // `skills/` files exempt from invariant (c). Deliberately empty: the two
 // historical entries (`skills/peaks-code/references/a2a-artifact-mapping.md`
 // and `skills/bee/peaks-prd/SKILL.md`) were canonicalized by later slices and
@@ -158,7 +193,7 @@ function findSessionDirJoinViolations(
 ): Array<{ line: number; text: string }> {
   const rel = file.replace(/\\/g, '/');
   if (rel.endsWith('src/services/session/getSessionDir.ts')) return [];
-  if ((opts.applyAllowList ?? true) && ALLOWED_LEGACY_READ_PATHS.some((a) => rel.endsWith(a))) {
+  if ((opts.applyAllowList ?? true) && ALLOWED_SRC_PATHS.some((a) => rel.endsWith(a))) {
     return [];
   }
 
@@ -308,7 +343,7 @@ describe('Scenario: integration — repo-wide static scans (invariant b + c)', (
   });
 
   test('every src allow-list entry is load-bearing and its file still exists', () => {
-    for (const rel of ALLOWED_LEGACY_READ_PATHS) {
+    for (const rel of ALLOWED_SRC_PATHS) {
       const abs = join(root, rel);
       expect(existsSync(abs), rel).toBe(true);
       // Inert entries are a hole in the guard: exempting a clean file only
@@ -317,6 +352,17 @@ describe('Scenario: integration — repo-wide static scans (invariant b + c)', (
       expect(unexempted.length, `${rel} is exempt but nothing was suppressed`).toBeGreaterThan(0);
       expect(findSessionDirJoinViolations(abs), rel).toEqual([]);
     }
+  });
+
+  // A file listed under BOTH reasons would mean one of the two reasons is false
+  // for it, and the split would be decoration rather than a rule.
+  test('when the two src allow-lists are compared, should name no file listed under both', () => {
+    // given: the two allow-lists, each with its own reason
+    // when: the overlap between them is computed
+    // then: no file is listed under both reasons
+    const legacy = new Set(ALLOWED_LEGACY_READ_PATHS);
+    const tracked = ALLOWED_TRACKED_SESSION_ARTIFACT_PATHS.filter((rel) => legacy.has(rel));
+    expect(tracked).toEqual([]);
   });
 
   test('every skills allow-list entry still exists (rename-rot guard)', () => {
