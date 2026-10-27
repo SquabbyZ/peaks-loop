@@ -45,12 +45,25 @@ export type ComplianceStep = {
    * the skill a reader must tell when the step did not happen.
    */
   readonly ownerSkill: string;
-  /** The deterministic check: the artifact whose presence means the step ran. */
+  /**
+   * The deterministic check: the artifact whose presence means the step ran.
+   *
+   * THE PATH CARRIES AN UNRESOLVED `<rid>` PLACEHOLDER. The judge hands this
+   * string through verbatim; the CALLER substitutes the request id before
+   * probing the filesystem. A caller that probes the raw string asks the
+   * filesystem about a path containing the literal `<rid>`, every step misses,
+   * and the compliance rate reads 0 without a single error — so the
+   * substitution belongs to the caller, and it is stated here as well as on
+   * the judge's `exists` parameter.
+   */
   readonly verify: { readonly artifactExists: string };
   /**
    * The step this one must come after. A step whose prerequisite did not
    * execute cannot be credited on the strength of its own artifact alone: the
    * audit that exists without the handoff it read is not evidence of an audit.
+   *
+   * The prerequisite's own `required` flag is not consulted: a step is
+   * demoted whenever its prerequisite did not execute, optional or not.
    */
   readonly afterStep?: string;
 };

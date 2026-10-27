@@ -22,8 +22,13 @@
  * it, so the demotion is applied repeatedly until nothing changes — and since
  * demotion only ever removes a pass, the loop terminates.
  *
- * STEP IDS MUST BE UNIQUE INSIDE A SPEC. The demotion looks a prerequisite up
- * by id, so two steps sharing one id would be judged against each other.
+ * STEP IDS MUST BE UNIQUE INSIDE A SPEC, AND THE JUDGE ENFORCES IT. The
+ * demotion looks a prerequisite up by id, so two steps sharing one id would be
+ * judged against each other — and each would overwrite the other's presence
+ * in the judge's bookkeeping, so both would report the same verdict. That is
+ * a silently wrong compliance number, which is the exact failure this
+ * campaign exists to prevent, so a spec that declares one id twice is
+ * REJECTED with an error naming the id rather than scored.
  */
 
 import type { ComplianceSpec } from './compliance-spec.js';
@@ -61,11 +66,24 @@ export type ComplianceResult = {
  *
  * @param spec the declared steps to judge.
  * @param exists asked whether a session-relative artifact path is present.
+ *   THE PATH ARRIVES WITH ITS `<rid>` PLACEHOLDER UNRESOLVED. The judge hands
+ *   the declared path through verbatim; the CALLER substitutes the request id
+ *   before probing the filesystem. A caller that probes the raw string gets
+ *   the literal `<rid>` as a path, every step misses, and the rate reads 0
+ *   without a single error — so the substitution is the caller's job, and it
+ *   is stated here because that is where the callback is declared.
+ *
+ * @throws Error when two steps of the spec share one id. The judge's
+ *   bookkeeping is keyed by step id, so a repeated id would make two steps
+ *   overwrite each other's presence and report the same verdict — a silently
+ *   wrong compliance number. A malformed spec is refused rather than scored.
  */
 export function judgeCompliance(
   spec: ComplianceSpec,
   exists: (artifactPath: string) => boolean
 ): ComplianceResult {
+  assertUniqueStepIds(spec);
+
   const executed = new Map<string, boolean>();
   const reasons = new Map<string, string>();
 
@@ -96,6 +114,29 @@ export function judgeCompliance(
 }
 
 /**
+ * Refuse a spec that declares the same step id twice.
+ *
+ * THE REFUSAL IS THE POINT. The judge's bookkeeping is keyed by step id, so
+ * two steps sharing one id would overwrite each other's presence and then
+ * report the SAME verdict — one of them would be credited on the other's
+ * artifact, and the compliance rate would be wrong without anything saying so.
+ * A silently wrong compliance number is the exact failure this campaign
+ * exists to prevent, so the malformed spec is refused instead of scored.
+ */
+function assertUniqueStepIds(spec: ComplianceSpec): void {
+  const seen = new Set<string>();
+  for (const step of spec.steps) {
+    if (seen.has(step.id)) {
+      throw new Error(
+        `compliance spec "${spec.id}" declares the step id "${step.id}" more than once; ` +
+          'step ids must be unique so each result names exactly one step'
+      );
+    }
+    seen.add(step.id);
+  }
+}
+
+/**
  * Demote every step whose prerequisite did not execute, until nothing changes.
  *
  * A step names its prerequisite by id, and the prerequisite may be declared
@@ -103,6 +144,15 @@ export function judgeCompliance(
  * pass in declaration order. A prerequisite the spec does not declare is
  * unsatisfied by definition: a step cannot be credited on the strength of a
  * prerequisite nobody can show.
+ *
+ * THE PREREQUISITE'S OWN `required` FLAG DOES NOT MATTER HERE. A step is
+ * demoted whenever its prerequisite did not execute, even when that
+ * prerequisite is optional: an optional step that did not run is not a
+ * failure, but the step that was supposed to come AFTER it cannot be credited
+ * on its own artifact alone either, because the thing it was ordered against
+ * is not there. This is the conservative reading, and it is the same rule
+ * that keeps a required step honest when its prerequisite is missing; it is
+ * pinned by a test so it cannot change silently.
  */
 function demoteUnsatisfiedPrerequisites(
   spec: ComplianceSpec,

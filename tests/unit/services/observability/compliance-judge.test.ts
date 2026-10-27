@@ -19,7 +19,8 @@
 //   2. one required step missing -> the rate drops, the step fails with a reason
 //   3. an optional step missing -> it stays out of the denominator
 //   4. a step whose prerequisite did not run -> it is not credited
-//   5. every spec path is either in the prerequisite table or a declared gap
+//   5. a spec that repeats a step id -> the judge refuses to score it
+//   6. every spec path is either in the prerequisite table or a declared gap
 //
 // Dimensions:
 //   behavior:   the judging rules (the rate, the denominator, the demotion)
@@ -165,6 +166,33 @@ describe('Scenario: behavior — the judge scores a spec against what exists', (
     expect(dependent?.failureReason).toContain('nowhere');
   });
 
+  it('when a required step depends on a missing optional step, should not credit the dependent', () => {
+    // given: a required step whose prerequisite is optional and did not execute
+    // when: the spec is judged
+    // then: the dependent is not credited, because the thing it was ordered against is absent
+    const specUnderTest = spec('s', [
+      step('optional-prereq', 'a.md', { required: false }),
+      step('dependent', 'b.md', { afterStep: 'optional-prereq' })
+    ]);
+    const result = judgeCompliance(specUnderTest, present(['b.md']));
+    const dependent = result.steps.find((s) => s.stepId === 'dependent');
+    expect(dependent?.executed).toBe(false);
+    expect(dependent?.failureReason).toContain('optional-prereq');
+    // the optional step is still reported as not executed, and stays out of the
+    // denominator; the required dependent counts as failed
+    const optional = result.steps.find((s) => s.stepId === 'optional-prereq');
+    expect(optional?.executed).toBe(false);
+    expect(result.complianceRate).toBe(0);
+  });
+
+  it('when a spec declares the same step id twice, should refuse to judge it', () => {
+    // given: a malformed spec whose two steps share one id
+    // when: the spec is judged
+    // then: the judge refuses, naming the duplicated id, rather than scoring it
+    const specUnderTest = spec('s', [step('twice', 'a.md'), step('twice', 'b.md')]);
+    expect(() => judgeCompliance(specUnderTest, present(['a.md', 'b.md']))).toThrow(/twice/);
+  });
+
   it('when a spec declares no required step, should report no demonstrated compliance', () => {
     // given: a spec whose only step is optional
     // when: the spec is judged
@@ -307,5 +335,16 @@ describe('Scenario: integration — the pilot specs stay tied to the artifact co
       expect(result.complianceRate).toBe(0);
       expect(result.steps.every((s) => !s.executed)).toBe(true);
     }
+  });
+
+  it('when the rd spec is checked for parallel audits, should model both of them', () => {
+    // given: the rd pilot spec
+    // when: its required steps are read
+    // then: the security audit and its sibling, the perf audit, are both there —
+    //       a spec that modelled one audit and not the other would let the rate
+    //       read "the skill did its job" while half the obligation went unmeasured
+    const requiredIds = PEAKS_RD_SPEC.steps.filter((s) => s.required).map((s) => s.id);
+    expect(requiredIds).toContain('rd-security-audit');
+    expect(requiredIds).toContain('rd-perf-audit');
   });
 });

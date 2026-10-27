@@ -8,10 +8,18 @@
  * and still leave a green gate, so the steps here are the ones the skill's own
  * text makes obligatory: the per-request artifact every RD invocation must
  * write, the handoff capsule the RD side hands to QA, the parallel review
- * fan-out's code review and Karpathy review, and the independent security
- * audit the RD gate demands. The perf baseline is the conditional one — the
- * skill demands it only for a slice with a user-visible performance surface —
- * so its absence is not a violation and it stays out of the denominator.
+ * fan-out's code review and Karpathy review, and the two independent audits
+ * the RD gate demands — the security audit and its sibling, the perf audit.
+ * The RD-side perf baseline is the conditional one — the skill demands it only
+ * for a slice with a user-visible performance surface — so its absence is not
+ * a violation and it stays out of the denominator.
+ *
+ * THE TWO AUDITS ARE SIBLINGS, AND BOTH ARE HERE. The v2.12.0 fan-out
+ * collapse moved the security-reviewer and perf-baseline-reviewer slots out of
+ * the review fan-out into two standalone audit skills that write
+ * `audit/security-<rid>.md` and `audit/perf-<rid>.md`. A spec that modelled
+ * one audit and not the other would let the compliance rate read "peaks-rd
+ * does its job" while half the parallel audit obligation went unmeasured.
  *
  * THE PATHS ARE SESSION-RELATIVE, the same vocabulary the artifact-
  * prerequisite table stores, so this spec and that table cannot disagree about
@@ -74,6 +82,15 @@ export const PEAKS_RD_SPEC: ComplianceSpec = {
       required: true,
       ownerSkill: 'peaks-security-audit',
       verify: { artifactExists: 'audit/security-<rid>.md' },
+      afterStep: 'rd-handoff'
+    },
+    {
+      id: 'rd-perf-audit',
+      description:
+        'The independent perf audit wrote its per-slice verdict; like the security audit it reads the immutable handoff, so it cannot have run without one.',
+      required: true,
+      ownerSkill: 'peaks-perf-audit',
+      verify: { artifactExists: 'audit/perf-<rid>.md' },
       afterStep: 'rd-handoff'
     },
     {
