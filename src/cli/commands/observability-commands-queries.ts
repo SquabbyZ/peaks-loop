@@ -112,7 +112,7 @@ export function scopeWarnings(
  * Write each warning to stderr — the channel `printResult` uses for them, so
  * a warning reads the same way whichever command raised it.
  */
-export function printScopeWarnings(io: ProgramIO, warnings: readonly string[]): void {
+export function printWarnings(io: ProgramIO, warnings: readonly string[]): void {
   for (const warning of warnings) io.stderr(`warning: ${warning}`);
 }
 
@@ -138,8 +138,15 @@ export function readScopedEvents(
   return { sessionId, events };
 }
 
-/** The scope a query answered for: one session, or every session. */
-function scopeOf(sessionId: string | undefined): { sessionId: string } | { allSessions: true } {
+/**
+ * The scope a query answered for: one session, or every session.
+ *
+ * ONE spelling of that shape, exported because the report command answers
+ * with it too: a scope written two ways is a scope that can drift.
+ */
+export function scopeOf(
+  sessionId: string | undefined
+): { sessionId: string } | { allSessions: true } {
   return sessionId !== undefined ? { sessionId } : { allSessions: true };
 }
 
@@ -214,7 +221,7 @@ export function runFanout(io: ProgramIO, options: ObservabilityQueryOptions): vo
     const warnings = scopeWarnings(projectRoot, sessionId, events.length);
     if (fanout.total === 0) {
       warnings.push(
-        'No dispatch events recorded yet — Slice C will wire `peaks sub-agent dispatch`; until then fanout is empty.'
+        'No dispatch events recorded in this scope — the fanout breakdown counts the dispatch events of the scope that was read.'
       );
     }
     printResult(
@@ -248,7 +255,11 @@ export function runRepairCycles(io: ProgramIO, options: ObservabilityQueryOption
     const cycles = aggregateRepairCycles(events);
     printResult(
       io,
-      ok('observability.repair-cycles', { scope: scopeOf(sessionId), cycles }, []),
+      ok(
+        'observability.repair-cycles',
+        { scope: scopeOf(sessionId), cycles },
+        scopeWarnings(projectRoot, sessionId, events.length)
+      ),
       options.json
     );
   } catch (error) {

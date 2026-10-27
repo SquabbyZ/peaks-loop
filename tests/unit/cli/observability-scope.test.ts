@@ -18,7 +18,11 @@
 //   - the empty scope: a query that reads nothing while other sessions hold
 //     events SAYS so, instead of answering 0 and stopping;
 //   - the history: a v1-shaped event (the shape written before the
-//     missing-artifact list existed) is still read back.
+//     missing-artifact list existed) is still read back;
+//   - the report: the summary counts the stalled slices, the slice table
+//     marks a stalled slice apart from a failed one, `--json` produces the
+//     envelope the help text promises, and a period that empties the
+//     result says which period reaches the data.
 //
 // Dimensions:
 //   - behavior:   the scope resolution and the count partition
@@ -30,7 +34,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createProgram } from '~/src/cli/program';
 import { readObservabilityEvents } from '~/src/services/observability/observability-service.js';
@@ -47,18 +51,38 @@ declareDimensions('tests/unit/cli/observability-scope.test.ts', [
 const SESSION_A = '2026-10-26-session-aaaaaa';
 const SESSION_B = '2026-10-27-session-bbbbbb';
 
+/**
+ * The instant the report cases read the clock at. The period windows are
+ * relative to now, so a case that asserts WHICH period reaches an event can
+ * only be pinned if the clock is pinned with it.
+ */
+const REPORT_NOW = new Date('2026-10-27T12:00:00.000Z');
+
 let root = '';
 
-/** One observability event, in the shape the emitter writes. */
-function seedEvent(sessionId: string, sliceRid: string, to: string, index: number): string {
+/**
+ * One observability event at an explicit instant, in the shape the emitter
+ * writes.
+ */
+function seedEventAt(sessionId: string, sliceRid: string, to: string, ts: string): string {
   return JSON.stringify({
     schemaVersion: 1,
-    ts: new Date(Date.UTC(2026, 9, 26, 0, 0, index)).toISOString(),
+    ts,
     sessionId,
     category: 'slice-transition',
     sliceRid,
     detail: { artifactRole: 'rd', to, prereqOk: true, missingCount: 0 }
   });
+}
+
+/** One observability event, in the shape the emitter writes. */
+function seedEvent(sessionId: string, sliceRid: string, to: string, index: number): string {
+  return seedEventAt(
+    sessionId,
+    sliceRid,
+    to,
+    new Date(Date.UTC(2026, 9, 26, 0, 0, index)).toISOString()
+  );
 }
 
 /** Write a session's metrics file, the way the emitter lays it down. */
@@ -273,5 +297,69 @@ describe('Scenario: integration — the recorded history survives', () => {
       prereqOk: false,
       missingCount: 2
     });
+  });
+});
+
+describe('Scenario: integration — repair-cycles reads the scope the other queries read', () => {
+  it('when the scope holds no events but others do, should warn where the events are', async () => {
+    // given: a canonical session with NO events, and another session with some
+    // when:  the repair cycles of the canonical session are asked for
+    // then:  the envelope carries a warning naming the other sessions
+    writeEvents(SESSION_B, [
+      seedEvent(SESSION_B, 'slice-b', 'handed-off', 0),
+      seedEvent(SESSION_B, 'slice-b', 'verdict-issued', 1)
+    ]);
+    const envelope = await runObservability('repair-cycles');
+    expect(warningsOf(envelope)).toContain('other session(s)');
+    expect(warningsOf(envelope)).toContain('--all-sessions');
+  });
+});
+
+describe('Scenario: render — the report answers with the envelope it advertises', () => {
+  it('when the report is asked for as json, should answer with an envelope carrying the markdown', async () => {
+    // given: a session with one recorded slice
+    // when:  the report is asked for as json
+    // then:  the envelope carries the markdown body it says it carries
+    writeEvents(SESSION_A, [seedEvent(SESSION_A, 'slice-a', 'handed-off', 0)]);
+    const envelope = await runObservability('report');
+    expect(envelope['ok']).toBe(true);
+    expect(envelope['command']).toBe('observability.report');
+    const data = envelope['data'] as { readonly markdown?: string };
+    expect(data.markdown).toContain('peaks observability report');
+  });
+
+  it('when the report is asked for as json, should carry the scope it answered for', async () => {
+    // given: a session with one recorded slice
+    // when:  the report is asked for as json
+    // then:  the envelope names the scope, in the one shape the other queries use
+    writeEvents(SESSION_A, [seedEvent(SESSION_A, 'slice-a', 'handed-off', 0)]);
+    const envelope = await runObservability('report');
+    expect(scopeOf(envelope)).toEqual({ sessionId: SESSION_A });
+  });
+});
+
+describe('Scenario: a11y — the report says which switch reaches the data', () => {
+  it('when the period empties the result, should name the period that reaches the events', async () => {
+    // given: events the DAY window leaves out but the MONTH window reaches
+    // when:  the report is asked for the day period
+    // then:  the envelope names the period switch that reaches them
+    vi.useFakeTimers();
+    vi.setSystemTime(REPORT_NOW);
+    try {
+      writeEvents(SESSION_A, [
+        seedEventAt(
+          SESSION_A,
+          'slice-old',
+          'handed-off',
+          new Date(Date.UTC(2026, 9, 20, 0, 0, 0)).toISOString()
+        )
+      ]);
+      const envelope = await runObservability('report', ['--period', 'day']);
+      const warnings = warningsOf(envelope);
+      expect(warnings).toContain('--period');
+      expect(warnings).toContain('month');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

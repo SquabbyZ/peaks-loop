@@ -44,6 +44,18 @@ export type SliceRollup = {
   success: boolean;
 };
 
+/**
+ * How one slice ended.
+ *
+ * The three outcomes PARTITION the slice set: a slice that reached a
+ * terminal success state, a slice that reached a terminal failure state, and
+ * a slice that reached NEITHER — it advanced partway and stopped (at
+ * `qa-handoff`, typically). `stalled` is not a failure: the work was never
+ * concluded, and the counts must say so rather than drop the slice from the
+ * accounting.
+ */
+export type SliceOutcome = 'success' | 'failed' | 'stalled';
+
 export type FanoutBreakdown = {
   total: number;
   perRole: Record<ObservabilitySubagentRole, number>;

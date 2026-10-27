@@ -33,6 +33,7 @@ import {
   type Period
 } from '../../services/observability/aggregation.js';
 import { renderObservabilityReport } from '../../services/observability/report-formatter.js';
+import type { ObservabilityEvent } from '../../services/observability/observability-service.js';
 
 // Slice `b1-filesplit-campaign` (wave 3B): the four read-only query runners
 // (`runStatus` / `runSlices` / `runFanout` / `runRepairCycles`) plus the two
@@ -41,13 +42,14 @@ import { renderObservabilityReport } from '../../services/observability/report-f
 // `runReport` — the one function here carrying a finding — stayed behind, so no
 // finding moved into the new module.
 import {
-  printScopeWarnings,
+  printWarnings,
   readScopedEvents,
   resolveProjectRoot,
   runFanout,
   runRepairCycles,
   runSlices,
   runStatus,
+  scopeOf,
   scopeWarnings,
   type ObservabilityQueryOptions
 } from './observability-commands-queries.js';
@@ -59,6 +61,44 @@ const VALID_PERIODS: ReadonlyArray<Period> = ['day', 'week', 'month'];
 const ALL_SESSIONS_DESCRIPTION =
   'measure the whole recorded history of the project instead of the canonical session binding';
 
+/**
+ * The warning a report carries when its PERIOD emptied the result.
+ *
+ * The scope and the period are two different axes: `--all-sessions` widens
+ * WHICH sessions are read, `--period` narrows WHICH DAYS of them count. A
+ * reader who scoped correctly and still saw an empty table was narrowed by
+ * the period, so the warning says the scope holds events and names the
+ * period window that reaches the most of them.
+ */
+function periodWarnings(
+  scopedEvents: readonly ObservabilityEvent[],
+  period: Period,
+  now: () => Date
+): string[] {
+  if (scopedEvents.length === 0) return [];
+  if (filterByPeriod(scopedEvents, period, now).length > 0) return [];
+  let reaching: Period | undefined;
+  let reachingCount = 0;
+  for (const candidate of VALID_PERIODS) {
+    const count = filterByPeriod(scopedEvents, candidate, now).length;
+    if (count > 0 && count >= reachingCount) {
+      reaching = candidate;
+      reachingCount = count;
+    }
+  }
+  if (reaching === undefined) {
+    return [
+      `No observability events fall inside the \`${period}\` period, and the scope's ` +
+        `${scopedEvents.length} event(s) are older than every period window — ` +
+        'no `--period` value reaches them.'
+    ];
+  }
+  return [
+    `No observability events fall inside the \`${period}\` period, though the scope holds ` +
+      `${scopedEvents.length} event(s) — use \`--period ${reaching}\` to read them.`
+  ];
+}
+
 function runReport(io: ProgramIO, options: ObservabilityQueryOptions & { period?: string }): void {
   const projectRoot = resolveProjectRoot(options.project);
   const period: Period =
@@ -67,19 +107,26 @@ function runReport(io: ProgramIO, options: ObservabilityQueryOptions & { period?
       : 'day';
   try {
     const { sessionId, events: allEvents } = readScopedEvents(projectRoot, options);
-    const periodStart = periodStartIso(period);
-    const events = filterByPeriod(allEvents, period);
+    // ONE clock for the whole report: the window the events are filtered by
+    // and the window the warning names must be the same one.
+    const at = new Date();
+    const now = (): Date => new Date(at);
+    const periodStart = periodStartIso(period, now);
+    const events = filterByPeriod(allEvents, period, now);
     const markdown = renderObservabilityReport({
       scope: sessionId !== undefined ? 'session' : 'all-sessions',
       scopeId: sessionId ?? 'all',
       period,
-      generatedAt: new Date().toISOString(),
+      generatedAt: at.toISOString(),
       status: aggregateStatus(events),
       slices: aggregateSlices(events),
       fanout: aggregateFanout(events),
       repairCycles: aggregateRepairCycles(events)
     });
-    const warnings = scopeWarnings(projectRoot, sessionId, allEvents.length);
+    const warnings = [
+      ...scopeWarnings(projectRoot, sessionId, allEvents.length),
+      ...periodWarnings(allEvents, period, now)
+    ];
     if (options.json === true) {
       // --json on report: emit a metadata envelope so callers can
       // machine-parse the markdown body without losing the envelope
@@ -89,7 +136,7 @@ function runReport(io: ProgramIO, options: ObservabilityQueryOptions & { period?
         ok(
           'observability.report',
           {
-            scope: sessionId !== undefined ? { sessionId } : { allSessions: true },
+            scope: scopeOf(sessionId),
             period,
             periodStart,
             totalEventsScanned: allEvents.length,
@@ -103,7 +150,7 @@ function runReport(io: ProgramIO, options: ObservabilityQueryOptions & { period?
       return;
     }
     io.stdout(markdown);
-    printScopeWarnings(io, warnings);
+    printWarnings(io, warnings);
   } catch (error) {
     printResult(
       io,
@@ -207,19 +254,20 @@ export function registerObservabilityCommands(program: Command, io: ProgramIO): 
     runBaseline(io, options);
   });
 
-  observability
-    .command('report')
-    .description(
-      'Render a markdown summary suitable for paste into PR descriptions or .peaks/PROJECT.md timeline entries. Default period = day; --json emits an envelope wrapping the markdown body. Output sections: header + status summary + slice table + fanout table + repair-cycle table + top-N slowest slices.'
-    )
-    .option('--project <path>', 'target project root (defaults to git root or cwd)')
-    .option(
-      '--session <sessionId>',
-      'scope to one session (defaults to the canonical session binding)'
-    )
-    .option('--period <period>', 'one of: day | week | month (defaults to day)', 'day')
-    .option('--all-sessions', ALL_SESSIONS_DESCRIPTION)
-    .action((options: ObservabilityQueryOptions & { period?: string }) => {
-      runReport(io, options);
-    });
+  addJsonOption(
+    observability
+      .command('report')
+      .description(
+        'Render a markdown summary suitable for paste into PR descriptions or .peaks/PROJECT.md timeline entries. Default period = day; --json emits an envelope wrapping the markdown body. Output sections: header + status summary + slice table + fanout table + repair-cycle table + top-N slowest slices.'
+      )
+      .option('--project <path>', 'target project root (defaults to git root or cwd)')
+      .option(
+        '--session <sessionId>',
+        'scope to one session (defaults to the canonical session binding)'
+      )
+      .option('--period <period>', 'one of: day | week | month (defaults to day)', 'day')
+      .option('--all-sessions', ALL_SESSIONS_DESCRIPTION)
+  ).action((options: ObservabilityQueryOptions & { period?: string }) => {
+    runReport(io, options);
+  });
 }

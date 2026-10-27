@@ -27,6 +27,7 @@ import {
   type FanoutBreakdown,
   type Period,
   type RepairCycleReport,
+  type SliceOutcome,
   type SliceRollup,
   type StatusAggregate
 } from './aggregation-types.js';
@@ -51,6 +52,7 @@ export type {
   Period,
   QaRoundSummary,
   RepairCycleReport,
+  SliceOutcome,
   SliceRollup,
   StatusAggregate
 } from './aggregation-types.js';
@@ -96,6 +98,21 @@ function rollupSlices(events: readonly ObservabilityEvent[]): Map<string, SliceR
 
 // ----- public aggregations -----
 
+/**
+ * How one slice ended, from its rollup.
+ *
+ * ONE spelling of the three outcomes, shared by the status counts and by the
+ * report's slice table: a slice that reached a terminal success state, a slice
+ * that reached a terminal failure state, and a slice that reached NEITHER — it
+ * advanced partway and stopped (at `qa-handoff`, typically). The last is not a
+ * failure, so it is not counted as one and is not drawn as one.
+ */
+export function sliceOutcome(rollup: SliceRollup): SliceOutcome {
+  if (rollup.success) return 'success';
+  if (rollup.finalState !== null && TERMINAL_FAIL_STATES.has(rollup.finalState)) return 'failed';
+  return 'stalled';
+}
+
 export function aggregateStatus(events: readonly ObservabilityEvent[]): StatusAggregate {
   const bySlice = rollupSlices(events);
   const metrics = computeSliceRepairMetrics(events);
@@ -105,17 +122,19 @@ export function aggregateStatus(events: readonly ObservabilityEvent[]): StatusAg
     rollup.repairCycleCount = cycles;
     if (cycles > repairCyclePeak) repairCyclePeak = cycles;
   }
-  const successCount = Array.from(bySlice.values()).filter((r) => r.success).length;
-  const failCount = Array.from(bySlice.values()).filter(
-    (r) => r.finalState !== null && TERMINAL_FAIL_STATES.has(r.finalState)
+  // The three outcome buckets come from the ONE outcome spelling above, so
+  // they partition the slice set: every slice lands in exactly one bucket and
+  // `successCount + failCount + stalledCount === totalSlices` holds for every
+  // event set. Before the third bucket existed, a slice stuck at `qa-handoff`
+  // was in NEITHER the success nor the fail count and the summary reported
+  // fewer outcomes than the slice table showed rows.
+  const successCount = Array.from(bySlice.values()).filter(
+    (r) => sliceOutcome(r) === 'success'
   ).length;
-  // The third outcome bucket: a slice that reached no terminal outcome at all —
-  // it advanced partway and stopped (at `qa-handoff`, typically). Without this
-  // counter such a slice was in NEITHER the success nor the fail count, so the
-  // summary reported fewer outcomes than the slice table showed rows. Counted
-  // as the remainder of the two named buckets, so the three counts partition
-  // the slice set and their sum is `totalSlices` for every event set.
-  const stalledCount = bySlice.size - successCount - failCount;
+  const failCount = Array.from(bySlice.values()).filter((r) => sliceOutcome(r) === 'failed').length;
+  const stalledCount = Array.from(bySlice.values()).filter(
+    (r) => sliceOutcome(r) === 'stalled'
+  ).length;
   const fanoutCostTotal = events.filter((e) => e.category === 'dispatch').length;
 
   return {

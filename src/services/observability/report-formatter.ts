@@ -15,9 +15,11 @@
 
 import {
   REPAIR_CYCLE_METRIC_VERSION,
+  sliceOutcome,
   type FanoutBreakdown,
   type Period,
   type RepairCycleReport,
+  type SliceOutcome,
   type SliceRollup,
   type StatusAggregate
 } from './aggregation.js';
@@ -71,6 +73,7 @@ function markdownStatusSummary(status: StatusAggregate): string {
   lines.push(`| total slices | ${status.totalSlices} |`);
   lines.push(`| success count | ${status.successCount} |`);
   lines.push(`| fail count | ${status.failCount} |`);
+  lines.push(`| stalled count | ${status.stalledCount} |`);
   lines.push(
     `| repair-cycle peak (v${REPAIR_CYCLE_METRIC_VERSION} metric) | ${status.repairCyclePeak} |`
   );
@@ -78,6 +81,21 @@ function markdownStatusSummary(status: StatusAggregate): string {
   lines.push('');
   return lines.join('\n');
 }
+
+/**
+ * The marker each outcome is drawn with in the slice table.
+ *
+ * A stalled slice is NOT a failure: it advanced partway and stopped, and
+ * drawing it `✗` is what put the "8 failures" into a report whose own summary
+ * counted 0 — the two halves of one report disagreeing about the same slices.
+ * `…` says "did not finish" and leaves the failure marker for the slices that
+ * really were blocked.
+ */
+const OUTCOME_MARKERS: Record<SliceOutcome, string> = {
+  success: '✓',
+  failed: '✗',
+  stalled: '…'
+};
 
 function markdownSliceTable(slices: SliceRollup[]): string {
   const lines: string[] = [];
@@ -88,13 +106,15 @@ function markdownSliceTable(slices: SliceRollup[]): string {
     lines.push('');
     return lines.join('\n');
   }
-  lines.push('| rid | transitions | final state | duration | success |');
+  lines.push('| rid | transitions | final state | duration | outcome |');
   lines.push('|---|---|---|---|---|');
   for (const slice of slices) {
     lines.push(
-      `| ${slice.sliceRid} | ${slice.transitions} | ${slice.finalState ?? '—'} | ${formatDurationMs(slice.durationMs)} | ${slice.success ? '✓' : '✗'} |`
+      `| ${slice.sliceRid} | ${slice.transitions} | ${slice.finalState ?? '—'} | ${formatDurationMs(slice.durationMs)} | ${OUTCOME_MARKERS[sliceOutcome(slice)]} |`
     );
   }
+  lines.push('');
+  lines.push('_✓ succeeded · ✗ failed · … did not finish (stalled)_');
   lines.push('');
   return lines.join('\n');
 }
