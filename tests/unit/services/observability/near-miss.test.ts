@@ -12,38 +12,42 @@
 // at the final transition would see nothing wrong. The union over the slice's
 // WHOLE gate history is what catches it, and this file pins that case.
 //
-// THE THREE REASONS ARE DISTINGUISHED.
-//   - gate-never-evaluated: a gate that was live and never got a verdict
-//     (neither `pass` nor `block`). A `bypass` IS the primary evidence but
-//     the rule does not DEPEND on it: a live gate with no event at all is
-//     still a near-miss, because a gate that was skipped and recorded nothing
-//     must not vanish from the metric.
-//   - prereq-skipped: a prereq failure that the slice passed anyway.
-//   - tool-blocked: a blocked tool trace. NO tool-trace events exist yet
-//     (the category is not in the schema), so this branch is empty on
-//     purpose — see the source comment.
+// A PREREQ FAILURE THAT WAS LATER SATISFIED IS NOT A NEAR-MISS. A check that
+// refuses a transition and then lets it through on a retry is a gate WORKING
+// AS DESIGNED — the agent did the work and the check was run again. Counting
+// that as "a check that was skipped" counts a working gate as a broken one,
+// so a failure counts only when no later attempt at the same transition key
+// succeeded.
+//
+// THE STREAM HOLDS TWO EVENTS PER ATTEMPT. One carries the prereq verdict
+// (`prereqOk`); the other carries the transition itself and no verdict. The
+// attempt IS the verdict event, and the verdict-less one is ignored —
+// reading it as an attempt would double-count every attempt.
 //
 // THE EVENTS ARE READ FROM DISK, NOT HAND-BUILT. The metric reads the same
 // JSONL a real session writes, through the same reader, so the shapes under
 // test are the shapes on disk.
 //
+// The report's COVERAGE — what it could and could not observe — has its own
+// file, `near-miss-coverage.test.ts`.
+//
 // Dimensions:
-//   - behavior:   the three reasons, the union rule, the rate's denominator
+//   - behavior:   the three reasons, the union rule, the recovery pairing
 //   - integration: the metric reading a real metrics file back off disk
 //   - render:     the evidence pointers a reader checks the number against
 //   - a11y:       OMITTED — the module returns a structure, it renders no surface
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { computeNearMiss } from '~/src/services/observability/near-miss.js';
-import {
-  readObservabilityEvents,
-  type ObservabilityEvent
-} from '~/src/services/observability/observability-service.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
+import {
+  cleanupRoots,
+  gate,
+  reachingVerdict,
+  seedSession,
+  transition
+} from './near-miss-fixture.js';
 
 declareDimensions(
   'tests/unit/services/observability/near-miss.test.ts',
@@ -51,87 +55,9 @@ declareDimensions(
   [{ dim: 'a11y', reason: 'the module returns a structure; it renders no surface' }]
 );
 
-const SESSION_ID = '2026-10-27-session-nearmiss';
-
-/** One slice-transition event, in the shape the emitter writes. */
-type Transition = {
-  readonly to: string;
-  readonly prereqOk?: boolean;
-  readonly missingCount?: number;
-};
-
-/** One gate decision, in the shape the gate emitter writes. */
-type GateEvent = {
-  readonly gateId: string;
-  readonly phase: 'implemented' | 'qa-handoff' | 'handed-off';
-  readonly outcome: 'pass' | 'block' | 'bypass';
-  readonly declaredType?: string;
-};
-
-const roots: string[] = [];
-
 afterEach(() => {
-  while (roots.length > 0) {
-    const root = roots.pop();
-    if (root !== undefined) rmSync(root, { recursive: true, force: true });
-  }
+  cleanupRoots();
 });
-
-/**
- * Write a session's metrics file with the given events, then read them back
- * through the real reader — so the shapes under test are the shapes on disk.
- */
-function seedSession(
-  events: ReadonlyArray<Record<string, unknown>>
-): readonly ObservabilityEvent[] {
-  const root = mkdtempSync(join(tmpdir(), 'peaks-near-miss-'));
-  roots.push(root);
-  const dir = join(root, '.peaks', '_runtime', SESSION_ID, 'metrics');
-  mkdirSync(dir, { recursive: true });
-  const lines = events.map((event, index) =>
-    JSON.stringify({
-      schemaVersion: 1,
-      ts: new Date(Date.UTC(2026, 9, 27, 0, 0, index)).toISOString(),
-      sessionId: SESSION_ID,
-      ...event
-    })
-  );
-  writeFileSync(join(dir, 'slices.jsonl'), `${lines.join('\n')}\n`, 'utf8');
-  return readObservabilityEvents(root, SESSION_ID);
-}
-
-/** A transition event, in the shape the emitter writes. */
-function transition(to: string, extra: Record<string, unknown> = {}): Record<string, unknown> {
-  return {
-    category: 'slice-transition',
-    sliceRid: 'slice-1',
-    detail: { artifactRole: 'rd', to, ...extra }
-  };
-}
-
-/** A gate decision event, in the shape the gate emitter writes. */
-function gate(event: GateEvent): Record<string, unknown> {
-  return {
-    category: 'gate',
-    sliceRid: 'slice-1',
-    detail: {
-      phase: event.phase,
-      outcome: event.outcome,
-      gateId: event.gateId,
-      declaredType: event.declaredType ?? 'feature'
-    }
-  };
-}
-
-/** The slice's whole transition history, ending in a QA verdict. */
-function reachingVerdict(extra: readonly Transition[] = []): readonly Record<string, unknown>[] {
-  return [
-    transition('implemented'),
-    ...extra.map((t) => transition(t.to, { prereqOk: t.prereqOk, missingCount: t.missingCount })),
-    transition('qa-handoff'),
-    transition('verdict-issued')
-  ];
-}
 
 describe('Scenario: behavior — a live gate that never got a verdict is a near-miss', () => {
   it('when a gate was bypassed and never evaluated, should report the slice as a near-miss', () => {
@@ -237,15 +163,14 @@ describe('Scenario: behavior — the live set is the union over the slice histor
   });
 });
 
-describe('Scenario: behavior — a prerequisite failure the slice passed anyway', () => {
-  it('when a prereq failed and the slice still reached a verdict, should report the slice as a near-miss', () => {
-    // given: a slice whose qa-handoff prereq check failed
+describe('Scenario: behavior — a prereq failure that was never satisfied', () => {
+  it('when a prereq failed and was never satisfied, should report the slice as a near-miss', () => {
+    // given: a slice whose qa-handoff prereq check failed and never passed
     // when: the near-miss metric is computed over the session
     // then: the slice is a near-miss, for that reason
     const events = seedSession([
       transition('implemented'),
       transition('qa-handoff', { prereqOk: false, missingCount: 3 }),
-      transition('qa-handoff'),
       transition('verdict-issued')
     ]);
 
@@ -253,6 +178,76 @@ describe('Scenario: behavior — a prerequisite failure the slice passed anyway'
 
     expect(report.nearMissSliceCount).toBe(1);
     expect(report.records[0]?.reasons).toContain('prereq-skipped');
+  });
+
+  it('when a prereq failed and was satisfied on a retry, should not report the slice as a near-miss', () => {
+    // given: a slice whose qa-handoff prereq failed and then PASSED on the
+    // when: the near-miss metric is computed over the session
+    // then: the slice is not a near-miss — the gate refused and was then
+    //        retry — that is a gate WORKING AS DESIGNED, not a check skipped
+    const events = seedSession([
+      transition('implemented'),
+      transition('qa-handoff', { prereqOk: false, missingCount: 3 }),
+      transition('qa-handoff', { prereqOk: true, missingCount: 0 }),
+      transition('verdict-issued')
+    ]);
+
+    const report = computeNearMiss(events);
+
+    expect(report.passedSliceCount).toBe(1);
+    expect(report.nearMissSliceCount).toBe(0);
+  });
+
+  it('when a prereq failed twice and was satisfied on the third attempt, should not report the slice as a near-miss', () => {
+    // given: a slice whose qa-handoff prereq failed twice and then passed
+    // when: the near-miss metric is computed over the session
+    // then: the slice is not a near-miss — the check WAS satisfied
+    const events = seedSession([
+      transition('implemented'),
+      transition('qa-handoff', { prereqOk: false, missingCount: 3 }),
+      transition('qa-handoff', { prereqOk: false, missingCount: 1 }),
+      transition('qa-handoff', { prereqOk: true, missingCount: 0 }),
+      transition('verdict-issued')
+    ]);
+
+    const report = computeNearMiss(events);
+
+    expect(report.nearMissSliceCount).toBe(0);
+  });
+
+  it('when one key failed and another key succeeded later, should still report the near-miss', () => {
+    // given: a slice whose qa-handoff prereq failed and whose NEXT key passed
+    // when: the near-miss metric is computed over the session
+    // then: the slice IS a near-miss — the success was for a DIFFERENT
+    //        transition, so it did not answer the failure
+    const events = seedSession([
+      transition('implemented'),
+      transition('qa-handoff', { prereqOk: false, missingCount: 3 }),
+      transition('verdict-issued', { prereqOk: true, missingCount: 0 })
+    ]);
+
+    const report = computeNearMiss(events);
+
+    expect(report.nearMissSliceCount).toBe(1);
+    expect(report.records[0]?.reasons).toContain('prereq-skipped');
+  });
+
+  it('when the failure was the verdict event of an attempt that later succeeded, should not report the slice', () => {
+    // given: a slice whose qa->verdict-issued prereq failed and was then
+    // when: the near-miss metric is computed over the session
+    // then: the slice is not a near-miss — the same attempt's later success
+    //        satisfied it
+    const events = seedSession([
+      transition('implemented'),
+      transition('qa-handoff', { prereqOk: true, missingCount: 0 }),
+      transition('verdict-issued', { prereqOk: false, missingCount: 1 }),
+      transition('verdict-issued', { prereqOk: true, missingCount: 0 })
+    ]);
+
+    const report = computeNearMiss(events);
+
+    expect(report.passedSliceCount).toBe(1);
+    expect(report.nearMissSliceCount).toBe(0);
   });
 
   it('when a prereq failed after the verdict, should not report the slice as a near-miss', () => {
@@ -264,23 +259,6 @@ describe('Scenario: behavior — a prerequisite failure the slice passed anyway'
     const events = seedSession([
       transition('implemented'),
       transition('qa-handoff'),
-      transition('verdict-issued'),
-      transition('qa-handoff', { prereqOk: false, missingCount: 2 })
-    ]);
-
-    const report = computeNearMiss(events);
-
-    expect(report.passedSliceCount).toBe(1);
-    expect(report.nearMissSliceCount).toBe(0);
-  });
-
-  it('when a prereq failed after the verdict, should not report the slice as a near-miss', () => {
-    // given: a slice that reached the verdict and was then sent back for a
-    // when: the near-miss metric is computed over the session
-    // then: the slice is not a near-miss for that reason
-    //        repair round whose prereq check failed — the failure came AFTER
-    //        the pass, so it is a later round, not a pass bought by a skip
-    const events = seedSession([
       transition('verdict-issued'),
       transition('qa-handoff', { prereqOk: false, missingCount: 2 })
     ]);
@@ -312,43 +290,14 @@ describe('Scenario: behavior — the rate divides by the passing slices', () => 
     // given: two passing slices, one of which skipped a gate
     // when: the near-miss metric is computed over the session
     // then: the rate is one near-miss over two passing slices
-    const root = mkdtempSync(join(tmpdir(), 'peaks-near-miss-'));
-    roots.push(root);
-    const dir = join(root, '.peaks', '_runtime', SESSION_ID, 'metrics');
-    mkdirSync(dir, { recursive: true });
-    const lines = [
-      JSON.stringify({
-        schemaVersion: 1,
-        ts: '2026-10-27T00:00:00.000Z',
-        sessionId: SESSION_ID,
-        category: 'slice-transition',
-        sliceRid: 'slice-1',
-        detail: { artifactRole: 'rd', to: 'verdict-issued' }
-      }),
-      JSON.stringify({
-        schemaVersion: 1,
-        ts: '2026-10-27T00:00:01.000Z',
-        sessionId: SESSION_ID,
-        category: 'slice-transition',
-        sliceRid: 'slice-2',
-        detail: { artifactRole: 'rd', to: 'verdict-issued' }
-      }),
-      JSON.stringify({
-        schemaVersion: 1,
-        ts: '2026-10-27T00:00:02.000Z',
-        sessionId: SESSION_ID,
-        category: 'gate',
-        sliceRid: 'slice-1',
-        detail: {
-          phase: 'implemented',
-          outcome: 'bypass',
-          gateId: 'file-size-ratchet',
-          declaredType: 'feature'
-        }
-      })
-    ];
-    writeFileSync(join(dir, 'slices.jsonl'), `${lines.join('\n')}\n`, 'utf8');
-    const events = readObservabilityEvents(root, SESSION_ID);
+    const events = seedSession([
+      { ...transition('verdict-issued'), sliceRid: 'slice-1' },
+      { ...transition('verdict-issued'), sliceRid: 'slice-2' },
+      {
+        ...gate({ gateId: 'file-size-ratchet', phase: 'implemented', outcome: 'bypass' }),
+        sliceRid: 'slice-1'
+      }
+    ]);
 
     const report = computeNearMiss(events);
 
@@ -385,9 +334,28 @@ describe('Scenario: render — the evidence points at the events the count came 
     const evidence = report.records[0]?.evidence ?? [];
     expect(evidence.length).toBeGreaterThan(0);
     for (const pointer of evidence) {
-      expect(pointer.sessionId).toBe(SESSION_ID);
+      expect(pointer.sessionId).not.toBe('');
       expect(pointer.ts).not.toBe('');
     }
+  });
+
+  it('when a prereq failure was never satisfied, should name the transition key', () => {
+    // given: a slice whose qa-handoff prereq failed and never passed
+    // when: the near-miss metric is computed over the session
+    // then: the evidence names the key the refusal belongs to, so a reader
+    //        can check the pairing against the raw stream
+    const events = seedSession([
+      transition('implemented'),
+      transition('qa-handoff', { prereqOk: false, missingCount: 3 }),
+      transition('verdict-issued')
+    ]);
+
+    const report = computeNearMiss(events);
+
+    const pointer = (report.records[0]?.evidence ?? []).find(
+      (item) => item.transitionKey !== undefined
+    );
+    expect(pointer?.transitionKey).toBe('rd -> qa-handoff');
   });
 });
 

@@ -345,6 +345,28 @@ describe('Scenario: integration — near-miss and hotspots read the scope the ot
     expect(Array.isArray(data.records)).toBe(true);
   });
 
+  it('when near-miss has a class with no events, should say so in the envelope', async () => {
+    // given: a session with no gate events and no tool traces
+    // when:  the near-miss rate is asked for as json
+    // then:  the envelope names the unmeasured class, so a zero over it
+    //        cannot be read as a result
+    writeEvents(SESSION_A, [seedEvent(SESSION_A, 'slice-a', 'verdict-issued', 0)]);
+    const envelope = await runObservability('near-miss');
+    const data = envelope['data'] as {
+      readonly coverage?: ReadonlyArray<{
+        reason: string;
+        observable: boolean;
+        rate: number | null;
+      }>;
+      readonly unobservedClasses?: readonly string[];
+    };
+    const gateClass = (data.coverage ?? []).find((item) => item.reason === 'gate-never-evaluated');
+    expect(gateClass?.observable).toBe(false);
+    expect(gateClass?.rate).toBeNull();
+    expect(data.unobservedClasses).toContain('gate-never-evaluated');
+    expect(warningsOf(envelope)).toContain('gate-never-evaluated');
+  });
+
   it('when hotspots is asked for as json, should answer with a ranking', async () => {
     // given: a session with one recorded slice
     // when:  the hotspot ranking is asked for as json

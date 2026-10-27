@@ -3,7 +3,8 @@
  *
  * The event-stream readers the near-miss metric is computed from: what one
  * slice's events say about the gates that were live, the gates that were
- * evaluated, and the prerequisites that failed.
+ * evaluated, what the slice could be OBSERVED for at all, and what its
+ * prerequisite attempts recorded.
  *
  * WHY THIS IS A SEPARATE MODULE. The near-miss metric reads the observability
  * stream the same way the slice aggregation does — the same event shapes, the
@@ -24,13 +25,20 @@
  *     artifact was written, so it records an ARRIVAL at that state.
  *
  * A reader that treats the prereq shape's `to` as an arrival would count a
- * blocked transition as a slice that got there.
+ * blocked transition as a slice that got there. The attempts module reads the
+ * prereq shape, and the shape that carries no verdict at all is ignored.
+ *
+ * WHY THE GATE READERS LIVE NEXT DOOR TOO. A gate is identified by a gate id
+ * and a phase, and a prerequisite by a transition key — different
+ * vocabularies, so `near-miss-gates.ts` holds the gate side.
  */
 
-import { isRequestType, type RequestType } from '../artifacts/artifact-prerequisites.js';
-import { liveGateIds, type RdGateId } from '../artifacts/rd-gate-event.js';
-import { isToolingOnlyDeclaredType } from '../scan/type-corroboration.js';
+import { readGate, type GateFacts, type NearMissUndetermined } from './near-miss-gates.js';
+import { collectAttempts, unrecoveredFailures, type PrereqAttempt } from './near-miss-attempts.js';
+import type { RdGateId } from '../artifacts/rd-gate-event.js';
 import type { ObservabilityEvent } from './observability-service.js';
+
+export { KNOWN_GATE_IDS, type NearMissUndetermined } from './near-miss-gates.js';
 
 /** The QA verdict state: the slice reached it, so the slice passed. */
 export const VERDICT_STATE = 'verdict-issued';
@@ -38,15 +46,8 @@ export const VERDICT_STATE = 'verdict-issued';
 /** The event category a tool trace carries once that slice lands. */
 export const TOOL_TRACE_CATEGORY = 'tool-trace';
 
-/** The gate that only a tooling-only slice runs. */
-export const CLAIM_TABLE_GATE: RdGateId = 'claim-table';
-
-/** The gate ids this metric knows how to judge. */
-export const KNOWN_GATE_IDS: readonly RdGateId[] = [
-  'file-size-ratchet',
-  'declared-type-corroboration',
-  CLAIM_TABLE_GATE
-];
+/** Why a slice counts as a near-miss. */
+export type NearMissReason = 'gate-never-evaluated' | 'tool-blocked' | 'prereq-skipped';
 
 /** A pointer at one raw event, so a reader can check a count against it. */
 export type NearMissEvidence = {
@@ -54,22 +55,14 @@ export type NearMissEvidence = {
   readonly ts: string;
   /** The gate this event is about, when it is a gate decision. */
   readonly gateId?: string;
-};
-
-/** A gate whose liveness could not be decided from the event stream. */
-export type NearMissUndetermined = {
-  readonly sliceRid: string;
-  readonly sessionId: string;
-  readonly ts: string;
-  readonly gateId: string;
-  /** What left the question open. */
-  readonly reason: string;
-};
-
-/** A prereq failure, with the stream position it happened at. */
-export type PrereqFailure = NearMissEvidence & {
-  /** The position of the failure in the slice's event stream. */
-  readonly index: number;
+  /**
+   * The transition key a prereq refusal belongs to, when it is one.
+   *
+   * The key names WHICH check refused, so a reader can check the pairing: the
+   * same key is where a later success would have to appear for the refusal
+   * to have been answered.
+   */
+  readonly transitionKey?: string;
 };
 
 /** What one slice's events say about it. */
@@ -88,123 +81,50 @@ export type SliceFacts = {
   readonly liveGates: ReadonlySet<RdGateId>;
   /** The gate ids that got a `pass` or a `block` — i.e. WERE evaluated. */
   readonly evaluatedGates: ReadonlySet<RdGateId>;
-  /** The prereq failures this slice recorded, in stream order. */
-  readonly prereqFailures: readonly PrereqFailure[];
+  /**
+   * The prereq failures this slice recorded that were NEVER satisfied.
+   *
+   * A failure that a later attempt at the same transition key satisfied is
+   * NOT here: that is a gate refusing and then letting the slice through,
+   * which is a gate working as designed.
+   */
+  readonly unrecoveredPrereqFailures: readonly PrereqAttempt[];
   /** Whether a tool trace blocked on this slice. */
   readonly toolBlocked: boolean;
   /** The gates whose liveness the stream did not decide. */
   readonly undetermined: readonly NearMissUndetermined[];
+  /**
+   * What this slice could be OBSERVED for — the evidence each reason class
+   * needs, and whether this slice produced any.
+   *
+   * A slice that produced no gate event cannot be judged on the gate class at
+   * all: the live set is the union over the slice's gate events, so with none
+   * the union is empty. The same holds for a slice with no prereq attempt
+   * and a slice with no tool trace.
+   */
+  readonly observed: {
+    readonly gateEvents: number;
+    readonly prereqAttempts: number;
+    readonly toolTraces: number;
+  };
 };
-
-/** The gate id an event's own detail names, or null when it names none we know. */
-export function gateIdOf(event: ObservabilityEvent): RdGateId | null {
-  const detail = event.detail as { gateId?: unknown };
-  const gateId = detail.gateId;
-  if (typeof gateId !== 'string') return null;
-  return KNOWN_GATE_IDS.find((known) => known === gateId) ?? null;
-}
-
-/** The phase a gate event was recorded at, or null when it carries none. */
-export function phaseOf(
-  event: ObservabilityEvent
-): 'implemented' | 'qa-handoff' | 'handed-off' | null {
-  const detail = event.detail as { phase?: unknown };
-  const phase = detail.phase;
-  if (phase === 'implemented' || phase === 'qa-handoff' || phase === 'handed-off') return phase;
-  return null;
-}
-
-/** The declared type a gate event carries, or null when it carries none usable. */
-export function declaredTypeOf(event: ObservabilityEvent): RequestType | null {
-  const detail = event.detail as { declaredType?: unknown };
-  const declaredType = detail.declaredType;
-  if (typeof declaredType !== 'string' || !isRequestType(declaredType)) return null;
-  return declaredType;
-}
-
-/** The outcome a gate event carries. */
-export function outcomeOf(event: ObservabilityEvent): string {
-  const detail = event.detail as { outcome?: unknown };
-  return typeof detail.outcome === 'string' ? detail.outcome : '';
-}
-
-/** The state a transition event moved to. */
-export function transitionTarget(event: ObservabilityEvent): string {
-  const detail = event.detail as { to?: unknown };
-  return typeof detail.to === 'string' ? detail.to : '';
-}
-
-/**
- * Whether a transition event records a FAILED prereq check.
- *
- * The prereq event is emitted by the check itself, before the transition is
- * allowed to proceed, so `prereqOk === false` records a REFUSAL — the gate
- * doing its job. What makes it a near-miss is the other half of the rule:
- * the slice reached the verdict anyway.
- */
-export function prereqFailed(event: ObservabilityEvent): boolean {
-  const detail = event.detail as { prereqOk?: unknown };
-  return detail.prereqOk === false;
-}
-
-/**
- * Whether the slice was tooling-only at a phase, judged from the stream.
- *
- * The claim table only runs for tooling-only slices, so a claim-table event
- * at this phase in this slice proves the slice was tooling-only here, and
- * its absence proves it was not. This is the fallback for gate events
- * written before the declared type was carried.
- */
-export function toolingOnlyAtPhase(
-  phase: 'implemented' | 'qa-handoff' | 'handed-off',
-  gateEvents: readonly ObservabilityEvent[]
-): boolean {
-  return gateEvents.some(
-    (event) => phaseOf(event) === phase && gateIdOf(event) === CLAIM_TABLE_GATE
-  );
-}
-
-/**
- * The live gate set of one gate event's transition, or null when it cannot
- * be reproduced.
- *
- * `null` means the liveness is undetermined — the event carries no usable
- * phase — and the caller reports it rather than guessing.
- */
-export function liveGatesOf(
-  event: ObservabilityEvent,
-  gateEvents: readonly ObservabilityEvent[]
-): readonly RdGateId[] | null {
-  const phase = phaseOf(event);
-  if (phase === null) return null;
-  const declaredType = declaredTypeOf(event);
-  const judged =
-    declaredType === null
-      ? toolingOnlyAtPhase(phase, gateEvents)
-      : isToolingOnlyDeclaredType(declaredType);
-  return liveGateIds(phase, judged);
-}
 
 /** The facts one slice's events carry, accumulated as the stream is walked. */
 type Accumulator = {
   readonly sliceRid: string;
-  readonly liveGates: Set<RdGateId>;
-  readonly evaluatedGates: Set<RdGateId>;
-  readonly prereqFailures: PrereqFailure[];
-  readonly undetermined: NearMissUndetermined[];
+  readonly gates: GateFacts;
   verdictIndex: number | null;
   toolBlocked: boolean;
+  toolTraces: number;
 };
 
 /** Fold one transition event into the accumulator. */
 function readTransition(acc: Accumulator, event: ObservabilityEvent, index: number): void {
-  const target = transitionTarget(event);
+  const detail = event.detail as { to?: unknown; prereqOk?: unknown };
+  const target = typeof detail.to === 'string' ? detail.to : '';
   // A REFUSED attempt at the verdict state is not an arrival there.
-  if (target === VERDICT_STATE && !prereqFailed(event) && acc.verdictIndex === null) {
+  if (target === VERDICT_STATE && acc.verdictIndex === null && detail.prereqOk !== false) {
     acc.verdictIndex = index;
-  }
-  if (prereqFailed(event)) {
-    acc.prereqFailures.push({ sessionId: event.sessionId, ts: event.ts, index });
   }
 }
 
@@ -216,34 +136,8 @@ function readToolTrace(acc: Accumulator, event: ObservabilityEvent): void {
   // because the schema's own union does not name it yet, and narrowing the
   // comparison to that union would make this branch uncallable.
   const detail = event.detail as { outcome?: unknown };
+  acc.toolTraces += 1;
   if (detail.outcome === 'block') acc.toolBlocked = true;
-}
-
-/** Fold one gate event into the accumulator. */
-function readGate(
-  acc: Accumulator,
-  event: ObservabilityEvent,
-  gateEvents: readonly ObservabilityEvent[]
-): void {
-  const gateId = gateIdOf(event);
-  if (gateId !== null) {
-    const outcome = outcomeOf(event);
-    if (outcome === 'pass' || outcome === 'block') acc.evaluatedGates.add(gateId);
-  }
-  const live = liveGatesOf(event, gateEvents);
-  if (live === null) {
-    if (gateId !== null) {
-      acc.undetermined.push({
-        sliceRid: acc.sliceRid,
-        sessionId: event.sessionId,
-        ts: event.ts,
-        gateId,
-        reason: 'the gate event carries no usable phase, so the live set cannot be reproduced'
-      });
-    }
-    return;
-  }
-  for (const gate of live) acc.liveGates.add(gate);
 }
 
 /**
@@ -255,28 +149,37 @@ function readGate(
  */
 export function sliceFacts(sliceRid: string, events: readonly ObservabilityEvent[]): SliceFacts {
   const gateEvents = events.filter((event) => event.category === 'gate');
-  const acc: Accumulator = {
-    sliceRid,
+  const attempts = collectAttempts(events);
+  const gates: GateFacts = {
     liveGates: new Set<RdGateId>(),
     evaluatedGates: new Set<RdGateId>(),
-    prereqFailures: [],
-    undetermined: [],
+    undetermined: []
+  };
+  const acc: Accumulator = {
+    sliceRid,
+    gates,
     verdictIndex: null,
-    toolBlocked: false
+    toolBlocked: false,
+    toolTraces: 0
   };
   for (const [index, event] of events.entries()) {
     if (event.category === 'slice-transition') readTransition(acc, event, index);
     else if ((event.category as string) === TOOL_TRACE_CATEGORY) readToolTrace(acc, event);
-    else if (event.category === 'gate') readGate(acc, event, gateEvents);
+    else if (event.category === 'gate') readGate(gates, event, sliceRid, gateEvents);
   }
   return {
     sliceRid,
     passed: acc.verdictIndex !== null,
     verdictIndex: acc.verdictIndex,
-    liveGates: acc.liveGates,
-    evaluatedGates: acc.evaluatedGates,
-    prereqFailures: acc.prereqFailures,
+    liveGates: gates.liveGates,
+    evaluatedGates: gates.evaluatedGates,
+    unrecoveredPrereqFailures: unrecoveredFailures(attempts, acc.verdictIndex),
     toolBlocked: acc.toolBlocked,
-    undetermined: acc.undetermined
+    undetermined: gates.undetermined,
+    observed: {
+      gateEvents: gateEvents.length,
+      prereqAttempts: attempts.length,
+      toolTraces: acc.toolTraces
+    }
   };
 }

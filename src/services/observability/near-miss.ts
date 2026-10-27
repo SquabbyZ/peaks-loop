@@ -61,6 +61,12 @@
  * lands, the reason starts firing with no change to this file's contract;
  * until then it finds nothing, because there is nothing to find.
  *
+ * WHY THE REPORT CARRIES ITS COVERAGE. A rate over a class that had no
+ * events to observe is not a rate — it is an absence read as a result, which
+ * is the exact failure this programme exists to close. The report therefore
+ * says, per class, whether the class was observable at all, and the CLI
+ * warns when one was not.
+ *
  * WHY THE READERS LIVE NEXT DOOR. `near-miss-facts.ts` holds the event-shape
  * readers this metric is computed from, so this file holds the METRIC and
  * nothing else — the same split `aggregation.ts` and
@@ -69,19 +75,22 @@
 
 import type { ObservabilityEvent } from './observability-service.js';
 import {
-  gateIdOf,
-  liveGatesOf,
   sliceFacts,
   type NearMissEvidence,
   type NearMissUndetermined,
+  type NearMissReason,
   type SliceFacts
 } from './near-miss-facts.js';
+import { gateIdOf, liveGatesOf } from './near-miss-gates.js';
+import {
+  computeCoverage,
+  unobservableReasons,
+  type NearMissClassCoverage
+} from './near-miss-coverage.js';
 import type { RdGateId } from '../artifacts/rd-gate-event.js';
 
-export type { NearMissEvidence, NearMissUndetermined } from './near-miss-facts.js';
-
-/** Why a slice counts as a near-miss. */
-export type NearMissReason = 'gate-never-evaluated' | 'tool-blocked' | 'prereq-skipped';
+export type { NearMissEvidence, NearMissUndetermined, NearMissReason } from './near-miss-facts.js';
+export type { NearMissClassCoverage } from './near-miss-coverage.js';
 
 /** One slice that passed with a check skipped. */
 export type NearMissRecord = {
@@ -99,6 +108,23 @@ export type NearMissReport = {
   readonly records: readonly NearMissRecord[];
   /** Gates whose liveness the stream did not decide. */
   readonly undetermined: readonly NearMissUndetermined[];
+  /**
+   * What each reason class could and could not be observed for.
+   *
+   * A class with `observable: false` had NO events of its kind in the scope,
+   * so its share of the rate is an absence of data — not a result. A consumer
+   * that reads `nearMissRate` alone can still be misled, so this travels in
+   * the same envelope.
+   */
+  readonly coverage: readonly NearMissClassCoverage[];
+  /**
+   * The reason classes this scope had NO events to observe.
+   *
+   * The aggregate `nearMissRate` does NOT cover these classes, so a zero
+   * over them is an absence of data rather than a result. The per-class
+   * `coverage` entry says the same thing with the numbers behind it.
+   */
+  readonly unobservedClasses: readonly NearMissReason[];
 };
 
 /**
@@ -108,12 +134,16 @@ export type NearMissReport = {
  * that let a reader CHECK that claim: the events about that gate (a bypass
  * is the primary one) and the sibling gate events of the same transition,
  * which are what establish the live set. For a prerequisite failure, it is
- * the refusal itself.
+ * the refusal itself, named by the transition key it refused.
  */
 function evidenceFor(
   neverEvaluated: readonly RdGateId[],
   gateEvents: readonly ObservabilityEvent[],
-  prereqSkipped: readonly NearMissEvidence[]
+  prereqSkipped: readonly {
+    readonly sessionId: string;
+    readonly ts: string;
+    readonly key: string;
+  }[]
 ): readonly NearMissEvidence[] {
   const pointers: NearMissEvidence[] = [];
   for (const gateId of neverEvaluated) {
@@ -130,7 +160,11 @@ function evidenceFor(
     }
   }
   for (const failure of prereqSkipped) {
-    pointers.push({ sessionId: failure.sessionId, ts: failure.ts });
+    pointers.push({
+      sessionId: failure.sessionId,
+      ts: failure.ts,
+      transitionKey: failure.key
+    });
   }
   return pointers;
 }
@@ -138,24 +172,20 @@ function evidenceFor(
 /**
  * The reasons one passing slice carries.
  *
- * The prereq failures that count are the ones that happened BEFORE the
- * verdict: a failure after the verdict is a later rework round, not something
- * the slice passed anyway.
+ * The prereq failures that count are the ones that were NEVER SATISFIED: a
+ * check that refused and was then satisfied on a retry is a gate working as
+ * designed, and counting it would put a working gate in the near-miss column.
  */
 function reasonsFor(fact: SliceFacts): {
-  readonly reasons: readonly NearMissReason[];
+  readonly reasons: NearMissReason[];
   readonly neverEvaluated: readonly RdGateId[];
-  readonly prereqSkipped: readonly NearMissEvidence[];
 } {
   const neverEvaluated = [...fact.liveGates].filter((gateId) => !fact.evaluatedGates.has(gateId));
-  const prereqSkipped = fact.prereqFailures.filter(
-    (failure) => fact.verdictIndex !== null && failure.index < fact.verdictIndex
-  );
   const reasons: NearMissReason[] = [];
   if (neverEvaluated.length > 0) reasons.push('gate-never-evaluated');
-  if (prereqSkipped.length > 0) reasons.push('prereq-skipped');
+  if (fact.unrecoveredPrereqFailures.length > 0) reasons.push('prereq-skipped');
   if (fact.toolBlocked) reasons.push('tool-blocked');
-  return { reasons, neverEvaluated, prereqSkipped };
+  return { reasons, neverEvaluated };
 }
 
 /**
@@ -177,31 +207,38 @@ export function computeNearMiss(events: readonly ObservabilityEvent[]): NearMiss
 
   const records: NearMissRecord[] = [];
   const undetermined: NearMissUndetermined[] = [];
+  const passingFacts: SliceFacts[] = [];
+  const reasonsBySlice = new Map<string, readonly NearMissReason[]>();
   let passedSliceCount = 0;
 
   for (const [sliceRid, sliceEvents] of bySlice) {
     const fact = sliceFacts(sliceRid, sliceEvents);
     if (!fact.passed) continue;
     passedSliceCount += 1;
-    const { reasons, neverEvaluated, prereqSkipped } = reasonsFor(fact);
+    passingFacts.push(fact);
+    const { reasons, neverEvaluated } = reasonsFor(fact);
     undetermined.push(...fact.undetermined);
     if (reasons.length === 0) continue;
     const gateEvents = sliceEvents.filter((event) => event.category === 'gate');
+    reasonsBySlice.set(sliceRid, reasons);
     records.push({
       sliceRid,
       reasons,
-      evidence: evidenceFor(neverEvaluated, gateEvents, prereqSkipped)
+      evidence: evidenceFor(neverEvaluated, gateEvents, fact.unrecoveredPrereqFailures)
     });
   }
 
   const nearMissSliceCount = records.length;
   const nearMissRate = passedSliceCount === 0 ? 0 : nearMissSliceCount / passedSliceCount;
+  const coverage = computeCoverage({ events, passingFacts, reasonsBySlice });
 
   return {
     nearMissRate,
     passedSliceCount,
     nearMissSliceCount,
     records,
-    undetermined
+    undetermined,
+    coverage,
+    unobservedClasses: unobservableReasons(coverage)
   };
 }
