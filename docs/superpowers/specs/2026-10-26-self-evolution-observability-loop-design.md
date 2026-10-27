@@ -532,6 +532,131 @@ prereq 表是完全可算的 —— `getPrerequisitesFor(role, newState, request
 
 **因为有 S1.6 追认，这道闸不必等新数据积累** —— 它可以在 S1/S2 落地当天用历史的 113 次失败来验。
 
+#### 2.4.1 闸1 实测记录（2026-10-27）
+
+> **实测方法**：CLI 从源码跑（`bin/peaks.js` 跑的是过期 dist，测出来的是旧代码）：
+>
+> ```bash
+> node node_modules/tsx/dist/cli.mjs src/cli/index.ts observability near-miss --project . --all-sessions --json
+> node node_modules/tsx/dist/cli.mjs src/cli/index.ts observability hotspots --project . --all-sessions --json
+> node node_modules/tsx/dist/cli.mjs src/cli/index.ts observability status  --project . --all-sessions --json
+> ```
+>
+> 磁盘行数用 `node` 逐文件数 `.peaks/_runtime/*/metrics/slices.jsonl` 的**实际行**（含 `safeParse` 会跳过的那行），不是"读得出来的条数"。
+> 追认比例用仓库的 canonical reader（`src/services/artifacts/request-artifact-metadata.ts:57`，"最后一个可用的 `- type:` 行胜出"）解析每个 rid 的 request type，再喂进 `attributeV1Failure`（`src/services/observability/retro-attribution.ts`）。
+
+**判据一 —— 热点榜指名道姓到真实技能：✓ 通过。**
+
+`peaks observability hotspots --project . --all-sessions --json` 输出 **14 行**，每行 `count ≥ 1`、`evidence` 非空（`evidence` 长度等于 `count`）。逐行核对 `ownerSkill` 的 SKILL.md 路径**是否真的存在于磁盘**：
+
+| # | ownerSkill | artifact | kind | confidence | count | SKILL.md 路径 | 存在？ |
+|---|---|---|---|---|---|---|---|
+| 1 | `peaks-qa` | `qa/test-cases/<rid>.md` | body | ambiguous | 91 | `skills/bee/peaks-qa/SKILL.md` | ✓ |
+| 2 | `peaks-mut` | `mut/mut-report.json` | body | ambiguous | 78 | `skills/peaks-mut/SKILL.md` **或** `skills/bee/peaks-mut/SKILL.md` | **✗ 两处都没有**（见下） |
+| 3 | `peaks-perf-audit` | `audit/perf-<rid>.md` | body | ambiguous | 78 | `skills/bee/peaks-perf-audit/SKILL.md` | ✓ |
+| 4 | `peaks-prd` | `prd/handoff-<rid>.md` | body | ambiguous | 78 | `skills/bee/peaks-prd/SKILL.md` | ✓ |
+| 5 | `peaks-qa` | `qa/.initiated` | absent | ambiguous | 78 | `skills/bee/peaks-qa/SKILL.md` | ✓ |
+| 6 | `peaks-rd` | `rd/code-review-<rid>.md` | body | ambiguous | 78 | `skills/bee/peaks-rd/SKILL.md` | ✓ |
+| 7 | `peaks-rd` | `rd/karpathy-review-<rid>.md` | body | ambiguous | 78 | `skills/bee/peaks-rd/SKILL.md` | ✓ |
+| 8 | `peaks-rd` | `rd/third-party-review-<rid>.md` | body | ambiguous | 78 | `skills/bee/peaks-rd/SKILL.md` | ✓ |
+| 9 | `peaks-security-audit` | `audit/security-<rid>.md` | body | ambiguous | 78 | `skills/bee/peaks-security-audit/SKILL.md` | ✓ |
+| 10 | `peaks-rd` | `rd/bug-analysis-<rid>.md` | body | ambiguous | 39 | `skills/bee/peaks-rd/SKILL.md` | ✓ |
+| 11 | `peaks-qa` | `qa/test-reports/<rid>.md` | body | ambiguous | 13 | `skills/bee/peaks-qa/SKILL.md` | ✓ |
+| 12 | `peaks-rd` | `rd/bug-analysis-<rid>.md` | body | inferred | 11 | `skills/bee/peaks-rd/SKILL.md` | ✓ |
+| 13 | `peaks-qa` | `qa/test-cases/<rid>.md` | body | inferred | 6 | `skills/bee/peaks-qa/SKILL.md` | ✓ |
+| 14 | `peaks-rd` | `rd/security-review-<rid>.md` | absent | inferred | 2 | `skills/bee/peaks-rd/SKILL.md` | ✓ |
+
+判据要求的"**至少一条**"成立（第 1 行即满足：`count = 91 ≥ 1`、`evidence` 91 条非空、`skills/bee/peaks-qa/SKILL.md` 真实存在）。**但 14 行里有 1 行的 `ownerSkill` 解析不到任何 SKILL.md**：
+
+- **`peaks-mut` 的 SKILL.md 不在 `skills/` 树里。** 它在 **`src/skills/peaks-mut/SKILL.md`**（`git ls-files` 可查，tracked），而 `skills/peaks-mut/` 与 `skills/bee/peaks-mut/` **都不存在**。
+- 这不是"路径写错了一处"：`npm pack --dry-run --ignore-scripts --json` 的 2935 个文件里，**没有任何一个 `peaks-mut` 的 SKILL.md**（`package.json` 的 `files` 白名单只有 `skills/**`，没有 `src/skills/**`；`scripts/copy-templates.mjs` 也不复制 `src/skills`）。`skills/` 下的 15 个用户可见技能与 `skills/bee/` 下的 9 个 bee 技能都在包里，**`peaks-mut` 是唯一一个 SKILL.md 存在却装不出去的技能**。
+- 所以榜上第 2 行（`count = 78`）指向的是一个**读者按名字找不到文件的技能**。判据一本身（"至少一条"）仍然通过，但计划 §完成定义 里"**每行**的 `ownerSkill` 指向真实存在的 SKILL.md"这一条**不成立** —— 13/14 行成立。
+- 这是一个**待修的缺陷，不是一个判据失败**：owner 推导表（`src/services/observability/owner-skill-map.ts:95`，`{ prefix: 'mut/', skill: 'peaks-mut' }`）指的名字是对的，是 `peaks-mut` 这个技能本身没有进 `skills/` 树。**修它不属于 Task 11 的职责**（Task 11 只测量、不改代码），记在此处交给后续切片。
+
+**判据二 —— 近失报告说清自己观测到了什么：✓ 通过。**
+
+`peaks observability near-miss --project . --all-sessions --json` 输出：
+
+- **近失率 `nearMissRate = 0.1276595744680851`（12.8%）**，`nearMissSliceCount = 12`，`passedSliceCount = 94`。
+- **分母 94，且带定义**：denominator 的 `definition` 明写"a slice that recorded a SUCCESSFUL `verdict-issued` attempt —— 一次 prereq 检查**通过**的 `verdict-issued` 迁移尝试，即该 slice 被宣告通过的那一刻；prereq 检查**失败**的 `verdict-issued` 尝试是**被拒绝的迁移**，不是通过"，`sliceCount = 94`。
+- **分母与 status 摘要的差被摊开说了**：`statusSuccessCount = 103`，`difference.successWithoutPassMoment = 17`（其中 7 个到了 `verdict-issued` 但 prereq 判定从未被记录）、`passMomentWithoutStatusSuccess = 8`（通过了但事后被打回返工，末态不是终态happy），并附 `note` 说明两个"通过"的定义**数的是不同的 slice**。
+- **那 7 个（以及更大的 9 个）为什么没有 prereq 判定记录 —— `note` 说的是"原因"，不是"缺一条轨迹"。** `note` 明写：
+  > … 7 of which reached a `verdict-issued` event whose prereq verdict was never recorded, because their request type(s) `chore`, `docs` have NO `qa:verdict-issued` prerequisite row: the transition had no check to verify it against, so the check had nothing to record. The pass was never gated, rather than gated-and-unrecorded.
+
+  **独立核实（直接数事件流，不依赖这段代码）**：到达过 `verdict-issued` 事件、却没有记录任何 prereq 判定的 slice 共 **9 个** —— **`docs` 4 个 + `chore` 5 个**，且这 9 个的 request type 的 prereq 表**都没有 `qa:verdict-issued` 这一行**（`MINIMAL_TABLE` 只有 `prd:handed-off`）。逐类型的对照是：
+
+  | request type | 到达过 `verdict-issued` | 有 prereq 判定记录 | 没有 |
+  |---|---|---|---|
+  | `feature` | 45 | 45 | **0** |
+  | `bugfix` | 30 | 30 | **0** |
+  | `refactor` | 17 | 17 | **0** |
+  | `config` | 1 | 1 | **0** |
+  | `docs` | 5 | 1 | **4** |
+  | `chore` | 5 | 0 | **5** |
+
+  **每一个 `feature`/`bugfix`/`refactor`/`config` slice 只要到了 verdict，都有记录在案的 prereq 判定；没有判定的全部落在 `docs`/`chore` 这两个没有 `qa:verdict-issued` prereq 行的类型上。** 那些 slice 的"通过"**不是"没被验证"，而是"那道门根本不存在"**（`src/services/artifacts/artifact-prerequisites.ts:491` 在 `requirements.length === 0` 时**提前返回**，早于 `:594` 的事件发射；所以**没有事件被漏掉 —— 压根没有东西可记**）。**一个读者若被告知"检查留下了空迹"，会去找一个并不存在的 emitter bug。**
+- **逐 class 覆盖率**（`coverage` 数组，每项带 `reason` / `observable` / `scopeEventCount` / `observedSliceCount` / `nearMissSliceCount` / `rate`）：
+
+  | reason class | observable | events | slices observed | slices flagged | rate |
+  |---|---|---|---|---|---|
+  | `gate-never-evaluated` | **false** | 0 | 0 | 0 | **null** |
+  | `prereq-skipped` | true | 536 | 94 | 12 | 0.1277 |
+  | `tool-blocked` | **false** | 0 | 0 | 0 | **null** |
+
+- **`unobservedClasses = ["gate-never-evaluated", "tool-blocked"]`** —— 两个 class 一条事件都没有，它们的份额是**数据的缺席，不是结果**。
+- **stderr 另有两条 warning 把这件事说出口**："The `gate-never-evaluated` class had NO events to observe in this scope (0 event(s)), so its share of the near-miss rate is an absence of data, not a result — the rate does not measure that class."（`tool-blocked` 同）。
+
+**因此 12.8% 这个数字必须连着它的覆盖率读**：它**只**度量了三个 class 里的一个（`prereq-skipped`）。另两个 class 在本仓库**从未被观测过** —— `gate` emitter 晚于本仓库所有 session，`tool-blocked` 依赖的 tool-trace 采集器同样没有历史。**一个裸的 "12.8%" 会读成"近失率 12.8%"，而真相是"我们只量到了三类里的一类"。输出没有犯这个错。** ✓
+
+**判据三 —— 历史没丢：✓ 通过（按修订后的判据）。**
+
+| | 值 |
+|---|---|
+| 读者报出的 `totalEvents`（`observability status --all-sessions`） | **1530** |
+| 磁盘上 `.peaks/_runtime/*/metrics/slices.jsonl` 的**实际总行数** | **1530** |
+| 差 | **0** |
+
+**相等 → 读者看到了磁盘上的每一条记录，`safeParse` 一行都没跳过。** ✓
+
+（绝对数会漂是**保留策略**而不是 schema 损失：`MAX_METRICS_FILES = 10`（`src/services/observability/jsonl-store.ts`），`.peaks/_runtime/` 下现在有 **30 个 session 目录，其中只有 10 个带 `metrics/slices.jsonl`**，另外 20 个的指标文件已被按 mtime 剪掉。剪掉的那些行**不在磁盘上**，所以它们不进入上面这个比较 —— 比较的是"读到的"对"存在的"，两者相等。）
+
+**追认比例（S1.6 要求的实测数字）—— 用真实 request type。**
+
+判据要求：**不得**对解析不出类型的 rid 回退到 `feature`。实测按这个规则做：
+
+| | 值 |
+|---|---|
+| 历史 v1 prereq 失败事件总数（`detail.prereqOk === false`） | **113**（全部是 v1 count-only：`detail.missing[]` 数组 **0** 条） |
+| 涉及的 rid 数 | **53** |
+| **能解析出真实 type 的 rid** | **51** |
+| **解析不出真实 type 的 rid** | **2** |
+| 用真实 type 计入追认的失败事件 | **108** |
+| **`inferred`** | **19** |
+| **`ambiguous`** | **89**（其中 1 条 `candidates` 为空 —— 该迁移的 prereq 清单本身是空的） |
+| **inferred 占比（108 条中）** | **17.6%（19/108）** |
+
+**两个解析不出类型的 rid（是事实，不是缺口）：**
+
+| rid | 原因 |
+|---|---|
+| `tmp-measure-qa-openspec` | 磁盘上**根本没有**对应的 request artifact（`.peaks/_runtime/*/requests/` 里没有这个 slug） |
+| `rid-t3-downstream-incremental-constitution` | request artifact **存在**（`2026-10-23-session-5e40e0/{rd,qa}/requests/018-rid-t3-downstream-incremental-constitution.md`），但**两份都没有可用的 `- type:` 行** —— canonical reader 返回 `requestTypeSource = 'default'`（`DEFAULT_REQUEST_TYPE`）。这是"类型没被声明"，不是"类型解析失败"。 |
+
+**如果按 CLI 现在的算法（`readRequestTypes` 只取 `extractMetadata(...).requestType`，不看 `requestTypeSource`）跑，会把这两条算成 `feature`**，结果是 111 条计入、19 `inferred` / 92 `ambiguous`（17.1%）。**那个数不是本记录采用的数** —— 本记录只采信 request artifact 里**真正声明过**的类型。
+
+**类型冲突（声明与声明不一致）：** 19 个 slug 上存在两份类型不同的 request artifact。其中 **15 个是"一份声明了类型 vs 另一份没声明"**（默认的 `feature` 不是一次竞争性的声明，不构成冲突）；**真正两个角色各声明了一个不同类型的有 4 个**：`rid-mut-report-warning-surfacing`（bugfix/feature）、`rid-size-gate-reads-ratchet`（bugfix/feature）、`rid-count-ceiling-exemption-table`（refactor/feature）、`2026-10-21-race-batch-mode`（feature/refactor）。**这 4 个 rid 里没有一个有记录在案的 prereq 失败**，所以这个冲突**不影响**上面的比例（取"第一个声明"或"最后一个声明"，结果都是 19/89）。角色顺序（prd → ui → rd → qa → sc）因此对本次测量没有影响。
+
+**这张榜的形状也要读对：** `prereq-skipped` 这一个 class 的 12 次近失落在 12 个 slice 上。**独立于 near-miss 代码、直接从事件流数**（取每个 slice 那次**成功的** `verdict-issued` 尝试的时刻为"通过时刻"，看那一刻之前该 slice 有没有 `rd -> qa-handoff` 的 prereq 检查尝试、尝试有没有被拒）：**11 个是"该检查从未被尝试**，只有 1 个（`2026-10-16-coverage-ratchet-in-ci`，通过时刻 2026-10-15T17:37:42.134Z）是"检查当时正在拒绝"。而**这 12 次近失全部由 `rd -> qa-handoff` 这一条迁移产生** —— `unsatisfiedKeys` 一律是 `rd -> qa-handoff`。也就是说：**RD 交 QA 之前的那道 prereq 门，是这个仓库唯一被量到的近失来源**；另两类近失（门禁从未被评估、工具被拦）在本仓库**一件都没有发生过**。
+
+**热点榜前五行的 `confidence` 全部是 `ambiguous` / `inferred`，没有一行是 `exact`** —— 因为本仓库的历史事件全是 v1（`detail.missing[]` 从未写过），没有任何一次缺件是**当场实测**的。榜上 `count = 91` 那行的 `countMeaning` 是 **`candidate-mentions`**（候选提及数），**不是**"这个 artifact 缺了 91 次"：一次无法定位的失败会向它**不能排除的每个候选各记一次**。**这一栏必须连着 `countMeaning` 读。**
+
+#### 2.4.2 这次实测没有覆盖到的东西
+
+- **闸一的判据只在"至少一条"的意义上通过。** 计划 §完成定义 里的"**每行**的 `ownerSkill` 指向真实存在的 SKILL.md"**不成立**（`peaks-mut` 那行指向的 SKILL.md 不在 `skills/` 树里，也装不进 npm 包）。
+- **两个近失 class 从未被观测过**（`gate-never-evaluated`、`tool-blocked`）。12.8% 是**只覆盖三类中一类**的数字；随着 `gate` emitter 与 tool-trace 采集器在真实 session 里跑起来，这个比例会变。
+- **追认的 17.6% 是用"今天"的 prereq 表算出来的**，而这些失败发生在过去的表版本下 —— 这是置信度封顶在 `inferred` 的原因（见上），**这个比例是重建，不是实测**。
+- **`peaks observability report` 默认 `--period day`，在本仓库是空的**（`totalEventsInPeriod = 0`）。空的**不是**作用域（作用域有 1530 条事件），是**周期**；报告的 warning 说得很清楚："No observability events fall inside the `day` period, though the scope holds 1530 event(s) — use `--period month` to read them."。`--period month --all-sessions` 下报告的"近失"节与"卡点"节都有内容（近失 12.8%、卡点 14 行）。
+
 ### 2.5 S3 —— 从数据到提案
 
 **S3.1 指标体系：分四层，头号产出是近失率。**

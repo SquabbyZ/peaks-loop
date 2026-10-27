@@ -377,6 +377,45 @@ describe('Scenario: behavior — one artifact can be a candidate under two trans
   });
 });
 
+describe('Scenario: behavior — a ranking built only from historical failures', () => {
+  it('when every failure recorded only a count, should count no artifact as measured missing', () => {
+    // given: a whole session of HISTORICAL failures — the shape this
+    //        repository's recorded history has, where every slice-transition
+    //        event wrote a missingCount and never a missing LIST
+    // when: the ranking is computed over that session
+    // then: NOT ONE row claims a measured omission — every row is a
+    //        candidate mention, and the counts are mentions rather than
+    //        failures. A reader who took the top count as "this artifact was
+    //        missing N times" would be reading a number this history never
+    //        measured.
+    const type: RequestType = 'feature';
+    const paths = prereqPaths('rd', 'qa-handoff', type);
+    expect(paths.length).toBeGreaterThan(1);
+    const events = seedSession(SESSION_A, [
+      historicalFailure('slice-a', 1),
+      historicalFailure('slice-b', 1),
+      historicalFailure('slice-c', 1)
+    ]);
+    const requestTypes = new Map([
+      ['slice-a', type],
+      ['slice-b', type],
+      ['slice-c', type]
+    ]);
+
+    const rows = aggregateHotspots(events, requestTypes);
+
+    expect(rows.length).toBe(paths.length);
+    expect(rows.every((row) => row.confidence !== 'exact')).toBe(true);
+    expect(rows.every((row) => row.countMeaning === 'candidate-mentions')).toBe(true);
+    // Three failures, each counted toward every candidate it could not be
+    // narrowed to — so the mentions outnumber the failures.
+    expect(rows.every((row) => row.count === 3)).toBe(true);
+    const mentions = rows.reduce((sum, row) => sum + row.count, 0);
+    expect(mentions).toBe(3 * paths.length);
+    expect(mentions).toBeGreaterThan(3);
+  });
+});
+
 describe('Scenario: integration — the metric reads a real metrics file', () => {
   it('when the session file is read back off disk, should rank what it holds', () => {
     // given: a session written to disk with one measured missing artifact

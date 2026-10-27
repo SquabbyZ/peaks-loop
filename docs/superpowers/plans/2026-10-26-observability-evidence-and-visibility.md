@@ -945,14 +945,16 @@ git commit -m "docs(observability): the gate is open, with the numbers that open
 
 本计划完成时，以下**全部**为真：
 
-- [ ] `peaks observability near-miss --all-sessions` 报出近失率与清单
-- [ ] `peaks observability hotspots --all-sessions` 报出卡点榜，且每行的 `ownerSkill` 指向真实存在的 SKILL.md
-- [ ] **历史没丢**：`peaks observability status --all-sessions` 读出的 `totalEvents` **等于** `.peaks/_runtime/*/metrics/slices.jsonl` 里**磁盘上实际的总行数**（绝对数会因存储的 `MAX_METRICS_FILES = 10` 剪枝策略而漂，判据是"读到的 == 存在的"，不是"≥ 某个数"）
-- [ ] `status` 的 `successCount + failCount + stalledCount === totalSlices`
-- [ ] `peaks observability report` 开头是"近失"节，其后是"卡点"节
-- [ ] 两个试点技能（`peaks-rd` / `peaks-race-code`）的遵守率由**确定性检查**算出，不依赖 LLM judge
+- [x] `peaks observability near-miss --all-sessions` 报出近失率与清单 —— **实测 2026-10-27**：近失率 **12.8%（12/94）**，清单 12 条。分母 94 带定义，且与 status 摘要的 103 的差（17 减 8）被摊开说明。逐 class 覆盖率在 `coverage` 里：3 个 reason class 中**只有 `prereq-skipped` 可观测**（536 事件），另两个（`gate-never-evaluated`、`tool-blocked`）**零事件**，`rate` 为 `null` 并进 `unobservedClasses`。**12.8% 只覆盖了 3 类里的 1 类** —— 详见 spec §2.4.1。
+- [ ] `peaks observability hotspots --all-sessions` 报出卡点榜，且每行的 `ownerSkill` 指向真实存在的 SKILL.md —— **部分成立，故不勾**：榜报出来了（14 行，每行 `count ≥ 1`、`evidence` 非空），但**14 行里 1 行的 `ownerSkill` 解析不到 SKILL.md** —— `peaks-mut` 的 SKILL.md 在 `src/skills/peaks-mut/SKILL.md`，既不在 `skills/` 也不在 `skills/bee/`，**且不在 npm 包的 2935 个文件里**（`files` 白名单只有 `skills/**`）。其余 13 行成立。**闸1 的判据（"至少一条"）通过**；这一条要求"每行"，故不勾。详见 spec §2.4.1。
+- [x] **历史没丢**：`peaks observability status --all-sessions` 读出的 `totalEvents` **等于** `.peaks/_runtime/*/metrics/slices.jsonl` 里**磁盘上实际的总行数** —— **实测 2026-10-27**：`totalEvents = 1530`，磁盘实际总行数 = **1530**（逐文件 `node` 数行，含 `safeParse` 会跳过的行；10 个文件，0 空行），**差 = 0**。绝对数会因存储的 `MAX_METRICS_FILES = 10` 剪枝策略而漂（30 个 session 目录里只有 10 个还带指标文件），判据是"读到的 == 存在的"。
+- [x] `status` 的 `successCount + failCount + stalledCount === totalSlices` —— **实测 2026-10-27**：103 + 0 + 12 = **115** = `totalSlices` 115。
+- [x] `peaks observability report` 开头是"近失"节，其后是"卡点"节 —— **实测 2026-10-27**：节序为 `Status summary` → `Near-misses` → `Slices` → `Hotspots` → `Fanout` → `Repair cycles`。**注意默认 `--period day` 在本仓库是空的**（周期轴为空，不是作用域轴 —— warning 明写 "use `--period month` to read them"）；`--period month --all-sessions` 下两节都有内容（近失 12.8%、卡点 14 行）。
+- [ ] 两个试点技能（`peaks-rd` / `peaks-race-code`）的遵守率由**确定性检查**算出，不依赖 LLM judge —— `judgeCompliance`（`src/services/observability/compliance-judge.ts`）与两份试点 spec 都在盘上且是**确定性**的（只读磁盘上有没有 artifact），但**尚无 CLI 表面**把它报出来（`peaks observability` 下没有 compliance 子命令）。等 Batch D 的 `session-metric-rows.ts` 落地后再判。
 - [ ] `pnpm test:unit` 全绿
 - [ ] `pnpm lint` 不让任何 ceiling 上升；`npx eslint tests/` 无新增 findings
 - [ ] 全部提交不含任何 AI 署名 trailer
 
 **然后**：闸1 通过 → 用真实的近失数据回答 spec §7.2 第 6 条（第一个该被提升为 hook 的步骤是谁）→ 写 S3/S4 的计划 → 再碰 `evolution_evaluation` 表。
+
+> **闸1 实测记录在 spec §2.4.1**（2026-10-27，Task 11）。三条判据**都通过**，但记录里有两件必须一起读的事：**近失率 12.8% 只覆盖了三个 reason class 里的一个**；**热点榜有 1/14 行的 ownerSkill 指向一个装不出去的技能**。
