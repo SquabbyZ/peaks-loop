@@ -55,6 +55,7 @@ import {
 } from './observability-commands-queries.js';
 import { runBaseline } from './observability-commands-baseline.js';
 import { registerNearMissCommand } from './observability-commands-near-miss.js';
+import { registerHotspotsCommand } from './observability-commands-hotspots.js';
 
 const VALID_PERIODS: ReadonlyArray<Period> = ['day', 'week', 'month'];
 
@@ -273,4 +274,5 @@ export function registerObservabilityCommands(program: Command, io: ProgramIO): 
   });
 
   registerNearMissCommand(observability, io);
+  registerHotspotsCommand(observability, io);
 }

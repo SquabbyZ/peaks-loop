@@ -344,6 +344,18 @@ describe('Scenario: integration — near-miss and hotspots read the scope the ot
     expect(typeof data.nearMissRate).toBe('number');
     expect(Array.isArray(data.records)).toBe(true);
   });
+
+  it('when hotspots is asked for as json, should answer with a ranking', async () => {
+    // given: a session with one recorded slice
+    // when:  the hotspot ranking is asked for as json
+    // then:  the envelope carries the ranking it says it carries
+    writeEvents(SESSION_A, [seedEvent(SESSION_A, 'slice-a', 'verdict-issued', 0)]);
+    const envelope = await runObservability('hotspots');
+    expect(envelope['ok']).toBe(true);
+    expect(envelope['command']).toBe('observability.hotspots');
+    const data = envelope['data'] as { readonly hotspots?: unknown };
+    expect(Array.isArray(data.hotspots)).toBe(true);
+  });
 });
 
 describe('Scenario: render — the report answers with the envelope it advertises', () => {
