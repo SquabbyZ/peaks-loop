@@ -950,7 +950,7 @@ git commit -m "docs(observability): the gate is open, with the numbers that open
 - [x] **历史没丢**：`peaks observability status --all-sessions` 读出的 `totalEvents` **等于** `.peaks/_runtime/*/metrics/slices.jsonl` 里**磁盘上实际的总行数** —— **实测 2026-10-27**：`totalEvents = 1530`，磁盘实际总行数 = **1530**（逐文件 `node` 数行，含 `safeParse` 会跳过的行；10 个文件，0 空行），**差 = 0**。绝对数会因存储的 `MAX_METRICS_FILES = 10` 剪枝策略而漂（30 个 session 目录里只有 10 个还带指标文件），判据是"读到的 == 存在的"。
 - [x] `status` 的 `successCount + failCount + stalledCount === totalSlices` —— **实测 2026-10-27**：103 + 0 + 12 = **115** = `totalSlices` 115。
 - [x] `peaks observability report` 开头是"近失"节，其后是"卡点"节 —— **实测 2026-10-27**：节序为 `Status summary` → `Near-misses` → `Slices` → `Hotspots` → `Fanout` → `Repair cycles`。**注意默认 `--period day` 在本仓库是空的**（周期轴为空，不是作用域轴 —— warning 明写 "use `--period month` to read them"）；`--period month --all-sessions` 下两节都有内容（近失 12.8%、卡点 14 行）。
-- [ ] 两个试点技能（`peaks-rd` / `peaks-race-code`）的遵守率由**确定性检查**算出，不依赖 LLM judge —— `judgeCompliance`（`src/services/observability/compliance-judge.ts`）与两份试点 spec 都在盘上且是**确定性**的（只读磁盘上有没有 artifact），但**尚无 CLI 表面**把它报出来（`peaks observability` 下没有 compliance 子命令）。等 Batch D 的 `session-metric-rows.ts` 落地后再判。
+- [ ] 两个试点技能（`peaks-rd` / `peaks-race-code`）的遵守率由**确定性检查**算出，不依赖 LLM judge —— **机制已就位，但读者还拿不到数，故不勾**：`judgeCompliance`（`src/services/observability/compliance-judge.ts`）与两份试点 spec 都在盘上，判定是**确定性**的（只读磁盘上 artifact 在不在），Batch D 的 `session-metric-rows.ts` 也已把它们接进 session 行。**但那两行还没有生产调用方** —— `buildSessionMetricRow` / `writeSessionMetricRow` 只被测试调用，`peaks observability` 下也**没有 compliance 子命令**。所以"遵守率由确定性检查算出"这件事目前**只有代码与测试证明，没有一个读者能拿到的数**。
 - [ ] `pnpm test:unit` 全绿
 - [ ] `pnpm lint` 不让任何 ceiling 上升；`npx eslint tests/` 无新增 findings
 - [ ] 全部提交不含任何 AI 署名 trailer
