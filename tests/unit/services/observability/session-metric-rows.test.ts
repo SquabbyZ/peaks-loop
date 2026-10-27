@@ -30,24 +30,11 @@
 //   a11y:       OMITTED - no operator-facing message originates here
 
 import { execFileSync } from 'node:child_process';
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync
-} from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { PEAKS_RD_SPEC } from '~/src/services/observability/compliance-specs/peaks-rd.spec.js';
-import {
-  readObservabilityEvents,
-  type ObservabilityEvent
-} from '~/src/services/observability/observability-service.js';
 import {
   SESSION_METRIC_ROWS_RELATIVE_PATH,
   buildSessionMetricRow,
@@ -57,6 +44,15 @@ import {
   sessionMetricRowPath,
   writeSessionMetricRow
 } from '~/src/services/observability/session-metric-rows.js';
+import {
+  SESSION_ID,
+  SLICE_RID,
+  cleanupRoots,
+  makeRoot,
+  seedArtifact,
+  seedCompliantArtifacts,
+  seedTwoSliceSession
+} from './session-metric-rows-fixture.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 
 declareDimensions(
@@ -97,123 +93,11 @@ vi.mock('node:fs', async () => {
   };
 });
 
-/** The session the fixture writes under. */
-const SESSION_ID = '2026-10-27-session-metric-rows';
-
-/** The slice whose compliance is judged. */
-const SLICE_RID = '2026-10-27-observability-rows';
-
-/** The temp roots this file created, so the caller can clean them up. */
-const roots: string[] = [];
-
-/** A fresh temp project root. */
-function makeRoot(): string {
-  const root = mkdtempSync(join(tmpdir(), 'peaks-session-rows-'));
-  roots.push(root);
-  return root;
-}
-
-/** One slice-transition event, in the shape the emitter writes. */
-function transition(
-  rid: string,
-  to: string,
-  extra: Record<string, unknown> = {}
-): Record<string, unknown> {
-  return {
-    category: 'slice-transition',
-    sliceRid: rid,
-    detail: { artifactRole: 'rd', to, ...extra }
-  };
-}
-
-/** One gate decision event, in the shape the gate emitter writes. */
-function gate(rid: string, gateId: string, outcome: 'pass' | 'bypass'): Record<string, unknown> {
-  return {
-    category: 'gate',
-    sliceRid: rid,
-    detail: { phase: 'implemented', outcome, gateId, declaredType: 'feature' }
-  };
-}
-
-/**
- * Write the session's metrics file, then read the events back through the
- * repository's own reader — so the shapes under test are the shapes on disk.
- */
-function seedEvents(
-  root: string,
-  events: readonly Record<string, unknown>[]
-): readonly ObservabilityEvent[] {
-  const dir = join(root, '.peaks', '_runtime', SESSION_ID, 'metrics');
-  mkdirSync(dir, { recursive: true });
-  const lines = events.map((event, index) =>
-    JSON.stringify({
-      schemaVersion: 1,
-      ts: new Date(Date.UTC(2026, 9, 27, 0, 0, index)).toISOString(),
-      sessionId: SESSION_ID,
-      ...event
-    })
-  );
-  writeFileSync(join(dir, 'slices.jsonl'), `${lines.join('\n')}\n`, 'utf8');
-  return readObservabilityEvents(root, SESSION_ID);
-}
-
-/** Write one session-relative artifact under the session directory. */
-function seedArtifact(root: string, relativePath: string): void {
-  const path = join(root, '.peaks', '_runtime', SESSION_ID, relativePath);
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, '# artifact\n', 'utf8');
-}
-
-/**
- * The artifacts a compliant RD slice leaves behind, at the names they really
- * have on disk — including the numbered prefix the request writer stamps on
- * the per-request artifact.
- */
-function seedCompliantArtifacts(root: string): void {
-  seedArtifact(root, `rd/requests/001-${SLICE_RID}.md`);
-  seedArtifact(root, `prd/handoff-${SLICE_RID}.md`);
-  seedArtifact(root, `rd/code-review-${SLICE_RID}.md`);
-  seedArtifact(root, `rd/karpathy-review-${SLICE_RID}.md`);
-  seedArtifact(root, `audit/security-${SLICE_RID}.md`);
-  seedArtifact(root, `audit/perf-${SLICE_RID}.md`);
-}
-
-/**
- * A session whose stream holds two slices: one that passed with every live
- * gate evaluated, and one that passed after a gate was bypassed.
- */
-function seedTwoSliceSession(root: string): readonly ObservabilityEvent[] {
-  return seedEvents(root, [
-    transition('slice-clean', 'implemented', { prereqOk: true, missingCount: 0 }),
-    transition('slice-clean', 'qa-handoff', { prereqOk: true, missingCount: 0 }),
-    transition('slice-clean', 'verdict-issued', { prereqOk: true, missingCount: 0 }),
-    gate('slice-clean', 'file-size-ratchet', 'pass'),
-    transition(SLICE_RID, 'implemented', { prereqOk: true, missingCount: 0 }),
-    transition(SLICE_RID, 'qa-handoff', {
-      prereqOk: false,
-      missingCount: 1,
-      missing: [
-        {
-          path: `rd/code-review-${SLICE_RID}.md`,
-          kind: 'absent',
-          ownerSkill: 'peaks-rd',
-          description: 'free text that must not reach the tracked row'
-        }
-      ]
-    }),
-    transition(SLICE_RID, 'verdict-issued', { prereqOk: true, missingCount: 0 }),
-    gate(SLICE_RID, 'file-size-ratchet', 'bypass')
-  ]);
-}
-
 afterEach(() => {
   renameHook.armed = false;
   renameHook.failOn = null;
   renameHook.calls = [];
-  while (roots.length > 0) {
-    const root = roots.pop();
-    if (root !== undefined) rmSync(root, { recursive: true, force: true });
-  }
+  cleanupRoots();
 });
 
 describe("Scenario: behavior — the row carries the session's aggregate numbers", () => {
@@ -433,7 +317,8 @@ describe('Scenario: behavior — the published row carries no free text', () => 
       'nearMissSliceCount',
       'passedSliceCount',
       'schemaVersion',
-      'sessionId'
+      'sessionId',
+      'typesWithoutVerdictPrerequisite'
     ]);
   });
 });

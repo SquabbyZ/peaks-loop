@@ -110,6 +110,41 @@ describe('Scenario: behavior — the same artifact counts once per occurrence', 
     expect(rows[0]?.ownerSkill).toBeNull();
   });
 
+  it('when the artifact has no owner because it is an ownerless shape, should carry the reason', () => {
+    // given: an event missing the unreadable-capsule shape, which no skill
+    //        produces
+    // when: the ranking is computed over that session
+    // then: the row says WHY it has no owner — "no owner" reaches the reader
+    //        as a stated fact, not as a gap
+    const events = seedSession(SESSION_A, [
+      forwardMissing('slice-a', [
+        { path: 'gateEvidence(frontmatter-malformed)', kind: 'absent', ownerSkill: null }
+      ])
+    ]);
+
+    const rows = aggregateHotspots(events);
+
+    expect(rows.length).toBe(1);
+    expect(rows[0]?.ownerSkill).toBeNull();
+    expect(rows[0]?.ownerReason).toContain('capsule');
+  });
+
+  it('when the artifact has an owner, should carry no reason for having none', () => {
+    // given: an event missing an artifact an owning skill produces
+    // when: the ranking is computed over that session
+    // then: the row carries no ownerless reason — the reason belongs to a row
+    //        that has no owner
+    const events = seedSession(SESSION_A, [
+      forwardMissing('slice-a', [
+        { path: 'rd/code-review-slice-a.md', kind: 'absent', ownerSkill: 'peaks-rd' }
+      ])
+    ]);
+
+    const rows = aggregateHotspots(events);
+
+    expect(rows[0]?.ownerReason).toBeNull();
+  });
+
   it('when the artifact is missing in two modes, should keep the modes apart', () => {
     // given: one event missing the same artifact in two modes
     // when: the ranking is computed over that session

@@ -31,7 +31,7 @@
 import { allPrerequisitePaths } from '../artifacts/prerequisite-path-census.js';
 import type { RequestType } from '../artifacts/artifact-prerequisites.js';
 import type { RequestTypeSource } from '../artifacts/request-artifact-metadata.js';
-import { ownerSkillForPath } from './owner-skill-map.js';
+import { ownerSkillForPath, unownedPathReason } from './owner-skill-map.js';
 import type { AttributionConfidence } from './retro-attribution.js';
 import type { ObservabilityEvent } from './observability-service.js';
 
@@ -50,6 +50,14 @@ export type HotspotEvidence = {
 export type HotspotRow = {
   /** The skill that owns the artifact, or null when no row claims it. */
   readonly ownerSkill: string | null;
+  /**
+   * Why the artifact has no owning skill, or null when it has one.
+   *
+   * The owner map states WHY each ownerless shape has no owner, and the row
+   * carries that reason: a reader is told "no skill produces this" rather
+   * than left to guess, and the reason no longer lives only in the tests.
+   */
+  readonly ownerReason: string | null;
   /** The artifact path, with the `<rid>` placeholder left in place. */
   readonly artifact: string;
   /**
@@ -167,6 +175,7 @@ export function ownerOf(artifact: string): string | null {
 /** The row under construction. */
 export type RowBuilder = {
   ownerSkill: string | null;
+  ownerReason: string | null;
   artifact: string;
   kind: 'absent' | 'body';
   confidence: HotspotConfidence;
@@ -271,6 +280,7 @@ export function count(into: Map<string, RowBuilder>, occurrence: Occurrence): vo
   }
   const row: RowBuilder = {
     ownerSkill: occurrence.ownerSkill,
+    ownerReason: occurrence.ownerSkill === null ? unownedPathReason(occurrence.artifact) : null,
     artifact: occurrence.artifact,
     kind: occurrence.kind,
     confidence: occurrence.confidence,

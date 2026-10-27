@@ -77,4 +77,11 @@ function table(
     );
   }
   lines.push('');
+  // A row with no owner says WHY below the table: "no skill owns this" is a
+  // stated fact with a reason, not a gap the reader has to guess at.
+  for (const row of rows) {
+    if (row.ownerReason === null) continue;
+    lines.push(`_\`${row.artifact}\` has no owning skill: ${row.ownerReason}_`);
+    lines.push('');
+  }
 }

@@ -6,13 +6,16 @@
  * entries. The CLI subcommand `peaks observability report` wires
  * the file read + aggregation + format pipeline.
  *
- *   - Header: scope, period, generated-at timestamp
+ *   - Header: scope, period, generated-at timestamp, and any warning the
+ *     scope or the period raised — the warning travels IN the body, because
+ *     the body is what gets pasted and the stderr line is what gets lost
  *   - Near-miss section: rate | denominator | coverage | flagged slices
- *   - Slice table: rid | transitions | finalState | durationMs | success
+ *   - Slice table: rid | transitions | final state | duration | outcome
  *   - Hotspots table: artifact | owner | mode | confidence | count
  *   - Fanout table: role | count
  *   - Repair-cycle table: sliceRid | cycleCount
- *   - Top-N slowest slices: same as slice table, sorted by durationMs desc
+ *   - Top-N slowest slices: rid | duration | transitions | final state,
+ *     sorted by duration desc
  */
 
 import {
@@ -39,6 +42,16 @@ export type ReportInput = {
   slices: SliceRollup[];
   fanout: FanoutBreakdown;
   repairCycles: RepairCycleReport;
+  /**
+   * The warnings the scope or the period raised, rendered in the header.
+   *
+   * They are the reader's answer to "why is this table empty?" — a report
+   * scoped to one session, or narrowed to a period that holds no events,
+   * would otherwise show an empty table with no explanation. Printed to
+   * stderr they are lost the moment the report is pasted somewhere else, so
+   * the body carries them.
+   */
+  warnings?: readonly string[];
   /**
    * The near-miss measurement, rendered when it is supplied.
    *
@@ -94,6 +107,11 @@ function markdownHeader(input: ReportInput): string {
   lines.push(`- **period**: ${input.period}`);
   lines.push(`- **generated at**: ${input.generatedAt}`);
   lines.push(`- **scope marker**: from v2.11.1 install date (no backfill per PRD Q5)`);
+  const warnings = input.warnings ?? [];
+  if (warnings.length > 0) {
+    lines.push('');
+    for (const warning of warnings) lines.push(`> **warning**: ${warning}`);
+  }
   lines.push('');
   return lines.join('\n');
 }

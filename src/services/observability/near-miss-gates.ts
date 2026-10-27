@@ -27,7 +27,13 @@
  */
 
 import { isRequestType, type RequestType } from '../artifacts/artifact-prerequisites.js';
-import { liveGateIds, RD_GATE_IDS, type RdGateId } from '../artifacts/rd-gate-event.js';
+import {
+  isRdGateOutcome,
+  liveGateIds,
+  RD_GATE_IDS,
+  type RdGateId
+} from '../artifacts/rd-gate-event.js';
+import type { RdGatePhase } from '../artifacts/rd-transition-gates.js';
 import { isToolingOnlyDeclaredType } from '../scan/type-corroboration.js';
 import type { ObservabilityEvent } from './observability-service.js';
 
@@ -63,10 +69,16 @@ export function gateIdOf(event: ObservabilityEvent): RdGateId | null {
   return KNOWN_GATE_IDS.find((known) => known === gateId) ?? null;
 }
 
-/** The phase a gate event was recorded at, or null when it carries none. */
-export function phaseOf(
-  event: ObservabilityEvent
-): 'implemented' | 'qa-handoff' | 'handed-off' | null {
+/**
+ * The phase a gate event was recorded at, or null when it carries none.
+ *
+ * TYPED BY THE GATE LAYER'S OWN UNION, not by a second copy of it: the copy
+ * would be a list that rots, and it rots silently — a phase added upstream
+ * would not be in the copy, so a gate that PASSED at that phase would be read
+ * as carrying no usable phase, and the slice would be reported as
+ * undetermined instead of evaluated.
+ */
+export function phaseOf(event: ObservabilityEvent): RdGatePhase | null {
   const detail = event.detail as { phase?: unknown };
   const phase = detail.phase;
   if (phase === 'implemented' || phase === 'qa-handoff' || phase === 'handed-off') return phase;
@@ -96,7 +108,7 @@ export function outcomeOf(event: ObservabilityEvent): string {
  * written before the declared type was carried.
  */
 export function toolingOnlyAtPhase(
-  phase: 'implemented' | 'qa-handoff' | 'handed-off',
+  phase: RdGatePhase,
   gateEvents: readonly ObservabilityEvent[]
 ): boolean {
   return gateEvents.some(
@@ -137,11 +149,36 @@ export type GateFacts = {
   readonly liveGates: Set<RdGateId>;
   /** The gate ids that got a `pass` or a `block` — i.e. WERE evaluated. */
   readonly evaluatedGates: Set<RdGateId>;
+  /**
+   * The gate ids whose VERDICT could not be read.
+   *
+   * An unreadable verdict is not an absent one: a gate whose event names an
+   * outcome this build does not know, or names no gate it knows, was not
+   * shown to have been skipped — it was shown to be unreadable. Those gates
+   * are excluded from the never-evaluated finding, and reported as
+   * undetermined instead.
+   */
+  readonly unreadableGates: Set<RdGateId>;
   /** The gates whose liveness the stream did not decide. */
   readonly undetermined: NearMissUndetermined[];
 };
 
-/** Fold one gate event into the gate facts. */
+/** The gate id an event names, spelled out even when this build knows none. */
+function rawGateIdOf(event: ObservabilityEvent): string {
+  const detail = event.detail as { gateId?: unknown };
+  return typeof detail.gateId === 'string' ? detail.gateId : '';
+}
+
+/**
+ * Fold one gate event into the gate facts.
+ *
+ * A VERDICT THIS BUILD CANNOT READ IS NOT A FINDING. The event schema keeps
+ * `detail` loose, so an event can carry an outcome this build does not know
+ * (`'PASS'`) or name a gate id this build does not know. Neither is a gate
+ * that was skipped: both are events whose verdict cannot be read. Reading them
+ * as "never evaluated" would report a slice that evaluated every gate as one
+ * that skipped one — a false near-miss at a rate of 100%.
+ */
 export function readGate(
   facts: GateFacts,
   event: ObservabilityEvent,
@@ -149,9 +186,10 @@ export function readGate(
   gateEvents: readonly ObservabilityEvent[]
 ): void {
   const gateId = gateIdOf(event);
-  if (gateId !== null) {
-    const outcome = outcomeOf(event);
-    if (outcome === 'pass' || outcome === 'block') facts.evaluatedGates.add(gateId);
+  const outcome = outcomeOf(event);
+  const outcomeKnown = isRdGateOutcome(outcome);
+  if (gateId !== null && outcomeKnown && (outcome === 'pass' || outcome === 'block')) {
+    facts.evaluatedGates.add(gateId);
   }
   const live = liveGatesOf(event, gateEvents);
   if (live === null) {
@@ -167,4 +205,53 @@ export function readGate(
     return;
   }
   for (const gate of live) facts.liveGates.add(gate);
+  readVerdict({ facts, event, sliceRid, gateId, outcomeKnown, live });
+}
+
+/** The verdict an event carries, and what this build could make of it. */
+type VerdictReading = {
+  readonly facts: GateFacts;
+  readonly event: ObservabilityEvent;
+  readonly sliceRid: string;
+  readonly gateId: RdGateId | null;
+  readonly outcomeKnown: boolean;
+  readonly live: readonly RdGateId[];
+};
+
+/**
+ * Read the VERDICT an event carries, when it carries one this build can read.
+ *
+ * A verdict that CAN be read is already accounted for: a `pass` or a `block`
+ * was counted as evaluated, and a `bypass` is the skip the metric reports.
+ * What is left here is the verdict this build could NOT read — an outcome
+ * outside the vocabulary, or a gate id outside it. Neither is a gate that was
+ * skipped, so the gates they could have decided are marked unreadable and the
+ * event is reported as undetermined.
+ */
+function readVerdict(reading: VerdictReading): void {
+  const { facts, event, sliceRid, gateId, outcomeKnown, live } = reading;
+  if (gateId !== null && outcomeKnown) return;
+  if (gateId === null) {
+    for (const gate of live) facts.unreadableGates.add(gate);
+    facts.undetermined.push({
+      sliceRid,
+      sessionId: event.sessionId,
+      ts: event.ts,
+      gateId: rawGateIdOf(event),
+      reason:
+        'the gate event names a gate id this build does not know, so its verdict could not be ' +
+        'attributed to a gate'
+    });
+    return;
+  }
+  facts.unreadableGates.add(gateId);
+  facts.undetermined.push({
+    sliceRid,
+    sessionId: event.sessionId,
+    ts: event.ts,
+    gateId,
+    reason:
+      'the gate event carries an outcome this build does not know, so the gate verdict could ' +
+      'not be read'
+  });
 }

@@ -69,6 +69,16 @@ describe('Scenario: behavior — a path resolves to the skill that owns the arti
     // then: the lookup reports no owner rather than a plausible one
     expect(ownerSkillForPath('nope/whatever.md')).toBeNull();
   });
+
+  it('when the path names the third-party review, should resolve the reviewer skill', () => {
+    // given: the path the third-party reviewer writes, under the rd directory
+    // when: the owning skill is looked up for it
+    // then: it names the reviewer skill, and not the skill that owns the rd
+    //       directory — the review is the reviewer's artifact, not RD's
+    expect(ownerSkillForPath('rd/third-party-review-<rid>.md')).toBe('peaks-reviewer');
+    expect(ownerSkillForPath('rd/third-party-review-<rid>.json')).toBe('peaks-reviewer');
+    expect(ownerSkillForPath('rd/code-review-<rid>.md')).toBe('peaks-rd');
+  });
 });
 
 describe('Scenario: behavior — a gate-evidence key names the skill that produces that evidence', () => {

@@ -43,7 +43,7 @@
  */
 
 import { aggregateSlices, type SliceRollup } from './aggregation.js';
-import { passMomentOf, collectAttempts } from './near-miss-attempts.js';
+import { passMomentOf, collectAttempts, VERDICT_STATE } from './near-miss-attempts.js';
 import { getPrerequisitesFor, type RequestType } from '../artifacts/artifact-prerequisites.js';
 import type { RequestTypeReading } from './hotspot-shared.js';
 import type { ObservabilityEvent } from './observability-service.js';
@@ -147,7 +147,7 @@ function countDifferences(
     if (rollup.success && !hasPassMoment) {
       successWithoutPassMoment += 1;
       const reachedVerdict = sliceEvents.some(
-        (event) => (event.detail as { to?: unknown }).to === 'verdict-issued'
+        (event) => (event.detail as { to?: unknown }).to === VERDICT_STATE
       );
       if (reachedVerdict) {
         successWithoutPassMomentButReachedVerdict += 1;

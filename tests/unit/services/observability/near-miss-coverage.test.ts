@@ -110,6 +110,29 @@ describe('Scenario: behavior — a class with no events is not measurable', () =
     }
   });
 
+  it('when a class reached only some of the passing slices, should count the ones it could not judge', () => {
+    // given: two passing slices, only one of which recorded a gate event
+    // when: the near-miss metric is computed over the session
+    // then: the class says how many slices recorded NOTHING about it, so its
+    //        rate can never be read without the slices it could not judge
+    const events = seedSession([
+      ...reachingVerdict(),
+      gate({ gateId: 'file-size-ratchet', phase: 'implemented', outcome: 'pass' }),
+      {
+        category: 'slice-transition',
+        sliceRid: 'slice-2',
+        detail: { artifactRole: 'rd', to: 'verdict-issued', prereqOk: true, missingCount: 0 }
+      }
+    ]);
+
+    const report = computeNearMiss(events);
+
+    const gateClass = report.coverage.find((item) => item.reason === 'gate-never-evaluated');
+    expect(report.passedSliceCount).toBe(2);
+    expect(gateClass?.observedSliceCount).toBe(1);
+    expect(gateClass?.unobservedSliceCount).toBe(1);
+  });
+
   it('when a class reached no passing slice, should report no rate for it', () => {
     // given: a session with gate events on a slice that never reached a verdict
     // when: the near-miss metric is computed over the session

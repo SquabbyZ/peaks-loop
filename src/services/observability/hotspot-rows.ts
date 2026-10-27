@@ -56,6 +56,7 @@ const CONFIDENCE_ORDER: Readonly<Record<HotspotConfidence, number>> = {
 function toRow(row: RowBuilder): HotspotRow {
   return {
     ownerSkill: row.ownerSkill,
+    ownerReason: row.ownerReason,
     artifact: row.artifact,
     kind: row.kind,
     confidence: row.confidence,

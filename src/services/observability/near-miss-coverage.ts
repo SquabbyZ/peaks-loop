@@ -28,6 +28,14 @@
  * the passing population it reached. A class with a hundred events on one
  * slice is observable and reaches one slice — a very different fact from a
  * class with a hundred events spread over a hundred slices.
+ *
+ * WHY THE SLICE-LEVEL UNOBSERVABILITY IS HERE TOO. `observable` is a SCOPE
+ * fact: the class had events somewhere. The rate, though, is computed over the
+ * slices the class reached — and the slices it did NOT reach are exactly the
+ * ones a skipped check would hide in, because a slice that recorded nothing
+ * about the class cannot be judged on it at all. So each class carries the
+ * count of passing slices that produced nothing of its kind: a reader who sees
+ * a rate of 100% over one slice must also see how many slices said nothing.
  */
 
 import type { NearMissReason, SliceFacts } from './near-miss-facts.js';
@@ -46,6 +54,15 @@ export type NearMissClassCoverage = {
   readonly scopeEventCount: number;
   /** How many of the passing slices the class reached. */
   readonly observedSliceCount: number;
+  /**
+   * How many of the passing slices produced NO event of this class's kind.
+   *
+   * These slices could not be judged on the class at all: a slice that
+   * recorded nothing about it cannot be found to have skipped it either. The
+   * count travels with the rate so the rate can never be read without the
+   * slices it could not speak for.
+   */
+  readonly unobservedSliceCount: number;
   /** How many slices this class flagged. */
   readonly nearMissSliceCount: number;
   /**
@@ -66,7 +83,8 @@ export const NEAR_MISS_REASONS: readonly NearMissReason[] = [
 type ClassEvidence = {
   readonly reason: NearMissReason;
   readonly scopeEventCount: number;
-  readonly reached: (facts: SliceFacts) => boolean;
+  /** How many events of this class's kind one slice produced. */
+  readonly produced: (facts: SliceFacts) => number;
 };
 
 /** The evidence each class is read from. */
@@ -82,17 +100,17 @@ function evidenceOf(events: readonly { category: string }[]): readonly ClassEvid
     {
       reason: 'gate-never-evaluated',
       scopeEventCount: gateEvents,
-      reached: (facts) => facts.observed.gateEvents > 0
+      produced: (facts) => facts.observed.gateEvents
     },
     {
       reason: 'prereq-skipped',
       scopeEventCount: prereqAttempts,
-      reached: (facts) => facts.observed.prereqAttempts > 0
+      produced: (facts) => facts.observed.prereqAttempts
     },
     {
       reason: 'tool-blocked',
       scopeEventCount: toolTraces,
-      reached: (facts) => facts.observed.toolTraces > 0
+      produced: (facts) => facts.observed.toolTraces
     }
   ];
 }
@@ -117,7 +135,9 @@ export type CoverageInput = {
 export function computeCoverage(input: CoverageInput): readonly NearMissClassCoverage[] {
   const evidence = evidenceOf(input.events);
   return evidence.map((item) => {
-    const observedSliceCount = input.passingFacts.filter((facts) => item.reached(facts)).length;
+    const produced = input.passingFacts.map((facts) => item.produced(facts));
+    const observedSliceCount = produced.filter((count) => count > 0).length;
+    const unobservedSliceCount = produced.filter((count) => count === 0).length;
     const nearMissSliceCount = [...input.reasonsBySlice.values()].filter((reasons) =>
       reasons.includes(item.reason)
     ).length;
@@ -127,6 +147,7 @@ export function computeCoverage(input: CoverageInput): readonly NearMissClassCov
       observable,
       scopeEventCount: item.scopeEventCount,
       observedSliceCount,
+      unobservedSliceCount,
       nearMissSliceCount,
       rate: observedSliceCount === 0 ? null : nearMissSliceCount / observedSliceCount
     };

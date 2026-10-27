@@ -41,7 +41,9 @@ import { isSinglePathSegment } from '../session/getSessionDir.js';
 import { judgeCompliance } from './compliance-judge.js';
 import type { ComplianceSpec } from './compliance-spec.js';
 import { aggregateHotspots } from './hotspots.js';
+import type { HotspotRequestTypes, RequestTypeReading } from './hotspot-shared.js';
 import { computeNearMiss } from './near-miss.js';
+import type { RequestType } from '../artifacts/artifact-prerequisites.js';
 import type { ObservabilityEvent } from './observability-service.js';
 
 /** Where a session's tracked row lives, relative to the project root. */
@@ -72,6 +74,17 @@ export type SessionMetricRow = {
   readonly passedSliceCount: number;
   readonly nearMissSliceCount: number;
   readonly hotspotCount: number;
+  /**
+   * The request types whose passes were never GATED.
+   *
+   * The cause of the gap between the two "passed" definitions: a type whose
+   * prerequisite table has no `qa:verdict-issued` row has no check to verify
+   * that transition against, so the check emits nothing and the pass is never
+   * gated — not gated-and-unrecorded. The row carries the cause, because the
+   * row is what outlives the session: a reader holding only the tracked file
+   * could otherwise hunt for an emitter bug that does not exist.
+   */
+  readonly typesWithoutVerdictPrerequisite: readonly RequestType[];
   readonly compliance: readonly SessionComplianceReading[];
   readonly skillsBlobSha?: string;
 };
@@ -120,15 +133,31 @@ export async function judgeSessionCompliance(opts: {
  * The row carries the metrics a later run compares: the near-miss rate with
  * the two counts behind it, the size of the hotspot ranking, and the
  * compliance readings the caller judged. It carries no event and no prose.
+ *
+ * WHY THE REQUEST TYPES ARE AN INPUT AND NOT LOOKED UP HERE. The types live
+ * in the request artifacts, and the repository has ONE reader for them — the
+ * CLI's `hotspotRequestTypes`. A second lookup inside this module would be a
+ * second copy of a reader that drifts, and a drifted copy attributes
+ * historical failures against the wrong prerequisite list. So the caller
+ * supplies the map, and this module passes it to both the near-miss metric
+ * and the hotspot aggregation.
+ *
+ * WITHOUT THEM THE ROW MISREPORTS TWICE. The near-miss denominator would
+ * name "the prereq verdict was never recorded" instead of the cause — the
+ * types whose passes were never gated at all — and the hotspot ranking would
+ * hold no retro-attributed row, so the count would read as "no hotspot" on a
+ * history that has some.
  */
 export function buildSessionMetricRow(opts: {
   readonly sessionId: string;
   readonly events: readonly ObservabilityEvent[];
+  readonly requestTypes?: HotspotRequestTypes;
   readonly skillsBlobSha?: string;
   readonly compliance?: readonly SessionComplianceReading[];
 }): SessionMetricRow {
-  const nearMiss = computeNearMiss(opts.events);
-  const hotspots = aggregateHotspots(opts.events);
+  const requestTypes = opts.requestTypes ?? new Map<string, RequestTypeReading>();
+  const nearMiss = computeNearMiss(opts.events, requestTypes);
+  const hotspots = aggregateHotspots(opts.events, requestTypes);
   return {
     schemaVersion: SESSION_METRIC_ROW_SCHEMA_VERSION,
     sessionId: opts.sessionId,
@@ -137,6 +166,8 @@ export function buildSessionMetricRow(opts: {
     passedSliceCount: nearMiss.passedSliceCount,
     nearMissSliceCount: nearMiss.nearMissSliceCount,
     hotspotCount: hotspots.length,
+    typesWithoutVerdictPrerequisite:
+      nearMiss.denominator.difference?.typesWithoutVerdictPrerequisite ?? [],
     compliance: opts.compliance ?? [],
     ...(opts.skillsBlobSha === undefined ? {} : { skillsBlobSha: opts.skillsBlobSha })
   };

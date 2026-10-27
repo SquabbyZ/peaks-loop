@@ -140,6 +140,40 @@ export function typelessGate(gateId: string, phase: GateEvent['phase']): Record<
 }
 
 /**
+ * A gate decision event carrying an outcome this build does not know.
+ *
+ * The event schema keeps `detail` loose, so an event CAN carry an outcome
+ * outside the vocabulary — `'PASS'` where the vocabulary says `'pass'`. A
+ * verdict this build cannot read is not an absent verdict, and the metric
+ * must not report the slice as one that skipped a gate.
+ */
+export function unknownOutcomeGate(
+  gateId: string,
+  phase: GateEvent['phase']
+): Record<string, unknown> {
+  return {
+    category: 'gate',
+    sliceRid: 'slice-1',
+    detail: { phase, outcome: 'PASS', gateId, declaredType: 'feature' }
+  };
+}
+
+/**
+ * A gate decision event naming a gate id this build does not know.
+ *
+ * A gate added upstream would arrive under an id this build's vocabulary does
+ * not carry. Its verdict cannot be attributed to a gate, so it must not be
+ * read as a gate that was skipped.
+ */
+export function unknownGateIdGate(phase: GateEvent['phase']): Record<string, unknown> {
+  return {
+    category: 'gate',
+    sliceRid: 'slice-1',
+    detail: { phase, outcome: 'pass', gateId: 'gate-added-upstream', declaredType: 'feature' }
+  };
+}
+
+/**
  * The slice's whole transition history, ending in a SUCCESSFUL verdict.
  *
  * The verdict attempt carries `prereqOk: true` because that attempt is what

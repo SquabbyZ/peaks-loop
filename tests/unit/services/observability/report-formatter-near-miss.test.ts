@@ -158,9 +158,20 @@ describe('Scenario: render — the near-miss section carries the rate and its co
     // then:  the coverage table says the class was not observable, and its
     //         rate cell does not read as a zero
     const markdown = renderWithNearMiss(nearMissEvents());
-    expect(markdown).toContain('| gate-never-evaluated | no | 0 | 0 | 0 | not measured |');
-    expect(markdown).toContain('| tool-blocked | no | 0 | 0 | 0 | not measured |');
-    expect(markdown).toContain('| prereq-skipped | yes | 4 | 2 | 1 | 50% |');
+    expect(markdown).toContain('| gate-never-evaluated | no | 0 | 0 | 2 | 0 | not measured |');
+    expect(markdown).toContain('| tool-blocked | no | 0 | 0 | 2 | 0 | not measured |');
+    expect(markdown).toContain('| prereq-skipped | yes | 4 | 2 | 0 | 1 | 50% |');
+  });
+
+  it('when a class reached none of the slices, should say how many it could not judge', () => {
+    // given: a scope whose slices recorded nothing about the gate class
+    // when:  the report is rendered
+    // then:  the table says how many slices recorded nothing about the class,
+    //         so the rate can never be read without them
+    const markdown = renderWithNearMiss(nearMissEvents());
+    expect(markdown).toContain('| reason class | observable | events | slices observed |');
+    expect(markdown).toContain('slices with no events');
+    expect(markdown).toContain('| gate-never-evaluated | no | 0 | 0 | 2 |');
   });
 
   it('when the near-miss report is supplied, should name the classes it did not observe', () => {

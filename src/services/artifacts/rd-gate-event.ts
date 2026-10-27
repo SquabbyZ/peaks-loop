@@ -47,6 +47,27 @@ export const RD_GATE_IDS: readonly RdGateId[] = [
 /** What the gate decided about the transition. */
 export type RdGateOutcome = 'pass' | 'block' | 'bypass';
 
+/**
+ * Every gate outcome, as a list.
+ *
+ * A consumer that has to RECOGNISE an outcome cannot re-type the union: a
+ * second copy of the vocabulary is a list that rots, and it rots SILENTLY —
+ * an outcome added upstream would not be in the copy, so the reader would
+ * treat a `pass` as "not a pass" and report a slice that evaluated every gate
+ * as one that skipped one.
+ */
+export const RD_GATE_OUTCOMES: readonly RdGateOutcome[] = ['pass', 'block', 'bypass'];
+
+/**
+ * Whether a value is one of the gate outcomes this build knows.
+ *
+ * An outcome this build does not know is UNREADABLE, not "not evaluated" —
+ * the two are different facts, and only the second one is a finding.
+ */
+export function isRdGateOutcome(value: unknown): value is RdGateOutcome {
+  return typeof value === 'string' && (RD_GATE_OUTCOMES as readonly string[]).includes(value);
+}
+
 /** The prose each gate id carries in the bypass note. */
 const GATE_LABELS: Record<RdGateId, string> = {
   'file-size-ratchet': 'file-size ratchet',

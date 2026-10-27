@@ -132,6 +132,14 @@ export type SliceFacts = {
   readonly liveGates: ReadonlySet<RdGateId>;
   /** The gate ids that got a `pass` or a `block` — i.e. WERE evaluated. */
   readonly evaluatedGates: ReadonlySet<RdGateId>;
+  /**
+   * The gate ids whose VERDICT could not be read.
+   *
+   * A verdict this build cannot read is not an absent one: the event named an
+   * outcome or a gate id this build does not know. Those gates are not
+   * reported as never evaluated — they are reported as undetermined.
+   */
+  readonly unreadableGates: ReadonlySet<RdGateId>;
   /** Whether a tool trace blocked on this slice. */
   readonly toolBlocked: boolean;
   /** The gates whose liveness the stream did not decide. */
@@ -184,6 +192,7 @@ export function sliceFacts(sliceRid: string, events: readonly ObservabilityEvent
   const gates: GateFacts = {
     liveGates: new Set<RdGateId>(),
     evaluatedGates: new Set<RdGateId>(),
+    unreadableGates: new Set<RdGateId>(),
     undetermined: []
   };
   const acc: Accumulator = { gates, toolBlocked: false, toolTraces: 0 };
@@ -202,6 +211,7 @@ export function sliceFacts(sliceRid: string, events: readonly ObservabilityEvent
         : { index: moment.index, ts: moment.ts, unsatisfiedKeys: unsatisfied, failures },
     liveGates: gates.liveGates,
     evaluatedGates: gates.evaluatedGates,
+    unreadableGates: gates.unreadableGates,
     toolBlocked: acc.toolBlocked,
     undetermined: gates.undetermined,
     observed: {

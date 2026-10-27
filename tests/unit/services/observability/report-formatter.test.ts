@@ -99,6 +99,37 @@ function rowFor(markdown: string, sliceRid: string): string {
   return row;
 }
 
+describe('Scenario: a11y — the warning travels with the body', () => {
+  it('when the caller supplies a warning, should carry it in the header', () => {
+    // given: a report whose scope raised a warning
+    // when:  the report is rendered
+    // then:  the warning is IN the body — a pasted report must not show an
+    //         empty table with no explanation
+    const period: Period = 'month';
+    const markdown = renderObservabilityReport({
+      scope: 'session',
+      scopeId: SESSION_ID,
+      period,
+      generatedAt: '2026-10-27T00:00:00.000Z',
+      status: aggregateStatus(EVENTS),
+      slices: aggregateSlices(EVENTS),
+      fanout: aggregateFanout(EVENTS),
+      repairCycles: aggregateRepairCycles(EVENTS),
+      warnings: ['the scope holds 3 event(s) in other sessions — use --all-sessions']
+    });
+
+    expect(markdown).toContain('> **warning**:');
+    expect(markdown).toContain('--all-sessions');
+  });
+
+  it('when no warning was raised, should carry no warning line', () => {
+    // given: a report whose scope raised no warning
+    // when:  the report is rendered
+    // then:  the body carries no warning line
+    expect(render()).not.toContain('> **warning**:');
+  });
+});
+
 describe('Scenario: behavior — each outcome is drawn as itself', () => {
   it('when a slice reached a terminal success state, should draw it as succeeded', () => {
     // given: a slice that reached a terminal success state
@@ -164,6 +195,7 @@ describe('Scenario: render — the hotspot count column names what it counts', (
   function hotspot(over: Partial<HotspotRow> = {}): HotspotRow {
     return {
       ownerSkill: 'peaks-qa',
+      ownerReason: null,
       artifact: 'qa/test-cases/<rid>.md',
       kind: 'body',
       confidence: 'ambiguous',

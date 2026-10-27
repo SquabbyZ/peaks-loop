@@ -44,7 +44,6 @@ import type { ObservabilityEvent } from '../../services/observability/observabil
 // `runReport` — the one function here carrying a finding — stayed behind, so no
 // finding moved into the new module.
 import {
-  printWarnings,
   readScopedEvents,
   resolveProjectRoot,
   runFanout,
@@ -121,6 +120,10 @@ function runReport(io: ProgramIO, options: ObservabilityQueryOptions & { period?
     // resolved through the hotspots command's own lookup, so the ranking in
     // the report and the ranking the `hotspots` command prints cannot drift.
     const { requestTypes } = hotspotRequestTypes(projectRoot, events);
+    const warnings = [
+      ...scopeWarnings(projectRoot, sessionId, allEvents.length),
+      ...periodWarnings(allEvents, period, now)
+    ];
     const markdown = renderObservabilityReport({
       scope: sessionId !== undefined ? 'session' : 'all-sessions',
       scopeId: sessionId ?? 'all',
@@ -131,12 +134,9 @@ function runReport(io: ProgramIO, options: ObservabilityQueryOptions & { period?
       fanout: aggregateFanout(events),
       repairCycles: aggregateRepairCycles(events),
       nearMiss: computeNearMiss(events, requestTypes),
-      hotspots: aggregateHotspots(events, requestTypes)
+      hotspots: aggregateHotspots(events, requestTypes),
+      warnings
     });
-    const warnings = [
-      ...scopeWarnings(projectRoot, sessionId, allEvents.length),
-      ...periodWarnings(allEvents, period, now)
-    ];
     if (options.json === true) {
       // --json on report: emit a metadata envelope so callers can
       // machine-parse the markdown body without losing the envelope
@@ -159,8 +159,8 @@ function runReport(io: ProgramIO, options: ObservabilityQueryOptions & { period?
       );
       return;
     }
+    // The warnings are IN the markdown header: the body is what gets pasted.
     io.stdout(markdown);
-    printWarnings(io, warnings);
   } catch (error) {
     printResult(
       io,
@@ -188,7 +188,7 @@ export function registerObservabilityCommands(program: Command, io: ProgramIO): 
     observability
       .command('status')
       .description(
-        'Aggregate metrics for the active session (or all sessions with --project + omitted --session). Includes totalEvents / totalSlices / successCount / failCount / repairCyclePeak / fanoutCostTotal.'
+        'Aggregate metrics for the active session (or all sessions with --project + omitted --session). Includes totalEvents / totalSlices / successCount / failCount / stalledCount / repairCyclePeak / fanoutCostTotal.'
       )
       .option('--project <path>', 'target project root (defaults to git root or cwd)')
       .option(

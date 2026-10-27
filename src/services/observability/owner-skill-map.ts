@@ -90,6 +90,12 @@ export const OWNER_SKILL_ENTRIES: readonly OwnerSkillEntry[] = [
   { prefix: 'prd/', skill: 'peaks-prd' },
   { prefix: 'ui/', skill: 'peaks-ui' },
   { prefix: 'rd/', skill: 'peaks-rd' },
+  // The third-party review is the REVIEWER's artifact, not RD's: the prereq
+  // that demands it names the skill that writes it ("v2.14.0 G4 third-party
+  // reviewer (peaks-reviewer skill)"). The `rd/` row above is a DIRECTORY
+  // claim, so without this row it over-claimed this file and named the wrong
+  // skill to fix.
+  { prefix: 'rd/third-party-review-', skill: 'peaks-reviewer' },
   { prefix: 'qa/', skill: 'peaks-qa' },
   { prefix: 'sc/', skill: 'peaks-sc' },
   { prefix: 'mut/', skill: 'peaks-mut' }
@@ -115,8 +121,6 @@ const ENTRIES_BY_SPECIFICITY: readonly OwnerSkillEntry[] = [...OWNER_SKILL_ENTRI
 export type UnownedPathEntry = {
   /** The path prefix that identifies the shape. */
   readonly prefix: string;
-  /** The shape, spelled for a human reader. */
-  readonly shape: string;
   /** Why no skill owns a path of this shape. */
   readonly reason: string;
 };
@@ -132,7 +136,6 @@ export type UnownedPathEntry = {
 export const UNOWNED_PATH_ENTRIES: readonly UnownedPathEntry[] = [
   {
     prefix: 'gateEvidence(',
-    shape: 'gateEvidence(<status>)',
     reason:
       'a handoff capsule whose gateEvidence declaration cannot be read is not an artifact ' +
       'any skill produces — the defect belongs to whoever wrote the capsule, so there is ' +

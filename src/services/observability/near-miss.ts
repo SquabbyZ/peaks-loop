@@ -34,10 +34,17 @@
  * ever produced is what catches it.
  *
  * A `bypass` event is the PRIMARY evidence of a near-miss but the rule does
- * not DEPEND on it: a live gate with NO event at all is a near-miss too,
+ * not DEPEND on it: a live gate with NO verdict of its own is a near-miss too,
  * because a gate that was skipped and recorded nothing must not vanish from
  * the metric. The converse is what keeps the number honest: a live gate that
  * got a `pass` OR a `block` WAS evaluated, and neither is a near-miss.
+ *
+ * WHAT THE RULE CANNOT SEE. The live set is the union over the slice's gate
+ * EVENTS, so a gate is only ever found unevaluated when a sibling gate event
+ * establishes that it was live. A phase at which NO gate event was emitted
+ * contributes nothing — the gates live there are not in the live set at all —
+ * so that shape is NOT observable for this class, and the coverage output
+ * carries the count of slices that produced no gate event.
  *
  * WHY THE DECLARED TYPE IS READ FROM THE EVENT AND NOT FROM THE ARTIFACT.
  * `peaks request retag` rewrites the `- type:` line with no state guard, so
@@ -213,7 +220,9 @@ function reasonsFor(fact: SliceFacts): {
   readonly reasons: NearMissReason[];
   readonly neverEvaluated: readonly RdGateId[];
 } {
-  const neverEvaluated = [...fact.liveGates].filter((gateId) => !fact.evaluatedGates.has(gateId));
+  const neverEvaluated = [...fact.liveGates].filter(
+    (gateId) => !fact.evaluatedGates.has(gateId) && !fact.unreadableGates.has(gateId)
+  );
   const reasons: NearMissReason[] = [];
   if (neverEvaluated.length > 0) reasons.push('gate-never-evaluated');
   if ((fact.passMoment?.unsatisfiedKeys.length ?? 0) > 0) reasons.push('prereq-skipped');

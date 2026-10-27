@@ -30,7 +30,9 @@
  * has to travel with its number. The table says, per class: whether the class
  * was observable at all, how many events it had, how many slices it reached,
  * how many it flagged, and the rate it supports — or `not measured`, which is
- * what a class with no events gets instead of a zero.
+ * what a class with no events gets instead of a zero. It also says how many
+ * slices said NOTHING about the class: those slices could not be judged on it,
+ * and they are the ones a skipped check would hide in.
  *
  * WHY THE FLAGGED SLICES ARE LISTED. The count has to have a referent: a
  * reader who is told that one slice passed with a check unsatisfied has to
@@ -126,15 +128,19 @@ function coverageTable(coverage: readonly NearMissClassCoverage[]): string {
   lines.push(
     "Each class's rate is over the slices that class REACHED — a class that saw five slices " +
       'out of a hundred reports one in five, not one in a hundred. A class with no events was ' +
-      'NOT observed, so it has no rate.'
+      'NOT observed, so it has no rate. The slices that recorded NOTHING about the class could ' +
+      'not be judged on it at all, so their count is stated beside the rate.'
   );
   lines.push('');
-  lines.push('| reason class | observable | events | slices observed | slices flagged | rate |');
-  lines.push('|---|---|---|---|---|---|');
+  lines.push(
+    '| reason class | observable | events | slices observed | slices with no events | ' +
+      'slices flagged | rate |'
+  );
+  lines.push('|---|---|---|---|---|---|---|');
   for (const item of coverage) {
     lines.push(
       `| ${item.reason} | ${item.observable ? 'yes' : 'no'} | ${item.scopeEventCount} | ` +
-        `${item.observedSliceCount} | ${item.nearMissSliceCount} | ` +
+        `${item.observedSliceCount} | ${item.unobservedSliceCount} | ${item.nearMissSliceCount} | ` +
         `${item.rate === null ? 'not measured' : formatPercent(item.rate)} |`
     );
   }
