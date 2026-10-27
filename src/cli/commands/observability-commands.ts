@@ -33,6 +33,8 @@ import {
   type Period
 } from '../../services/observability/aggregation.js';
 import { renderObservabilityReport } from '../../services/observability/report-formatter.js';
+import { computeNearMiss } from '../../services/observability/near-miss.js';
+import { aggregateHotspots } from '../../services/observability/hotspots.js';
 import type { ObservabilityEvent } from '../../services/observability/observability-service.js';
 
 // Slice `b1-filesplit-campaign` (wave 3B): the four read-only query runners
@@ -55,7 +57,7 @@ import {
 } from './observability-commands-queries.js';
 import { runBaseline } from './observability-commands-baseline.js';
 import { registerNearMissCommand } from './observability-commands-near-miss.js';
-import { registerHotspotsCommand } from './observability-commands-hotspots.js';
+import { hotspotRequestTypes, registerHotspotsCommand } from './observability-commands-hotspots.js';
 
 const VALID_PERIODS: ReadonlyArray<Period> = ['day', 'week', 'month'];
 
@@ -115,6 +117,10 @@ function runReport(io: ProgramIO, options: ObservabilityQueryOptions & { period?
     const now = (): Date => new Date(at);
     const periodStart = periodStartIso(period, now);
     const events = filterByPeriod(allEvents, period, now);
+    // The two measurements the report leads with. The request types are
+    // resolved through the hotspots command's own lookup, so the ranking in
+    // the report and the ranking the `hotspots` command prints cannot drift.
+    const { requestTypes } = hotspotRequestTypes(projectRoot, events);
     const markdown = renderObservabilityReport({
       scope: sessionId !== undefined ? 'session' : 'all-sessions',
       scopeId: sessionId ?? 'all',
@@ -123,7 +129,9 @@ function runReport(io: ProgramIO, options: ObservabilityQueryOptions & { period?
       status: aggregateStatus(events),
       slices: aggregateSlices(events),
       fanout: aggregateFanout(events),
-      repairCycles: aggregateRepairCycles(events)
+      repairCycles: aggregateRepairCycles(events),
+      nearMiss: computeNearMiss(events),
+      hotspots: aggregateHotspots(events, requestTypes)
     });
     const warnings = [
       ...scopeWarnings(projectRoot, sessionId, allEvents.length),
@@ -260,7 +268,7 @@ export function registerObservabilityCommands(program: Command, io: ProgramIO): 
     observability
       .command('report')
       .description(
-        'Render a markdown summary suitable for paste into PR descriptions or .peaks/PROJECT.md timeline entries. Default period = day; --json emits an envelope wrapping the markdown body. Output sections: header + status summary + slice table + fanout table + repair-cycle table + top-N slowest slices.'
+        'Render a markdown summary suitable for paste into PR descriptions or .peaks/PROJECT.md timeline entries. Default period = day; --json emits an envelope wrapping the markdown body. Output sections: header + status summary + near-miss section (rate, denominator, per-class coverage, unobserved classes) + slice table + hotspot tables + fanout table + repair-cycle table + top-N slowest slices.'
       )
       .option('--project <path>', 'target project root (defaults to git root or cwd)')
       .option(

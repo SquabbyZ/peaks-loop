@@ -7,6 +7,7 @@
  * the file read + aggregation + format pipeline.
  *
  *   - Header: scope, period, generated-at timestamp
+ *   - Near-miss section: rate | denominator | coverage | flagged slices
  *   - Slice table: rid | transitions | finalState | durationMs | success
  *   - Hotspots table: artifact | owner | mode | confidence | count
  *   - Fanout table: role | count
@@ -25,7 +26,9 @@ import {
   type StatusAggregate
 } from './aggregation.js';
 import type { HotspotRow } from './hotspot-shared.js';
+import type { NearMissReport } from './near-miss.js';
 import { markdownHotspotTables } from './report-formatter-hotspots.js';
+import { markdownNearMissSection } from './report-formatter-near-miss.js';
 
 export type ReportInput = {
   scope: 'session' | 'all-sessions';
@@ -36,6 +39,21 @@ export type ReportInput = {
   slices: SliceRollup[];
   fanout: FanoutBreakdown;
   repairCycles: RepairCycleReport;
+  /**
+   * The near-miss measurement, rendered when it is supplied.
+   *
+   * It is OPTIONAL, and absent means the section is not rendered at all — a
+   * caller that does not compute the measurement gets exactly the report it
+   * got before the section existed.
+   *
+   * THE SECTION NEVER PRINTS A BARE RATE. A rate over a reason class the
+   * scope had no events for is an absence of data, not a result, so the
+   * section carries the per-class coverage beside the number: which classes
+   * were observable, which were not, and that the unobserved ones are not
+   * measured. The section lives in `report-formatter-near-miss.ts` — this
+   * file was near its cap — and the reasoning is explained there.
+   */
+  nearMiss?: NearMissReport;
   /**
    * The hotspot ranking, rendered when it is supplied.
    *
@@ -231,11 +249,13 @@ function markdownSlowestSlices(slices: SliceRollup[]): string {
  * layer reads events, calls aggregations, and passes the result here.
  */
 export function renderObservabilityReport(input: ReportInput): string {
-  const sections: string[] = [
-    markdownHeader(input),
-    markdownStatusSummary(input.status),
-    markdownSliceTable(input.slices)
-  ];
+  const sections: string[] = [markdownHeader(input), markdownStatusSummary(input.status)];
+  // The near-miss section is rendered ONLY when the measurement is supplied,
+  // so a caller that does not compute it gets exactly the report it got
+  // before. It sits between the summary and the slice table: the summary
+  // says what the slices did, the near-misses say what was skipped.
+  if (input.nearMiss !== undefined) sections.push(markdownNearMissSection(input.nearMiss));
+  sections.push(markdownSliceTable(input.slices));
   // The hotspot section is rendered ONLY when the ranking is supplied, so a
   // caller that does not compute it gets exactly the report it got before.
   if (input.hotspots !== undefined) sections.push(markdownHotspotTables(input.hotspots));

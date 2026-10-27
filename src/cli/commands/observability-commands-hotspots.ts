@@ -36,6 +36,7 @@ import { extractMetadata } from '../../services/artifacts/request-artifact-metad
 import { guardRuntimeSegment, runtimeRoot } from '../../shared/runtime-root.js';
 import { slugifyDescription } from '../../shared/incrementing-number.js';
 import { aggregateHotspots } from '../../services/observability/hotspots.js';
+import type { ObservabilityEvent } from '../../services/observability/observability-service.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import {
   readScopedEvents,
@@ -106,20 +107,45 @@ function readRequestTypes(projectRoot: string): {
 }
 
 /**
+ * The request types of the slices in the scope, keyed by slice rid.
+ *
+ * The retro-attribution re-derives a transition's prerequisite list from the
+ * request type, and the type lives in the request artifact rather than in the
+ * event stream — so a caller that wants the HISTORICAL rows has to resolve
+ * the types itself. Without them the ranking holds only the forward events,
+ * and on a history that predates the forward emitter it holds NOTHING, which
+ * would read as "no hotspot" rather than as "no history".
+ *
+ * ONE IMPLEMENTATION, TWO CALLERS. The `hotspots` command and the `report`
+ * command both need the types, and a second copy of the lookup is a copy that
+ * drifts — so both go through this function.
+ */
+export function hotspotRequestTypes(
+  projectRoot: string,
+  events: readonly ObservabilityEvent[]
+): {
+  readonly requestTypes: Map<string, RequestType>;
+  readonly unparsed: number;
+} {
+  const { bySlug, unparsed } = readRequestTypes(projectRoot);
+  const requestTypes = new Map<string, RequestType>();
+  for (const event of events) {
+    const rid = event.sliceRid;
+    if (rid === undefined) continue;
+    const type = bySlug.get(slugifyDescription(rid));
+    if (type !== undefined && !requestTypes.has(rid)) requestTypes.set(rid, type);
+  }
+  return { requestTypes, unparsed };
+}
+
+/**
  * `peaks observability hotspots` — print the hotspot ranking.
  */
 export function runHotspots(io: ProgramIO, options: ObservabilityQueryOptions): void {
   const projectRoot = resolveProjectRoot(options.project);
   try {
     const { sessionId, events } = readScopedEvents(projectRoot, options);
-    const { bySlug, unparsed } = readRequestTypes(projectRoot);
-    const requestTypes = new Map<string, RequestType>();
-    for (const event of events) {
-      const rid = event.sliceRid;
-      if (rid === undefined) continue;
-      const type = bySlug.get(slugifyDescription(rid));
-      if (type !== undefined && !requestTypes.has(rid)) requestTypes.set(rid, type);
-    }
+    const { requestTypes, unparsed } = hotspotRequestTypes(projectRoot, events);
     const hotspots = aggregateHotspots(events, requestTypes);
     const warnings = scopeWarnings(projectRoot, sessionId, events.length);
     if (unparsed > 0) {

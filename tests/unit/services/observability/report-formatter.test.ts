@@ -13,7 +13,12 @@
 //     counts are visible together and reconcile with the slice table;
 //   - the slice table marks a STALLED slice apart from a FAILED one — a
 //     slice that advanced partway and stopped is not a failure, and drawing
-//     it as one is the miscount this file exists to prevent.
+//     it as one is the miscount this file exists to prevent;
+//   - the report with NEITHER measurement supplied is byte-identical to the
+//     report as it stood before the sections existed.
+//
+// The near-miss section's own cases live in
+// `report-formatter-near-miss.test.ts` — this file is at its line cap.
 //
 // Dimensions:
 //   - behavior:  which marker each outcome is drawn with
@@ -234,6 +239,93 @@ describe('Scenario: render — the hotspot count column names what it counts', (
     // when:  the report is rendered
     // then:  there is no hotspot section — the section is opt-in
     const markdown = render();
+    expect(markdown).not.toContain('## Hotspots');
+  });
+});
+
+/**
+ * The report as it stood BEFORE the near-miss section existed.
+ *
+ * The two measurements are OPTIONAL, and a caller that computes neither must
+ * get exactly the report it got before — so the whole markdown is pinned
+ * here, byte for byte. Any change to the summary, the slice table or the
+ * tables under it has to be a deliberate one.
+ */
+const EXPECTED_REPORT = `
+# peaks observability report
+
+- **scope**: session \`2026-10-26-session-reportfmt\`
+- **period**: month
+- **generated at**: 2026-10-27T00:00:00.000Z
+- **scope marker**: from v2.11.1 install date (no backfill per PRD Q5)
+
+## Status summary
+
+| Metric | Value |
+|---|---|
+| total events | 3 |
+| total slices | 3 |
+| success count | 1 |
+| fail count | 1 |
+| stalled count | 1 |
+| repair-cycle peak (v2 metric) | 0 |
+| fanout cost total | 0 |
+
+## Slices
+
+| rid | transitions | final state | duration | outcome |
+|---|---|---|---|---|
+| slice-blocked | 1 | blocked | 0 | ✗ |
+| slice-done | 1 | handed-off | 0 | ✓ |
+| slice-stuck | 1 | qa-handoff | 0 | … |
+
+_✓ succeeded · ✗ failed · … did not finish (stalled)_
+
+## Fanout
+
+_No sub-agent dispatches recorded for this period._
+
+## Repair cycles
+
+- **metric**: \`repair-cycles\` (version 2)
+- **definition**: A repair cycle = the slice returns to an RD work state (draft | spec-locked | implemented) after it had entered a QA phase (running | verdict-issued). One rework excursion counts once.
+
+| slice rid | repair cycles |
+|---|---|
+| slice-blocked | 0 |
+| slice-done | 0 |
+| slice-stuck | 0 |
+
+- **total repair cycles (v2)**: 0
+- **cap**: 3
+- **cap hit**: no
+- **slices at cap (v2)**: 0
+- **QA rounds (a separate metric — a QA phase, NOT a repair cycle)**: total 0, peak 0
+- **legacy v1 \`qa-role-transition-event-count\` (NOT a repair-cycle count)**: total 0, peak 0, slices at cap 0
+- **legacy note**: Counts slice-transition events whose detail.artifactRole === "qa" — QA's own internal state transitions, NOT repair loops. Kept so the v1 and v2 numbers can be compared side by side.
+
+## Top-5 slowest slices
+
+_No slice durations available._
+`
+  .replace(/\r\n/g, '\n')
+  .slice(1);
+
+describe('Scenario: behavior — omitting both measurements changes nothing', () => {
+  it('when neither measurement is supplied, should render the report byte-identically', () => {
+    // given: a report whose caller computed neither measurement
+    // when:  the report is rendered
+    // then:  the markdown is byte-for-byte the report as it stood before the
+    //         sections existed
+    expect(render()).toBe(EXPECTED_REPORT);
+  });
+
+  it('when neither measurement is supplied, should render no measurement section at all', () => {
+    // given: a report whose caller computed neither measurement
+    // when:  the report is rendered
+    // then:  there is no near-miss section and no hotspot section
+    const markdown = render();
+    expect(markdown).not.toContain('## Near-misses');
     expect(markdown).not.toContain('## Hotspots');
   });
 });
