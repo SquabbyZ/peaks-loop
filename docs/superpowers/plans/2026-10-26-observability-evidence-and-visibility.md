@@ -951,9 +951,9 @@ git commit -m "docs(observability): the gate is open, with the numbers that open
 - [x] `status` 的 `successCount + failCount + stalledCount === totalSlices` —— **实测 2026-10-27**：103 + 0 + 12 = **115** = `totalSlices` 115。
 - [x] `peaks observability report` 开头是"近失"节，其后是"卡点"节 —— **实测 2026-10-27**：节序为 `Status summary` → `Near-misses` → `Slices` → `Hotspots` → `Fanout` → `Repair cycles`。**注意默认 `--period day` 在本仓库是空的**（周期轴为空，不是作用域轴 —— warning 明写 "use `--period month` to read them"）；`--period month --all-sessions` 下两节都有内容（近失 12.8%、卡点 14 行）。
 - [ ] 两个试点技能（`peaks-rd` / `peaks-race-code`）的遵守率由**确定性检查**算出，不依赖 LLM judge —— **机制已就位，但读者还拿不到数，故不勾**：`judgeCompliance`（`src/services/observability/compliance-judge.ts`）与两份试点 spec 都在盘上，判定是**确定性**的（只读磁盘上 artifact 在不在），Batch D 的 `session-metric-rows.ts` 也已把它们接进 session 行。**但那两行还没有生产调用方** —— `buildSessionMetricRow` / `writeSessionMetricRow` 只被测试调用，`peaks observability` 下也**没有 compliance 子命令**。所以"遵守率由确定性检查算出"这件事目前**只有代码与测试证明，没有一个读者能拿到的数**。
-- [ ] `pnpm test:unit` 全绿
-- [ ] `pnpm lint` 不让任何 ceiling 上升；`npx eslint tests/` 无新增 findings
-- [ ] 全部提交不含任何 AI 署名 trailer
+- [ ] `pnpm test:unit` 全绿 —— **实测 2026-10-27：3 个失败 / 7128 通过（2 个文件）**。**失败不来自本计划**：把 Task 11 的改动撤掉后**同样 3 个失败**（`session-dir-canonical.test.ts` 1 个、`spawn-windows-hide-guard.test.ts` 2 个），根因是并发 agent 的 `d143fe0d` 引入的 `session-metric-rows.test.ts` 里的 `execFileSync` 调用点缺 `windowsHide`，以及它对 `.peaks` + sessionId 拼接的静态扫描。**观察到的 `observability` 全套 16 文件 / 193 测试全绿。**
+- [x] `pnpm lint` 不让任何 ceiling 上升；`npx eslint tests/` 无新增 findings —— **实测 2026-10-27**：`pnpm lint` 报 **1670 problems (553 errors)**，与基线 `eslintFindings ≤ 1670` / `eslintErrors ≤ 553` **恰好相等**（未上升）。本任务的两次提交**只碰 `docs/` 与 `tests/unit/services/observability/hotspots.test.ts`**，未动 `.peaks/lint/gate-baseline.json`。`tests/` 目录另跑 eslint（`config/eslint/.peaks-rules.cjs`）：**该文件 0 findings / 0 errors**。
+- [x] 全部提交不含任何 AI 署名 trailer —— **实测 2026-10-27**：Task 11 的两次提交（`1005fe00`、`236921bb`）的 message **无 `Co-Authored-By:`、无 `Generated with`**，作者为 `SquabbyZ`。
 
 **然后**：闸1 通过 → 用真实的近失数据回答 spec §7.2 第 6 条（第一个该被提升为 hook 的步骤是谁）→ 写 S3/S4 的计划 → 再碰 `evolution_evaluation` 表。
 
