@@ -8387,3 +8387,26 @@ paragraph.
 - **What it needs**: the three comments moved up so they sit together directly under the callback's opening line,
   with the setup and the assertions below them. The `given:` comment then describes the setup that follows it —
   so the comment may need rewording, since the setup now sits under all three. The executable order does not change.
+
+### 23.13 The project's own near-miss rate was inflated by one — the metric accused a slice that had done everything right
+
+- **Where**: `src/services/observability/near-miss-attempts.ts` (the bucketing) and the event stream at
+  `.peaks/_runtime/<sid>/metrics/slices.jsonl`.
+- **MEASURED 2026-10-28**: the near-miss rate over ALL sessions reads **13 / 95 = 13.7%** (the §22 session
+  measured **12 / 94 = 12.8%** on the corrected rule). This session added exactly one passed slice and one
+  near-miss — and that near-miss is a **false accusation**.
+- **The mechanism**, traced event by event for slice `004-2026-10-28-22-4-census-judged-tiers`: its
+  `rd -> qa-handoff` transition was recorded **18 times**, **17** under the numbered spelling and **1** under the
+  un-numbered one — and that single event was a **refusal with no matching success in its bucket**. The
+  near-miss rule buckets attempts by the raw rid string, so the refusal landed alone in a bucket that had no
+  passing attempt, and the rule reported the slice as `unattempted` — *"the owning role had not yet attempted its
+  transition"*. That slice had attempted the transition **five** times and succeeded every time.
+- **So the honest number is 12 / 95 = 12.6%**, and the extra 0.9 points came from the spelling split — the same
+  §23.11 defect, now measured by the layer that exists to measure everything else.
+- **Why it is worth recording separately from §23.11**: the other three surfaces of that defect produced **loud**
+  refusals, which is why they were found. This one produced a **number that looked like a number**. A measurement
+  layer inherits every defect it measures — it reads the gates' own identifier the same way the gates do — so
+  **the instrument is not automatically outside the class of defect it watches.**
+- **What it needs**: the same single normalisation the other three surfaces need, plus a re-measure. And a
+  general rule for the project: **a metric that groups by a raw identifier must be able to say which identifier
+  convention it assumed.**

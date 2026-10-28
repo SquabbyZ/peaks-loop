@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-28T09:42:59.613Z",
+  "updatedAt": "2026-10-28T11:59:04.896Z",
   "hot": {
     "rule": [
       {
@@ -2688,7 +2688,7 @@
       {
         "name": "the-same-identifier-disagreement-made-two-different-defects",
         "kind": "lesson",
-        "description": "In one session (2026-10-28) **two unrelated surfaces** were defeated by the **same** identifier disagreement.",
+        "description": "In one session (2026-10-28) **unrelated surfaces** were defeated by the **same** identifier disagreement.",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-same-identifier-disagreement-made-two-different-defects.md",
         "sourceArtifact": ".peaks/docs/backlog.md#23",
         "updatedAt": "2026-10-28"
