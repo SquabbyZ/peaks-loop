@@ -61,7 +61,8 @@ async function resolvePrerequisiteAbsolutePath(
   const dir = dirname(exact);
   // The on-disk suffix is the SLUG of this basename — the writer lowercases the
   // rid — so a mixed-case rid used to be reported absent with the file on disk.
-  const suffix = `-${slugifyDescription(basename(exact).replace(/\.md$/, ''))}.md`;
+  const stem = slugifyDescription(basename(exact).replace(/\.md$/, ''));
+  const suffix = `-${stem}.md`;
   let entries: string[];
   try {
     entries = await readdir(dir);
@@ -69,8 +70,40 @@ async function resolvePrerequisiteAbsolutePath(
     // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
+  // Number-first form (`003-<rid>.md`, the `qa/test-cases/` shape).
   const match = entries.find((name) => NUMBERED_PREFIX_RE.test(name) && name.endsWith(suffix));
-  return match ? join(dir, match) : null;
+  if (match !== undefined) return join(dir, match);
+  return resolveKindFirstNumbered(entries, dir, stem, requestId);
+}
+
+/**
+ * The OTHER numbered form: the writer numbers AFTER the kind for `audit/` and
+ * `rd/` (`audit/security-003-<rid>.md`). `NUMBERED_PREFIX_RE` is anchored at the
+ * start of the name, so the number-first scan above can never see it — and the
+ * evidence was reported missing with the file on disk.
+ *
+ * The kind is this prerequisite's basename with the rid stripped (`security-`),
+ * so a look-alike such as `security-backup-<rid>.md` carries no number prefix and
+ * another rid's `security-003-<other>.md` fails the exact-shape check. Both stay
+ * unresolved, which is the correct verdict for a prereq whose evidence is absent.
+ */
+function resolveKindFirstNumbered(
+  entries: ReadonlyArray<string>,
+  dir: string,
+  stem: string,
+  requestId: string
+): string | null {
+  const ridSlug = slugifyDescription(requestId);
+  const ridSuffix = `-${ridSlug}`;
+  if (!stem.endsWith(ridSuffix)) return null;
+  const kind = stem.slice(0, -ridSuffix.length);
+  const name = entries.find((entry) => {
+    if (!entry.startsWith(`${kind}-`)) return false;
+    const rest = entry.slice(kind.length + 1);
+    const numbered = NUMBERED_PREFIX_RE.exec(rest);
+    return numbered !== null && rest.slice(numbered[0].length) === `${ridSlug}.md`;
+  });
+  return name !== undefined ? join(dir, name) : null;
 }
 
 /**
