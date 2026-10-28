@@ -174,6 +174,56 @@ export function unknownGateIdGate(phase: GateEvent['phase']): Record<string, unk
 }
 
 /**
+ * A gate decision event naming a gate id this build does not know, at a
+ * TOOLING-ONLY slice's phase.
+ *
+ * The tooling live set is the whole vocabulary at `implemented`, so an
+ * unattributable event there is live alongside every known gate — the shape
+ * in which an over-broad mask erases a sibling gate's genuine bypass.
+ */
+export function unknownGateIdToolingGate(
+  phase: GateEvent['phase'] = 'implemented'
+): Record<string, unknown> {
+  return {
+    category: 'gate',
+    sliceRid: 'slice-1',
+    detail: { phase, outcome: 'pass', gateId: 'gate-added-upstream', declaredType: 'tooling' }
+  };
+}
+
+/**
+ * A gate decision event naming a KNOWN gate, at a tooling-only slice's phase.
+ */
+export function toolingGate(
+  gateId: string,
+  outcome: GateEvent['outcome'],
+  phase: GateEvent['phase'] = 'implemented'
+): Record<string, unknown> {
+  return {
+    category: 'gate',
+    sliceRid: 'slice-1',
+    detail: { phase, outcome, gateId, declaredType: 'tooling' }
+  };
+}
+
+/**
+ * A `verdict-issued` attempt whose prereq verdict is NOT a boolean.
+ *
+ * The event schema keeps `detail` loose, so a record CAN carry
+ * `prereqOk: "true"` — a string where the reader expects a boolean. The
+ * verdict was RECORDED and cannot be READ, which is a different fact from
+ * "no verdict", and the two must not collapse into one another: the second
+ * makes the slice vanish from the accounting entirely.
+ */
+export function malformedVerdictAttempt(): Record<string, unknown> {
+  return {
+    category: 'slice-transition',
+    sliceRid: 'slice-1',
+    detail: { artifactRole: 'rd', to: 'verdict-issued', prereqOk: 'true', missingCount: 0 }
+  };
+}
+
+/**
  * The slice's whole transition history, ending in a SUCCESSFUL verdict.
  *
  * The verdict attempt carries `prereqOk: true` because that attempt is what

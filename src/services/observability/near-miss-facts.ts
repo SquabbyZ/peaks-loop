@@ -33,13 +33,20 @@
  * vocabularies, so `near-miss-gates.ts` holds the gate side.
  */
 
-import { readGate, type GateFacts, type NearMissUndetermined } from './near-miss-gates.js';
+import {
+  readGate,
+  unreadableGateIds,
+  type GateFacts,
+  type NearMissUndetermined
+} from './near-miss-gates.js';
 import {
   collectAttempts,
   failuresOf,
   passMomentOf,
+  unreadableVerdictOf,
   unsatisfiedKeys,
   type PrereqAttempt,
+  type UnreadableVerdict,
   type UnsatisfiedKeyState
 } from './near-miss-attempts.js';
 import type { RdGateId } from '../artifacts/rd-gate-event.js';
@@ -138,10 +145,22 @@ export type SliceFacts = {
    * A verdict this build cannot read is not an absent one: the event named an
    * outcome or a gate id this build does not know. Those gates are not
    * reported as never evaluated — they are reported as undetermined.
+   *
+   * The scope is settled over the WHOLE slice's gate events, not one event at
+   * a time: an event this build cannot attribute to a gate may have been the
+   * verdict of a gate that recorded nothing of its own, and of no other.
    */
   readonly unreadableGates: ReadonlySet<RdGateId>;
   /** Whether a tool trace blocked on this slice. */
   readonly toolBlocked: boolean;
+  /**
+   * The `verdict-issued` attempt whose prereq verdict could not be READ.
+   *
+   * A slice with one of these has no readable pass moment, and it is neither
+   * a pass nor a non-pass: whether it passed is unknown. It is reported as
+   * unmeasured rather than dropped, so it cannot read as "no passing slices".
+   */
+  readonly unreadableVerdict: UnreadableVerdict | null;
   /** The gates whose liveness the stream did not decide. */
   readonly undetermined: readonly NearMissUndetermined[];
   /**
@@ -192,6 +211,8 @@ export function sliceFacts(sliceRid: string, events: readonly ObservabilityEvent
   const gates: GateFacts = {
     liveGates: new Set<RdGateId>(),
     evaluatedGates: new Set<RdGateId>(),
+    namedGates: new Set<RdGateId>(),
+    unattributedGates: new Set<RdGateId>(),
     unreadableGates: new Set<RdGateId>(),
     undetermined: []
   };
@@ -211,8 +232,13 @@ export function sliceFacts(sliceRid: string, events: readonly ObservabilityEvent
         : { index: moment.index, ts: moment.ts, unsatisfiedKeys: unsatisfied, failures },
     liveGates: gates.liveGates,
     evaluatedGates: gates.evaluatedGates,
-    unreadableGates: gates.unreadableGates,
+    unreadableGates: unreadableGateIds(gates),
     toolBlocked: acc.toolBlocked,
+    // The reference moment is the FIRST successful `verdict-issued` attempt,
+    // so an unreadable attempt only unsettles the slice's verdict when it
+    // comes at or before that moment. With no moment at all, any unreadable
+    // attempt leaves the question open.
+    unreadableVerdict: unreadableVerdictOf(events, moment?.index),
     undetermined: gates.undetermined,
     observed: {
       gateEvents: gateEvents.length,

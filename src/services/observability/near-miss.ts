@@ -22,7 +22,12 @@
  *
  * A slice with no pass moment was never declared passing, so it is in
  * neither the numerator nor the denominator: there is no pass to have been
- * bought by skipping a check.
+ * bought by skipping a check. The EXCEPTION is a slice whose pass moment
+ * exists but could not be READ — a `verdict-issued` attempt whose prereq
+ * verdict is recorded in a shape this build cannot read. Whether such a slice
+ * passed is unknown, so it is reported as UNMEASURED rather than dropped: a
+ * slice that vanishes from the accounting reads as "no passing slices", which
+ * is an absence read as a result.
  *
  * THE LIVE SET IS A UNION OVER THE SLICE'S WHOLE HISTORY. A gate is "live"
  * for a transition when it WOULD have run had the transition not been
@@ -78,28 +83,31 @@
  * uses and reconciles it with the status summary's.
  *
  * WHY THE READERS LIVE NEXT DOOR. `near-miss-facts.ts` holds the event-shape
- * readers this metric is computed from, so this file holds the METRIC and
- * nothing else — the same split `aggregation.ts` and
- * `aggregation-helpers.ts` make in this directory.
+ * readers this metric is computed from, and `near-miss-records.ts` holds the
+ * shape of a finding; this file holds the METRIC and nothing else — the same
+ * split `aggregation.ts` and `aggregation-helpers.ts` make in this directory.
  */
 
 import type { ObservabilityEvent } from './observability-service.js';
 import {
   sliceFacts,
-  type NearMissEvidence,
   type NearMissUndetermined,
   type NearMissReason,
-  type SliceFacts,
-  type UnsatisfiedKey
+  type SliceFacts
 } from './near-miss-facts.js';
-import { gateIdOf, liveGatesOf } from './near-miss-gates.js';
+import {
+  evidenceFor,
+  reasonsFor,
+  unmeasuredReason,
+  type NearMissRecord,
+  type NearMissUnmeasured
+} from './near-miss-records.js';
 import {
   computeCoverage,
   unobservableReasons,
   type NearMissClassCoverage
 } from './near-miss-coverage.js';
 import { describeDenominator, type NearMissDenominator } from './near-miss-denominator.js';
-import type { RdGateId } from '../artifacts/rd-gate-event.js';
 import type { RequestTypeReading } from './hotspot-shared.js';
 
 export type {
@@ -111,31 +119,7 @@ export type {
 } from './near-miss-facts.js';
 export type { NearMissClassCoverage } from './near-miss-coverage.js';
 export type { NearMissDenominator } from './near-miss-denominator.js';
-
-/** One slice that passed with a check skipped. */
-export type NearMissRecord = {
-  readonly sliceRid: string;
-  readonly reasons: readonly NearMissReason[];
-  /**
-   * The moment the slice was declared passing.
-   *
-   * It travels WITH the record because it is what makes the finding
-   * actionable: a reader cannot tell from the key alone whether the check was
-   * REFUSING at that moment or had not been ATTEMPTED yet. On this
-   * repository's recorded history one of the twelve findings is the first and
-   * eleven are the second.
-   */
-  readonly passMoment: {
-    /** The instant of the successful verdict attempt. */
-    readonly ts: string;
-  };
-  /**
-   * The transition keys whose check was unsatisfied at the pass moment, each
-   * with its state there.
-   */
-  readonly unsatisfiedKeys: readonly UnsatisfiedKey[];
-  readonly evidence: readonly NearMissEvidence[];
-};
+export type { NearMissRecord, NearMissUnmeasured } from './near-miss-records.js';
 
 /** The near-miss metric over a set of events. */
 export type NearMissReport = {
@@ -144,8 +128,17 @@ export type NearMissReport = {
   readonly passedSliceCount: number;
   readonly nearMissSliceCount: number;
   readonly records: readonly NearMissRecord[];
-  /** Gates whose liveness the stream did not decide. */
+  /** Gates whose liveness or verdict the stream did not decide. */
   readonly undetermined: readonly NearMissUndetermined[];
+  /**
+   * The slices whose PASS verdict could not be READ.
+   *
+   * Whether such a slice passed is unknown, so it is in neither the
+   * numerator nor the denominator — and it is listed here rather than
+   * dropped, because a slice that vanishes from the accounting reads as "no
+   * passing slices", which is an absence read as a result.
+   */
+  readonly unmeasured: readonly NearMissUnmeasured[];
   /**
    * What each reason class could and could not be observed for.
    *
@@ -171,76 +164,29 @@ export type NearMissReport = {
 };
 
 /**
- * The evidence a near-miss record carries.
+ * What the walk over the slices found.
  *
- * For a gate that was live and never evaluated, the evidence is the events
- * that let a reader CHECK that claim: the events about that gate (a bypass
- * is the primary one) and the sibling gate events of the same transition,
- * which are what establish the live set. For an unsatisfied prerequisite, it
- * is the refusal itself, named by the transition key it refused.
+ * The three populations are kept apart because they answer different
+ * questions: the PASSING slices are the denominator, the flagged ones are the
+ * numerator, and the UNMEASURED ones are in neither.
  */
-function evidenceFor(
-  neverEvaluated: readonly RdGateId[],
-  gateEvents: readonly ObservabilityEvent[],
-  unsatisfied: NonNullable<SliceFacts['passMoment']>
-): readonly NearMissEvidence[] {
-  const pointers: NearMissEvidence[] = [];
-  for (const gateId of neverEvaluated) {
-    for (const event of gateEvents) {
-      const own = gateIdOf(event);
-      const live = liveGatesOf(event, gateEvents);
-      const witnessed = live !== null && live.includes(gateId);
-      if (own !== gateId && !witnessed) continue;
-      pointers.push({
-        sessionId: event.sessionId,
-        ts: event.ts,
-        ...(own !== null ? { gateId: own } : {})
-      });
-    }
-  }
-  for (const failure of unsatisfied.failures) {
-    pointers.push({
-      sessionId: failure.sessionId,
-      ts: failure.ts,
-      transitionKey: failure.key
-    });
-  }
-  return pointers;
-}
+type SliceWalk = {
+  readonly records: readonly NearMissRecord[];
+  readonly undetermined: readonly NearMissUndetermined[];
+  readonly unmeasured: readonly NearMissUnmeasured[];
+  readonly passingFacts: readonly SliceFacts[];
+  readonly unmeasuredFacts: readonly SliceFacts[];
+  readonly reasonsBySlice: ReadonlyMap<string, readonly NearMissReason[]>;
+  readonly passedSliceCount: number;
+};
 
 /**
- * The reasons one passing slice carries.
+ * The events of one slice, grouped by the slice they belong to.
  *
- * A prerequisite key counts when its check was STILL UNSATISFIED at the pass
- * moment: the slice was declared passing while a required check had not been
- * satisfied. A check that refused and was then satisfied before the pass is
- * a gate working as designed, and it is not a near-miss.
+ * An event with no slice rid belongs to no slice, so it is not in any of the
+ * populations — it is not a slice's evidence of anything.
  */
-function reasonsFor(fact: SliceFacts): {
-  readonly reasons: NearMissReason[];
-  readonly neverEvaluated: readonly RdGateId[];
-} {
-  const neverEvaluated = [...fact.liveGates].filter(
-    (gateId) => !fact.evaluatedGates.has(gateId) && !fact.unreadableGates.has(gateId)
-  );
-  const reasons: NearMissReason[] = [];
-  if (neverEvaluated.length > 0) reasons.push('gate-never-evaluated');
-  if ((fact.passMoment?.unsatisfiedKeys.length ?? 0) > 0) reasons.push('prereq-skipped');
-  if (fact.toolBlocked) reasons.push('tool-blocked');
-  return { reasons, neverEvaluated };
-}
-
-/**
- * The near-miss metric over a set of events.
- *
- * The rate divides the near-miss slices by the PASSING slices — the slices
- * that recorded a successful verdict attempt — and is 0 when there are none,
- * so an empty scope reads as "no rate" rather than as a division by zero.
- */
-export function computeNearMiss(
-  events: readonly ObservabilityEvent[],
-  requestTypes: ReadonlyMap<string, RequestTypeReading> = new Map()
-): NearMissReport {
+function groupBySlice(events: readonly ObservabilityEvent[]): Map<string, ObservabilityEvent[]> {
   const bySlice = new Map<string, ObservabilityEvent[]>();
   for (const event of events) {
     const sliceRid = event.sliceRid;
@@ -249,15 +195,38 @@ export function computeNearMiss(
     if (bucket === undefined) bySlice.set(sliceRid, [event]);
     else bucket.push(event);
   }
+  return bySlice;
+}
 
+/**
+ * The walk over the slices: what passed, what was flagged, and what could
+ * not be measured at all.
+ */
+function walkSlices(bySlice: Map<string, ObservabilityEvent[]>): SliceWalk {
   const records: NearMissRecord[] = [];
   const undetermined: NearMissUndetermined[] = [];
+  const unmeasured: NearMissUnmeasured[] = [];
   const passingFacts: SliceFacts[] = [];
+  const unmeasuredFacts: SliceFacts[] = [];
   const reasonsBySlice = new Map<string, readonly NearMissReason[]>();
   let passedSliceCount = 0;
 
   for (const [sliceRid, sliceEvents] of bySlice) {
     const fact = sliceFacts(sliceRid, sliceEvents);
+    const unreadable = fact.unreadableVerdict;
+    if (unreadable !== null) {
+      // The verdict was RECORDED and could not be READ, so whether the slice
+      // passed is unknown. It is in neither the numerator nor the denominator,
+      // and it is reported rather than dropped.
+      unmeasured.push({
+        sliceRid,
+        sessionId: unreadable.sessionId,
+        ts: unreadable.ts,
+        reason: unmeasuredReason(unreadable, fact.passMoment !== null)
+      });
+      unmeasuredFacts.push(fact);
+      continue;
+    }
     // A slice with no pass moment was never declared passing.
     if (fact.passMoment === null) continue;
     passedSliceCount += 1;
@@ -276,9 +245,34 @@ export function computeNearMiss(
     });
   }
 
+  return {
+    records,
+    undetermined,
+    unmeasured,
+    passingFacts,
+    unmeasuredFacts,
+    reasonsBySlice,
+    passedSliceCount
+  };
+}
+
+/**
+ * The near-miss metric over a set of events.
+ *
+ * The rate divides the near-miss slices by the PASSING slices — the slices
+ * that recorded a successful verdict attempt — and is 0 when there are none,
+ * so an empty scope reads as "no rate" rather than as a division by zero.
+ */
+export function computeNearMiss(
+  events: readonly ObservabilityEvent[],
+  requestTypes: ReadonlyMap<string, RequestTypeReading> = new Map()
+): NearMissReport {
+  const walk = walkSlices(groupBySlice(events));
+  const { records, undetermined, unmeasured, passingFacts, unmeasuredFacts, reasonsBySlice } = walk;
+  const passedSliceCount = walk.passedSliceCount;
   const nearMissSliceCount = records.length;
   const nearMissRate = passedSliceCount === 0 ? 0 : nearMissSliceCount / passedSliceCount;
-  const coverage = computeCoverage({ events, passingFacts, reasonsBySlice });
+  const coverage = computeCoverage({ events, passingFacts, reasonsBySlice, unmeasuredFacts });
 
   return {
     nearMissRate,
@@ -286,8 +280,9 @@ export function computeNearMiss(
     nearMissSliceCount,
     records,
     undetermined,
+    unmeasured,
     coverage,
     unobservedClasses: unobservableReasons(coverage),
-    denominator: describeDenominator(events, passedSliceCount, requestTypes)
+    denominator: describeDenominator(events, passedSliceCount, requestTypes, unmeasured.length)
   };
 }

@@ -186,7 +186,7 @@ describe('Scenario: a11y — the rate says what it did not measure', () => {
     writeEvents([seedEvent('slice-clean', 'verdict-issued', true, 0)]);
     const markdown = await renderReport();
     expect(markdown).toContain('- **unobserved classes**: `gate-never-evaluated`, `tool-blocked`');
-    expect(markdown).toContain('| gate-never-evaluated | no | 0 | 0 | 1 | 0 | not measured |');
+    expect(markdown).toContain('| gate-never-evaluated | no | 0 | 0 | 1 | 0 | 0 | not measured |');
   });
 
   it('when the rate is zero, should not read as "there were no near-misses"', async () => {

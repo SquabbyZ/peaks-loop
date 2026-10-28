@@ -108,14 +108,42 @@ function statusLine(nearMiss: NearMissReport): string {
   );
 }
 
-/** The lines that say which gates the stream did not decide the liveness of. */
+/**
+ * The lines that say which gates the stream did not decide.
+ *
+ * The count covers TWO kinds, and the wording names both: a gate whose
+ * LIVENESS the stream did not decide (no usable phase), and a gate whose
+ * VERDICT the stream did not decide (an outcome or a gate id this build does
+ * not know). A count that said only "liveness" would misdescribe the two of
+ * the three kinds it carries.
+ */
 function undeterminedLines(nearMiss: NearMissReport): string[] {
   const lines = [
-    `- **undetermined**: ${nearMiss.undetermined.length} gate(s) whose liveness the recorded ` +
-      'stream did not decide.'
+    `- **undetermined**: ${nearMiss.undetermined.length} gate(s) whose liveness or verdict the ` +
+      'recorded stream did not decide.'
   ];
   for (const item of nearMiss.undetermined) {
     lines.push(`  - \`${item.sliceRid}\` / \`${item.gateId}\` — ${item.reason}`);
+  }
+  return lines;
+}
+
+/**
+ * The lines that say which slices could not be MEASURED at all.
+ *
+ * A slice whose `verdict-issued` attempt records a prereq verdict this build
+ * cannot read is neither a pass nor a non-pass, so it is in neither the
+ * numerator nor the denominator. It is listed here because a slice that
+ * vanishes from the accounting reads as "no passing slices" — an absence read
+ * as a result.
+ */
+function unmeasuredLines(nearMiss: NearMissReport): string[] {
+  const lines = [
+    `- **unmeasured**: ${nearMiss.unmeasured.length} slice(s) whose pass verdict could not be READ, ` +
+      'so they are in neither the numerator nor the denominator.'
+  ];
+  for (const item of nearMiss.unmeasured) {
+    lines.push(`  - \`${item.sliceRid}\` — ${item.reason}`);
   }
   return lines;
 }
@@ -129,18 +157,21 @@ function coverageTable(coverage: readonly NearMissClassCoverage[]): string {
     "Each class's rate is over the slices that class REACHED — a class that saw five slices " +
       'out of a hundred reports one in five, not one in a hundred. A class with no events was ' +
       'NOT observed, so it has no rate. The slices that recorded NOTHING about the class could ' +
-      'not be judged on it at all, so their count is stated beside the rate.'
+      'not be judged on it at all, so their count is stated beside the rate, as is the count of ' +
+      'the slices whose verdict could not be READ at all — they are in neither the numerator ' +
+      'nor the denominator.'
   );
   lines.push('');
   lines.push(
     '| reason class | observable | events | slices observed | slices with no events | ' +
-      'slices flagged | rate |'
+      'slices unreadable | slices flagged | rate |'
   );
-  lines.push('|---|---|---|---|---|---|---|');
+  lines.push('|---|---|---|---|---|---|---|---|');
   for (const item of coverage) {
     lines.push(
       `| ${item.reason} | ${item.observable ? 'yes' : 'no'} | ${item.scopeEventCount} | ` +
-        `${item.observedSliceCount} | ${item.unobservedSliceCount} | ${item.nearMissSliceCount} | ` +
+        `${item.observedSliceCount} | ${item.unobservedSliceCount} | ${item.unreadableSliceCount} | ` +
+        `${item.nearMissSliceCount} | ` +
         `${item.rate === null ? 'not measured' : formatPercent(item.rate)} |`
     );
   }
@@ -224,6 +255,7 @@ export function markdownNearMissSection(nearMiss: NearMissReport): string {
   lines.push(denominatorLine(nearMiss));
   lines.push(statusLine(nearMiss));
   lines.push(...undeterminedLines(nearMiss));
+  lines.push(...unmeasuredLines(nearMiss));
   if (nearMiss.denominator.difference !== null) {
     lines.push('');
     lines.push(nearMiss.denominator.difference.note);

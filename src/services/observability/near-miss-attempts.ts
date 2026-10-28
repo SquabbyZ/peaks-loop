@@ -107,6 +107,73 @@ export function prereqVerdictOf(event: ObservabilityEvent): boolean | null {
   return typeof detail.prereqOk === 'boolean' ? detail.prereqOk : null;
 }
 
+/**
+ * The `verdict-issued` attempt of a slice whose prereq verdict this build
+ * cannot READ, or null when there is none.
+ *
+ * WHY THIS IS NOT "NO VERDICT". The event schema keeps `detail` loose, so a
+ * record CAN carry a `prereqOk` that is not a boolean — the string `"true"`,
+ * a number, a null. The two cases are different facts: a record with no
+ * `prereqOk` at all is the verdict-LESS arrival event, while a record with a
+ * `prereqOk` this build cannot read is a verdict that was RECORDED and is
+ * UNREADABLE. Reading the second as the first makes the slice vanish: it has
+ * no pass moment, so it is in neither the numerator nor the denominator, and
+ * no coverage count mentions it.
+ *
+ * THE SCOPE IS THE VERDICT TRANSITION, because that is the attempt that
+ * decides whether the slice passed at all. A malformed verdict on another
+ * transition does not make the slice's pass unreadable.
+ *
+ * `beforeIndex` bounds the search to the attempts that come BEFORE the pass
+ * moment: the reference moment is the FIRST successful `verdict-issued`
+ * attempt, so an unreadable attempt after it cannot have decided the pass.
+ */
+export function unreadableVerdictOf(
+  events: readonly ObservabilityEvent[],
+  beforeIndex?: number
+): UnreadableVerdict | null {
+  for (const [index, event] of events.entries()) {
+    if (beforeIndex !== undefined && index >= beforeIndex) return null;
+    if (event.category !== 'slice-transition') continue;
+    const detail = event.detail as { to?: unknown; prereqOk?: unknown };
+    if (detail.to !== VERDICT_STATE) continue;
+    if (!('prereqOk' in detail)) continue;
+    if (typeof detail.prereqOk === 'boolean') continue;
+    return {
+      key: attemptKey(event) ?? `-> ${VERDICT_STATE}`,
+      sessionId: event.sessionId,
+      ts: event.ts,
+      value: describePrereqValue(detail.prereqOk)
+    };
+  }
+  return null;
+}
+
+/** A prereq verdict the record carries in a shape this build cannot read. */
+export type UnreadableVerdict = {
+  /** The transition key: `artifactRole -> to`. */
+  readonly key: string;
+  readonly sessionId: string;
+  readonly ts: string;
+  /** The value the record carried, spelled out so a reader can see it. */
+  readonly value: string;
+};
+
+/**
+ * How a prereq verdict that is not a boolean is described to a reader.
+ *
+ * The value is named, not summarised: a reader who is told "the verdict was
+ * unreadable" has to open the record to learn what it actually said, and
+ * `"true"` read as a boolean is exactly the reading this build must not make.
+ */
+function describePrereqValue(value: unknown): string {
+  if (value === null) return 'null';
+  if (typeof value === 'string') return `the string "${value}"`;
+  if (typeof value === 'number') return `the number ${String(value)}`;
+  if (typeof value === 'boolean') return `the boolean ${String(value)}`;
+  return `a ${typeof value}`;
+}
+
 /** The attempts a slice's events record, in stream order. */
 export function collectAttempts(events: readonly ObservabilityEvent[]): readonly PrereqAttempt[] {
   const attempts: PrereqAttempt[] = [];

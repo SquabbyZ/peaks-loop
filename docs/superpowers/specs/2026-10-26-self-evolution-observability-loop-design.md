@@ -588,8 +588,8 @@ prereq 表是完全可算的 —— `getPrerequisitesFor(role, newState, request
 `peaks observability near-miss --project . --all-sessions --json` 输出：
 
 - **近失率 `nearMissRate = 0.1276595744680851`（12.8%）**，`nearMissSliceCount = 12`，`passedSliceCount = 94`。
-- **分母 94，且带定义**：denominator 的 `definition` 明写"a slice that recorded a SUCCESSFUL `verdict-issued` attempt —— 一次 prereq 检查**通过**的 `verdict-issued` 迁移尝试，即该 slice 被宣告通过的那一刻；prereq 检查**失败**的 `verdict-issued` 尝试是**被拒绝的迁移**，不是通过"，`sliceCount = 94`。
-- **分母与 status 摘要的差被摊开说了**：`statusSuccessCount = 103`，`difference.successWithoutPassMoment = 17`（其中 7 个到了 `verdict-issued` 但 prereq 判定从未被记录）、`passMomentWithoutStatusSuccess = 8`（通过了但事后被打回返工，末态不是终态happy），并附 `note` 说明两个"通过"的定义**数的是不同的 slice**。
+- **分母 94，且带定义**：denominator 的 `definition` 明写"a slice that recorded a SUCCESSFUL `verdict-issued` attempt —— 一次 prereq 检查**通过**的 `verdict-issued` 迁移尝试，即该 slice 被宣告通过的那一刻；prereq 检查**失败**的 `verdict-issued` 尝试是**被拒绝的迁移**，不是通过"，并补一句"判定值**读不出来**的 `verdict-issued` 尝试**两边都不算**（通过与否未知，故报为 `unmeasured` 而不是计入分母）"，`sliceCount = 94`，`unmeasuredSliceCount = 0`。
+- **分母与 status 摘要的差被摊开说了**：`statusSuccessCount = 103`，`difference.successWithoutPassMoment = 17`（其中 7 个到了 `verdict-issued` 但 prereq 判定从未被记录、`successWithoutPassMomentButUnreadableVerdict = 0`）、`passMomentWithoutStatusSuccess = 8`（通过了但事后被打回返工，末态不是终态happy），并附 `note` 说明两个"通过"的定义**数的是不同的 slice**。
 - **那 7 个（以及更大的 9 个）为什么没有 prereq 判定记录 —— `note` 说的是"原因"，不是"缺一条轨迹"。** `note` 明写：
   > … 7 of which reached a `verdict-issued` event whose prereq verdict was never recorded, because their request type(s) `chore`, `docs` have NO `qa:verdict-issued` prerequisite row: the transition had no check to verify it against, so the check had nothing to record. The pass was never gated, rather than gated-and-unrecorded.
 
@@ -607,13 +607,16 @@ prereq 表是完全可算的 —— `getPrerequisitesFor(role, newState, request
   **这张表用仓库自己的 reader 重测过（2026-10-28）：** `hotspotRequestTypes`（`src/cli/commands/observability-commands-hotspots.ts`）—— 它按 rid 解析 request artifact 的 `- type:` 行，**声明过的胜过默认的**（`ebcd835c` 改的 tie-breaking：一个 slug 在两个角色下各有一份 artifact 时，声明过的那份是更强的证据）。**`feature` 45→44、`refactor` 17→18 就是这条 tie-breaking 换来的**：一个 slice 从 `feature` 挪到了 `refactor`，其余各行与两个总数（103 / 94 / 9）都不变。**用这个 reader 就能重新推导这张表。**
 
   **每一个 `feature`/`bugfix`/`refactor`/`config` slice 只要到了 verdict，都有记录在案的 prereq 判定；没有判定的全部落在 `docs`/`chore` 这两个没有 `qa:verdict-issued` prereq 行的类型上。** 那些 slice 的"通过"**不是"没被验证"，而是"那道门根本不存在"**（`src/services/artifacts/artifact-prerequisites.ts:491` 在 `requirements.length === 0` 时**提前返回**，早于 `:594` 的事件发射；所以**没有事件被漏掉 —— 压根没有东西可记**）。**一个读者若被告知"检查留下了空迹"，会去找一个并不存在的 emitter bug。**
-- **逐 class 覆盖率**（`coverage` 数组，每项带 `reason` / `observable` / `scopeEventCount` / `observedSliceCount` / `nearMissSliceCount` / `rate`）：
+- **逐 class 覆盖率**（`coverage` 数组，每项带 `reason` / `observable` / `scopeEventCount` / `observedSliceCount` / `unobservedSliceCount` / `unreadableSliceCount` / `nearMissSliceCount` / `rate`）：
 
-  | reason class | observable | events | slices observed | slices flagged | rate |
-  |---|---|---|---|---|---|
-  | `gate-never-evaluated` | **false** | 0 | 0 | 0 | **null** |
-  | `prereq-skipped` | true | 536 | 94 | 12 | 0.1277 |
-  | `tool-blocked` | **false** | 0 | 0 | 0 | **null** |
+  | reason class | observable | events | slices observed | slices with no events | slices unreadable | slices flagged | rate |
+  |---|---|---|---|---|---|---|---|
+  | `gate-never-evaluated` | **false** | 0 | 0 | 94 | 0 | 0 | **null** |
+  | `prereq-skipped` | true | 536 | 94 | 0 | 0 | 12 | 0.1277 |
+  | `tool-blocked` | **false** | 0 | 0 | 94 | 0 | 0 | **null** |
+
+  **`slices with no events`（`unobservedSliceCount`）** = 该 class **一条事件都没拿到**的**通过** slice 数：它们在该 class 上根本无法被判（既不能被判为跳过，也不能被判为没跳过），所以 class 的 rate 必须带着这个数一起读。
+  **`slices unreadable`（`unreadableSliceCount`）** = **测不了**的那批 slice 里，该 class 的**判定值读不出来**的数：它们**既不在分子也不在分母**，逐条在 `unmeasured` 列表里带 reason 报出来。**范围只算"测不了"的那一批** —— 一条**用可读的判定通过了**的 slice 是在分母里的，class 的 rate 覆盖它。
 
 - **`unobservedClasses = ["gate-never-evaluated", "tool-blocked"]`** —— 两个 class 一条事件都没有，它们的份额是**数据的缺席，不是结果**。
 - **stderr 另有两条 warning 把这件事说出口**："The `gate-never-evaluated` class had NO events to observe in this scope (0 event(s)), so its share of the near-miss rate is an absence of data, not a result — the rate does not measure that class."（`tool-blocked` 同）。

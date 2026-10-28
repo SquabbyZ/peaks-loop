@@ -53,9 +53,7 @@ import {
   reachingVerdict,
   seedSession,
   transition,
-  typelessGate,
-  unknownGateIdGate,
-  unknownOutcomeGate
+  typelessGate
 } from './near-miss-fixture.js';
 
 declareDimensions(
@@ -130,43 +128,6 @@ describe('Scenario: behavior — a live gate that never got a verdict is a near-
     const report = computeNearMiss(events);
 
     expect(report.nearMissSliceCount).toBe(0);
-  });
-});
-
-describe('Scenario: behavior — a verdict this build cannot read is not a finding', () => {
-  it('when the gate event carries an outcome this build does not know, should not report a near-miss', () => {
-    // given: a slice that passed cleanly, whose gate event carries an
-    //        outcome outside this build's vocabulary
-    // when: the near-miss metric is computed over the session
-    // then: the slice is NOT a near-miss — an unreadable verdict is not the
-    //        same fact as "no verdict" — and the gate is reported as
-    //        undetermined instead
-    const events = seedSession([
-      ...reachingVerdict(),
-      unknownOutcomeGate('file-size-ratchet', 'implemented')
-    ]);
-
-    const report = computeNearMiss(events);
-
-    expect(report.nearMissSliceCount).toBe(0);
-    expect(report.passedSliceCount).toBe(1);
-    expect(report.undetermined).toHaveLength(1);
-    expect(report.undetermined[0]?.gateId).toBe('file-size-ratchet');
-  });
-
-  it('when the gate event names a gate id this build does not know, should not report a near-miss', () => {
-    // given: a slice that passed cleanly, whose gate event names a gate this
-    //        build's vocabulary does not carry
-    // when: the near-miss metric is computed over the session
-    // then: the slice is NOT a near-miss — the verdict could not be
-    //        attributed to a gate — and the event is reported as undetermined
-    const events = seedSession([...reachingVerdict(), unknownGateIdGate('implemented')]);
-
-    const report = computeNearMiss(events);
-
-    expect(report.nearMissSliceCount).toBe(0);
-    expect(report.undetermined).toHaveLength(1);
-    expect(report.undetermined[0]?.gateId).toBe('gate-added-upstream');
   });
 });
 

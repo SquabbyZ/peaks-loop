@@ -108,14 +108,6 @@ export function scopeWarnings(
   ];
 }
 
-/**
- * Write each warning to stderr — the channel `printResult` uses for them, so
- * a warning reads the same way whichever command raised it.
- */
-export function printWarnings(io: ProgramIO, warnings: readonly string[]): void {
-  for (const warning of warnings) io.stderr(`warning: ${warning}`);
-}
-
 /** What a scoped query reads: the session it was scoped to, and its events. */
 export type ScopedRead = {
   readonly sessionId: string | undefined;

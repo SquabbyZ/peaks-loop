@@ -63,6 +63,19 @@ export type NearMissClassCoverage = {
    * slices it could not speak for.
    */
   readonly unobservedSliceCount: number;
+  /**
+   * How many UNMEASURED slices' verdict for this class could not be read.
+   *
+   * These slices recorded the class's kind of event, but the record carries a
+   * value this build cannot read — so the slice is in neither the numerator
+   * nor the denominator, and the class's rate does not cover it. The count
+   * travels with the rate so the rate can never be read without them.
+   *
+   * THE SCOPE IS THE UNMEASURED POPULATION, not every slice with an
+   * unreadable verdict: a slice that PASSED on a readable verdict is in the
+   * denominator, and the class's rate covers it.
+   */
+  readonly unreadableSliceCount: number;
   /** How many slices this class flagged. */
   readonly nearMissSliceCount: number;
   /**
@@ -85,6 +98,16 @@ type ClassEvidence = {
   readonly scopeEventCount: number;
   /** How many events of this class's kind one slice produced. */
   readonly produced: (facts: SliceFacts) => number;
+  /**
+   * Whether one slice's verdict for this class could not be READ.
+   *
+   * A slice whose evidence for the class carries a value this build cannot
+   * read is not a slice the class could judge — and it is not a passing
+   * slice either, so it is in neither the observed nor the unobserved count.
+   * It is counted over the UNMEASURED population only: a slice that passed
+   * on a readable verdict IS in the denominator.
+   */
+  readonly unreadable: (facts: SliceFacts) => boolean;
 };
 
 /** The evidence each class is read from. */
@@ -100,17 +123,20 @@ function evidenceOf(events: readonly { category: string }[]): readonly ClassEvid
     {
       reason: 'gate-never-evaluated',
       scopeEventCount: gateEvents,
-      produced: (facts) => facts.observed.gateEvents
+      produced: (facts) => facts.observed.gateEvents,
+      unreadable: (facts) => facts.unreadableGates.size > 0
     },
     {
       reason: 'prereq-skipped',
       scopeEventCount: prereqAttempts,
-      produced: (facts) => facts.observed.prereqAttempts
+      produced: (facts) => facts.observed.prereqAttempts,
+      unreadable: (facts) => facts.unreadableVerdict !== null
     },
     {
       reason: 'tool-blocked',
       scopeEventCount: toolTraces,
-      produced: (facts) => facts.observed.toolTraces
+      produced: (facts) => facts.observed.toolTraces,
+      unreadable: () => false
     }
   ];
 }
@@ -123,6 +149,8 @@ export type CoverageInput = {
   readonly passingFacts: readonly SliceFacts[];
   /** The reasons each near-miss slice carries. */
   readonly reasonsBySlice: ReadonlyMap<string, readonly NearMissReason[]>;
+  /** The facts of every slice whose PASS verdict could not be read. */
+  readonly unmeasuredFacts: readonly SliceFacts[];
 };
 
 /**
@@ -138,6 +166,9 @@ export function computeCoverage(input: CoverageInput): readonly NearMissClassCov
     const produced = input.passingFacts.map((facts) => item.produced(facts));
     const observedSliceCount = produced.filter((count) => count > 0).length;
     const unobservedSliceCount = produced.filter((count) => count === 0).length;
+    const unreadableSliceCount = input.unmeasuredFacts.filter((facts) =>
+      item.unreadable(facts)
+    ).length;
     const nearMissSliceCount = [...input.reasonsBySlice.values()].filter((reasons) =>
       reasons.includes(item.reason)
     ).length;
@@ -148,6 +179,7 @@ export function computeCoverage(input: CoverageInput): readonly NearMissClassCov
       scopeEventCount: item.scopeEventCount,
       observedSliceCount,
       unobservedSliceCount,
+      unreadableSliceCount,
       nearMissSliceCount,
       rate: observedSliceCount === 0 ? null : nearMissSliceCount / observedSliceCount
     };

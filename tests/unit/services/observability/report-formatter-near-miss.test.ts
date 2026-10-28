@@ -158,9 +158,9 @@ describe('Scenario: render — the near-miss section carries the rate and its co
     // then:  the coverage table says the class was not observable, and its
     //         rate cell does not read as a zero
     const markdown = renderWithNearMiss(nearMissEvents());
-    expect(markdown).toContain('| gate-never-evaluated | no | 0 | 0 | 2 | 0 | not measured |');
-    expect(markdown).toContain('| tool-blocked | no | 0 | 0 | 2 | 0 | not measured |');
-    expect(markdown).toContain('| prereq-skipped | yes | 4 | 2 | 0 | 1 | 50% |');
+    expect(markdown).toContain('| gate-never-evaluated | no | 0 | 0 | 2 | 0 | 0 | not measured |');
+    expect(markdown).toContain('| tool-blocked | no | 0 | 0 | 2 | 0 | 0 | not measured |');
+    expect(markdown).toContain('| prereq-skipped | yes | 4 | 2 | 0 | 0 | 1 | 50% |');
   });
 
   it('when a class reached none of the slices, should say how many it could not judge', () => {

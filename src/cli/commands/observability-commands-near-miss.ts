@@ -23,7 +23,8 @@ import { fail, ok } from 'peaks-loop-shared/result';
 import {
   computeNearMiss,
   type NearMissClassCoverage,
-  type NearMissDenominator
+  type NearMissDenominator,
+  type NearMissUnmeasured
 } from '../../services/observability/near-miss.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { hotspotRequestTypes } from './observability-commands-hotspots.js';
@@ -67,6 +68,23 @@ function denominatorWarnings(denominator: NearMissDenominator): string[] {
 }
 
 /**
+ * The warning that says a slice could not be measured at all.
+ *
+ * A slice whose `verdict-issued` attempt records a prereq verdict this build
+ * cannot read is in neither the numerator nor the denominator, so a reader who
+ * adds up the slices finds one missing. Saying nothing would let them infer
+ * it was never there.
+ */
+function unmeasuredWarnings(unmeasured: readonly NearMissUnmeasured[]): string[] {
+  if (unmeasured.length === 0) return [];
+  return [
+    `${unmeasured.length} slice(s) recorded a \`verdict-issued\` attempt whose prereq verdict this ` +
+      'build cannot read, so whether they passed is unknown — they are in neither the numerator ' +
+      `nor the denominator: ${unmeasured.map((item) => `\`${item.sliceRid}\``).join(', ')}`
+  ];
+}
+
+/**
  * `peaks observability near-miss` — print the near-miss rate and the list of
  * slices it came from.
  */
@@ -83,7 +101,8 @@ export function runNearMiss(io: ProgramIO, options: ObservabilityQueryOptions): 
     const warnings = [
       ...scopeWarnings(projectRoot, sessionId, events.length),
       ...coverageWarnings(report.coverage),
-      ...denominatorWarnings(report.denominator)
+      ...denominatorWarnings(report.denominator),
+      ...unmeasuredWarnings(report.unmeasured)
     ];
     printResult(
       io,
