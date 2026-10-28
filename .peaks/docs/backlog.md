@@ -7911,6 +7911,12 @@ paragraph.
   holds compiled TS) or **internal-only programs** (in which case the `MUT_REPORT` prerequisite is wrong for an
   installed peaks-loop and the contract needs a conditional, and the always-loaded sedimentation entry point needs
   a different home). **The question is now about TWO skills, not one.**
+- **DECIDED 2026-10-28 (owner)**: **both become distributed skills** — they move under the repository's root
+  `skills/`, the only directory the installer reads. The "internal program" option was considered and rejected, so
+  the `MUT_REPORT` prerequisite stays exactly as it is: shipping the skill is what satisfies it. Being worked as
+  rid `2026-10-28-skills-distributed-peaks-mut-maker`. The evidence that closes it is `npm pack --dry-run` showing
+  both under `skills/` — **not a green unit test**, because the last time this was checked a green suite sat next
+  to a package containing neither skill.
 
 ### 22.3 There is no guard for scratch files at the `.peaks/_runtime/` root
 
@@ -7994,6 +8000,12 @@ paragraph.
   producers and was **not** silently resolved.
 - **Why left**: fixing it needs a decision about which surface is authoritative, and it was **recorded rather than
   guessed** — the same treatment `rd/third-party-review-` got, minus the part that was unambiguous.
+- **DECIDED 2026-10-28 (owner)**: `rd/security-review-<rid>.md` belongs to **`peaks-security-audit`**. The path side
+  is what was wrong — the artifact's own description already named the audit skill, and the `gateEvidence` key
+  already said so. The fix follows the `rd/third-party-review-` precedent exactly: a longer, more specific prefix
+  row that the specificity sort resolves ahead of the generic `rd/` directory claim, and the legacy tier
+  `rd/security-review.md` given the same owner so the two-owner problem does not survive in the legacy path. Being
+  worked as rid `2026-10-28-own-security-review-by-audit`.
 
 ### 22.7 Two commit subjects under-describe their contents
 
