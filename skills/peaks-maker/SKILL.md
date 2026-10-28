@@ -1,7 +1,44 @@
 ---
 name: peaks-maker
-description: Sediment and SkillHub author. Use when the user describes — in natural language — intent to (a) capture a workflow as a reusable skill, (b) refine or clone an existing bee, (c) export / import a skill bundle, (d) retain a release for the local SkillHub, or (e) dispose a previous release. Intent-based, never keyword-based: "调一下", "改改", "下次复用" all map to the same concrete `peaks skill sediment …` verb. User never types CLI; peaks-maker runs it on the user's behalf.
+description: |
+  Sediment and SkillHub author. Use when the user describes — in natural language — intent to (a) capture a workflow as a reusable skill, (b) refine or clone an existing bee, (c) export / import a skill bundle, (d) retain a release for the local SkillHub, or (e) dispose a previous release. Intent-based, never keyword-based: "调一下", "改改", "下次复用" all map to the same concrete `peaks skill sediment …` verb. User never types CLI; peaks-maker runs it on the user's behalf.
 ---
+
+<!-- peaks:loop-hygiene — HAND-MAINTAINED block, NOT generated; byte-identical in every SKILL.md, enforced by tests/unit/skills/loop-hygiene-block.test.ts. Edit one, edit all 25. -->
+
+## Loop hygiene (every turn — MANDATORY)
+
+**Skill header.** While this skill is active, open every turn with
+`Peaks-Loop Skill: <skill> | Peaks-Loop Role: <role> | Peaks-Loop Gate: <gate> | Peaks-Loop Context: <ratio%> (<zone>) | Next: <one short action>`.
+Every turn, not only the first — it is how the user knows which skill is driving.
+`Role` and `Context` are machine facts: copy them from `peaks skill presence --json`
+(`data.role`, `data.context.ratioPct`, `data.context.action`) — never invent them.
+
+**Context is this skill's own business.** Run `peaks skill presence --json` every turn and
+read its `context` block. When `action` is `auto-fire`, `pre-compact`, or `red-line`,
+run `peaks code auto-compact --project .` **yourself**, then continue. Tell the user the
+ratio in one line if it helps, but never hand them the compaction step: asking the user to
+run `/compact` is the regression the zero-pause contract forbids. This holds in **every
+mode** — standard *and* 24h. The mode moves the threshold, never the obligation.
+
+**Read before you edit.** Read a file before your first `Edit` / `Write` / `MultiEdit` on
+it — the normal way to work here — for every path outside `.peaks/**` (source, tests, docs,
+config); `.peaks/**` writes are exempt.
+
+**Expect one denial per file anyway — and do NOT pre-empt it.** A `PreToolUse` gate (ECC's
+"Fact-Forcing Gate") denies the FIRST edit a session makes to any given path, once, by
+design. Reading does NOT prevent it: the gate keys on the path's first touch, not on whether
+you read it. **Do not recite its four questions before every edit** — it asks when it wants
+them, and reciting unprompted burns a round-trip per file for nothing. Answer only when a
+denial actually arrives.
+
+**When one does arrive:** a denial is not a failure and the tool is not broken — your edit
+was NOT applied. State the facts it asks for (importers, affected API, data schemas if any,
+the user's verbatim instruction), then retry the SAME operation. The retry is allowed. Do not
+switch tools, do not give up, do not retry blindly. One more thing worth knowing: an idle gap
+of ~30 minutes clears the gate's "already passed" list, so a file you cleared earlier can be
+denied again after a long pause. That is the gate resetting, not you regressing.
+<!-- /peaks:loop-hygiene -->
 
 # Peaks-Maker
 
@@ -21,7 +58,7 @@ peaks-maker is the user-facing skill that turns natural-language intent into `pe
 - Never write to `.system/` (the soft-protection guard refuses).
 - Never run `sqlite3` directly against `~/.peaks/skills/state.db` — only via the `peaks skill sediment …` surface.
 - Never auto-promote. Always ask the user in NL.
-- Never invent a CLI verb. The fixed set is `add-segment`, `add-bee`, `refine-bee`, `clone-bee`, `promote`, `retire`, `dispose`, `releases`, `release-show`, `release-diff`, `export`, `import`, `gc-blobs`, `list`, `show`, `search`, `recent`, `rebuild-index`. The blessed 18 are defined in `docs/superpowers/specs/2026-07-04-peaks-maker-dynamic-skill-sediment-design.md` §4.2. Adding/removing verbs requires updating the spec, the plan, and the CLI surface together.
+- Never invent a CLI verb. The fixed set is `add-segment`, `add-bee`, `refine-bee`, `clone-bee`, `promote`, `retire`, `dispose`, `releases`, `release-show`, `release-diff`, `export`, `import`, `gc-blobs`, `list`, `show`, `search`, `recent`, `rebuild-index`. The blessed 18 are defined in `src/services/standards/loop-engineering-readiness-lint.ts`. Adding/removing verbs requires updating that allowlist and the CLI surface together.
 
 ## Loop Engineering role
 

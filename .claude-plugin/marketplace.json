@@ -103,6 +103,16 @@
           "description": "End-to-end orchestrator that surveys open issues in a target repo, classifies them by difficulty, mines reference merged-PRs, fixes each issue with real commits (with Repository + AI-modified declaration), writes normalized PR description files, and emits a one-line submit script. Use when the user wants to drive a \"fix N open issues and prepare PRs\" run on an upstream repo (any language; primarily Python + TypeScript). Reuses Loop Engineering primitives: 4-layer asset model, Darwin ratchet, karpathy-engineered red lines, Human-NL-Choice-Only. Triggers on `/peaks-issue-fix-orchestrator`, \"fix 30 issues\", \"dogfood on <repo>\", \"open-issue sweep on <repo>\"."
         },
         {
+          "name": "peaks-maker",
+          "path": "./skills/peaks-maker",
+          "description": "Sediment and SkillHub author. Use when the user describes — in natural language — intent to (a) capture a workflow as a reusable skill, (b) refine or clone an existing bee, (c) export / import a skill bundle, (d) retain a release for the local SkillHub, or (e) dispose a previous release. Intent-based, never keyword-based: \"调一下\", \"改改\", \"下次复用\" all map to the same concrete `peaks skill sediment …` verb. User never types CLI; peaks-maker runs it on the user's behalf."
+        },
+        {
+          "name": "peaks-mut",
+          "path": "./skills/peaks-mut",
+          "description": "Mutation testing + assertion validity scan for Peaks. Use when a workflow needs to catch test fake-green (coverage looks fine but tests do not actually exercise behavior). Runs Stryker mutants and a 5-pattern weak-assertion AST scan, then emits a hashable MUT.sig report that chains to TACT.sig."
+        },
+        {
           "name": "peaks-perf-audit",
           "path": "./skills/bee/peaks-perf-audit",
           "description": "Independent performance audit skill. Reads the immutable peaks-prd handoff + the project-level perf-template.md, performs a 6-dimension perf audit, and writes a structured envelope to `.peaks/_runtime/<sessionId>/audit/perf-<rid>.md`. Decoupled from peaks-rd 5-way fan-out per slice v2.12.0 (Group A, Tier 3). Use when the slice introduces CPU-bound hot loops, I/O throughput changes, memory allocation patterns, concurrency model changes, bundle size deltas, or cold-start costs.",

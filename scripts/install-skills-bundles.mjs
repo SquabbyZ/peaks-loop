@@ -42,8 +42,13 @@ import { resolveBundleTargetRoot } from './install-skills-ide.mjs';
  *
  * @param {string} skillsRoot
  * @returns {Array<{ skillName: string, sourcePath: string }>}
+ *
+ * EXPORTED so a test can assert on the ENUMERATION itself — the names this
+ * installer would reconcile — instead of on a file happening to exist on
+ * disk. The two are different claims: a document under `skills/` that this
+ * function does not enumerate is installed by nothing.
  */
-function collectSkillCandidates(skillsRoot) {
+export function collectSkillCandidates(skillsRoot) {
   const beeRoot = join(skillsRoot, 'bee');
   /** @type {Array<{ skillName: string, sourcePath: string }>} */
   const candidates = [];

@@ -36,7 +36,11 @@ export const ORCHESTRATOR_ROLE_SKILLS: readonly string[] = [
   // accepted here, before any PRD or RD skill may run. Nothing dispatches it.
   'peaks-audit',
   // The fast lane — a user-facing entry the user picks instead of the full workflow.
-  'peaks-race-code'
+  'peaks-race-code',
+  // The always-loaded entry that writes the skill pool and the local SkillHub:
+  // the user reaches it by describing what they want, and it is never
+  // dispatched by another skill.
+  'peaks-maker'
 ];
 
 /** The 1-level sub-roles an orchestrator dispatches. */
@@ -58,7 +62,10 @@ export const BEE_ROLE_SKILLS: readonly string[] = [
   // One dimension audited, decoupled from the RD fan-out: one envelope,
   // written for the caller that asked for the audit.
   'peaks-perf-audit',
-  'peaks-security-audit'
+  'peaks-security-audit',
+  // One stage of a larger flow: peaks-code and peaks-rd dispatch it after the
+  // TACT chain exists, and it writes one measurement report back.
+  'peaks-mut'
 ];
 
 /** The two lists as ONE lookup, so a skill's tier is decided in one place. */

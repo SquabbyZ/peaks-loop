@@ -18,7 +18,11 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { installBundledAgents, installBundledSkills } from './install-skills-bundles.mjs';
+import {
+  collectSkillCandidates,
+  installBundledAgents,
+  installBundledSkills
+} from './install-skills-bundles.mjs';
 import {
   IDE_SKILL_INSTALL_PROFILES,
   isPlatformPresent,
@@ -34,6 +38,11 @@ import { createConfigResult, installUserConfig } from './install-skills-user-con
 export { IDE_DETECTION_DIRS } from './install-skills-ide.mjs';
 export { IDE_SKILL_INSTALL_PROFILES };
 export { installBundledSkills, installBundledAgents };
+// The candidate enumeration, on the public surface for the same reason the
+// installers are: what the installer WOULD reconcile is a fact about the
+// package, and a test that has to reach past the entry point to see it will
+// keep asserting on the wrong thing.
+export { collectSkillCandidates };
 export { installUserConfig };
 export { installBundledOutputStyles, installBundledOutputStyleDefault };
 

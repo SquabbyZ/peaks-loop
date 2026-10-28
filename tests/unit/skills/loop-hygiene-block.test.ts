@@ -15,9 +15,9 @@ const END_MARKER = '<!-- /peaks:loop-hygiene -->';
  * ONE of 22 skills — `peaks-code` — and the other 21 never received it.
  * A rule that only reaches one skill is not a rule.
  *
- * Byte-identity is the point: 23 hand-maintained copies drift, and a
+ * Byte-identity is the point: 25 hand-maintained copies drift, and a
  * drifted copy is how the contract quietly stops applying to whichever
- * skill fell behind. Edit one, edit all 23; this test is what makes that
+ * skill fell behind. Edit one, edit all 25; this test is what makes that
  * non-optional.
  */
 /**

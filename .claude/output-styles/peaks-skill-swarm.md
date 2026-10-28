@@ -53,8 +53,8 @@ Peaks-Loop Skill: <skill-name> | Peaks-Loop Role: <tier> | Peaks-Loop Gate: <cur
 
 `<skill-name>` is the value returned by `peaks skill presence --json`'s `data.skill`. The `Role` line surfaces the two-layer Peaks-Loop family so the user always knows which layer is active:
 
-- **orchestrator** (1-level) — `peaks-code`, `peaks-content`, `peaks-doctor`, `peaks-issue-fix-orchestrator`, `peaks-solo`, `peaks-ide`, `peaks-sop`, `peaks-audit`, `peaks-race-code`. These are user-facing workflows that own gate transitions.
-- **bee** (1-level sub-role) — `peaks-prd`, `peaks-rd`, `peaks-qa`, `peaks-ui`, `peaks-sc`, `peaks-txt`, `peaks-final-review`, `peaks-resume`, `peaks-status`, `peaks-test`, `peaks-reviewer`, `peaks-slice-decompose`, `peaks-perf-audit`, `peaks-security-audit`. These are dispatched by an orchestrator and own one stage.
+- **orchestrator** (1-level) — `peaks-code`, `peaks-content`, `peaks-doctor`, `peaks-issue-fix-orchestrator`, `peaks-solo`, `peaks-ide`, `peaks-sop`, `peaks-audit`, `peaks-race-code`, `peaks-maker`. These are user-facing workflows that own gate transitions.
+- **bee** (1-level sub-role) — `peaks-prd`, `peaks-rd`, `peaks-qa`, `peaks-ui`, `peaks-sc`, `peaks-txt`, `peaks-final-review`, `peaks-resume`, `peaks-status`, `peaks-test`, `peaks-reviewer`, `peaks-slice-decompose`, `peaks-perf-audit`, `peaks-security-audit`, `peaks-mut`. These are dispatched by an orchestrator and own one stage.
 
 **Both layers must always appear in the header regardless of which skill is currently active**, so the user sees the full Peaks-Loop family on every turn. When the active skill is a bee (e.g. `peaks-rd`), the orchestrator is implicit and you MAY add a parenthetical: `peaks-rd (under peaks-code)`. When the active skill is an orchestrator, no parent is implied.
 

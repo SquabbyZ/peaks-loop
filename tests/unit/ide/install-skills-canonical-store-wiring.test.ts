@@ -9,14 +9,14 @@
 // links bound to a VERSION and broke on upgrade. Worse, the only branch that could
 // repair a stale link was gated behind `options.reconcileJunctions === true`, which
 // the postinstall never passes, so every stale entry landed in the silent `skipped`
-// bucket: no repair, no error, 22 dead links per IDE directory.
+// bucket: no repair, no error, 24 dead links per IDE directory.
 //
 // WHAT THIS FILE PINS. After `installBundledSkills` runs:
 //   - each IDE entry resolves to `~/.peaks/skills/<name>`, a path peaks-loop owns
 //     and that does NOT drift when the package version changes;
 //   - the canonical entry is a REAL COPY (a directory, not a link) byte-equal to the
 //     package source — so the IDE links never need rebuilding on upgrade;
-//   - all 23 bundled skills arrive (14 top-level + 9 bee-level), FLAT in both
+//   - all 25 bundled skills arrive (16 top-level + 9 bee-level), FLAT in both
 //     locations (`skills/bee/peaks-rd` → `skills/peaks-rd`);
 //   - a second run rewrites nothing (no mtime moves) and reports the same set;
 //   - a REAL directory the user authored is left alone — the negative control that
@@ -173,13 +173,13 @@ describe('Scenario: behavior — the installer points IDE entries at the canonic
     );
   });
 
-  it('when the installer runs against the real package, should place all 23 skills flat in both locations', () => {
-    // given: the bundled package ships 14 top-level skills and 9 bee-level skills
+  it('when the installer runs against the real package, should place all 25 skills flat in both locations', () => {
+    // given: the bundled package ships 16 top-level skills and 9 bee-level skills
     // when: the installer links them into an IDE skills directory
     // then: every skill is present under its FLAT name in the store and in the IDE dir
-    expect(TOP_LEVEL_CANDIDATES).toHaveLength(14);
+    expect(TOP_LEVEL_CANDIDATES).toHaveLength(16);
     expect(BEE_CANDIDATES).toHaveLength(9);
-    expect(ALL_CANDIDATES).toHaveLength(23);
+    expect(ALL_CANDIDATES).toHaveLength(25);
 
     const result = mod.installBundledSkills({ targetRoot: IDE_SKILLS_DIR });
 
@@ -238,7 +238,7 @@ describe('Scenario: behavior — the installer points IDE entries at the canonic
     expect(result.skipped).toEqual(['peaks-code']);
     expect(lstatSync(userSkill).isSymbolicLink()).toBe(false);
     expect(readFileSync(join(userSkill, 'SKILL.md'), 'utf8')).toBe('# my own peaks-code\n');
-    expect(result.installed).toHaveLength(22);
+    expect(result.installed).toHaveLength(24);
   });
 
   it('when the installer imports a sibling module, should ship that module in the tarball', () => {

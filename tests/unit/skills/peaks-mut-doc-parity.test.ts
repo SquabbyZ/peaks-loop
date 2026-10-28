@@ -1,7 +1,7 @@
 // tests/unit/skills/peaks-mut-doc-parity.test.ts
 //
 // The defect this file exists to kill: the `peaks mut` flag table in
-// `src/skills/peaks-mut/SKILL.md` is read by an LLM that then types the
+// `skills/peaks-mut/SKILL.md` is read by an LLM that then types the
 // command. Nothing compared that table against the parser, so it drifted —
 // `--mutate` was missing, `asserts` claimed the same flags as `run` (it has
 // no `--mutate` at all), and the two root `package.json` scripts carried flag
@@ -46,7 +46,7 @@ declareDimensions('tests/unit/skills/peaks-mut-doc-parity.test.ts', [
 ]);
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
-const SKILL_MD = join(REPO_ROOT, 'src/skills/peaks-mut/SKILL.md');
+const SKILL_MD = join(REPO_ROOT, 'skills/peaks-mut/SKILL.md');
 const STRYKER_CONF = join(REPO_ROOT, 'stryker.conf.js');
 const PACKAGE_JSON = join(REPO_ROOT, 'package.json');
 

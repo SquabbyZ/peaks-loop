@@ -3,6 +3,42 @@ name: peaks-mut
 description: Mutation testing + assertion validity scan for Peaks. Use when a workflow needs to catch test fake-green (coverage looks fine but tests do not actually exercise behavior). Runs Stryker mutants and a 5-pattern weak-assertion AST scan, then emits a hashable MUT.sig report that chains to TACT.sig.
 ---
 
+<!-- peaks:loop-hygiene — HAND-MAINTAINED block, NOT generated; byte-identical in every SKILL.md, enforced by tests/unit/skills/loop-hygiene-block.test.ts. Edit one, edit all 25. -->
+
+## Loop hygiene (every turn — MANDATORY)
+
+**Skill header.** While this skill is active, open every turn with
+`Peaks-Loop Skill: <skill> | Peaks-Loop Role: <role> | Peaks-Loop Gate: <gate> | Peaks-Loop Context: <ratio%> (<zone>) | Next: <one short action>`.
+Every turn, not only the first — it is how the user knows which skill is driving.
+`Role` and `Context` are machine facts: copy them from `peaks skill presence --json`
+(`data.role`, `data.context.ratioPct`, `data.context.action`) — never invent them.
+
+**Context is this skill's own business.** Run `peaks skill presence --json` every turn and
+read its `context` block. When `action` is `auto-fire`, `pre-compact`, or `red-line`,
+run `peaks code auto-compact --project .` **yourself**, then continue. Tell the user the
+ratio in one line if it helps, but never hand them the compaction step: asking the user to
+run `/compact` is the regression the zero-pause contract forbids. This holds in **every
+mode** — standard *and* 24h. The mode moves the threshold, never the obligation.
+
+**Read before you edit.** Read a file before your first `Edit` / `Write` / `MultiEdit` on
+it — the normal way to work here — for every path outside `.peaks/**` (source, tests, docs,
+config); `.peaks/**` writes are exempt.
+
+**Expect one denial per file anyway — and do NOT pre-empt it.** A `PreToolUse` gate (ECC's
+"Fact-Forcing Gate") denies the FIRST edit a session makes to any given path, once, by
+design. Reading does NOT prevent it: the gate keys on the path's first touch, not on whether
+you read it. **Do not recite its four questions before every edit** — it asks when it wants
+them, and reciting unprompted burns a round-trip per file for nothing. Answer only when a
+denial actually arrives.
+
+**When one does arrive:** a denial is not a failure and the tool is not broken — your edit
+was NOT applied. State the facts it asks for (importers, affected API, data schemas if any,
+the user's verbatim instruction), then retry the SAME operation. The retry is allowed. Do not
+switch tools, do not give up, do not retry blindly. One more thing worth knowing: an idle gap
+of ~30 minutes clears the gate's "already passed" list, so a file you cleared earlier can be
+denied again after a long pause. That is the gate resetting, not you regressing.
+<!-- /peaks:loop-hygiene -->
+
 ## Single-axis naming convention
 
 > **Read once at the top of this file; the rest of the skill is written against it.**
@@ -36,7 +72,7 @@ peaks project memories --project <repo> --json
 ```
 
 This returns durable memories from `.peaks/memory` — decisions, conventions, modules, and rules captured in past sessions. Filter with `--kind <project|decision|convention|rule|reference|feedback|module|lesson|bug|investigation|technical-pattern|project-rule|design|handoff|session-handoff|project-todo|publish-closure|project-closure|slice-closure|slice-pilot-findings|sediment>`. (`.peaks/PROJECT.md` is a human-readable session timeline only.)
-Then display: `Peaks-Loop Skill: peaks-mut | Peaks-Loop Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-mut --project <repo> --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear --project <repo>`.
+Then display: `Peaks-Loop Skill: peaks-mut | Peaks-Loop Role: <role> | Peaks-Loop Gate: startup | Peaks-Loop Context: <ratio%> (<zone>) | Next: <one short action>`. Update with `peaks skill presence:set peaks-mut --project <repo> --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear --project <repo>`.
 
 ## What peaks-mut actually does
 

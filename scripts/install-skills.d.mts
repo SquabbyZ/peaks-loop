@@ -43,6 +43,23 @@ export interface InstallResult {
   skipped: string[];
 }
 
+/**
+ * One skill the package ships, as the installer enumerates it.
+ *
+ * `skillName` is the name the skill is installed under — the basename of its
+ * directory, which for a role skill is the name under `skills/bee/`.
+ */
+export interface SkillCandidate {
+  skillName: string;
+  sourcePath: string;
+}
+
+/**
+ * The candidates under `skillsRoot`: the top-level skill directories and the
+ * role skills under `skills/bee/`, top level winning on a name clash.
+ */
+export function collectSkillCandidates(skillsRoot: string): SkillCandidate[];
+
 export interface PerPlatformInstallResult extends InstallResult {
   ideId: string;
   /** `skillsDir` (skills fan-out) or `agentsDir` (agents fan-out). */
