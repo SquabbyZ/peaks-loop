@@ -7872,25 +7872,45 @@ paragraph.
   **The slice also found and fixed a path traversal this change made reachable** — see §23.5. The rate is the
   **unweighted mean** over judged slices (recorded in the code review; the row's shape was out of scope).
 
-### 22.2 `peaks-mut` is not in the published package — an installed peaks-loop cannot pass `rd -> qa-handoff`
+### 22.2 Two skills live under `src/skills/` and neither is in the published package
 
-- **Where**: the skill's `SKILL.md` is at `src/skills/peaks-mut/SKILL.md`; the artifact contract names
-  `mut/mut-report.json` (`MUT_REPORT`) in the feature / bugfix / refactor `rd -> qa-handoff` prereq tables
-  (`src/services/artifacts/artifact-prerequisites.ts`); `package.json`'s `files` whitelist contains `skills/**` and
-  **not** `src/skills/**`.
-- **MEASURED 2026-10-28**: `npm pack --dry-run --ignore-scripts --json` → **2935 files**, of which **0** match
+> **RE-MEASURED 2026-10-28 (after the §22 slices shipped).** The first version of this entry named only
+> `peaks-mut` and said the `mut/` artifacts have **no producer** on an installed peaks-loop. **The producer is
+> there; the RECIPE is not.** And a **second** skill is missing from the package — `peaks-maker`, whose own
+> description says it is **always-loaded**. The decision below is therefore bigger than it looked, and the
+> framing of "no producer" was wrong.
+
+- **Where**: `src/skills/peaks-mut/SKILL.md` and `src/skills/peaks-maker/SKILL.md` (+ `index.ts`); the artifact
+  contract names `mut/mut-report.json` (`MUT_REPORT`) in the feature / bugfix / refactor `rd -> qa-handoff` prereq
+  tables (`src/services/artifacts/artifact-prerequisites.ts`); `package.json`'s `files` whitelist contains `skills/**`
+  and **not** `src/skills/**`.
+- **MEASURED 2026-10-28** (`npm pack --dry-run --ignore-scripts --json`): **2955 files**, of which **0** match
   `peaks-mut` and **0** are under `src/skills/`. All 15 user-visible `skills/` skills and all 9 `skills/bee/` skills
-  **are** in the package. `peaks-mut` is the only skill whose `SKILL.md` exists and cannot be installed.
-- **Consequence**: on an installed peaks-loop the `mut/` artifacts have **no producer**, and `mut/mut-report.json` is a
-  **hard `rd -> qa-handoff` prerequisite** — that install fails that gate permanently. It is also the **second row of
-  the hotspot ranking** (count 78): a "skill keeps failing to deliver" that no reader can act on.
-- **Why left**: the branch changed no artifact contract, so this is a **packaging defect, not a contract defect**, and it
-  needs its own slice. It was recorded as a finding in the spec's §2.4.1 rather than fixed inside a release that was
-  already published.
-- **What it needs**: decide whether `peaks-mut` is a **distributed skill** (add `src/skills/**` to `files`, or move it
-  under `skills/`) or an **internal-only program** (in which case the `MUT_REPORT` prerequisite is wrong for an installed
-  peaks-loop and the contract needs a conditional). **The second option is the likelier truth and the more interesting
-  one** — but it is a decision, not an implementation.
+  **are** in the package. `src/skills/` holds **two** entries — `peaks-maker` and `peaks-mut` — and **neither** is
+  in the tarball, so the first version of this entry ("`peaks-mut` is the only skill whose `SKILL.md` exists and
+  cannot be installed") was **wrong**: there were two.
+- **The producer IS available.** `peaks-loop-mut` is a **separate npm package** (version 0.1.77) listed in
+  `dependencies`, and the root CLI's `dist/cli/commands/mut-commands.js` imports it — so `peaks mut run` works on
+  an installed peaks-loop. What is missing is the **recipe**: the SKILL.md that tells the agent how to run the
+  chain (`strat write` → `tact write` → `mut run --input-sig`) that produces `mut/mut-report.json`.
+- **AND the installer never looks at `src/skills/` at all.** `scripts/install-skills-bundles.mjs:79` reads
+  `join(packageRoot, 'skills')` and enumerates that directory — there is no second source. So the two skills are
+  not merely unpackaged: they are **invisible to the installer** by construction.
+- **The corrected consequence**:
+  - `mut/mut-report.json` is a **hard `rd -> qa-handoff` prerequisite** for feature / bugfix / refactor. An
+    installed peaks-loop can produce the file, but nothing installed tells it the chain, and the gate that wants
+    the file does not care how it was made.
+  - `peaks-maker` — *"the user-facing skill that turns natural-language intent into `peaks skill sediment …` CLI
+    calls. **It is always-loaded.**"* — is **not installed** on any npm-installed peaks-loop. The sedimentation
+    entry point is missing from every install. That is a wider blast radius than the mut gate, and it was not
+    recorded at all.
+- **Why left**: this is a **packaging defect, not a contract defect**, and it needs its own slice. It was recorded
+  as a finding in the spec's §2.4.1 rather than fixed inside a release that was already published.
+- **What it needs**: decide whether these two are **distributed skills** (move them under `skills/`, which is the
+  only directory the installer reads — `peaks-maker`'s `index.ts` needs its own answer, since `src/skills/` also
+  holds compiled TS) or **internal-only programs** (in which case the `MUT_REPORT` prerequisite is wrong for an
+  installed peaks-loop and the contract needs a conditional, and the always-loaded sedimentation entry point needs
+  a different home). **The question is now about TWO skills, not one.**
 
 ### 22.3 There is no guard for scratch files at the `.peaks/_runtime/` root
 
