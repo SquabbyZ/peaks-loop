@@ -8422,3 +8422,161 @@ paragraph.
 - **What it needs**: the same single normalisation the other three surfaces need, plus a re-measure. And a
   general rule for the project: **a metric that groups by a raw identifier must be able to say which identifier
   convention it assumed.**
+
+### 23.14 The published tarball already ships a module that throws on import
+
+- **Where**: `src/skills/peaks-maker/index.ts` → `dist/skills/peaks-maker/index.js`, which IS in the npm tarball
+  (measured: `npm pack --dry-run` lists `dist/skills/peaks-maker/index.js` and `.d.ts`).
+- **MEASURED 2026-10-28** (by the PRD agent for the §22.2 decision, read-only): the module reads its sibling
+  `SKILL.md` with `dirname(fileURLToPath(import.meta.url))` — and **the SKILL.md is never copied into `dist/`**. So
+  `import '.../dist/skills/peaks-maker/index.js'` throws **ENOENT at import time**, in the published package.
+- **Why it was never noticed**: `peaksMakerManifest` has **zero importers** in `src/` (measured), so nothing in the
+  repository ever imports the module — and the two tarball files are the only copies of it that exist.
+- **Why it matters beyond its own size**: it is a **module in the published package that cannot be loaded**. A
+  consumer who finds it and imports it gets an exception, not a manifest. And it is the same root cause as §22.2:
+  a document and the code that reads it live in two places, and only the document was ever meant to ship.
+- **What it needs**: the §22.2 slice (`2026-10-28-skills-distributed-peaks-mut-maker`) owns the decision — keep the
+  manifest and make it resolve the moved SKILL.md, or drop it and assert that it leaves zero importers — and either
+  way **stop shipping a module that throws on import**. A package that ships an unloadable module is a claim about
+  itself that is false, which is the shape this document exists to catch.
+
+### 23.15 Every Bash call reports a hook error — TWO of the three installed Bash hooks write a top-level `decision` the host rejects
+
+> **CORRECTED 2026-10-28.** The first version of this entry blamed `peaks gate enforce` and called the three
+> ALLOW paths "the defect". **That was wrong**, and the correction is the interesting part: the error message names
+> a **TOP-LEVEL** `decision`, and gate enforce's `decision` is **nested under `data`** — a key the host's validator
+> IGNORES. So the hook that was actually failing was not the one the symptom pointed at. **The symptom named the
+> field; it did not name the hook.**
+
+- **SYMPTOM (the user sees it on EVERY Bash call)**:
+  `PreToolUse:Bash hook error` / `Hook JSON output validation failed — decision: Invalid option:
+  expected one of "approve"|"block"`.
+- **MEASURED 2026-10-28** by running each installed hook exactly as the host runs it (a tool payload on stdin):
+
+  | hook | stdout | verdict |
+  |---|---|---|
+  | `peaks code auto-compact --project .` | one JSON document with a **top-level** `"decision": "below-threshold"`, **plus a trailing prose line** (`next: Context at 68.1%; …`) | **FAILS twice over**: the value is outside {approve, block}, and stdout is not ONE JSON document |
+  | `peaks code gate-step-08 --project .` | one JSON document whose top-level `"decision"` is an **OBJECT** (`{isJob, rationale, suggestedJobId, …}`) | **FAILS**: an object is not `approve`/`block` |
+  | `peaks gate enforce --project . --json` | the CLI envelope, `decision` **nested** under `data` | likely PASSES — the validator ignores it (verify, do not assume) |
+
+- **THE HOST'S VOCABULARY IS `approve`/`block`, AND A HOOK MAY NOT USE `decision` FOR ITS OWN MEANING.** The two
+  failing hooks both wanted to convey something of their own (`below-threshold`; a job-shape object) and both put
+  it in the one key the host reserves for its own vocabulary. **A hook that needs to report a decision of its own
+  has to use a different key** — the host's shape is
+  `hookSpecificOutput {hookEventName, permissionDecision, permissionDecisionReason}`, and `permissionDecision`
+  takes `allow`/`deny`/`ask`.
+- **THE EARLIER FIX DID NOT FIX IT — and the memory says so.** `.peaks/memory/bash-pretooluse-hook-json-error-fix.md`
+  (2026-07-27) records the ORIGINAL symptom as *"Hook JSON output validation failed — (root): Invalid input"*,
+  caused by a hook printing **empty stdout**. The fix was to **add `--json`**, which changed the error message and
+  left the defect in place: `--json` makes a hook print its **CLI envelope**, which is not a hook decision either.
+  The memory's own diagnosis table calls the sibling hook's `{"allow": true, …}` "valid" — it is valid only
+  because the validator **ignores unknown keys**, while a `decision` key it recognises with the wrong value is
+  exactly what fails.
+- **THE DENY PATH IS CORRECT and must not change**: `emitBlock` (`src/services/hooks/output.ts`) writes the
+  canonical `hookSpecificOutput.permissionDecision: "deny"` shape and sets exit 2, with the envelope on stderr
+  via `emitHint`.
+- **WHY IT SURVIVED A FIX**: the check that would have caught it is the one the user's error message names —
+  **the host's own validator, applied to the real stdout**. A unit test on the emit helpers cannot see a host-side
+  parse failure, and "the hook runs and the command proceeds" cannot either: the work PROCEEDS, with a red error
+  beside it. That is why it can go unnoticed for a long time — **a malformed report on every call, while
+  everything still works.**
+- **AND THE FIX DOES NOT REACH THE USER WITHOUT A REFRESH**: the hook calls the **GLOBAL** `peaks` binary
+  (`…/nvm/.nodejs/peaks`, version **4.1.23 — the SAME version string as this repo**, which is exactly why a
+  version check hides the difference). The global binary reproduces the defect byte-for-byte. So a source fix
+  clears the symptom only after: the dist is rebuilt, the global install is refreshed, and
+  `peaks workspace init` re-materialises `.claude/settings.local.json` if the hook ENTRY changes.
+- **What it needs**: all three installed `PreToolUse:Bash` hooks emit a stdout the host accepts — one JSON
+  document, `decision` either absent or a member of {approve, block}, and any hook-specific notion of a decision
+  carried under a DIFFERENT key — plus a test that asserts the SHAPE of each hook's stdout. Being worked as rid
+  `2026-10-28-fix-bash-hook-json-validation`.
+
+### 23.16 A test's INDEPENDENT reading of a rule is decoration when it only covers the paths where both readings agree
+
+- **Where**: `tests/unit/services/observability/retro-attribution.test.ts` — `EXPECTED_OWNER_BY_PREFIX` (line ~110),
+  read by `expectedOwner`; against the map it checks, `src/services/observability/owner-skill-map.ts`.
+- **THE DESIGN IS RIGHT, and that is what makes the defect interesting.** The table's own comment says it is
+  *"stated here independently of the owner map so the attribution is checked against a second reading rather
+  than against itself"*. An independent oracle is exactly the right way to test a rule — it is the difference
+  between a test that pins a rule and a test that re-implements it.
+- **MEASURED 2026-10-28**: after the §22.6 slice moved `rd/security-review-<rid>.md` to `peaks-security-audit`
+  (two rows in the map), the oracle still says `rd/` → `peaks-rd` and has no row for either `rd/`-scoped
+  artifact. The test suite is **green (12 passed)** — because **it never reaches an `rd/` path**: the only
+  occurrences of `rd/` in the file are the two lines of the oracle table itself. The oracle's `rd/` row is
+  never consulted.
+- **Why the divergence was invisible**: an independent oracle only does its job on the paths the test
+  exercises. Where both readings agree, the second reading adds nothing; where they disagree, the second
+  reading is **not consulted at all**, so the disagreement cannot show up. The oracle is decoration exactly
+  where it would have been most valuable.
+- **The same divergence already existed** for `rd/third-party-review-<rid>.md` (the `peaks-reviewer` row)
+  **before this session's slice** — so this is a pre-existing gap the §22.6 work merely exposed.
+- **Why the fix is NOT "sync the two tables"**: copying the map's rows into the oracle would make the oracle a
+  second copy, which is the thing the design exists to avoid. The fix is that the oracle must (a) cover the
+  paths whose ownership the map now decides — including the two `rd/`-scoped artifacts — and (b) be exercised
+  on them, so a future divergence is caught by the reading rather than by a reader noticing.
+- **What it needs**: one small slice that adds the `rd/`-scoped rows to the oracle AND adds an assertion that
+  actually reaches an `rd/` candidate path, so the oracle stops being decoration. A test whose stated purpose is
+  "check against a second reading" must **reach a path where the second reading could disagree** — otherwise
+  it states a purpose it does not perform.
+
+### 23.12 The commit gate cannot resolve a kind-first numbered artifact, so the workaround was to duplicate it
+
+- **Where**: `src/services/artifacts/prerequisite-path-resolver.ts` (`resolvePrerequisiteAbsolutePath`) against the
+  artifact names the request writer produces: `rd/code-review-002-<rid>.md`, `audit/security-002-<rid>.md`.
+- **MEASURED 2026-10-28** (orchestrator, while committing the §22 slices): the commit gate derives each rid with
+  `requestIdFromFileName`, which **strips** the numeric prefix — so it asks for `audit/security-<rid>.md`. The
+  resolver's fallback scans the directory for a name that **starts** with three digits
+  (`NUMBERED_PREFIX_RE = /^(\d{3})-/`), and the real artifact is `<kind>-NNN-<rid>.md` — the number sits AFTER the
+  kind, not before it. So the fallback does not match, and the gate reports the evidence as missing.
+- **The workaround used, and why it is not acceptable**: six artifact copies were written under the **bare** names
+  (`audit/security-<rid>.md`, `rd/code-review-<rid>.md`, `audit/perf-<rid>.md`, `prd/handoff-<rid>.md`,
+  `qa/test-cases/<rid>.md`, `qa/test-reports/<rid>.md`) inside the session directory, each a byte-for-byte copy of
+  the numbered original. That satisfies the gate — and it is **the same smell §23.16 is about**: one artifact under two
+  names, so two surfaces can disagree about which one is canonical. It also doubles what a reader has to keep in sync.
+- **What it needs**: the resolver's numbered-prefix tolerance must cover **both** naming families — the
+  number-first form (`002-<rid>.md`, which the fallback already handles) **and** the kind-first form
+  (`<kind>-002-<rid>.md`, which the request writer actually produces). Then the bare name resolves to the numbered
+  artifact, the copies are unnecessary, and the two spellings stop being two files. The rule that decides it is the
+  same `requestIdFromFileName` the writer and the claim table already use — one more reader to bring in line.
+
+### 23.17 The readiness gate was asserted on ONE skill, so 24 others failed it unseen — and the block everyone shares is what trips it
+
+- **Where**: `src/services/standards/loop-engineering-readiness-lint.ts` (`checkCliVerbBypass`, `checkGuidelineReference`) against the 25 shipped `skills/**/SKILL.md`; asserted by exactly one test, `tests/integration/skill-loop-engineering-readiness-cli.test.ts`, whose "passes" case names **one** file.
+- **MEASURED 2026-10-29** (orchestrator, after a sibling slice gave `skills/peaks-maker/SKILL.md` the loop-hygiene block and the assertion went red):
+
+  | finding | how many of the 25 shipped SKILL.md |
+  |---|---|
+  | `cli-verb-bypass` | **25 of 25** |
+  | `missing-guideline-reference` | **20 of 25** |
+  | pass the readiness lint | **0 of 25** |
+
+- **THE ONE THAT LOOKS LIKE A REGRESSION IS A TRUE POSITIVE ON A FALSE PREMISE.** The `cli-verb-bypass` hit is the same sentence in every file:
+  `run \`peaks code auto-compact --project .\` **yourself**, then continue. Tell the user the ratio …`. That sentence does the RIGHT thing — it addresses the assistant and then forbids handing the step to the user, which is the zero-pause contract. The rule reads `^\s*[-*]?\s*(?:Run|Use|Type|Execute)\s+\`peaks <verb>\`` **case-insensitively on every line**, and the hygiene block is a hard-wrapped paragraph, so a continuation line begins with lowercase `run`. **A rule that cannot read addressee from prose will fire on the one line that is obeying it.**
+- **WHY IT WAS INVISIBLE, AND THIS IS THE GENERAL LESSON.** The integration test's passing case names `skills/peaks-maker/SKILL.md` — which was, until this batch, **the only shipped skill that did not carry the hygiene block**. So the assertion passed for years while the other 24 files failed. **A gate asserted on one sample measures the sample, not the tree** — and the sample was accidentally the one uncontaminated file. The 20 missing references had never been linted by anything at all.
+- **IT BLOCKS THE PUSH, which is how it was found.** CI runs the whole integration suite (`integration-suite`, ubuntu-only), so the moment peaks-maker gained the block, a green job turned red.
+- **THE FIX, TWO PARTS — the first is in flight, the second is this entry's ask.**
+  1. *(being worked as rid `2026-10-28-readiness-lint-hygiene-exempt`)* The hygiene block is not skill-authoring content: it is a shared insert, delimited by its own `<!-- peaks:loop-hygiene … -->` / `<!-- /peaks:loop-hygiene -->` markers, byte-identical in all 25 files and separately guarded by `tests/unit/skills/loop-hygiene-block.test.ts`. The readiness checks should run on the skill's own text with that one delimited region removed — bounded by the markers, **failing closed when a marker is unterminated**, and changing nothing for a document with no markers.
+  2. *(this entry)* **Add the `.peaks/standards/loop-engineering-guidelines.md` reference to the 20 skills that lack it.** One line each; mechanical; it is what makes the readiness gate mean something for the shipped tree instead of for one file.
+- **THE WRONG TURN TO REFUSE**: adding `code` to `ALLOWED_CLI_VERBS` would silence the finding and let a skill tell the user to type `peaks code …` — precisely what RL-1 exists to forbid. **The false positive and the true positive are one token apart; fix the addressee blindness, not the verb list.**
+- **AND THE TEST THAT SHOULD EXIST**: the "passes" case should walk **every** shipped `skills/**/SKILL.md`, not one named file. Until it does, this class of defect is one file rename away from being invisible again.
+- **THE FULL BEFORE/AFTER, measured 2026-10-29 over all 25 shipped skills** (one script, before and after the strip fix):
+
+  | finding | before | after |
+  |---|---|---|
+  | `cli-verb-bypass` | 29 findings, 25 of them the hygiene block's single line | 4 — **genuine, and NOT the block** |
+  | `missing-guideline-reference` | 20 | 20 (untouched — part 2 above) |
+  | `json-hand-authoring` | 1 (`peaks-sop:193`) | 1 (untouched) |
+  | skills that PASS | **0 of 25** | **1 of 25** (`peaks-maker`) |
+
+  So the strip fix removed exactly the false positives and **moved nothing else** — which is the property that makes it a fix rather than a blanket exemption. The 4 survivors are `peaks capabilities` in `skills/bee/{peaks-prd,peaks-qa,peaks-txt,peaks-ui}/SKILL.md`; they need the same addressee question answered individually (is the line telling the LLM or the user?), so they belong with part 2, not with the mechanical strip.
+- **A `pnpm build` IS A PRECONDITION OF ANY OF THIS**: `packages/*/dist` is untracked, so `tests/integration/skill-loop-engineering-readiness-cli.test.ts` refuses to start against a stale `dist/`, and `tests/unit/standards/doc-command-claims.test.ts` fails to LOAD with "Failed to resolve entry for package 'peaks-loop-mut'". Both are environmental, and both read as slice defects if the reader does not know it.
+
+### 23.18 A scoped test run cannot clear a whole-tree invariant — and the slice that shipped the violation had a green scoped run
+
+- **Where**: `tests/unit/runtime/no-runtime-input-guard.test.ts` (the rule, slice 2026-09-13) against `tests/unit/standards/runtime-root-scratch-guard.test.ts` (the violator, slice 2026-10-28 §22.3, commit `a00c2f95`).
+- **MEASURED 2026-10-29**, first full-tree `npx vitest run` of the session: `1 failed | 7238 passed | 4 skipped`. The one failure:
+  `expected [ 'tests/unit/standards/runtime-root-scratch-guard.test.ts:64 join(REPO_ROOT,'.peaks','_runtime')' ] to deeply equal []`.
+- **THE SLICE'S OWN VERIFICATION COULD NOT HAVE CAUGHT IT, BY CONSTRUCTION.** §22.3 was verified with `npx vitest run tests/unit/standards tests/unit/lint tests/unit/*.test.ts` — 77 files, 789 tests, all green. The rule that forbids module-location resolution of `.peaks/_runtime` lives in `tests/unit/runtime/`, which that command **does not select**. So the guard was written, verified, QA'd and committed while violating a rule in a directory the verification never opened.
+- **WHY THIS IS THE EXPENSIVE KIND.** Every other defect this session was "a check that could not fail". This one is **"a check that was never run against its own subject"** — the verification was honest, scoped, and green, and it proved nothing about the property that was broken. A scoped run is a statement about the files you selected; **a whole-tree invariant is only cleared by a whole-tree run.** When a slice introduces a file whose PURPOSE is to assert an invariant, the invariant's own suite is part of that slice's verification surface, not a neighbour's.
+- **THE FIX** (rid `2026-10-28-runtime-guard-cwd-resolution`): resolve the runtime root from `process.cwd()` instead of the module location; the live assertion at line 193 keeps its meaning, and the now-unused `dirname`/`resolve`/`fileURLToPath` imports were deleted. **The assertion was NOT deleted** — deleting it would have made the failure disappear and removed the guard's purpose at the same time.
+- **THE ANTI-SILENCE PROOF, because "the rule still works" is a claim that needs a red**: planting `join(import.meta.url, '.peaks', '_runtime')` in the file makes `no-runtime-input-guard` RED (`1 failed / 19 passed`, offender named); removing the plant makes it green again. The rule file itself was never edited.
+- **PRACTICAL RULE FOR THIS REPO**: before committing a slice that adds or edits a test asserting a cross-cutting invariant, run the suite the INVARIANT lives in, not only the suite the FILE lives in. `tests/unit/runtime/`, `tests/unit/standards/` and `tests/unit/lint/` are the three that guard "how tests may be written" — a slice that writes a test should run all three.
