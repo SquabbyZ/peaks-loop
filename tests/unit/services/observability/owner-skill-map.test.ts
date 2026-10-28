@@ -79,6 +79,37 @@ describe('Scenario: behavior — a path resolves to the skill that owns the arti
     expect(ownerSkillForPath('rd/third-party-review-<rid>.json')).toBe('peaks-reviewer');
     expect(ownerSkillForPath('rd/code-review-<rid>.md')).toBe('peaks-rd');
   });
+
+  it('when the path names the security review, should resolve the audit skill', () => {
+    // given: the two locations the security review is written at — the one
+    //       carrying the request id in its name, and the legacy tier that
+    //       predates the request id
+    // when: the owning skill is looked up for each
+    // then: both name the security audit skill, and not the skill that owns
+    //       the rd directory — the review is the audit skill's artifact
+    expect(ownerSkillForPath('rd/security-review-<rid>.md')).toBe('peaks-security-audit');
+    expect(ownerSkillForPath('rd/security-review.md')).toBe('peaks-security-audit');
+  });
+
+  it('when a path merely starts with the legacy security review file name, should not claim the audit skill', () => {
+    // given: a file whose name begins with the owned bare security review name
+    // when: the owning skill is looked up for it
+    // then: the exact-match row does not hand it to the security audit skill;
+    //       it falls back to the rd DIRECTORY claim, the same way every other
+    //       unclaimed file under rd/ does
+    expect(ownerSkillForPath('rd/security-review.md.backup')).not.toBe('peaks-security-audit');
+    expect(ownerSkillForPath('rd/security-review.md.backup')).toBe('peaks-rd');
+  });
+
+  it('when the other rd artifacts are looked up, should still name the rd skill', () => {
+    // given: the rd artifacts this change did not touch
+    // when: the owning skill is looked up for each
+    // then: each still names the skill that owns the rd directory
+    expect(ownerSkillForPath('rd/code-review-<rid>.md')).toBe('peaks-rd');
+    expect(ownerSkillForPath('rd/karpathy-review-<rid>.md')).toBe('peaks-rd');
+    expect(ownerSkillForPath('rd/bug-analysis-<rid>.md')).toBe('peaks-rd');
+    expect(ownerSkillForPath('rd/tech-doc.md')).toBe('peaks-rd');
+  });
 });
 
 describe('Scenario: behavior — a gate-evidence key names the skill that produces that evidence', () => {
@@ -99,6 +130,19 @@ describe('Scenario: behavior — a gate-evidence key names the skill that produc
     // then: no skill owns it and the reason why is available
     expect(ownerSkillForPath('gateEvidence(frontmatter-malformed)')).toBeNull();
     expect(unownedPathReason('gateEvidence(frontmatter-malformed)')).toContain('capsule');
+  });
+});
+
+describe('Scenario: behavior — the two surfaces agree on who owns the security review', () => {
+  it('when the security review is resolved through its path and through its key, should name one owner', () => {
+    // given: the security review path, and the gate-evidence key that names
+    //       the same artifact
+    // when: each surface resolves the owning skill on its own
+    // then: the two answers are EQUAL — one file, one owner, whichever
+    //       surface a reader came through
+    expect(ownerSkillForPath('rd/security-review-<rid>.md')).toBe(
+      ownerSkillForPath('gateEvidence.securityReview')
+    );
   });
 });
 

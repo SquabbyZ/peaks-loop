@@ -70,9 +70,11 @@ export const OWNER_SKILL_ENTRIES: readonly OwnerSkillEntry[] = [
   // The security review evidence. For the fanout types the key declares
   // `audit/security-<rid>.md`, which the independent security audit writes;
   // for the `config` type it declares the config-specific
-  // `rd/security-review-<rid>.md`, which is an RD artifact. One key, one
-  // answer — the row names the skill that owns the security review as a
-  // concept, which is the audit skill for every type that reaches it.
+  // `rd/security-review-<rid>.md`, which the same audit skill writes — the
+  // `config` type demands the security review and nothing else, and the
+  // review itself is still the audit skill's work. One key, one answer — the
+  // row names the skill that owns the security review as a concept, which is
+  // the audit skill for every type that reaches it.
   { prefix: 'gateEvidence.securityReview', skill: 'peaks-security-audit' },
   { prefix: 'audit/security-', skill: 'peaks-security-audit' },
   // The bare security audit location — the one that predates the request id
@@ -96,6 +98,24 @@ export const OWNER_SKILL_ENTRIES: readonly OwnerSkillEntry[] = [
   // claim, so without this row it over-claimed this file and named the wrong
   // skill to fix.
   { prefix: 'rd/third-party-review-', skill: 'peaks-reviewer' },
+  // The security review is the AUDIT skill's artifact, not RD's: the
+  // judged-declaration check resolves the security audit artifact through
+  // `securityArtifactTiers`, and that list names these two files as the
+  // tiers the audit writes at. The `gateEvidence.securityReview` declaration
+  // key already names that skill, so the key side and the path side said
+  // different things about one file. The `rd/` row above is a DIRECTORY
+  // claim, so without these rows it over-claimed this file and pointed a
+  // reader at the wrong skill — the same shape the `rd/third-party-review-`
+  // row fixes.
+  //
+  // TWO ROWS, BECAUSE THE TWO LOCATIONS HAVE TWO SHAPES. The file that
+  // carries the request id in its name is a PREFIX claim, exactly like the
+  // third-party review above it. The legacy tier is the bare file name with
+  // no request id in it, so it is EXACT — the same reason `audit/security.md`
+  // above is EXACT: a prefix claim on that name would also claim every file
+  // whose name merely starts with it.
+  { prefix: 'rd/security-review-', skill: 'peaks-security-audit' },
+  { prefix: 'rd/security-review.md', skill: 'peaks-security-audit', exact: true },
   { prefix: 'qa/', skill: 'peaks-qa' },
   { prefix: 'sc/', skill: 'peaks-sc' },
   { prefix: 'mut/', skill: 'peaks-mut' }
