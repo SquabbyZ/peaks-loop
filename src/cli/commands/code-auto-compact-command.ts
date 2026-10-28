@@ -14,6 +14,7 @@ import {
 } from '../../services/workflow/workflow-inflight-probe.js';
 import { readDispatchLedgerFacts } from '../../services/dispatch/dispatch-ledger-reader.js';
 import { readActiveSid } from './code-runtime-session.js';
+import { emitResultDocument } from '../../services/hooks/output.js';
 import { buildAutoCompactEnvelope } from './code-auto-compact-envelope.js';
 import {
   describeDeferral,
@@ -181,7 +182,23 @@ async function runAutoCompactAction(opts: AutoCompactOpts, io: ProgramIO): Promi
     // `data` on success-path and `nextActions` on the error
     // path; surface both directly to the user.
     const envelope = buildAutoCompactEnvelope(result);
-    printResult(io, withDeferralDetail(envelope, deferralDetail(result, capture.last)), opts.json);
+    const document = withDeferralDetail(envelope, deferralDetail(result, capture.last));
+    // The installed PreToolUse hook runs this command with NO `--json`, so an
+    // exit-0 run's stdout is the hook's document. printResult's default branch
+    // flattens `data` to the root and appends `next: ...` prose: the root then
+    // carried `decision: "below-threshold"` — a value outside the host's
+    // {approve, block} vocabulary at a key it owns — and the prose made stdout
+    // unparseable as one document. Both were reported as
+    // "Hook JSON output validation failed" on EVERY Bash call.
+    // `emitResultDocument` emits the SAME envelope `--json` already prints, so
+    // every exit-0 path here leaves exactly ONE JSON document on stdout and puts
+    // the advice on stderr. (Hint additions are additive: a consumer that reads
+    // `.data.decision` from stdout still reads `below-threshold`.)
+    if (exitOk) {
+      emitResultDocument(io, document);
+    } else {
+      printResult(io, document, opts.json);
+    }
     if (!exitOk) process.exitCode = 1;
   } catch (err) {
     reportAutoCompactFailure(io, err, opts.json);

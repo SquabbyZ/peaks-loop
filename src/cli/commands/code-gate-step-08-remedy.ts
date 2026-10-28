@@ -9,9 +9,10 @@
 
 import { ok } from 'peaks-loop-shared/result';
 
-import { printResult, type ProgramIO } from '../cli-helpers.js';
+import type { ProgramIO } from '../cli-helpers.js';
 import type { Step08Verdict } from '../../services/code/step-08-gate.js';
 import { pluckObject, pluckString } from '../../services/ide/hook-translator.js';
+import { emitResultDocument } from '../../services/hooks/output.js';
 
 const HOOK_STDIN_TIMEOUT_MS = 2_000;
 
@@ -71,11 +72,18 @@ export async function readHookCommand(): Promise<string | undefined> {
   return commandFromHookPayload(await readStdin());
 }
 
+/**
+ * Allow — ONE document on stdout, action lines on stderr.
+ *
+ * This arm answers the hook on every call that runs the remedy command, so its
+ * stdout is a hook document like every other allow arm of this gate; the
+ * `decision: null` payload stays NESTED under `data`, never at the root the
+ * host owns. See `code-gate-step-08-command.ts`'s header for the full reason.
+ */
 export function printGateStep08RemedyCommand(
   verdict: AllowRemedyCommandVerdict,
   hintActions: readonly string[],
-  io: ProgramIO,
-  json?: boolean
+  io: ProgramIO
 ): void {
   const envelope = ok(
     'code.gate-step-08',
@@ -88,5 +96,5 @@ export function printGateStep08RemedyCommand(
     [],
     [verdict.reason, ...hintActions]
   );
-  printResult(io, envelope, json);
+  emitResultDocument(io, envelope);
 }
