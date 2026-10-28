@@ -51,6 +51,15 @@ const CHANGED_BASE_DEFAULT = 'origin/main';
 // gate that fails open on exactly the checkouts (fresh clone, no remote) where
 // nobody would notice.
 const CHANGED_BASE_FALLBACKS = ['@{upstream}', 'main'];
+// A TAG PUSH HAS NO BRANCH COMMITS OF ITS OWN. `git push origin vX.Y.Z` runs this
+// gate after main was pushed, so `origin/main...HEAD` is empty by construction and
+// every release tag would be refused. git feeds pre-push one line per ref pushed,
+// `<local ref> <local sha> <remote ref> <remote sha>`; `.husky/pre-push` passes those
+// lines through PUSH_REFS_ENV. When every pushed ref is a tag, the base is the release
+// tag before the tagged commit, so the gate measures what this release changed.
+const PUSH_REFS_ENV = 'PEAKS_PUSH_REFS';
+const TAG_REF_PREFIX = 'refs/tags/';
+const PUSH_LINE_FIELDS = 4;
 
 /**
  * THE OTHER AXES ON THE PUSH PATH, for the empty-change-set sentence.
@@ -90,12 +99,32 @@ function revParse(ref) {
   }
 }
 
+/** The tagged commits of a tag-only push, or null when any pushed ref is not a tag. */
+function taggedCommitsOf(pushRefs) {
+  const lines = pushRefs
+    .split('\n')
+    .map((l) => l.trim().split(/\s+/))
+    .filter((f) => f.length === PUSH_LINE_FIELDS);
+  if (lines.length === 0 || !lines.every((f) => f[2].startsWith(TAG_REF_PREFIX))) return null;
+  return [...new Set(lines.map((f) => f[1]))];
+}
+
+/** The release tag reachable from the parent of `commit`, or null when there is none. */
+function previousTagBefore(commit) {
+  try {
+    return gitOut(['describe', '--tags', '--abbrev=0', `${commit}^`]).trim() || null;
+  } catch {
+    return null; // `describe` exits non-zero when no tag is reachable; the caller refuses
+  }
+}
+
 function resolveChangedBase() {
   const override = process.env[CHANGED_BASE_ENV];
   return override ? [override] : [CHANGED_BASE_DEFAULT, ...CHANGED_BASE_FALLBACKS];
 }
 
-async function changedMode() {
+/** The base for a branch push: the first candidate that resolves, or null after saying why. */
+function branchPushBase() {
   const candidates = resolveChangedBase();
   // MEMO: an explicit override gets NO fallback. `PEAKS_GATE_CHANGED_BASE=typo`
   // must fail loudly, not quietly degrade onto `main` — otherwise the switch
@@ -108,8 +137,52 @@ async function changedMode() {
         '  Fix: `git fetch origin main` (or push the branch to a remote first).\n' +
         `  To point this mode at another ref deliberately: ${CHANGED_BASE_ENV}=<ref>\n`
     );
-    return 1;
+    return null;
   }
+  return { ref: base.ref, sha: base.sha, tip: 'HEAD' };
+}
+
+/**
+ * The base for a tag-only push: the release tag before the tagged commit. Null
+ * (after saying why) when it cannot be resolved. A tag push that cannot name its
+ * previous release refuses; it never passes on an empty or unmeasured set.
+ */
+function tagPushBase(taggedShas) {
+  if (taggedShas.length !== 1) {
+    console.error(
+      `peaks-gate: this push names ${taggedShas.length} different tagged commits, and one base ` +
+        'cannot cover them.\n' +
+        '  REFUSING to pass. Push one tag at a time, or name a base deliberately: ' +
+        `${CHANGED_BASE_ENV}=<ref> node .husky/peaks-gate.mjs changed\n`
+    );
+    return null;
+  }
+  const commit = revParse(taggedShas[0]);
+  const prev = commit === null ? null : previousTagBefore(commit);
+  const sha = prev === null ? null : revParse(prev);
+  if (sha === null) {
+    console.error(
+      `peaks-gate: cannot find the release tag before ${taggedShas[0]} — the tagged ` +
+        'commit does not resolve, or no release tag is reachable from its parent.\n' +
+        '  REFUSING to pass. With no previous release there is nothing to measure this one against.\n' +
+        `  To point this mode at another ref deliberately: ${CHANGED_BASE_ENV}=<ref>\n`
+    );
+    return null;
+  }
+  return { ref: prev, sha, tip: commit };
+}
+
+/** The base this push is measured against, or null after saying why it cannot be measured. */
+function pushBase() {
+  // An explicit override names the base itself: it wins over the tag rule, with no fallback.
+  if (process.env[CHANGED_BASE_ENV]) return branchPushBase();
+  const tagged = taggedCommitsOf(process.env[PUSH_REFS_ENV] ?? '');
+  return tagged === null ? branchPushBase() : tagPushBase(tagged);
+}
+
+async function changedMode() {
+  const base = pushBase();
+  if (base === null) return 1;
 
   const head = revParse('HEAD');
   if (head !== null && base.sha === head) {
@@ -117,8 +190,10 @@ async function changedMode() {
       `peaks-gate: ${base.ref} resolves to HEAD (${head.slice(0, 8)}), so the changed set is empty\n` +
         '  by construction. REFUSING to report that as a pass: "nothing to compare" and\n' +
         '  "compared and clean" are different results, and only one of them is evidence.\n' +
-        '  and clean" are different results and only one of them is evidence.\n' +
-        '  Normally git does not run pre-push when there is nothing to push; if you are\n' +
+        '  git runs pre-push for a TAG push too, even when every branch commit is already on\n' +
+        '  the remote, so an empty branch diff is the normal shape of a tag push. A tag-only\n' +
+        '  push is measured against the previous release tag (unless an override names a\n' +
+        '  base), so reaching this line means that derivation did not run. If you are\n' +
         '  running the gate by hand, name a base: ' +
         `${CHANGED_BASE_ENV}=<ref> node .husky/peaks-gate.mjs changed\n`
     );
@@ -132,13 +207,25 @@ async function changedMode() {
     // test and the baseline lookup and be reported as a deleted file — i.e. a
     // silent skip dressed up as a legitimate one. The repo's paths are ASCII
     // today; this closes the class rather than relying on that staying true.
-    raw = gitOut(['-c', 'core.quotepath=false', 'diff', '--name-only', `${base.ref}...HEAD`]);
+    //
+    // The ref is NOT named here: the base of a tag push is a TAG NAME, and a tag
+    // name is repository-controlled. git accepts a ref like `refs/tags/--output=x`
+    // (verified 2026-10-28: `git update-ref` creates it), so passing the name as
+    // an argument would let a pushed tag be read as a git OPTION. Diffing by the
+    // resolved SHA closes that class: a SHA is hex and cannot be an option.
+    raw = gitOut([
+      '-c',
+      'core.quotepath=false',
+      'diff',
+      '--name-only',
+      `${base.sha}...${base.tip}`
+    ]);
   } catch (err) {
     const why = String(err.stderr ?? err.message)
       .trim()
       .split('\n')[0];
     console.error(
-      `peaks-gate: git diff ${base.ref}...HEAD failed — cannot compute the changed set.\n` +
+      `peaks-gate: git diff ${base.ref}...${base.tip} failed — cannot compute the changed set.\n` +
         `  ${why}\n` +
         '  REFUSING to pass.\n'
     );

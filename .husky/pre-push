@@ -150,6 +150,13 @@
 # that costs minutes stops being a "check it before I push" and becomes a thing
 # people skip with `--no-verify` — and a gate people skip is worse than no gate,
 # because it is also believed.
+# git feeds this hook one line per ref it pushes, on stdin: `<local ref> <local sha>
+# <remote ref> <remote sha>`. A TAG push is not a branch push: its branch diff is empty
+# (main went first), so the changed set is measured from the previous release tag. The
+# lines are read ONCE, here, before any leg runs, and handed to the changed-set gate in
+# PEAKS_PUSH_REFS. A hand-run from a terminal has no lines to read and gets branch behaviour.
+if [ -t 0 ]; then PEAKS_PUSH_REFS=""; else PEAKS_PUSH_REFS="$(cat)"; fi
+export PEAKS_PUSH_REFS
 set -e
 node .husky/format-check-ratchet.mjs
 node .husky/peaks-gate.mjs changed
