@@ -33,8 +33,7 @@
 
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
@@ -60,8 +59,10 @@ declareDimensions(
   ]
 );
 
-const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-const REAL_RUNTIME_ROOT = join(REPO_ROOT, '.peaks', '_runtime');
+// The runtime tree is a working-directory concept, so the real root is resolved
+// from cwd — NOT from the module location, which
+// tests/unit/runtime/no-runtime-input-guard.test.ts' rule B refuses.
+const REAL_RUNTIME_ROOT = join(process.cwd(), '.peaks', '_runtime');
 const SESSION_DIR = '2026-10-28-session-2ffed0';
 
 /** The six scratch files measured at the runtime root on 2026-10-28. */
