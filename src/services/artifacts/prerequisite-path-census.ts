@@ -38,6 +38,7 @@
 import { PREREQUISITES_BY_TYPE } from './artifact-prerequisites.js';
 import { GATE_EVIDENCE_KEYS } from '../prd/handoff-types.js';
 import type { HandoffGateEvidenceStatus } from '../prd/handoff-gate-evidence.js';
+import { securityArtifactTiers } from '../audit-independent/judged-declaration-check.js';
 
 /**
  * The gate-evidence statuses that can produce a `gateEvidence(<status>)`
@@ -64,11 +65,42 @@ const GATE_EVIDENCE_FAILURE_STATUSES: Record<GateEvidenceFailureStatus, true> = 
 };
 
 /**
- * Every `relativePath` any request type demands, every legacy tier the
- * resolver probes for one, and every gate-evidence shape a declaration can
- * report — de-duplicated and sorted.
+ * The two sources of a missing path that do NOT come from the prereq table:
+ * the judged-declaration tiers and the gate-evidence declaration shapes.
+ *
+ * They are read from OTHER modules' definitions rather than from the table,
+ * and they are gathered apart from the table walk so that
+ * `allPrerequisitePaths` stays inside the lint complexity ceiling.
  */
-export function allPrerequisitePaths(): readonly string[] {
+function addNonTablePaths(
+  paths: Set<string>,
+  securityTiers: (rid: string) => readonly string[]
+): void {
+  // The `<rid>` placeholder stays in place, as it does on the table paths.
+  for (const tier of securityTiers('<rid>')) {
+    paths.add(tier);
+  }
+  for (const key of GATE_EVIDENCE_KEYS) {
+    paths.add(`gateEvidence.${key}`);
+  }
+  for (const status of Object.keys(GATE_EVIDENCE_FAILURE_STATUSES)) {
+    paths.add(`gateEvidence(${status})`);
+  }
+}
+
+/**
+ * Every `relativePath` any request type demands, every legacy tier the
+ * resolver probes for one, every judged-declaration tier the security audit
+ * can live at, and every gate-evidence shape a declaration can report —
+ * de-duplicated and sorted.
+ *
+ * The judged tiers are read from `securityArtifactTiers` in their defining
+ * module, not copied here. `securityTiers` is the seam a test uses to inject
+ * a tier list; production callers pass nothing.
+ */
+export function allPrerequisitePaths(
+  securityTiers: (rid: string) => readonly string[] = securityArtifactTiers
+): readonly string[] {
   const paths = new Set<string>();
   for (const table of Object.values(PREREQUISITES_BY_TYPE)) {
     for (const requirements of Object.values(table)) {
@@ -84,11 +116,6 @@ export function allPrerequisitePaths(): readonly string[] {
       }
     }
   }
-  for (const key of GATE_EVIDENCE_KEYS) {
-    paths.add(`gateEvidence.${key}`);
-  }
-  for (const status of Object.keys(GATE_EVIDENCE_FAILURE_STATUSES)) {
-    paths.add(`gateEvidence(${status})`);
-  }
+  addNonTablePaths(paths, securityTiers);
   return [...paths].sort();
 }
