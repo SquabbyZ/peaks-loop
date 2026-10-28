@@ -37,6 +37,7 @@ import {
   type RequestArtifactState
 } from '~/src/services/artifacts/request-artifact-state-helpers.js';
 import { attributeV1Failure } from '~/src/services/observability/retro-attribution.js';
+import { ownerSkillForPath } from '~/src/services/observability/owner-skill-map.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 
 declareDimensions(
@@ -102,9 +103,30 @@ function transitionWithSeveralPrereqs(): Transition {
 }
 
 /**
- * The owning skill per path prefix, stated here independently of the owner
- * map so the attribution is checked against a second reading rather than
- * against itself. The longest matching prefix wins.
+ * The oracle: this file's OWN reading of who owns each artifact the
+ * retro-attribution can produce, so the attribution is checked against a
+ * second reading rather than against itself.
+ *
+ * THE SAME SHAPE, A DIFFERENT SET AND SCOPE. A longest-matching-prefix-wins
+ * table, as the map is — but three checks show it is not that table copied:
+ *
+ *   - SCOPE. It answers for the CANDIDATE paths only: no per-file
+ *     exact-match rows and no `gateEvidence.*` keys, so on
+ *     `gateEvidence.securityReview` the map names a skill and this names none.
+ *   - SOURCE. Each row names the PRODUCER, as the artifact contract names it.
+ *     The contract settles `rd/security-review-` -> `peaks-security-audit`
+ *     (AUDIT_SECURITY "Replaces the v2.11.x rd/security-review.md slot", and
+ *     the `gateEvidence.securityReview` key already names that skill) and
+ *     `rd/third-party-review-` -> `peaks-reviewer` (THIRD_PARTY_REVIEW names
+ *     "third-party reviewer (peaks-reviewer skill)").
+ *   - THE TRAILING SEPARATOR. A claim carries the separator after the
+ *     artifact name, so `rd/security-review.md.backup` is outside
+ *     `rd/security-review-` and falls to the `rd/` claim. The map draws that
+ *     same boundary with an `exact` flag — a separate mechanism that agrees
+ *     on where the line falls.
+ *
+ * A MORE SPECIFIC PREFIX WINS, so the two `rd/`-scoped rows below beat the
+ * generic `rd/` claim on exactly the paths the map decides.
  */
 const EXPECTED_OWNER_BY_PREFIX: ReadonlyArray<readonly [string, string]> = [
   ['prd/', 'peaks-prd'],
@@ -114,10 +136,15 @@ const EXPECTED_OWNER_BY_PREFIX: ReadonlyArray<readonly [string, string]> = [
   ['sc/', 'peaks-sc'],
   ['mut/', 'peaks-mut'],
   ['audit/security', 'peaks-security-audit'],
-  ['audit/perf', 'peaks-perf-audit']
+  ['audit/perf', 'peaks-perf-audit'],
+  ['rd/security-review-', 'peaks-security-audit'],
+  ['rd/third-party-review-', 'peaks-reviewer']
 ];
 
-/** The skill the test expects to own `path`, or `null` when no prefix claims it. */
+/**
+ * The skill this file's reading gives `path`, or `null` when no prefix
+ * claims it. The longest matching prefix wins.
+ */
 function expectedOwner(path: string): string | null {
   const matches = EXPECTED_OWNER_BY_PREFIX.filter(([prefix]) => path.startsWith(prefix));
   if (matches.length === 0) return null;
@@ -127,6 +154,21 @@ function expectedOwner(path: string): string | null {
   return longest[1];
 }
 
+/**
+ * The skill a PREFIX reading gives `path`, or `null` when no prefix claims
+ * it. The longest matching prefix wins.
+ */
+function staleOwner(
+  reading: ReadonlyArray<readonly [string, string]>,
+  path: string
+): string | null {
+  const matches = reading.filter(([prefix]) => path.startsWith(prefix));
+  if (matches.length === 0) return null;
+  const longest = matches.reduce((best, entry) =>
+    entry[0].length > best[0].length ? entry : best
+  );
+  return longest[1];
+}
 describe('Scenario: behavior — the retro-attribution names the candidates the count cannot', () => {
   it('when the prereq list holds one entry, should infer that entry as the missing artifact', () => {
     // given: a transition whose prereq list holds exactly one entry
@@ -313,25 +355,36 @@ describe('Scenario: behavior — the retro-attribution names the candidates the 
 
 describe('Scenario: integration — the derivation reads the real prerequisite table', () => {
   it('when the candidates are returned, should carry the table path and its owning skill', () => {
-    // given: a transition whose prereq list holds several entries
-    // when: the failure is attributed
-    // then: every candidate names a table path and the skill that owns it
-    const transition = transitionWithSeveralPrereqs();
-    const prereqs = getPrerequisitesFor(transition.role, transition.state, transition.type);
-    const result = attributeV1Failure({
-      artifactRole: transition.role,
-      newState: transition.state,
-      requestType: transition.type,
-      typeSource: 'declared',
-      missingCount: 1
-    });
-    expect(result.candidates).toHaveLength(prereqs.length);
-    for (const candidate of result.candidates) {
-      expect(prereqs.map((p) => p.relativePath)).toContain(candidate.path);
-      expect(candidate.ownerSkill, `unexpected owning skill for ${candidate.path}`).toBe(
-        expectedOwner(candidate.path)
-      );
+    // given: every transition the table can be asked about
+    // when: each is attributed
+    // then: every candidate names a table path, and the skill that owns it is
+    //       the one THIS FILE'S OWN READING gives — checked on EVERY candidate
+    //       the table can produce, so the reading is consulted on the paths
+    //       where the two readings can diverge and not only on one fixture's
+    const prereqPaths = new Set<string>();
+    for (const transition of everyTransition()) {
+      const prereqs = getPrerequisitesFor(transition.role, transition.state, transition.type);
+      const result = attributeV1Failure({
+        artifactRole: transition.role,
+        newState: transition.state,
+        requestType: transition.type,
+        typeSource: 'declared',
+        missingCount: 1
+      });
+      expect(result.candidates).toHaveLength(prereqs.length);
+      for (const candidate of result.candidates) {
+        expect(prereqs.map((p) => p.relativePath)).toContain(candidate.path);
+        prereqPaths.add(candidate.path);
+        expect(candidate.ownerSkill, `unexpected owning skill for ${candidate.path}`).toBe(
+          expectedOwner(candidate.path)
+        );
+      }
     }
+    // the sweep really did reach the rd/-scoped artifacts, whose owner is the
+    // one the directory claim alone cannot decide
+    expect([...prereqPaths].sort()).toEqual(
+      expect.arrayContaining(['rd/security-review-<rid>.md', 'rd/third-party-review-<rid>.md'])
+    );
   });
 
   it('when the candidates are returned, should name a skill for every artifact the table demands', () => {
@@ -350,5 +403,85 @@ describe('Scenario: integration — the derivation reads the real prerequisite t
         expect(candidate.ownerSkill, `no owning skill for ${candidate.path}`).not.toBeNull();
       }
     }
+  });
+});
+
+describe('Scenario: integration — the oracle reaches the artifacts where the two readings diverge', () => {
+  it('when the oracle is the pre-slice directory-only reading, should disagree on the rd-scoped artifacts', () => {
+    // given: the reading this file used before it named the two rd/-scoped
+    //        artifacts — the generic rd/ directory claim alone
+    // when: each is compared with the owner map
+    // then: the directory claim answers the rd/ owner for both, so the
+    //       comparison reports the disagreement — the two new rows are
+    //       LOAD-BEARING, and the comparison would have caught the stale
+    //       reading
+    const staleReading: ReadonlyArray<readonly [string, string]> = [
+      ['prd/', 'peaks-prd'],
+      ['ui/', 'peaks-ui'],
+      ['rd/', 'peaks-rd'],
+      ['qa/', 'peaks-qa'],
+      ['sc/', 'peaks-sc'],
+      ['mut/', 'peaks-mut'],
+      ['audit/security', 'peaks-security-audit'],
+      ['audit/perf', 'peaks-perf-audit']
+    ];
+    for (const [path, owner] of [
+      ['rd/security-review-<rid>.md', 'peaks-security-audit'],
+      ['rd/third-party-review-<rid>.md', 'peaks-reviewer']
+    ] as const) {
+      expect(expectedOwner(path)).toBe(owner);
+      expect(ownerSkillForPath(path)).toBe(owner);
+      // the stale reading answers the rd/ owner for both, so it disagrees
+      // with the map on exactly the paths this slice closes
+      expect(staleOwner(staleReading, path)).toBe('peaks-rd');
+      expect(staleOwner(staleReading, path)).not.toBe(owner);
+    }
+  });
+
+  it('when a file merely begins with a claimed artifact name, should not hand it to that producer', () => {
+    // given: a file whose name starts with a claimed artifact name — the
+    //        claim carries the trailing separator, so this file is outside it
+    // when: the reading is asked about it
+    // then: the directory claim answers, not the artifact's producer —
+    //       the same boundary the map draws with its exact-row rule,
+    //       reached here by the separator instead of a per-file flag
+    expect(expectedOwner('rd/security-review-<rid>.md')).toBe('peaks-security-audit');
+    expect(expectedOwner('rd/security-review.md.backup')).toBe('peaks-rd');
+  });
+
+  it('when the legacy bare security-review location is asked about, should state the one divergence left outside scope', () => {
+    // given: the security review's LEGACY location — the bare file with no
+    //        request id in its name, which the judged-declaration check still
+    //        probes as a tier, so it is a live path for the owner map
+    // when: each reading is asked about it
+    // then: the map names the audit skill through its EXACT row and this
+    //       reading answers the `rd/` claim — the one path both readings
+    //       answer and disagree on. (Every other map claim is a prefix this
+    //       reading also makes, a `gateEvidence.*` key it leaves unclaimed,
+    //       or an exact row it resolves to the same skill.) The divergence
+    //       is the SCOPE boundary, not a defect: the table never demands this
+    //       path, so the candidate set can never contain it. The last
+    //       assertion is what keeps that true — a future table that adds the
+    //       legacy tier as a candidate turns this red, and the reading must
+    //       then be extended rather than silently outvoted.
+    expect(ownerSkillForPath('rd/security-review.md')).toBe('peaks-security-audit');
+    expect(expectedOwner('rd/security-review.md')).toBe('peaks-rd');
+    const candidatePaths = new Set(
+      everyTransition().flatMap((t) =>
+        getPrerequisitesFor(t.role, t.state, t.type).map((p) => p.relativePath)
+      )
+    );
+    expect(candidatePaths.has('rd/security-review.md')).toBe(false);
+  });
+
+  it('when the owner map and the oracle are asked about a declaration key, should answer differently', () => {
+    // given: a gate-evidence declaration key — a name of evidence, not an
+    //        artifact path
+    // when: each reading is asked about it
+    // then: the map names the skill that produces that evidence and this
+    //       reading names none — so the two tables are not one table copied
+    //       twice, and the oracle's scope is the candidate-path set
+    expect(ownerSkillForPath('gateEvidence.securityReview')).toBe('peaks-security-audit');
+    expect(expectedOwner('gateEvidence.securityReview')).toBeNull();
   });
 });
