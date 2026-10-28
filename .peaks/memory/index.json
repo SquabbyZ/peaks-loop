@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-25T06:38:31.030Z",
+  "updatedAt": "2026-10-28T09:42:59.613Z",
   "hot": {
     "rule": [
       {
@@ -58,6 +58,22 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-fix-script-that-matches-on-an-id-format-it-half-knows-will-skip-rows-without-saying-so.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-c-group.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "a-function-no-production-code-calls-has-an-unmeasured-attack-surface",
+        "kind": "rule",
+        "description": "Implementing backlog §22.1 gave  its **first production caller** — and the first thing that became reachable was a **...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-function-no-production-code-calls-has-an-unmeasured-attack-surface.md",
+        "sourceArtifact": ".peaks/docs/backlog.md#23",
+        "updatedAt": "2026-10-28"
+      },
+      {
+        "name": "a-gate-that-reads-the-wrong-identifier-blames-a-sibling-slice",
+        "kind": "rule",
+        "description": "The RD transition gate's **anti-lie fallback** refused a legitimate  slice with , naming **three  files that belonged...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-gate-that-reads-the-wrong-identifier-blames-a-sibling-slice.md",
+        "sourceArtifact": ".peaks/docs/backlog.md#23",
+        "updatedAt": "2026-10-28"
       },
       {
         "name": "a-guard-that-reddens-for-a-defensible-reason-gets-trained-away",
@@ -130,6 +146,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-slice-whose-premise-is-false-should-ship-the-measurement-not-an-implementation.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-a3.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "a-test-that-asserts-a-value-pins-the-value-not-its-provenance",
+        "kind": "rule",
+        "description": "The §22.4 slice added a seam so the path census would read the judged-declaration tiers **from their defining module*...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-test-that-asserts-a-value-pins-the-value-not-its-provenance.md",
+        "sourceArtifact": ".peaks/docs/backlog.md#23",
+        "updatedAt": "2026-10-28"
       },
       {
         "name": "a-test-that-cannot-fail-is-worse-than-no-test",
@@ -1966,6 +1990,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "an-orchestrator-must-dispatch-the-prd-phase-before-rd-or-the-audits-cannot-write",
+        "kind": "lesson",
+        "description": "In a four-slice peaks-code run (2026-10-28), the orchestrator dispatched **RD** directly and skipped the **PRD** phase.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\an-orchestrator-must-dispatch-the-prd-phase-before-rd-or-the-audits-cannot-write.md",
+        "sourceArtifact": ".peaks/_runtime/2026-10-28-session-2ffed0/sc/briefs/qa-all.md",
+        "updatedAt": "2026-10-28"
+      },
+      {
         "name": "auto-compact context probe 根因修复 — 三级链全断 + vendor-neutral + token-based 模型感知校准",
         "kind": "lesson",
         "description": "auto-compact context probe 根因修复 > **优先级**：项目级 lesson。任何 context-probe / auto-compact 改动必须遵守本文三条约束：(1) fallback 必须 ada...",
@@ -2652,6 +2684,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-ratchet-s-only-joint-decision-exception-works-and-it-is-conditional.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-10-session-062f74/txt/handoff.md",
         "updatedAt": "2026-10-10"
+      },
+      {
+        "name": "the-same-identifier-disagreement-made-two-different-defects",
+        "kind": "lesson",
+        "description": "In one session (2026-10-28) **two unrelated surfaces** were defeated by the **same** identifier disagreement.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-same-identifier-disagreement-made-two-different-defects.md",
+        "sourceArtifact": ".peaks/docs/backlog.md#23",
+        "updatedAt": "2026-10-28"
       },
       {
         "name": "three-units-one-contract-line-range-and-logical-comment",
@@ -4276,10 +4316,10 @@
       {
         "name": "the-pre-push-gate-refuses-a-tag-push-until-the-base-is-named",
         "kind": "project",
-        "description": "runs three legs unconditionally, with no awareness of **what** is being pushed:  →  → .",
+        "description": "**Before 2026-10-28**:  ran three legs unconditionally, with no awareness of **what** was being pushed:  →  → .",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-pre-push-gate-refuses-a-tag-push-until-the-base-is-named.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-10-21"
+        "updatedAt": "2026-10-28"
       },
       {
         "name": "the-published-package-only-boots-with-nested-subpackages",

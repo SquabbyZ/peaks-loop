@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "sessionId": "2026-10-28-session-2ffed0",
+  "generatedAt": "2026-10-28T10:46:26.107Z",
+  "nearMissRate": 0.3333333333333333,
+  "passedSliceCount": 3,
+  "nearMissSliceCount": 1,
+  "hotspotCount": 9,
+  "typesWithoutVerdictPrerequisite": [
+    "chore"
+  ],
+  "compliance": [
+    {
+      "specId": "peaks-rd",
+      "sliceRid": "002-2026-10-28-22-3-runtime-root-guard",
+      "complianceRate": 0.6666666666666666
+    },
+    {
+      "specId": "peaks-rd",
+      "sliceRid": "004-2026-10-28-22-4-census-judged-tiers",
+      "complianceRate": 1
+    },
+    {
+      "specId": "peaks-rd",
+      "sliceRid": "003-2026-10-28-22-10-tag-push-base",
+      "complianceRate": 1
+    },
+    {
+      "specId": "peaks-rd",
+      "sliceRid": "001-2026-10-28-22-1-compliance-reader",
+      "complianceRate": 1
+    }
+  ],
+  "skillsBlobSha": "ab1217a0d065126903964623d50b971ee3f28270"
+}

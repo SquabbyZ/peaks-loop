@@ -7863,6 +7863,14 @@ paragraph.
   says so. Shipping it without a reader would have been a claim without evidence.
 - **What it needs**: a slice that calls `writeSessionMetricRow` at session end (or on demand) and a surface that shows
   the compliance rate — the same treatment the near-miss rate already has.
+- **DONE 2026-10-28** (rid `2026-10-28-22-1-compliance-reader`): a new `peaks observability session-row` command
+  resolves the scoped session, judges each recorded slice against the `peaks-rd` compliance spec, writes the tracked
+  row via `writeSessionMetricRow`, and prints both rates. It is the **first production caller** of the module.
+  **On demand, not at session end** — the PRD's "no session-end hook exists" means there is nothing to attach to, so
+  the row is written when the command is asked for. The command is a **new surface**, not an addition to `report`.
+  Unobserved is null + a reason, never 0, for both rates; a **judged** 0 is still reported as 0.
+  **The slice also found and fixed a path traversal this change made reachable** — see §23.5. The rate is the
+  **unweighted mean** over judged slices (recorded in the code review; the row's shape was out of scope).
 
 ### 22.2 `peaks-mut` is not in the published package — an installed peaks-loop cannot pass `rd -> qa-handoff`
 
@@ -7900,12 +7908,32 @@ paragraph.
   the two agents in this session put scratch there **because the controller's dispatch told them to**.
 - **What it needs**: a guard that fails when a non-session file appears directly under `.peaks/_runtime/`, with the two
   documented exceptions (`session.json`, `generated-artifacts.json`).
+- **DONE 2026-10-28** (rid `2026-10-28-22-3-runtime-root-guard`): `tests/unit/standards/runtime-root-scratch-guard.test.ts`.
+  **The two-exception list in the paragraph above was wrong** — the runtime root legitimately holds **six** files
+  that code writes during normal use (`.outer-session-cache.json`, `.rebuild-binding.lock`, `classify-audit.jsonl`
+  and the two named ones, plus the registry's own entries), so a two-name allowlist would false-positive on an
+  ordinary run. The guard instead **reuses the authoritative registry** —
+  `src/services/workspace/runtime-layout.ts` (`RUNTIME_SYSTEM_ENTRIES`, `censusRuntimeRoot`), which the doctor check
+  already uses — because a second hand-maintained list is the drift the registry's own comments warn about.
+  The guard is **file-only** (the root also holds `_audit/`, `callers/`, `change/` directories, which the census
+  owns), passes honestly when the runtime root is **absent** (it is gitignored, so CI usually has nothing to
+  inspect), and carries an **injection control** proving the arm can go red. The six scratch files measured above
+  were **already gone** by the time the slice ran.
+- **The underlying cause was a controller instruction, not a missing guard**: the two agents in the §22 session put
+  scratch at the runtime root **because the controller's dispatch told them to**. A gate that a dispatch sends agents
+  through needs the dispatch to say where scratch goes.
 
 ### 22.4 The path census documents a source it does not read
 
+> **CORRECTION 2026-10-28 (the slice that fixed this)**: the census covered **two** of the three sources, not
+> one. The gate-evidence declaration was **already** read — `GATE_EVIDENCE_KEYS` is imported from
+> `src/services/prd/handoff-types.ts` and each key is added as `gateEvidence.<key>` (`:99-100`). Only the
+> **judged-declaration tiers** were missing. The line numbers below had also drifted. The finding was real;
+> the count in the first paragraph was not.
+
 - **Where**: `src/services/artifacts/prerequisite-path-census.ts` enumerates the prereq table's `relativePath` and its
   `legacyRelativePath` / `legacyRelativePaths` tiers. The prereq `missing` list has **three** sources, and the census
-  covers **one**.
+  covers **two**.
 - **MEASURED 2026-10-28**: the three sources are the table loop (`artifact-prerequisites.ts:517,533,541`), the
   judged-declaration refusals (`:588` → `gap.artifact`), and the handoff capsule's gate-evidence declaration (`:574`).
   All four `securityArtifactTiers` paths (`src/services/audit-independent/judged-declaration-check.ts:108-115`) coincide
@@ -7915,6 +7943,10 @@ paragraph.
 - **What it needs**: the census should read the judged-declaration tiers from their defining module, so a future tier
   under a new directory is both owned **and** policed. Without it, a new tier would be unowned **and** outside the
   census — and the arm would stay green.
+- **DONE 2026-10-28** (rid `2026-10-28-22-4-census-judged-tiers`): `allPrerequisitePaths` now takes the tiers from
+  their defining module (`securityArtifactTiers`, imported — **not** copied) through an injectable seam, so a tier
+  under a new directory is picked up. The default output is **unchanged** — the four tiers coincide with table paths,
+  so no existing verdict moves. A test injects `audit/novel-dir/security-<rid>.md` and asserts it appears.
 
 ### 22.5 The `gate-never-evaluated` class is weaker than the rule it used to claim
 
@@ -8015,4 +8047,323 @@ paragraph.
 - **Why it is in this document**: the hook's own comment says "Normally git does not run pre-push when there is nothing
   to push", which is true for a branch push and **false for a tag push**. That gap will stop every future tag push
   until the hook learns the tag case — worth either a hook fix or a line in the release runbook.
+- **DONE 2026-10-28** (rid `2026-10-28-22-10-tag-push-base`): the hook **learns the tag case**. `.husky/pre-push`
+  reads git's pushed-ref lines from stdin and exports them as `PEAKS_PUSH_REFS`; when **every** pushed ref is a
+  `refs/tags/` ref, the changed set is measured against **the previous release tag**
+  (`git describe --tags --abbrev=0 <sha>^`). A tag push that cannot name its previous release **refuses loudly**;
+  the override still wins with **no fallback**; a branch push is unchanged. The stale comment now states the
+  tag-push truth. `PEAKS_GATE_CHANGED_BASE` becomes the **fallback**, not the routine.
+- **CORRECTION to the premise above**: "main is always pushed before the tag" is a **release-flow fact**, not a git
+  invariant — git does not require it. The accurate statement is that this repository's release flow pushes main
+  first, so the branch diff is empty at tag-push time.
+- **The slice found a second, sharper problem in the same feature** — a tag name is repository-controlled and git
+  reads an argv element starting with `--` as an option, so the base had to be resolved to a **SHA** before it
+  reached git's argv. See §23.3.
 
+
+## 23. Twelve gate defects found while implementing §22.1 / §22.3 / §22.4 / §22.10 (2026-10-28)
+
+> One line: implementing four backlog items in ONE session surfaced **twelve** defects in the machinery those items
+> had to pass through — and every one of them was found by a **gate refusing a legitimate change**, not by a test
+> going red. Two are the same shape as the §22 session's theme: **a rule that reads the wrong identifier** decides
+> something it should not (§23.1, §23.2). Two are the same shape as each other: **a new input kind arrives, and the
+> surface it opens was never probed** (§23.3, §23.5). The last two are the shape this document exists to kill: **a
+> claim that reads as a declaration but claims nothing** (§23.4), and **a rule whose message does not say what it
+> counted** (§23.6).
+>
+> **The one with the widest reach is §23.11, and it is worth reading first**: ONE identifier disagreement — a slice's
+> rid exists in two spellings, because the request writer stamps `NNN-` on the artifact filename while the CLI is
+> handed the un-numbered rid — produced **three different defects on three different surfaces** (§23.1 the claim-table
+> gate accusing a sibling slice, §23.10 the compliance rate averaging over spellings instead of slices, §23.11 the
+> transition and the verifier each wanting the OPPOSITE spelling). The repository already had the rule that
+> reconciles the two spellings — `requestIdFromFileName` / `NUMBERED_PREFIX_RE` — and **two of the three surfaces did
+> not use it**. The lesson is not "add a normalisation"; it is **"when two surfaces disagree about an identifier,
+> find the ONE rule that already reconciles them and use it in both"** — and **"a metric's denominator deserves the
+> same scrutiny as its numerator"**.
+>
+> The other two with a lesson worth carrying: **§23.9** — a test that asserts a value pins the value, not its
+> provenance, so a test can be green while the thing it was written to prevent is happening; and **§23.5** — a
+> function that no production code calls has an attack surface nobody has measured, and the day it gets its first
+> caller is the day the defect becomes live.
+>
+> And **§23.12**, which is the quietest of the twelve: six test cases that **passed**, looked like BDD form at a
+> glance, and were still non-compliant — because the contract measures the **leading comment region** of a body,
+> and the scanner stops at the first executable line. A file that merely CONTAINS the three comments is not a file
+> that has them in the right place.
+
+### 23.1 The type-corroboration gate looks up the claim table with a rid the table does not use
+
+- **Where**: `src/services/artifacts/rd-transition-gates.ts:190` —
+  `const own = claims.get(options.requestId) ?? claims.get(slugifyDescription(options.requestId));`
+  against `src/services/scan/rid-change-claims.ts`, whose keys come from `requestIdFromFileName(name)`.
+- **MEASURED 2026-10-28**: the request ids as `peaks request init` wrote them carry the numbered filename prefix
+  (`002-2026-10-28-22-3-runtime-root-guard`), but `requestIdFromFileName` **strips that prefix**, so the claim
+  table's keys are the un-numbered ids (`2026-10-28-22-3-runtime-root-guard`). The lookup therefore missed,
+  `own` came back `undefined`, and the gate fell back to judging **the whole working tree** against the declared
+  type. A `chore` slice touching only `tests/**` was refused with
+  `TYPE_CORROBORATION_VIOLATION` naming **three `src/**` files that belonged to two sibling slices** —
+  `src/cli/commands/observability-commands.ts`, `src/services/artifacts/prerequisite-path-census.ts`,
+  `src/cli/commands/observability-commands-session-row.ts`.
+  Measured directly: with the numbered rid the transition refuses; with the **un-numbered** rid the same
+  transition succeeds (`chore` → `implemented` → `qa-handoff`, exit 0).
+- **Why it matters**: the fallback exists to catch an unclaimed `src/**` change, but it fires when the claim table
+  is perfectly complete — the anti-lie check becomes a false accusation. And it lands on **whichever slice declares
+  a tooling-only type**, which is the slice least able to carry `src/**` in the first place.
+- **What it needs**: the lookup must use the same id the table is keyed by. Either the gate should normalise the
+  rid the way `requestIdFromFileName` does, or `readRidChangeClaims` should key by the rid as the request was
+  **given** rather than the one read off a filename. The second is the smaller change and matches the rid every
+  other surface prints.
+
+### 23.2 `peaks prd check-blocks` cannot find a session-scoped PRD artifact
+
+- **Where**: `src/services/prd/prd-blocks-checker.ts:83` (`findPrdArtifact`) and its only caller.
+- **MEASURED 2026-10-28**: the two direct candidates are `.peaks/_runtime/prd/requests/<rid>.md` and
+  `.peaks/_runtime/change/<rid>/prd/requests/<rid>.md` — **neither is the session layout**, which is
+  `.peaks/_runtime/<sessionId>/prd/requests/<rid>.md`. The fallback glob
+  (`:104-110`) joins `join(runtimeRoot, sessionOrChange, sub, requestId)` **without the `.md` suffix**, so the
+  session-scoped file is never found either. Measured: `check-blocks <bare-rid>` exits 1 with
+  `artifactPath: "(not found)"` and reports all four mandatory blocks missing; `check-blocks <rid>.md` finds it
+  and reports 4/4 present. The CLI's own help says `<request-id>`, so the documented spelling is the one that
+  does not work.
+- **Why it matters**: a checker that cannot find the artifact reports the artifact as missing. The command is
+  documented as the check on the PRD body, and it answers "you wrote nothing" about a body that exists and is
+  complete — the §22 session's exact shape, in a different command.
+- **What it needs**: the fallback must append `.md` (or try both), and the direct candidates should include the
+  session layout. One line each, and a test that drives the **bare** rid.
+
+### 23.3 A tag name can be read as a git option — the gate's own diff was the injection point
+
+- **Where**: `.husky/gate/changed.mjs`, the changed-set diff.
+- **MEASURED 2026-10-28** (by the RD slice that fixed it): a tag name is repository-controlled, and git reads an
+  argv element starting with `--` as an option. `git diff --name-only '--output=pwned.txt...HEAD'` **wrote a file
+  named `pwned.txt...HEAD`** — measured in the working tree during that slice. The base of a tag push IS a tag
+  name, so the base reached git's argv as a name.
+- **The fix**: the base and the tip are resolved to **SHAs** before they reach git's argv — a SHA is hex and
+  cannot be an option. `revParse` also rejects an option-shaped ref (exit 1), and git's refname rules forbid
+  control characters and newlines, so there is no terminal-escape path. The test arms pin both halves: the
+  option-shaped tag is refused **and** no file appears.
+- **Why it is here rather than only in the slice's notes**: the injection was not hypothetical and was not
+  caught by any existing test — the pre-push gate had never been handed a tag name before, because it had never
+  handled a tag push (§22.10). **A gate that gains a new kind of input has a new attack surface**, and the
+  surface was open for exactly as long as the feature was new.
+
+### 23.4 A claim with a literal placeholder counts as a declaration
+
+- **Where**: `src/services/scan/rid-change-claims.ts` (`hasChangedPathsSection` / `parseChangedPathLines`) and
+  the artifact template the RD role starts from.
+- **MEASURED 2026-10-28**: the request template ships a `## Changed paths` section whose body is the literal
+  line `changedPath: <path>`. The reader treats the **heading** as the switch ("an artifact that carries the
+  heading HAS declared"), so a template that was never filled in reads as a slice that declared **one path named
+  `<path>`** — which claims nothing, while the table counts the rid as declared. The table then looks COMPLETE,
+  so the anti-lie fallback runs, and every real `src/**` change in the working tree reads as unclaimed.
+- **Why it matters**: this is §23.1's trigger. A template that claims to be a declaration is a declaration that
+  claims nothing, and the two facts cancel in the worst direction: the table says "nobody claimed this", so the
+  gate blames a slice for another's change.
+- **What it needs**: either the template must not ship the heading (an unfilled placeholder then reads as "not
+  declared", and the fallback stands down honestly), or the reader must treat a `<...>` placeholder as not-a-path.
+  The first is the smaller change and removes the ambiguity at the source.
+
+### 23.5 A slice id from the event stream reaches the filesystem as a path — the reader credited a file outside the session
+
+- **Where**: `src/services/observability/session-metric-rows.ts` (`judgeSessionCompliance`) and the new
+  `src/cli/commands/observability-commands-session-row.ts` that calls it.
+- **MEASURED 2026-10-28** (by the RD slice that fixed it): the slice id comes from the **event stream**, and it is
+  substituted into the compliance spec's declared artifact paths before the filesystem is probed. A slice id of
+  `a/../../../outside/code-review-evil` made the reader credit a file planted **outside** the session directory, and
+  the compliance rate read **0.833** — a file that belongs to no slice was counted as one of that slice's steps.
+- **Why it is here and not only in the slice's notes**: this path was **unreachable in production** until §22.1 gave
+  the module its first caller. The defect lived in a function whose every caller was a test; the day the caller
+  shipped, the defect became live. **A function that no production code calls has an attack surface nobody has
+  measured** — and "no caller" reads as safety when it is really just "not yet reachable".
+- **The fix**: the id is partitioned with the repository's own `isSinglePathSegment` **at the boundary where the id
+  becomes a path**, not at the boundary where it becomes an id. The rest are refused rather than judged, and the
+  command reports `rejectedSliceCount` with a reason. A regression test plants a file outside the session directory
+  and asserts it is not credited.
+- **The shape worth keeping**: the fix is at the *use* boundary, not the *input* boundary. Filtering at the input
+  would have been one place to forget; filtering where the value becomes a path is where the risk actually is, and
+  it covers every future caller.
+
+### 23.6 The lint ratchet counts WARNINGS as findings, so one complexity warning blocked a whole release push
+
+- **Where**: `.husky/gate/ratchet.mjs` → `.husky/gate/findings-table.mjs` (`judgeLintRow`), against the per-file
+  baseline in `.peaks/lint/gate-baseline.json`.
+- **MEASURED 2026-10-28**: the §22.4 slice added a seam to `allPrerequisitePaths` and pushed its **cyclomatic
+  complexity from 10 to 11**. eslint reports that as a **warning** (`complexity`, max 10). The baseline row for
+  `src/services/artifacts/prerequisite-path-census.ts` says `eslint: 0`, and the ratchet compares **counts**, not
+  severities — so the file went `0 → 1` and the push was blocked with
+  `prerequisite-path-census.ts went from 0 to 1 lint finding(s) (+1). The table names 0 for this file, and a row may
+  only shrink.` The fix was to extract a helper and bring complexity back to 10.
+- **Why it is worth naming**: the natural reading of "lint finding" is "error", and a **warning** that blocks a
+  release is surprising enough to be worth stating. It is also **correct** under a ratchet: the table's unit is the
+  file, and a file that gains a warning gained something. But the message says "finding(s)" without saying that a
+  warning counts — so a reader who hits it has to rediscover the rule.
+- **What it needs**: nothing to fix in the gate — the behaviour is the design. But the **message** could name the
+  severity it counted, so the reader knows whether to look for an error or a warning. This is a wording item, not a
+  correctness one.
+
+### 23.7 A new file needs a baseline row, and the baseline refuses to be regenerated while one is unformatted
+
+- **Where**: `.husky/gate/repo.mjs` (the findings-table leg) and `.husky/peaks-gate-baseline.mjs`.
+- **MEASURED 2026-10-28**: the findings-table leg reads `git ls-files`, so a **new** file is invisible to it — and
+  to the generator, which walks the same index. The refusal names the fix: *stage it first, then regenerate:
+  `git add <file> && node .husky/peaks-gate-baseline.mjs`*. Regenerating is not free, though: the generator
+  **refuses to write** if any ceiling would move UP, and it reported
+  `prettierUnformatted: 0 → 1` because one of the new files was not prettier-clean. The refusal was correct —
+  the new file had to be formatted first.
+- **Why it is worth naming**: the sequence is **stage → format → regenerate → commit**, and each step's failure
+  message points at the next one. Following them out of order produces a refusal whose subject (a ceiling that
+  moved up) is not the thing that actually needs fixing (a file that is not formatted). The generator's message
+  says *which* ceiling rose; it does not say *which file* caused it.
+- **What it needs**: nothing to fix — the refusals are correct and each one names its remedy. But the
+  generator's refusal could name the **file** that carried the new finding, so the reader does not have to
+  re-derive the population to find it. This is a message item, like §23.6.
+
+### 23.8 A formatter rewrite silently removed a `&& false` guard — the "dead" branch was carrying a rule
+
+- **Where**: `src/cli/commands/observability-commands-session-row.ts`, `summarizeCompliance`.
+- **What happened 2026-10-28**: the file was not prettier-clean, and the whole-repo ratchet measures
+  `prettierUnformatted` at a ceiling of **0** — so the file blocked the baseline from being regenerated. Running
+  `prettier --write` on it produced a **double-quoted** string containing an apostrophe
+  (`the peaks-rd spec's required steps`), and prettier's preferred quoting **removed the escape**, which in turn
+  changed the line's content. The RD slice had deliberately written `if (readings.length === 0 && false)` — a
+  branch the linter would otherwise flag as unreachable — to keep a **comment** attached to the case it documents:
+  *"The two reasons are different facts, and the recorded one wins when both hold: a session whose slices were all
+  REJECTED did record slices, so saying 'no slice was recorded' would deny the event stream's own content."*
+  The rewrite collapsed the condition to `if (readings.length === 0)` and **changed the behaviour**: the
+  `rejectedNote ??` fallback was no longer reachable, so a session whose slices were all rejected would report
+  "no slice was recorded" — denying the event stream's own content, which is the exact thing the comment says
+  must not happen.
+- **Why it is here**: **the formatter is not a no-op on code that carries meaning in a comment or a
+  deliberately-dead condition.** A formatter's job is layout; this rewrite changed a **branch condition** because
+  the line it was on also contained a string literal. Nobody asked for a semantic change and nobody reviewed one —
+  the diff looked like quoting.
+- **The fix**: the RD slice restored the condition to `if (readings.length === 0)` **with the `rejectedNote ??`
+  reason restored**, and re-verified it two ways — the file's own tests (3/3) and **two independent mutations**
+  that each turned the suite RED. A format fix that changes behaviour is caught by the mutation arm, not by the
+  formatter's own diff.
+- **What it needs**: nothing further in the gate — the QA mutation arm caught it, which is the arm that exists to
+  catch it. But the lesson is general and worth stating: **when a format fix touches a line that also carries a
+  condition, read the diff as a semantic change** until the mutation arm says otherwise.
+
+### 23.9 A test that asserts the OUTPUT VALUES cannot tell "read from the defining module" from "hold a copy"
+
+- **Where**: `tests/unit/services/artifacts/prerequisite-path-census-judged-tiers.test.ts` (the §22.4 slice's test),
+  against `src/services/artifacts/prerequisite-path-census.ts`.
+- **MEASURED 2026-10-28** (found by QA's mutation arm, confirmed by the orchestrator): the census was changed to
+  take its four security tiers from an **inline copy** of the list instead of importing `securityArtifactTiers`
+  from its defining module. The suite **passed (2/2)**. A mutation that had to redden it did not.
+- **Why it matters**: the slice's whole thesis was *"a tier under a NEW directory would be picked up"*. The seam
+  test proves the **seam** works; it does not pin that the **default argument is the defining module's function**.
+  So the drift the slice exists to prevent — the census holding a copy that goes stale when the defining module
+  gains a tier — would keep every test **green**, because the test asserted the four tier paths as string
+  literals rather than asserting where they came from.
+- **The general shape, which is the point of recording it**: **a test that asserts a value pins the value, not
+  its provenance.** When the requirement is *"read it from there"*, the test must be able to fail when the value
+  is correct but the source is wrong. Asserting the live value from the defining module does not help either
+  (a copy of today's values matches today's values). What works is making the **source observable to the
+  test** — mock the defining module with a DIFFERENT list and assert the default path follows it. Under a copy,
+  that assertion is red; under the import, it is green.
+- **What it needs**: one test that mocks `securityArtifactTiers` with a different tier list and asserts the
+  census's **default** output follows the mock. That single test closes the hole the seam test left open.
+
+### 23.10 The same rid mismatch that fooled the claim-table gate also made the compliance rate count SPELLINGS
+
+- **Where**: `src/cli/commands/observability-commands-session-row.ts` (`partitionSliceRids`, `judgeSessionSlices`) —
+  the new reader for §22.1 — against `src/services/artifacts/rd-transition-gates.ts:190` (§23.1). **One root cause,
+  two surfaces.**
+- **MEASURED 2026-10-28** (found by QA running the new command against a real session, confirmed by the
+  orchestrator): the session's event stream carries **8 distinct `sliceRid` strings for 4 logical slices** —
+  each slice appears under both its numbered form (`002-2026-10-28-22-3-…`) and its un-numbered form
+  (`2026-10-28-22-3-…`). The reader keyed its sets on the **raw** string, so every slice was judged **twice**
+  and the reported `complianceRate` was the mean over **8 readings** for **4 slices**. The denominator was the
+  count of rid SPELLINGS, not the count of slices.
+- **The two spellings also score differently**, which is what makes the number wrong rather than merely
+  mislabelled: the artifact resolver matches the numbered form but not the un-numbered one for the same file on
+  disk (`rd/requests/002-<rid>.md` exists; `rd/requests/<rid>.md` does not). Measured:
+  `002-…` → 3 of 6 required steps found, rate **0.5**; `2026-10-28-…` → 1 of 6, rate **0.1667**. One slice was
+  counted once at 0.5 and once at 0.1667, and the two disagreed.
+- **Why it is the same defect as §23.1**: the two spellings come from two different producers — the request
+  writer stamps `NNN-` on the artifact **filename**, while the transition CLI is given the **un-numbered** rid —
+  and `requestIdFromFileName` is the repository's own rule for turning one into the other. The claim-table gate
+  missed the mismatch and fell back to the whole working tree; this reader missed it and counted one slice
+  twice. **The same identifier disagreement produced an accusation in one place and a wrong number in another.**
+- **What it needs**: both surfaces key on the **logical** slice id, normalised with the repository's own
+  `requestIdFromFileName` / `NUMBERED_PREFIX_RE`. One rule, two callers — and the rule already existed, which
+  is the part worth remembering: **the normalisation was available and neither surface used it.**
+
+### 23.11 Three surfaces resolve the same rid in three different directions — and two of them need OPPOSITE spellings
+
+- **Where**: `peaks request show` / `peaks request transition` (artifact resolution, `request-artifact-service.ts`),
+  `peaks workflow verify-pipeline` (evidence resolution, `pipeline-verify-service.ts` +
+  `src/services/artifacts/prerequisite-path-resolver.ts`), and the RD transition gate's claim-table lookup
+  (`src/services/artifacts/rd-transition-gates.ts:190`, §23.1).
+- **MEASURED 2026-10-28** (orchestrator, on this session's own four rids):
+
+| surface | `001-2026-10-28-22-1-compliance-reader` (numbered) | `2026-10-28-22-1-compliance-reader` (un-numbered) |
+|---|---|---|
+| `peaks request show --role rd` | **found** (state `qa-handoff`) | **found** (state `qa-handoff`) |
+| `peaks workflow verify-pipeline --rid` | **complete: true** | **complete: false** — "RD evidence missing: PRD handoff capsule … `prd/handoff-2026-10-28-22-1-compliance-reader.md`" |
+| RD transition's claim-table lookup | **misses** (falls back to the whole working tree) | **hits** |
+
+- **Why it matters**: the same session needs **both** spellings, in the same workflow, for the same rid — the
+  transition gate wants the **un-numbered** one, and the pipeline verifier wants the **numbered** one. A reader
+  who picks one spelling gets a false accusation from one surface and a false "missing evidence" from the
+  other. Both refusals are loud, which is the only reason this was findable at all.
+- **The working spellings, measured** (so the next person is not guessing) — and they are **not one rule**:
+
+  | surface | numbered rid | un-numbered rid |
+  |---|---|---|
+  | `peaks request show <rid> --role …` | works | works |
+  | `peaks request transition <rid> --role rd --state qa-handoff` — **prereq check** | **works** (prereqOk=true, missing=0) | **FAILS** (prereqOk=false, missing=5 for 004, missing=3 for 003) |
+  | `peaks request transition …` — **claim-table lookup** | **MISSES** (falls back to the whole working tree) | **hits** |
+  | `peaks workflow verify-pipeline --rid <rid>` | **complete: true** | **complete: false** — evidence "missing" |
+
+  Measured from this session's own event stream (`.peaks/_runtime/2026-10-28-session-2ffed0/metrics/slices.jsonl`),
+  the same `rd → qa-handoff` transition recorded **both** outcomes:
+  `2026-10-28-22-4-census-judged-tiers` → `prereqOk: false, missingCount: 5`, and
+  `004-2026-10-28-22-4-census-judged-tiers` → `prereqOk: true, missingCount: 0`.
+- **THE TWO REQUIREMENTS COLLIDE INSIDE ONE COMMAND.** `peaks request transition <rid> --role rd --state
+  qa-handoff` runs BOTH the prereq check (which needs the **numbered** rid, because the evidence files are named
+  `rd/code-review-004-<rid>.md`) AND the claim-table lookup (which needs the **un-numbered** rid, because
+  `requestIdFromFileName` strips the prefix when it keys the table). **Neither spelling satisfies both.**
+- **Why only SOME slices notice**: the type rule — the one the claim table feeds — is a **no-op** for
+  feature / bugfix / refactor, so a claim-table miss is harmless there, and those types are exactly the ones whose
+  table has evidence rows, so the **numbered** rid works for them end to end. The collision only bites
+  **chore / docs / config** — the tooling-only types, whose table has no `rd:qa-handoff` row (so the un-numbered
+  rid's evidence miss does not matter) but whose type rule IS judged (so the claim-table hit matters). **The
+  slices most likely to be affected are the ones the strictest rule is written for.**
+- **What it needs**: one normalisation, applied by all three surfaces. The rule already exists —
+  `requestIdFromFileName` / `NUMBERED_PREFIX_RE` — and the pipeline verifier's resolver already has a
+  numbered-prefix tolerance for the **request** artifact (that is why the un-numbered rid finds
+  `rd/requests/002-….md`). The evidence paths and the claim table simply do not get the same tolerance. This
+  is the same reconciliation §23.10 needs, on the third surface.
+
+### 23.12 The BDD triple must be CONSECUTIVE at the top of the body — code between the comments makes the file silently non-compliant
+
+- **Where**: `src/services/qa/bdd-test-style-contract.ts` (`leadingBddComments`) and the rule it enforces
+  (`contracts/test-style-contract.md` §1.2: *"The first three statements of the callback (after the opening brace,
+  **before any executable code**) MUST be exactly three leading comments"*).
+- **MEASURED 2026-10-28**: the §22.10 slice's test file wrote each case as
+  ```
+  () => {
+    // given: v1.0.0 at the artifact commit, then one docs-only commit tagged v1.1.0
+    const f = newRepo();                    <-- executable: the scan stops HERE
+    git(f.root, ['tag', 'v1.0.0']);
+    ...
+    // when:  the push gate is handed the tag-only push of v1.1.0
+    // then:  the base is v1.0.0, …
+  ```
+  `leadingBddComments` walks the body's leading comments and **stops at the first executable line**, so only the
+  `// given:` line was collected; the `// when:` and `// then:` sat below executable code and never entered the
+  triple. The ratchet then reported **6 violating test calls** in that file and the totals assertion failed with
+  `expected 599 to be 600` (the baseline records 599 violating files; the measurement said 600 — the extra one was
+  the new file).
+- **Why it is worth naming**: **the tests still PASSED.** Six cases ran green, the file looked like BDD form at a
+  glance (it had `// given:` / `// when:` / `// then:` in it, in that order, in the right words), and nothing was
+  wrong with the behaviour. Only the dedicated ratchet — which measures the *leading comment region* rather than
+  the presence of the words — caught it. **A convention enforced by a scanner that stops at the first executable
+  line cannot be satisfied by a file that merely CONTAINS the three comments; they have to be the first thing in
+  the body, side by side.**
+- **What it needs**: the three comments moved up so they sit together directly under the callback's opening line,
+  with the setup and the assertions below them. The `given:` comment then describes the setup that follows it —
+  so the comment may need rewording, since the setup now sits under all three. The executable order does not change.

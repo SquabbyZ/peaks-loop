@@ -1,16 +1,15 @@
 ---
 name: the-pre-push-gate-refuses-a-tag-push-until-the-base-is-named
-description: Pushing the release tag fails the pre-push "changed" leg with "nothing to compare" — fix it by naming the base with PEAKS_GATE_CHANGED_BASE=<previous release tag>, not with --no-verify.
+description: Pushing the release tag used to fail the pre-push "changed" leg with "nothing to compare"; the gate now learns the tag case (2026-10-28), and PEAKS_GATE_CHANGED_BASE is the fallback, not the routine.
 metadata:
   type: project
 ---
 
-`.husky/pre-push` runs three legs unconditionally, with no awareness of **what** is being pushed:
-`format-check-ratchet.mjs` → `peaks-gate.mjs changed` → `pnpm test:changed -- origin/main`.
-
-The `changed` leg diffs `origin/main...HEAD` (`.husky/gate/changed.mjs`). After the **branch** push
-of `main`, `origin/main` already equals `HEAD` — so when the **tag** is pushed, the changed set is
-empty and the leg refuses:
+**Before 2026-10-28**: `.husky/pre-push` ran three legs unconditionally, with no awareness of
+**what** was being pushed: `format-check-ratchet.mjs` → `peaks-gate.mjs changed` →
+`pnpm test:changed -- origin/main`. The `changed` leg diffed `origin/main...HEAD`
+(`.husky/gate/changed.mjs`). After the **branch** push of `main`, `origin/main` already equalled
+`HEAD` — so when the **tag** was pushed, the changed set was empty and the leg refused:
 
 ```
 peaks-gate: origin/main resolves to HEAD (48402f7a), so the changed set is empty by construction.
@@ -19,19 +18,28 @@ peaks-gate: origin/main resolves to HEAD (48402f7a), so the changed set is empty
   To point this mode at another ref deliberately: PEAKS_GATE_CHANGED_BASE=<ref>
 ```
 
-**The fix is the one the leg's own message names**: point the mode at a ref that makes the release
-delta the thing being measured — the **previous release tag**:
+**Now (2026-10-28, backlog §22.10)**: the hook **learns the tag case**. `.husky/pre-push` reads
+git's pushed-ref lines from stdin (`<local ref> <local sha> <remote ref> <remote sha>`) and exports
+them as `PEAKS_PUSH_REFS`; when **every** pushed ref is a `refs/tags/` ref, the changed set is
+measured against **the previous release tag** (`git describe --tags --abbrev=0 <sha>^`). A tag push
+that cannot name its previous release **refuses loudly** — it never falls back to an empty set and
+never reports one as a pass. The base and tip are resolved to **SHAs** before they reach git's
+argv, because a tag name is repository-controlled and git reads an argv element starting with `--`
+as an option (measured: `git diff --name-only '--output=pwned.txt...HEAD'` wrote a file).
 
-```bash
-PEAKS_GATE_CHANGED_BASE=v4.1.12 GIT_SSH_COMMAND="ssh -o ServerAliveInterval=20 -o ServerAliveCountMax=30" \
-  git push origin v4.1.13
-```
+⇒ **The routine tag push no longer needs an override.** `PEAKS_GATE_CHANGED_BASE=<ref>` remains the
+sanctioned escape for a deliberate base, and it still gets **no fallback** — a typo fails loudly.
+`--no-verify` is still forbidden by the release runbook.
 
-⇒ The gate then measures the release's own diff (and runs the full suite against it) instead of
-finding nothing. **This is not a bypass**: `--no-verify` is forbidden by the release runbook, and
-naming the base is the documented mechanism — the override exists precisely so the mode can be
-pointed at a deliberate ref, and it gets **no fallback**, so a typo fails loudly.
+**Why this memory changed rather than being deleted**: the old text said "the fix is the one the
+leg's own message names" — which was true then and is now the *fallback*, not the answer. A memory
+that describes a workaround after the workaround stopped being necessary teaches the next releaser
+the old procedure, and the old procedure still works, so nothing would catch it.
 
-**Why it matters:** the release runbook (`.peaks/memory/peaks-loop-release-flow-is-tag-triggered-ci-publish.md`)
-says "push main → wait CI green → tag → push tag" and does not mention this, so the tag push looks
-like it is supposed to work as-is. It is not.
+**How to apply**: push the tag normally. If the gate refuses, read the message: a **tag push with
+no resolvable previous tag** is the real refusal case (this repository's first tag would hit it —
+name a base with `PEAKS_GATE_CHANGED_BASE` and say why), while a **branch push** refusing means the
+branch base could not be resolved. The git stdin format is documented in the hook's own comment.
+
+Related: [[a-function-no-production-code-calls-has-an-unmeasured-attack-surface]],
+[[push-needs-ssh-keepalive]]
