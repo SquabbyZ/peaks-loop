@@ -7826,3 +7826,193 @@ the *readability* would mean rewriting the affected headings from what they
 can be inferred to have said, and a memory file that guesses at its own past is
 worse than one that shows the scar. The honest form is the scar plus this
 paragraph.
+
+---
+
+## 22. The 2026-10-26/28 observability session — the measurement layer shipped, the evolution layer did not (2026-10-28)
+
+> One line: a 35-commit branch gave peaks-loop an eye for its own skills and gates, and the eye produced a number that
+> **overturned the plan's own headline rule** — but the ratchet it was built to feed still has **0 rows** and still takes
+> **LLM-self-claimed** scores.
+>
+> **What shipped**: `peaks-loop@4.1.23` (branch `docs/self-evolution-observability-loop`, release commit `f2512e62`,
+> tag `v4.1.23`, published via OIDC). The gate-1 record is in
+> `docs/superpowers/specs/2026-10-26-self-evolution-observability-loop-design.md` §2.4 / §2.4.1; the plan is
+> `docs/superpowers/plans/2026-10-26-observability-evidence-and-visibility.md`.
+>
+> **The measured headline** (re-derived from the raw event stream by a reviewer who did not use the shipped code, and
+> again by the **published build** — all three agree to the digit): `nearMissRate 0.1276595744680851` = **12 / 94**,
+> of which **11 are "the owning role had not yet attempted its transition"** and **1 is "a check was actively refusing"**;
+> coverage says **1 of 3 reason classes observable**, the other two `rate: null`.
+>
+> **Two corrections to this session's own earlier claims, recorded here because they are the shape this document is about:**
+> (1) the plan's first `prereq-skipped` rule **counted a refused-then-satisfied check as a skip** — 49.5% instead of 0%,
+> and the corrected rule is what shipped; (2) a CHANGELOG draft **asserted a fix that did not exist** and was caught by
+> the re-review. Both are the same defect the campaign exists to kill — **a claim whose evidence was never gathered**.
+
+### 22.1 The compliance rate has a judge but no reader
+
+- **Where**: `src/services/observability/session-metric-rows.ts` (`buildSessionMetricRow` / `writeSessionMetricRow` /
+  `readSessionMetricRow`) and `src/services/observability/compliance-judge.ts` (`judgeCompliance`, 194 lines).
+- **MEASURED 2026-10-28**: `grep -rn "writeSessionMetricRow\|buildSessionMetricRow" src/ --include=*.ts` returns
+  **no caller outside the module itself**; the only callers are
+  `tests/unit/services/observability/session-metric-rows.test.ts` and
+  `tests/unit/services/observability/session-metric-row-request-types.test.ts`. So the per-session metric row and the
+  compliance number are **unreachable in production**.
+- **Why left**: the plan scoped Task 9 to the module, and the plan's completion checklist **left that box unticked** and
+  says so. Shipping it without a reader would have been a claim without evidence.
+- **What it needs**: a slice that calls `writeSessionMetricRow` at session end (or on demand) and a surface that shows
+  the compliance rate — the same treatment the near-miss rate already has.
+
+### 22.2 `peaks-mut` is not in the published package — an installed peaks-loop cannot pass `rd -> qa-handoff`
+
+- **Where**: the skill's `SKILL.md` is at `src/skills/peaks-mut/SKILL.md`; the artifact contract names
+  `mut/mut-report.json` (`MUT_REPORT`) in the feature / bugfix / refactor `rd -> qa-handoff` prereq tables
+  (`src/services/artifacts/artifact-prerequisites.ts`); `package.json`'s `files` whitelist contains `skills/**` and
+  **not** `src/skills/**`.
+- **MEASURED 2026-10-28**: `npm pack --dry-run --ignore-scripts --json` → **2935 files**, of which **0** match
+  `peaks-mut` and **0** are under `src/skills/`. All 15 user-visible `skills/` skills and all 9 `skills/bee/` skills
+  **are** in the package. `peaks-mut` is the only skill whose `SKILL.md` exists and cannot be installed.
+- **Consequence**: on an installed peaks-loop the `mut/` artifacts have **no producer**, and `mut/mut-report.json` is a
+  **hard `rd -> qa-handoff` prerequisite** — that install fails that gate permanently. It is also the **second row of
+  the hotspot ranking** (count 78): a "skill keeps failing to deliver" that no reader can act on.
+- **Why left**: the branch changed no artifact contract, so this is a **packaging defect, not a contract defect**, and it
+  needs its own slice. It was recorded as a finding in the spec's §2.4.1 rather than fixed inside a release that was
+  already published.
+- **What it needs**: decide whether `peaks-mut` is a **distributed skill** (add `src/skills/**` to `files`, or move it
+  under `skills/`) or an **internal-only program** (in which case the `MUT_REPORT` prerequisite is wrong for an installed
+  peaks-loop and the contract needs a conditional). **The second option is the likelier truth and the more interesting
+  one** — but it is a decision, not an implementation.
+
+### 22.3 There is no guard for scratch files at the `.peaks/_runtime/` root
+
+- **Where**: the repository has `tests/unit/standards/root-scratch-artifact-guard.test.ts` for the **repository root**.
+  There is **no equivalent for the runtime root**, `.peaks/_runtime/`.
+- **MEASURED 2026-10-28**: six scratch files sat **directly** in `.peaks/_runtime/` (`tmp-smr.log`,
+  `tmp-2fail.log`, `tmp-full-unit.log`, `tmp-hm.txt`, `tmp-hs.err`, `tmp-reconcile.ts`) — none of them under a
+  `<sessionId>/`. Two of the six were **a TypeScript source file** and a shell redirect.
+- **Functional risk: none, and that was checked rather than assumed.** `src/services/session/session-manager.ts:455`
+  and `:646` both do `readdirSync(root, { withFileTypes: true })` and filter with `if (e.isDirectory())`, and the second
+  additionally matches `^\d{4}-\d{2}-\d{2}-session-[a-f0-9]+$` — so a stray file at the runtime root was **never
+  mistaken for a session directory**.
+- **Why it still matters**: `.peaks/_runtime/` is the **scope-axis root**; a file at that level belongs to **no**
+  session, so no session's cleanup or GC reaches it and it accumulates. The convention was carried by memory alone, and
+  the two agents in this session put scratch there **because the controller's dispatch told them to**.
+- **What it needs**: a guard that fails when a non-session file appears directly under `.peaks/_runtime/`, with the two
+  documented exceptions (`session.json`, `generated-artifacts.json`).
+
+### 22.4 The path census documents a source it does not read
+
+- **Where**: `src/services/artifacts/prerequisite-path-census.ts` enumerates the prereq table's `relativePath` and its
+  `legacyRelativePath` / `legacyRelativePaths` tiers. The prereq `missing` list has **three** sources, and the census
+  covers **one**.
+- **MEASURED 2026-10-28**: the three sources are the table loop (`artifact-prerequisites.ts:517,533,541`), the
+  judged-declaration refusals (`:588` → `gap.artifact`), and the handoff capsule's gate-evidence declaration (`:574`).
+  All four `securityArtifactTiers` paths (`src/services/audit-independent/judged-declaration-check.ts:108-115`) coincide
+  with table paths **today**, so nothing is unowned and the census arm is green — **that is why the hole is invisible**.
+- **Why left**: this is **future-proofing**; there is no live defect. It was recorded in the fix-round report rather than
+  fixed, because the census's contract is "every path that can reach the missing list".
+- **What it needs**: the census should read the judged-declaration tiers from their defining module, so a future tier
+  under a new directory is both owned **and** policed. Without it, a new tier would be unowned **and** outside the
+  census — and the arm would stay green.
+
+### 22.5 The `gate-never-evaluated` class is weaker than the rule it used to claim
+
+- **Where**: `src/services/observability/near-miss.ts:42-47` (the rule as documented) vs
+  `src/services/observability/near-miss-facts.ts` (the live set, built **only** from `category === 'gate'` events).
+- **The gap**: a gate that emitted **no** event at all is not in the live set, so it cannot be flagged. The rule catches
+  such a gate only when a **sibling** gate event establishes that phase's live set. The **eleven `unattempted`** slices
+  are exactly the shape where nothing was emitted at that phase.
+- **MEASURED 2026-10-28**: this repository has **zero** `gate` events (every recorded session predates Task 3's
+  emitter), so the class is honestly reported as **unobservable** — `rate: null`, `unobservedSliceCount: 94`. The
+  coverage mechanism is what keeps it from being an absence read as a result.
+- **Why left**: deriving the live set from the `slice-transition` stream would change the metric's semantics, and the
+  declared type rides only on gate events. The comment was corrected to say what the code does; the stronger rule is
+  deferred with its reason recorded.
+- **Why it matters anyway**: once gate events exist, this class's rate would be computed over "slices that produced a
+  gate event" — **silently excluding the slices most likely to hide a skipped gate**.
+
+### 22.6 One artifact, two owners, depending on which surface reads it
+
+- **Where**: `rd/security-review-<rid>.md` resolves to `peaks-rd` by path (`owner-skill-map.ts`, the `rd/` row) and to
+  `peaks-security-audit` by the `gateEvidence.securityReview` key.
+- **MEASURED 2026-10-28**: the sibling case **was** fixed in this branch — `rd/third-party-review-<rid>.md` is
+  `peaks-reviewer`'s artifact (`artifact-prerequisites.ts:293`) and is now attributed to `peaks-reviewer` by a longer
+  prefix row, which the length-descending lookup resolves automatically. `rd/security-review-<rid>.md` still has two
+  producers and was **not** silently resolved.
+- **Why left**: fixing it needs a decision about which surface is authoritative, and it was **recorded rather than
+  guessed** — the same treatment `rd/third-party-review-` got, minus the part that was unambiguous.
+
+### 22.7 Two commit subjects under-describe their contents
+
+- **MEASURED 2026-10-28** by the final whole-branch review, reading every one of the branch's commits' file sets:
+  **30 of 32 match their subject**; two do not. `44c0b9b6` ("the finding says whether the check was refusing or
+  unattempted") carries **21 files** across three concerns, including **210 lines of hotspot test infrastructure** under a
+  near-miss subject — the residual of the concurrency incident in §22.9; `1005fe00` (`docs(...)`) adds a 39-line
+  behavioural test.
+- **Why left**: this is **record quality, not content** — the commit bodies explain the content and the code in both is
+  correct and reviewed. A 32-commit history rewrite immediately before a publish is a materially bigger risk than the
+  defect it fixes, so the decision was **not** to rewrite and to name both commits in the release notes instead.
+- **The concurrency incident that produced it**: three agents committed to one working tree with a shared index, and one
+  commit swept up **20 files belonging to another task** (recovered with `git reset --soft` and re-made; the bad commit
+  `d3a8f7e0` survives as a dangling object). The root cause was a **too-weak guard**, not a missing one: the
+  instruction was "check `git diff --cached --name-only`; if it is non-empty, another agent is mid-commit — wait", and
+  that is **ambiguous when two agents are both staging** — a non-empty index does not say *whose* files are in it. The
+  replacement is `git commit -- <paths>`, which commits only those paths whatever else is staged. **Two agents here wrote
+  scratch files into `.peaks/_runtime/` because the controller's dispatch told them to** (§22.3) — a controller
+  instruction was the defect.
+
+### 22.8 The evolution half of the programme was never started — the ratchet still takes self-claimed scores
+
+- **Where**: `src/services/evolution/` — `evolution-service.ts`, `evolution-evaluation-schema.ts`,
+  `independent-evaluator-runner.ts`, `regression-skeptic-runner.ts`; the CLI `peaks evolution propose / evaluate /
+  mark-keep / revert / status`.
+- **MEASURED 2026-10-28**: `peaks evolution status --project . --target bee:peaks-rd` → `{"total": 0, "byVerdict":
+  {"keep": 0, "revert": 0, "needs-user-decision": 0}}`, and the `evolution_evaluation` table in `.peaks/state.db` has
+  **0 rows** (`crystallization_event` 0, `bee_change` 0). **`bee` — a skill — was already a legal evolution target.**
+- **The defect this session found and did not fix**: `peaks evolution propose` takes `--before-score` / `--after-score`
+  as **0..10 numbers the author asserts**; `before_snapshot_json` / `after_snapshot_json` / `diff_json` /
+  `rubric_json` / `red_lines_json` / `source_traces_json` are all still empty by construction; and `after_snapshot`
+  currently holds only `{ after_score: <the claimed number> }`.
+- **Why left**: **out of scope for this branch by design** — the branch shipped the *measurement* layer, and S3/S4
+  (mine → propose → evaluate → measure → keep/revert) was planned as the next stage precisely because its input has to
+  be a measured number rather than an asserted one. The measurement layer now exists, so **S3 is unblocked**; S4
+  (the ratchet consuming those numbers, with the Darwin constraint gates and the PR-only deployment) is what is left.
+- **What it needs**: `before_score` / `after_score` become **projections of a measured metric** rather than author
+  claims — the same change this session made to the near-miss rate. The eight constraint gates Hermes uses
+  (`benchmarks are GATES, not fitness functions`, holdout, size budget, semantic-drift, PR-only) and the
+  `peaks --version`-independent verification of a published build are the shape to copy.
+
+### 22.9 There is no tool-call trace, so "a gate that recorded nothing" can only be inferred
+
+- **Where**: the plan's **S1.7** was **never built**. There is no tool-call-level trace; the gate layer's "no event at
+  all" case (see §22.5) can only be detected by reconstructing the live set, never by reading a trace of what was
+  attempted.
+- **Why it matters now**: the near-miss rate can say "**this gate was live and never evaluated**" only for phases
+  where some other gate left an event. A phase where **nothing** was recorded is indistinguishable from a phase that
+  never happened.
+- **Why left**: it needs a **runtime-adapter** decision — the trace source is the host's tool-call log, and peaks-loop
+  is vendor-neutral by rule (`AGENTS.md`: "the adapter layer is the only place vendor-specific translation lives"), so
+  the live vendor layer is `src/services/runtime/vendors/`, **not** `src/services/adapter/` (whose
+  `claude`/`codex`/`copilot` adapters are **dead code**, zero importers, every method throwing
+  `ADAPTER_NOT_IMPLEMENTED`). The near-miss metric does not depend on it today.
+- **What it needs**: one slice to decide the trace source per runtime, one to record it, and one to let the live set be
+  read from the trace rather than reconstructed. Until then, treat "no gate event at a phase" as **unobserved**, not as
+  "no gate was live".
+
+### 22.10 A release-flow fact that will bite the next release (found 2026-10-28, measured)
+
+- **What**: `git push origin vX.Y.Z` was **refused by the pre-push gate** on this branch, correctly:
+  > `peaks-gate: origin/main resolves to HEAD (f2512e62), so the changed set is empty by construction. REFUSING to
+  > report that as a pass: "nothing to compare" and "compared and clean" are different results, and only one of them is
+  > evidence.`
+
+  The gate's default base is `origin/main` (`.husky/gate/changed.mjs:48`), and **main is always pushed before the tag**,
+  so the diff is always empty for a tag push. The gate's own failure message names the sanctioned escape, and an
+  explicit override gets **no fallback** (`:100-103`) so a typo fails loudly.
+- **The fix used**: `PEAKS_GATE_CHANGED_BASE=<the commit main was at before the release>` — `1780ef7c` here — so the gate
+  compares **what this release changed** rather than an empty set. **`--no-verify` was not used.**
+- **Why it is in this document**: the hook's own comment says "Normally git does not run pre-push when there is nothing
+  to push", which is true for a branch push and **false for a tag push**. That gap will stop every future tag push
+  until the hook learns the tag case — worth either a hook fix or a line in the release runbook.
+
