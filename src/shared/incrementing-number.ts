@@ -1,6 +1,9 @@
 /**
  * Utilities for generating incrementing numbered filenames.
  * Used by session-based artifact storage to create files like 001-feature.md.
+ *
+ * It also holds the READ side of the numbered-prefix family for a request id
+ * that is not a filename: `sliceIdentity` below.
  */
 
 import { existsSync, readdirSync } from 'node:fs';
@@ -142,6 +145,65 @@ export function buildNumberedFilename(number: number, description: string): stri
 export function requestIdFromFileName(fileName: string): string | null {
   if (!fileName.endsWith('.md')) return null;
   return fileName.replace(NUMBERED_PREFIX_RE, '').replace(/\.md$/, '');
+}
+
+/**
+ * The two facts ONE recorded request id carries about the numbered prefix.
+ *
+ * WHY A REQUEST ID HAS TWO SPELLINGS. A request is written two ways: the
+ * LOGICAL id (`2026-10-28-22-4-census-judged-tiers`) and the NUMBERED id the
+ * request writer stamps on the artifact it writes
+ * (`004-2026-10-28-22-4-census-judged-tiers`). `NUMBERED_PREFIX_RE` — the
+ * family `buildNumberedFilename` writes and `requestIdFromFileName` strips — is
+ * the repository's own statement that the number is COSMETIC: one request, two
+ * spellings of it. This module is the READ side of that statement for a request
+ * id that is not a filename.
+ *
+ * WHY THE NUMBER IS COSMETIC FOR IDENTITY. The number says which request
+ * artifact of its session this is; it is not part of the request's identity. So
+ * the same request reads as `004-…` under one artifact's name and as `…` under
+ * another's, and a reader that groups by the raw string counts one slice twice —
+ * under two names, with two scores.
+ *
+ * WHY THE NUMBER IS NOT COSMETIC FOR RESOLUTION. The artifacts a slice leaves
+ * behind are named after the NUMBERED spelling
+ * (`rd/code-review-004-<rid>.md`), so a reader that resolves a file must ask
+ * under the spelling the files were written with. THAT is why this answers two
+ * questions and not one: `logical` is what a reader GROUPS by, and `numbered`
+ * is the spelling the files carry.
+ *
+ * WHY THE TWO ANSWERS LIVE TOGETHER. A reader that collapses them — that
+ * groups by the spelling it resolves with — trades a false accusation for a
+ * false "evidence missing" report. The two spellings are one rule with two
+ * faces, and this module is where both faces are read.
+ */
+export type SliceIdentity = {
+  /**
+   * The ONE id of the request: the request id with its cosmetic number prefix
+   * removed.
+   *
+   * An id that does not carry the prefix is returned unchanged — the bare
+   * spelling IS the logical id — so this is the identity function on it. That
+   * is what makes the function safe to apply to every spelling of the same
+   * request: both spellings read as ONE id.
+   */
+  readonly logical: string;
+  /**
+   * The spelling that names this request's artifacts on disk, when the
+   * recorded spelling carried the number; null when it did not.
+   */
+  readonly numbered: string | null;
+};
+
+/**
+ * The identity of the request a recorded request id names.
+ *
+ * @param sliceRid - the request id as it was written, in either spelling
+ * @returns the logical id, and the numbered spelling when the id carried one
+ */
+export function sliceIdentity(sliceRid: string): SliceIdentity {
+  const logical = sliceRid.replace(NUMBERED_PREFIX_RE, '');
+  return { logical, numbered: logical === sliceRid ? null : sliceRid };
 }
 
 /**

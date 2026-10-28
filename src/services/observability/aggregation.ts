@@ -33,6 +33,7 @@ import {
 } from './aggregation-types.js';
 import { durationMsBetween, isSliceTransition, transitionTo } from './aggregation-helpers.js';
 import { buildRepairCycleReport, computeSliceRepairMetrics } from './repair-cycle-metric.js';
+import { sliceIdentity } from '../../shared/incrementing-number.js';
 
 // The result shapes and their data (terminal states, repair-loop cap, zeroed
 // fan-out row) live in `aggregation-types.ts`; the event-detail readers and
@@ -63,7 +64,7 @@ function rollupSlices(events: readonly ObservabilityEvent[]): Map<string, SliceR
   const bySlice = new Map<string, SliceRollup>();
   for (const event of events) {
     if (!isSliceTransition(event)) continue;
-    const rid = event.sliceRid;
+    const rid = sliceIdentity(event.sliceRid).logical;
     let rollup = bySlice.get(rid);
     if (rollup === undefined) {
       rollup = {

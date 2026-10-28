@@ -28,6 +28,7 @@
  * own shape.
  */
 
+import { sliceIdentity } from '../../shared/incrementing-number.js';
 import { allPrerequisitePaths } from '../artifacts/prerequisite-path-census.js';
 import type { RequestType } from '../artifacts/artifact-prerequisites.js';
 import type { RequestTypeSource } from '../artifacts/request-artifact-metadata.js';
@@ -146,23 +147,25 @@ const PREREQ_TEMPLATES: readonly string[] = allPrerequisitePaths().filter((path)
 /**
  * The artifact path with the `<rid>` placeholder left in place.
  *
- * The template is recognised by re-filling the slot with the rid and
- * comparing, which is exact. The template is then returned AS IT IS: the
- * placeholder is part of the artifact's name, and stripping it produced paths
- * that name no real file.
+ * The template is recognised by splitting it at its slot and comparing the
+ * path's head, tail and the id it carries between them — by LOGICAL id, since
+ * `rd/code-review-004-<rid>.md` and `rd/code-review-<rid>.md` name the SAME
+ * artifact and one file must not become two rows. The template is returned AS
+ * IT IS: the placeholder is part of its name, and stripping it named no file.
  *
- * WHY A `<rid>`-LESS PATH IS RETURNED AS IT IS. The templates matched here
- * are the ones that CARRY a slot, so a path that came from a template
- * without one — `qa/.initiated` is a real artifact — never matches and is
- * returned unchanged. That asymmetry is DELIBERATE: there is nothing to
- * canonicalise, because the path already names the artifact it is. Do not
- * "fix" it by widening the template list — a template with no slot would
- * match EVERY path it happened to equal, and the comparison is only exact
- * for the form that carries the substituted id.
+ * A `<rid>`-less path is returned unchanged — there is nothing to canonicalise.
+ * Do not widen the template list: a slotless template matches every path.
  */
 export function canonicalArtifact(path: string, rid: string): string {
+  const logical = sliceIdentity(rid).logical;
   for (const template of PREREQ_TEMPLATES) {
-    if (template.replace('<rid>', rid) === path) return template;
+    const at = template.indexOf('<rid>');
+    if (at < 0) continue;
+    const head = template.slice(0, at);
+    const tail = template.slice(at + '<rid>'.length);
+    if (!path.startsWith(head) || !path.endsWith(tail)) continue;
+    const carried = path.slice(head.length, path.length - tail.length);
+    if (sliceIdentity(carried).logical === logical) return template;
   }
   return path;
 }

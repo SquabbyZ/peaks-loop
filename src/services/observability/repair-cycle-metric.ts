@@ -44,6 +44,7 @@ import {
   type RepairCycleReport
 } from './aggregation-types.js';
 import type { ObservabilityEvent } from './observability-service.js';
+import { sliceIdentity } from '../../shared/incrementing-number.js';
 
 /**
  * Version 1 was never versioned — it silently counted qa-role events.
@@ -105,8 +106,9 @@ function sliceSteps(events: readonly ObservabilityEvent[]): Map<string, Step[]> 
   const bySlice = new Map<string, ObservabilityEvent[]>();
   for (const event of events) {
     if (!isSliceTransition(event)) continue;
-    const bucket = bySlice.get(event.sliceRid);
-    if (bucket === undefined) bySlice.set(event.sliceRid, [event]);
+    const rid = sliceIdentity(event.sliceRid).logical;
+    const bucket = bySlice.get(rid);
+    if (bucket === undefined) bySlice.set(rid, [event]);
     else bucket.push(event);
   }
   const steps = new Map<string, Step[]>();
@@ -174,7 +176,8 @@ function legacyQaEventCounts(events: readonly ObservabilityEvent[]): Map<string,
   for (const event of events) {
     if (!isSliceTransition(event)) continue;
     if (artifactRole(event) !== 'qa') continue;
-    counts.set(event.sliceRid, (counts.get(event.sliceRid) ?? 0) + 1);
+    const rid = sliceIdentity(event.sliceRid).logical;
+    counts.set(rid, (counts.get(rid) ?? 0) + 1);
   }
   return counts;
 }

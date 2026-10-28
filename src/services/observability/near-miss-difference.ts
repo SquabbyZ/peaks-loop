@@ -40,6 +40,7 @@ import { getPrerequisitesFor, type RequestType } from '../artifacts/artifact-pre
 import type { SliceRollup } from './aggregation.js';
 import type { RequestTypeReading } from './hotspot-shared.js';
 import type { ObservabilityEvent } from './observability-service.js';
+import { sliceIdentity } from '../../shared/incrementing-number.js';
 
 /** The counts that make the gap up, and the note that spells them out. */
 export type NearMissDifferenceCounts = {
@@ -119,7 +120,10 @@ export function countDifferences(
   const slices: string[] = [];
   for (const rollup of rollups) {
     const sliceEvents = events.filter(
-      (event) => event.category === 'slice-transition' && event.sliceRid === rollup.sliceRid
+      (event) =>
+        event.category === 'slice-transition' &&
+        event.sliceRid !== undefined &&
+        sliceIdentity(event.sliceRid).logical === rollup.sliceRid
     );
     const attempts = collectAttempts(sliceEvents);
     const hasPassMoment = passMomentOf(attempts) !== null;

@@ -109,6 +109,7 @@ import {
 } from './near-miss-coverage.js';
 import { describeDenominator, type NearMissDenominator } from './near-miss-denominator.js';
 import type { RequestTypeReading } from './hotspot-shared.js';
+import { sliceIdentity } from '../../shared/incrementing-number.js';
 
 export type {
   NearMissEvidence,
@@ -185,14 +186,20 @@ type SliceWalk = {
  *
  * An event with no slice rid belongs to no slice, so it is not in any of the
  * populations — it is not a slice's evidence of anything.
+ *
+ * The group is keyed by the LOGICAL request id
+ * (`src/shared/incrementing-number.ts`): a slice whose events were written
+ * under both spellings is ONE slice, so its attempts are judged together
+ * rather than as two halves of a slice.
  */
 function groupBySlice(events: readonly ObservabilityEvent[]): Map<string, ObservabilityEvent[]> {
   const bySlice = new Map<string, ObservabilityEvent[]>();
   for (const event of events) {
     const sliceRid = event.sliceRid;
     if (sliceRid === undefined) continue;
-    const bucket = bySlice.get(sliceRid);
-    if (bucket === undefined) bySlice.set(sliceRid, [event]);
+    const logical = sliceIdentity(sliceRid).logical;
+    const bucket = bySlice.get(logical);
+    if (bucket === undefined) bySlice.set(logical, [event]);
     else bucket.push(event);
   }
   return bySlice;
