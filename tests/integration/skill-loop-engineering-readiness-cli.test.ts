@@ -56,7 +56,7 @@ function cli(args: string[], cwd: string) {
 
 describe('peaks skill lint --category loop-engineering-readiness (M6)', () => {
   test('peaks-maker SKILL.md passes the readiness lint', async () => {
-    const peaksMakerPath = resolve(REPO_ROOT, 'src', 'skills', 'peaks-maker', 'SKILL.md');
+    const peaksMakerPath = resolve(REPO_ROOT, 'skills', 'peaks-maker', 'SKILL.md');
     const project = mkdtempSync(join(tmpdir(), 'peaks-skill-readiness-'));
     try {
       const result = await cli(
@@ -164,7 +164,7 @@ describe('peaks skill lint --category loop-engineering-readiness (M6)', () => {
   });
 
   test('alias `peaks skill ready --category loop-engineering-readiness` works', async () => {
-    const peaksMakerPath = resolve(REPO_ROOT, 'src', 'skills', 'peaks-maker', 'SKILL.md');
+    const peaksMakerPath = resolve(REPO_ROOT, 'skills', 'peaks-maker', 'SKILL.md');
     const project = mkdtempSync(join(tmpdir(), 'peaks-skill-readiness-'));
     try {
       const result = await cli(

@@ -8,7 +8,8 @@
  *   { ok: false, findings: string[] }.
  *
  * The lint asserts three structural properties the spec binds every
- * Loop-Engineering-participating peaks-* skill to:
+ * Loop-Engineering-participating peaks-* skill to. All three see the skill's
+ * OWN text: the shared loop-hygiene insert is blanked first.
  *
  *   1. The skill references the shared guideline file
  *      `.peaks/standards/loop-engineering-guidelines.md` (or its
@@ -54,6 +55,10 @@
 // ---------------------------------------------------------------------------
 
 export type LintFinding = string;
+
+/** Loop-hygiene block delimiters — a shared, non-per-skill insert; skip it. */
+export const HYGIENE_BLOCK_OPEN_MARKER = '<!-- peaks:loop-hygiene';
+export const HYGIENE_BLOCK_CLOSE_MARKER = '<!-- /peaks:loop-hygiene -->';
 
 export type ReadinessLintResult =
   { ok: true; findings: [] } | { ok: false; findings: LintFinding[] };
@@ -182,7 +187,24 @@ export const JSON_REFERENCE_ALLOWLIST: ReadonlyArray<string> = [
 // ---------------------------------------------------------------------------
 
 /**
+ * Blank the shared loop-hygiene block so the readiness checks skip it: only text
+ * BETWEEN two paired markers goes. The region is blanked, not deleted, so a
+ * later finding keeps its ORIGINAL line number. A malformed region (one marker
+ * with no pair) strips nothing — a lint that one deleted line can switch off is
+ * worse than the false positive this exemption exists to fix.
+ */
+export function stripHygieneBlock(text: string): string {
+  const start = text.indexOf(HYGIENE_BLOCK_OPEN_MARKER);
+  const closeAt = start === -1 ? -1 : text.indexOf(HYGIENE_BLOCK_CLOSE_MARKER, start);
+  if (start === -1 || closeAt === -1) return text;
+  const end = closeAt + HYGIENE_BLOCK_CLOSE_MARKER.length;
+  return text.slice(0, start) + text.slice(start, end).replace(/[^\r\n]/g, '') + text.slice(end);
+}
+
+/**
  * Lint a SKILL.md text for Loop Engineering readiness.
+ *
+ * Checks run on {@link stripHygieneBlock}(input); see the helper for why.
  *
  * @param skillMdText raw markdown text of a peaks-* SKILL.md
  * @returns a ReadinessLintResult
@@ -197,9 +219,11 @@ export function lintSkillLoopEngineeringReadiness(skillMdText: string): Readines
     };
   }
 
-  checkGuidelineReference(skillMdText, findings);
-  checkCliVerbBypass(skillMdText, findings);
-  checkJsonHandAuthoring(skillMdText, findings);
+  const checkedText = stripHygieneBlock(skillMdText);
+
+  checkGuidelineReference(checkedText, findings);
+  checkCliVerbBypass(checkedText, findings);
+  checkJsonHandAuthoring(checkedText, findings);
 
   if (findings.length > 0) {
     return { ok: false, findings };
@@ -212,12 +236,8 @@ export function lintSkillLoopEngineeringReadiness(skillMdText: string): Readines
 // ---------------------------------------------------------------------------
 
 function checkGuidelineReference(text: string, findings: string[]): void {
-  // Strip code fences before checking — references inside ``` blocks
-  // are still valid references (the lint accepts them), but we strip
-  // so the substring match is unambiguous.
-  const stripped = text;
   for (const ref of LOOP_ENGINEERING_GUIDELINE_PATHS) {
-    if (stripped.includes(ref)) {
+    if (text.includes(ref)) {
       return;
     }
   }
