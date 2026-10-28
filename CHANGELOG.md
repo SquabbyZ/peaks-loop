@@ -1,5 +1,87 @@
 # Changelog
 
+## 4.1.23 — 2026-10-28（让"技能/门禁到底做了什么"变成可查的数字）
+
+**版本级别**：候选 **patch**（沿用常设规则"默认版本新增采用最小的版本位"）。本次**没有**改任何门禁的语义、
+阈值或放行条件；**没有**动事件 schema 的版本号（`schemaVersion` 仍是 `z.literal(1)`）；**没有**碰发布流程。
+
+**一句话：这一版给 peaks-loop 自己装上了眼睛 —— prereq 事件不再只记"缺了几个"而记"缺的是哪些、归谁"，
+门禁层第一次发出自己的判定（pass / block / bypass）并带上当时的声明类型，查询能一次读到全部历史，
+而 `peaks observability near-miss` 第一次能回答"我们过去的『通过』，有多少是靠跳过检查换来的"。**
+
+### 1. 头号数字（在本仓库自己的记录历史上实测）
+
+| | |
+|---|---|
+| 近失率 | **12.8% = 12 / 94** |
+| 分母 | 94 个**记录了成功的 `verdict-issued` 尝试**的 slice（状态汇总的 `successCount` 是 103，两者对账写进了输出：`94 + 17 − 8 = 103`） |
+| 12 的两种形状 | **11 个「拥有它的角色还没尝试迁移，就宣布通过了」+ 1 个「检查在拒绝时仍然放行」** —— 两种不同的缺陷，不同的修法 |
+| 覆盖率 | **3 个原因类里只有 1 个可观测**（`prereq-skipped` 536 事件 / 94 slice / 12 次近失）；`gate-never-evaluated` 与 `tool-blocked` **零事件、`rate: null`** |
+
+**这个 12.8% 必须连着覆盖率一起引用。** 两类没数据的原因被写进了每一个界面：CLI 的 `unobservedClasses`
+与逐类 warning、markdown 报告**比率所在的那一行**、以及 spec §2.4.1 的记录表。"未观测"与"观测到 0"
+在输出里是不同的东西 —— 这正是本计划要消灭的那类混淆。
+
+**另一件同样重要的事：113 次 prereq 拒绝里，每一次都被补齐后重试通过。** 没有一个是靠跳过检查换来的通过。
+门禁一直在正常工作，只是以前没有人记录它拒绝过什么。
+
+### 2. 证据层（不改任何判定，只让判定可见）
+
+| 之前 | 之后 |
+|---|---|
+| prereq 事件只记 `missingCount: 3` | 记**清单**：每项带路径、`absent`/`body`、以及**归属技能** |
+| 门禁层**完全不发事件** | 每个判定发一条 `gate` 事件：`gateId` / `phase` / `declaredType` / `outcome`（`pass`\|`block`\|`bypass`）/ `violationKind` / `reason` |
+| 归属只按 `rd/` 前缀整体归给 `peaks-rd` | 更具体的前缀优先 —— `rd/third-party-review-<rid>.md` 现在归 **`peaks-reviewer`** |
+| 汇总把卡在 `qa-handoff` 的 slice 既不算成功也不算失败（**8 个 slice 从账上蒸发**） | 三个桶**划分**全集：`success + fail + stalled === total` |
+| `peaks observability report` 在有 1533 条事件的仓库上打印 `total events 0` | 五个命令都支持 `--all-sessions`；**作用域为空时，输出会告诉你数据在别处**（几个 session、多少条、用哪个开关） |
+| 报告里"近失"只能靠人脑拼 | 报告开头就是"近失"节，含比率、分母及其定义、逐类覆盖率、被标记的 slice 与每键的状态（`refused` / `unattempted`） |
+
+### 3. 两个新增测量
+
+- **`peaks observability near-miss`** —— 上面那个 12.8%，连同它的覆盖率和分母对账一起输出。
+- **`peaks observability hotspots`** —— 哪个 artifact 被技能反复漏掉。计数被**拆成两组**：
+  `observedOmissions`（**确实**观测到缺失）与 `candidateMentions`（v1 历史事件只存计数不存清单，归属是**推出来的**）。
+  只有 `confidence: 'exact'` 才算"确实缺失"；`inferred` 是"与整个候选集不矛盾"，`ambiguous` 是"是其中之一，说不准"。
+  拆组是为了让 `count: 91` 永远不会被读成"缺了 91 次"。
+
+### 4. 顺带做的两件事
+
+- **遵守率（试点）** —— `peaks-rd` 与 `peaks-race-code` 各有一份**可判定的**合规规范，
+  `judgeCompliance` 是**纯函数**（文件是否存在由调用方给），判定靠 artifact 契约，**不靠 LLM 猜**。
+- **category 审计** —— 观测 schema 声明的每个 category 现在都写明了它的发射位置、触发条件、
+  在记录历史里是否触发过，以及结论（① 条件触发 / ② 需要接线 / ③ 可删）。11 个里有 7 个从未触发，
+  包括 `gate` —— 因为这个仓库所有 session 都早于它。
+
+### 5. 这一版**没有**交付的东西（如实记录）
+
+- **遵守率有裁判，没有读者。** `writeSessionMetricRow` / `readSessionMetricRow` 目前**只有测试在调用** ——
+  这一版交付的是**测量机器**，不是合规率的上线。plan 的完成定义里那一项**没有勾**。
+- **`peaks-mut` 的分发缺口。** 它的 `SKILL.md` 在 `src/skills/peaks-mut/`，**不在 npm tarball 的 2935 个文件里**
+  （`package.json` 的 `files` 白名单只有 `skills/**`）。所以**装好的 peaks-loop 上，`mut/` 产物没有产出者** ——
+  而 `mut/mut-report.json` 是 feature/bugfix/refactor 的 `rd -> qa-handoff` 硬性前置，**那个安装会永远过不了这道门禁**。
+  已记录，需要单独一片修。
+- **两个提交的主题与其内容不完全相符** —— `44c0b9b6`（"the finding says whether the check was refusing or
+  unattempted"）实际带了 21 个文件、三个关注点，其中 210 行是热点榜的测试基建；`1005fe00`（`docs(...)`）
+  加了 39 行行为测试。两者都是并发提交事故的残留。**内容是对的**，已如实记录；**没有重写历史**。
+- **没有为 `.peaks/_runtime/` 根目录的残留文件加守卫** —— 仓库有仓库根的守卫，没有 runtime 根的。
+
+### 6. 顺带修掉的两个"缺失被读成结果"
+
+评审复现了它们：
+
+- `detail.outcome = 'PASS'`（松散 `z.record` 照收）曾让一次**干净通过**被判成 **近失率 100%**。
+  现在 outcome 与 gate id 的词表**只有一份**，从 `rd-gate-event.ts` 导出；读不懂的 outcome 进 `undetermined`，
+  而不是"没被评估"。
+- `detail.prereqOk` 是字符串而非布尔时，那个 slice 曾**从分母里消失**（"没有通过的 slice"，而不是
+  "N 个通过的 slice 我们测不了"）。现在它落进一个**新的 `unmeasured` 桶** —— 既不算通过、也不算没通过，
+  而是被**显式标出**：报告的 `report.unmeasured` 逐条列出并写明记录到的值（例如 `the string "true"`），
+  分母侧有 `unmeasuredSliceCount` 与一句"本分母排除了什么"���定义，覆盖率表多一列
+  `slices unreadable`，CLI 另有一条 stderr 警告。**读到的判定不可信时，它必须出现在某个地方** ——
+  消失就是"缺失被读成结果"。
+
+---
+
+
 ## 4.1.22 — 2026-10-25（把"只测了两个子命令"的漏测补上，把"不是缺陷"的两条说准）
 
 **版本级别**：候选 **patch**（沿用常设规则"默认版本新增采用最小的版本位"）。本次**没有**改任何运行时语义、
