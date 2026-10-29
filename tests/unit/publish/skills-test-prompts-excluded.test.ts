@@ -25,6 +25,13 @@
 //   3. the two packers agree on the `skills/` subtree — the divergence that let
 //      the defect hide is itself part of the defect.
 //
+// THE BUILD IS SKIPPED, AND WHY THAT IS SOUND. The `pnpm` arm runs with
+// `npm_config_ignore_scripts=true` and the `npm` arm with `--ignore-scripts`,
+// so NEITHER packer runs the root `prepack` (`npm run build`). That is a
+// deliberate, measured choice, not an omission — the reason is spelled out
+// at the `pnpm` spawn below, and the last assertion in this file pins the
+// guarantee it rests on.
+//
 // WHY NOT ASSERT ON A STRING. `expect(packageJson.files).toContain(...)` is the
 // shape that let this through: the manifest could carry the right words and
 // the tarball could still carry the files. The only measurement that speaks
@@ -137,8 +144,26 @@ function pack(packer: 'npm' | 'pnpm', dest: string): string {
   if (packer === 'pnpm') {
     const { command, prefixArgs } = resolvePnpmCommand();
     // `pnpm pack` has no `--ignore-scripts` flag; the env var is the way to
-    // keep `prepack` (the full build) out of a unit test. The build writes
-    // `dist/`, which no assertion here looks at.
+    // keep `prepack` (the full build) out of a unit test, and it is what
+    // `npm pack --ignore-scripts` does on the other arm — so BOTH packers
+    // see the same tree.
+    //
+    // THE BUILD DOES NOT AFFECT WHAT THIS FILE MEASURES. The fixtures it
+    // hunts are TRACKED IN GIT (`git ls-files skills`), not produced by the
+    // build, and the build's copy step — `scripts/copy-templates.mjs` —
+    // writes into `dist/` only, never into `skills/` (pinned by the
+    // assertion in the tracked-skills test below). What this file measures
+    // is the two packers' FILE-COLLECTION semantics against the tracked
+    // tree, and the build does not influence that.
+    //
+    // THE BUILD IS NOT FREE. `prepack` runs `npm run build` — a full
+    // clean-dist + tsc + copy-templates — which costs ~22s on EVERY OS in
+    // the CI matrix (ubuntu, windows, macos). On a 4-core windows-latest
+    // runner that is the difference between this file's `beforeAll` fitting
+    // inside its 300s budget and blowing it with "Hook timed out".
+    //
+    // DO NOT "FIX" THIS BACK TO RUNNING THE BUILD. The env var is the
+    // mechanism, not an oversight.
     execFileSync(command, [...prefixArgs, 'pack', '--pack-destination', dest], {
       cwd: projectRoot,
       env: { ...process.env, npm_config_ignore_scripts: 'true' },
@@ -189,6 +214,34 @@ function trackedSkillsFiles(): string[] {
     windowsHide: true
   });
   return listed.split(/\r?\n/).filter((line) => line.length > 0);
+}
+
+/**
+ * The `dest` path literals `scripts/copy-templates.mjs` copies INTO.
+ *
+ * Read out of the script's SOURCE rather than by running it: the copy step
+ * runs as part of `prepack`, and this file's whole premise is that the
+ * build is NOT what it measures — running it here would reintroduce the
+ * cost the pnpm arm above exists to avoid.
+ *
+ * WHY THE SOURCE IS READ. The published tarball is packed WITHOUT the build
+ * being skipped — `scripts/release-pack.mjs` calls `pnpm pack` with no
+ * `npm_config_ignore_scripts`, so the PUBLISHED artifact contains whatever
+ * `prepack` (the full build) produced. This file's tarball does not. The
+ * two agree about `skills/` ONLY if the build cannot write into `skills/`.
+ * That is the guarantee this reading pins, and it is why the check is on
+ * the build's copy step: it is the one step in the chain that copies a
+ * file TREE into the repository.
+ *
+ * AN EMPTY EXTRACTION IS A RED, NOT A PASS. A reformat that hides the
+ * literals yields no destinations, and "none of zero destinations is under
+ * `skills/`" is true for the wrong reason. The caller asserts the
+ * extraction is non-empty, so a check that could not evaluate says so
+ * instead of reading as a check that passed.
+ */
+function copyTemplateDestinations(): string[] {
+  const source = readFileSync(join(projectRoot, 'scripts', 'copy-templates.mjs'), 'utf8');
+  return [...source.matchAll(/dest:\s*join\(packageRoot,\s*'([^']+)'\)/g)].map((m) => m[1] ?? '');
 }
 
 let workDir = '';
@@ -246,14 +299,27 @@ describe('Scenario: behavior — the tarball that ships carries no test-prompt f
   });
 
   it('when every tracked skills file is listed, should be in the tarball unless it is a fixture', () => {
-    // given: the files git tracks under `skills/`
-    // when: they are matched against the published tarball
-    // then: everything but the fixtures is there — the exclusion eats nothing else
+    // given: the files git tracks under `skills/`, and the build's copy step
+    // when: they are matched against the published tarball, and the copy
+    //       step's destinations are read out of its source
+    // then: everything but the fixtures is there — the exclusion eats nothing
+    //       else — and the build copies nothing into `skills/`, so skipping
+    //       the build cannot add a file these assertions would not have seen
     const shipped = new Set(pnpmEntries);
     const missing = tracked.filter((file) => !FIXTURE.test(file) && !shipped.has(file));
     expect(
       missing,
       `tracked skills/ files missing from the pnpm tarball:\n${missing.join('\n')}`
+    ).toEqual([]);
+    const destinations = copyTemplateDestinations();
+    expect(
+      destinations.length,
+      'no destination was read from scripts/copy-templates.mjs — the extraction is empty, ' +
+        'so this check could not evaluate; it must not read as a pass'
+    ).toBeGreaterThan(0);
+    expect(
+      destinations.filter((dest) => dest === 'skills' || dest.startsWith('skills/')),
+      `the build copies into skills/: ${destinations.join(', ')}`
     ).toEqual([]);
   });
 });

@@ -79,6 +79,12 @@ npm 11 自己的 packlist 认这条 negation；**pnpm 10.11.0 内置的 npm-pack
 - `*test[-_]prompts*` 会连坐任何**含有**该记号的文件名（例如将来的 `test-prompts-extra.json`）。今天为 0。
 - **变异覆盖不完整**：会话级的 `mut/mut-report.json` 是另一个切片的报告；本机 `peaks mut run` 两次 `MUT_FAILED / EPERM`（Stryker 的 Windows 沙箱去拷贝一个已死会话留下的 Unix 符号链接）。断言有效性那一半跑了（30 条断言，0 条弱），「测试能否抓到真变异」那一半是各切片**手工植入变异**验证的，不是门自动覆盖的。
 - **第三方评审全部是 SKIP**：本机没有配置 reviewer provider（`configured: false`，0 个），单模型的自证盲区**没有被缓解**。
+- **发布工具链在 Windows 上有一个同类缺陷，这一版没修。** `scripts/_release-shared.mjs` 的 `resolveNpmInvocation()`
+  探三个候选、找不到就**大声拒绝**；而 `resolvePnpmInvocation()` 只探一个、找不到就**静默退回裸名 `pnpm`** ——
+  而 `pnpm pack` 正是产出**发布 tarball** 的命令。corepack 管理的 pnpm（CI 的形态）没有那个文件，
+  所以在 Windows 上会退到 `pnpm.cmd` → ENOENT，失败形态是「发布根本没发生」而不是报错。
+  **CI 在 `ubuntu-latest` 上发布，所以 4.1.25 不受影响**；受影响的是**在 Windows 上发布的维护者**。
+  已记入 backlog §23.22。
 
 ## 4.1.24 — 2026-10-29（同一个 id，几个读法）
 
