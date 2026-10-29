@@ -41,12 +41,16 @@
 //      required: the glob is judged by the one thing that is true of every
 //      glob, which is where it looks.
 //
-//   3. NEGATION (`!skills/**/test-prompts.json`, `!skills/**/.DS_Store`).
-//      NOT asserted, and this is not a loophole — a negation REMOVES something
-//      from the tarball. A negation naming a path that does not exist removes
-//      nothing, which is a no-op and not a defect; `npm` does not error on it
-//      either. Asserting it would report a finding against a correct entry.
-//      (Contrast control below pins that it stays silent.)
+//   3. NEGATION (`!skills/**/test-prompts.json`, `!skills/**/test_prompts.json`,
+//      `!skills/**/.DS_Store`). NOT asserted HERE, and this is not a loophole —
+//      a negation REMOVES something from the tarball. A negation naming a path
+//      that does not exist removes nothing, which is a no-op and not a defect;
+//      `npm` does not error on it either. Asserting it would report a finding
+//      against a correct entry. (Contrast control below pins that it stays
+//      silent.) That a negation removes is asserted where the removal can be
+//      OBSERVED — against the packed tarball, in
+//      `tests/unit/publish/skills-test-prompts-excluded.test.ts` — because a
+//      removal is a property of the artifact, not of the manifest.
 //
 //   4. GENERATED / IGNORED (`dist/**`, `dist/cli/index.js`). NOT asserted,
 //      keyed on a RULE rather than a name: the entry is exempt when its literal

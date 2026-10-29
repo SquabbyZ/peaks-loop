@@ -48,3 +48,9 @@ yarn-error.log*
 
 # 单独的脚本（保留 package.json#scripts 需要的）
 # sync-version.mjs / clean-dist.mjs / copy-templates.mjs / install-skills.mjs / watch.mjs 保留
+# test-prompt fixtures must never ship (both spellings)
+# NOTE: while package.json#files is present, npm-packlist nulls .npmignore
+# (npm-packlist 10.0.2) and replaces the readdir result with the files list
+# (npm-packlist 5.1.3) -- so these lines are a BELT, not the mechanism.
+skills/**/test-prompts.json
+skills/**/test_prompts.json
