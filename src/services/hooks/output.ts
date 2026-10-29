@@ -134,45 +134,6 @@ export function emitDecision(io: ProgramIO, decision: DecisionShape | string): s
 }
 
 /**
- * The `hookSpecificOutput` block this repository ships on its allow paths.
- *
- * Why this shape: the Claude Code PreToolUse validator (measured against
- * 2.1.312) accepts a stdout document whose root carries `hookSpecificOutput`
- * with `permissionDecision` in {allow, deny, ask, defer}. It ALSO rejects a
- * ROOT-level `decision` key whose value is outside {approve, block} — that is
- * the exact error this slice fixes.
- *
- * `permissionDecision: "allow"` is the host's "this hook approves the call"
- * signal. Measured: it makes the host approve the tool use, bypassing the
- * user's own permission prompt, while an explicit user `deny` rule still
- * overrides it. So this is a real permission grant, and the callers that use
- * it must mean it.
- */
-export const HOOK_ALLOW_DECISION: DecisionShape = {
-  hookEventName: CLAUDE_CODE_HOOK_EVENT,
-  permissionDecision: 'allow'
-};
-
-/**
- * Merge a payload with the allow decision into ONE JSON document.
- *
- * The host parses stdout as a SINGLE JSON document, so the decision and the
- * payload must travel together — two documents on stdout means the second one
- * is unparseable and the whole hook output degrades to plain text.
- *
- * The payload's own fields are preserved verbatim, so a downstream consumer
- * that reads `JSON.parse(stdout).data.decision` keeps reading exactly that.
- * The return type keeps the payload's own type, so a caller that passes a
- * `ResultEnvelope` still gets a `ResultEnvelope` and can hand it to
- * `printResult` — the merge only ADDS a key, it does not erase the shape.
- */
-export function buildAllowDocument<T extends object>(
-  payload: T
-): T & { hookSpecificOutput: DecisionShape } {
-  return { ...payload, hookSpecificOutput: HOOK_ALLOW_DECISION };
-}
-
-/**
  * Result document — a command's result envelope as ONE JSON document on
  * stdout, with its action lines on stderr.
  *
@@ -192,8 +153,8 @@ export function buildAllowDocument<T extends object>(
  *
  * It deliberately does NOT carry a `hookSpecificOutput` allow decision: an
  * allow is a real permission GRANT that bypasses the user's own permission
- * prompt (see HOOK_ALLOW_DECISION), and a gate that passes a call through has
- * no opinion to give. Exit 0 is the pass-through signal.
+ * prompt, and a gate that passes a call through has no opinion to give. Exit 0
+ * is the pass-through signal.
  */
 export function emitResultDocument<T>(io: ProgramIO, envelope: ResultEnvelope<T>): void {
   io.stdout(JSON.stringify(envelope, null, 2));

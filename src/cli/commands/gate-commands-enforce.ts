@@ -16,12 +16,7 @@ import {
 } from '../../services/ide/hook-translator.js';
 import { DISPATCH_PROVENANCE_ENV } from '../../services/worktree/dispatch-provenance.js';
 import { getAdapter } from '../../services/ide/ide-registry.js';
-import {
-  emitBlock,
-  emitDecision,
-  emitHint,
-  buildAllowDocument
-} from '../../services/hooks/output.js';
+import { emitBlock, emitDecision, emitHint } from '../../services/hooks/output.js';
 
 export type GateEnforceCliOptions = { project: string; json?: boolean };
 
@@ -175,29 +170,35 @@ export function handleWorktreeGate(
 }
 
 /**
- * Not a guarded surface — allow.
+ * Emit an allow path: the plain CLI envelope on stdout, and nothing else.
  *
- * In `--json` mode the stdout document is the CLI envelope with the Claude
- * Code allow decision MERGED into it, so stdout stays ONE JSON document: the
- * host parses it once and reads the decision out of `hookSpecificOutput`,
- * while a downstream consumer still reads `JSON.parse(stdout).data.decision`.
- *
- * The envelope's own `data.decision` stays `allow` — it is nested under
- * `data`, a key the host does not own, so the host reads no root `decision`
- * at all. (The root `decision` key IS one the host owns, and it accepts only
- * "approve" | "block" — a root `decision` of anything else is what produced
- * the user's per-call "Invalid option" error.)
+ * The gate's own decision stays under `data`, a key the host does not own, so the
+ * host reads no root `decision` at all. The document carries NO `hookSpecificOutput`:
+ * an allow is a real permission GRANT — it approves the call and skips the user's own
+ * permission prompt — and a gate that passes a call through has no opinion to give.
+ * Exit 0 is the pass-through signal, and the call proceeds to the user's normal
+ * permission flow.
  */
-export function emitAllowSkipped(io: ProgramIO, options: GateEnforceCliOptions): void {
+function emitAllowEnvelope(
+  io: ProgramIO,
+  options: GateEnforceCliOptions,
+  data: Record<string, unknown>
+): void {
   if (options.json === true) {
-    printResult(
-      io,
-      buildAllowDocument(ok('gate.enforce', { decision: 'allow', skipped: true })),
-      true
-    );
+    printResult(io, ok('gate.enforce', data), true);
   } else {
     emitDecision(io, {});
   }
+}
+
+/**
+ * Not a guarded surface — allow.
+ *
+ * The stdout document is the CLI envelope a downstream consumer reads
+ * (`JSON.parse(stdout).data.decision`), carrying no permission grant.
+ */
+export function emitAllowSkipped(io: ProgramIO, options: GateEnforceCliOptions): void {
+  emitAllowEnvelope(io, options, { decision: 'allow', skipped: true });
 }
 
 /**
@@ -227,19 +228,11 @@ function emitWorktreeDeny(
 
 /**
  * Worktree gate allowed and this is not a Bash surface — allow without running
- * the SOP gate. Same one-document shape as the skipped path (see
- * {@link emitAllowSkipped} for why the decision is merged into the envelope).
+ * the SOP gate. Same plain-envelope shape as the skipped path (see
+ * {@link emitAllowSkipped}).
  */
 export function emitAllowWorktree(io: ProgramIO, options: GateEnforceCliOptions): void {
-  if (options.json === true) {
-    printResult(
-      io,
-      buildAllowDocument(ok('gate.enforce', { decision: 'allow', layer: 'worktree-auth' })),
-      true
-    );
-  } else {
-    emitDecision(io, {});
-  }
+  emitAllowEnvelope(io, options, { decision: 'allow', layer: 'worktree-auth' });
 }
 
 /**
@@ -271,21 +264,14 @@ export function emitSopWarnings(io: ProgramIO, decision: SopAllow): void {
 /**
  * SOP gate allowed the command.
  *
- * `--json` mode emits the canonical envelope on stdout (the documented
- * contract for downstream tooling) with the Claude Code allow decision merged
- * into it, so stdout stays ONE JSON document the host can parse — see
- * {@link emitAllowSkipped} for the shape and the reason.
+ * `--json` mode emits the canonical envelope on stdout (the documented contract
+ * for downstream tooling): ONE JSON document, the gate's decision under `data`, and
+ * no permission grant — see {@link emitAllowSkipped} for the shape and the reason.
  */
 export function emitSopAllow(
   io: ProgramIO,
   options: GateEnforceCliOptions,
   decision: SopAllow
 ): void {
-  if (options.json === true) {
-    printResult(io, buildAllowDocument(ok('gate.enforce', decision)), true);
-  } else {
-    // allow: emit minimal JSON on stdout so Claude Code's PreToolUse hook
-    // validator accepts the response (see comment above).
-    emitDecision(io, {});
-  }
+  emitAllowEnvelope(io, options, decision);
 }

@@ -34,7 +34,8 @@
 //   - `peaks code auto-compact --project .` did the same with
 //     `decision: "below-threshold"`.
 //   - `peaks gate enforce --project "${CLAUDE_PROJECT_DIR}" --json` was already
-//     correct (decision nested under `data`) and is pinned so it stays so.
+//     correct (decision nested under `data`) and is pinned so it stays so. Its
+//     allow path used to carry a permission GRANT on top; it grants nothing now.
 //
 // WHY THE FIXTURE IS A TEMP PROJECT, NOT THIS REPOSITORY. Running the hook
 // commands against this repo would make the assertions depend on ambient
@@ -67,8 +68,6 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 
-import { ok } from 'peaks-loop-shared/result';
-
 import {
   emitAllowSkipped,
   emitAllowWorktree,
@@ -76,7 +75,6 @@ import {
   type GateEnforceCliOptions
 } from '~/src/cli/commands/gate-commands-enforce';
 import { AUTO_COMPACT_HOOK_COMMAND } from '~/src/services/hooks/auto-compact-hook-install';
-import { buildAllowDocument } from '~/src/services/hooks/output';
 import { buildClaudeSettingsLocalJson } from '~/src/services/workspace/claude-settings-template';
 import { makeCapturedIo } from '../_setup/io.js';
 import { runSourceCli, REPO_ROOT, type SourceCliRun } from '../_setup/source-cli.js';
@@ -337,20 +335,19 @@ describe('Scenario: peaks gate enforce --json (the SOP/worktree gate)', () => {
   const options: GateEnforceCliOptions = { project: '.', json: true };
 
   it(
-    'when gate enforce runs, should print one host document with an explicit allow decision',
+    'when gate enforce runs, should print one host document and grant nothing',
     () => {
-      // given: a fresh project, and the one hook whose job includes approving a call
+      // given: a fresh project, and the hook that gates every Bash call
       // when: the installed gate enforce --json command runs
-      // then: stdout is one document holding both the grant and the envelope tooling reads
+      // then: stdout is one document, and it carries no permission grant
       const run = runInstalledHook(GATE_ENFORCE_COMMAND, makeProject());
       const document = assertHostDocument(run);
-      // This is the one hook in the stack whose job includes approving a call,
-      // so it — and only it — may GRANT.
-      expect(document.hookSpecificOutput).toMatchObject({
-        hookEventName: 'PreToolUse',
-        permissionDecision: 'allow'
-      });
-      // AC-6: a downstream consumer reads the envelope out of the same document.
+      expect(run.status).toBe(0);
+      // A gate that passes a call through has no opinion to give: an allow
+      // decision would be a real GRANT that skips the user's own permission
+      // prompt, so the document carries no `hookSpecificOutput` at all.
+      expect(document).not.toHaveProperty('hookSpecificOutput');
+      // The envelope a downstream consumer parses keeps its field names and values.
       expect(document).toMatchObject({ ok: true, command: 'gate.enforce' });
       expect(document.data).toMatchObject({ decision: 'allow' });
     },
@@ -366,6 +363,7 @@ describe('Scenario: peaks gate enforce --json (the SOP/worktree gate)', () => {
     const document = parseCaptured(captured.text());
     assertHostAcceptable(document);
     assertNoRootDecision(document);
+    expect(document).not.toHaveProperty('hookSpecificOutput');
   });
 
   it('when the call runs inside the allowed worktree, should emit one document the host accepts', () => {
@@ -377,6 +375,7 @@ describe('Scenario: peaks gate enforce --json (the SOP/worktree gate)', () => {
     const document = parseCaptured(captured.text());
     assertHostAcceptable(document);
     assertNoRootDecision(document);
+    expect(document).not.toHaveProperty('hookSpecificOutput');
   });
 
   it('when an SOP matches, should emit one JSON document the host accepts', () => {
@@ -388,6 +387,7 @@ describe('Scenario: peaks gate enforce --json (the SOP/worktree gate)', () => {
     const document = parseCaptured(captured.text());
     assertHostAcceptable(document);
     assertNoRootDecision(document);
+    expect(document).not.toHaveProperty('hookSpecificOutput');
   });
 
   it('when an allow path is emitted, should keep the envelope fields tooling reads', () => {
@@ -398,8 +398,8 @@ describe('Scenario: peaks gate enforce --json (the SOP/worktree gate)', () => {
     emitAllowSkipped(io, options);
 
     const document = parseCaptured(captured.text());
-    // AC-6: the envelope a downstream consumer parses keeps its field names
-    // and values. `data.decision` is still `allow` on the skipped path.
+    // The envelope a downstream consumer parses keeps its field names and
+    // values. `data.decision` is still `allow` on the skipped path.
     expect(document.ok).toBe(true);
     expect(document.command).toBe('gate.enforce');
     expect(document.data).toMatchObject({ decision: 'allow' });
@@ -407,15 +407,15 @@ describe('Scenario: peaks gate enforce --json (the SOP/worktree gate)', () => {
     expect(document.nextActions).toBeDefined();
   });
 
-  it('when the allow document is merged, should hoist no root-level `decision`', () => {
-    // given: a payload whose own decision lives at `data.decision`
-    // when: `buildAllowDocument` merges the grant into that payload
-    // then: the payload's `decision` stays under `data`, never at the root the host owns
-    const document = buildAllowDocument(ok('gate.enforce', { decision: 'allow', skipped: true }));
-
+  it('when an allow path is emitted, should keep the decision under `data`', () => {
+    // given: an in-process capture around the skipped allow path
+    // when: the emitted envelope is read
+    // then: the gate's own decision stays under `data`, never at the root the host owns
+    const { io, captured } = makeCapturedIo();
+    emitAllowSkipped(io, options);
+    const document = parseCaptured(captured.text());
     expect(document).not.toHaveProperty('decision');
     expect(document.data).toMatchObject({ decision: 'allow', skipped: true });
-    expect(document.hookSpecificOutput).toMatchObject({ permissionDecision: 'allow' });
   });
 });
 
