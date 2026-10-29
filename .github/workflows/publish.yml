@@ -93,7 +93,22 @@ jobs:
   publish:
     name: trusted-publish (release-pack + OIDC)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 2026-10-30: raised from 30. The job's cost is NOT one step:
+    #   install (cold pnpm store + `npm install -g npm@latest`) → build
+    #   (4 workspace packages + root tsc + copy-templates) → the narrow
+    #   release vitest → the gates → release-pack, which packs and publishes
+    #   FIVE packages, each with OIDC provenance signing, and the ROOT's pack
+    #   runs `prepack` (a full build) again.
+    # Measured locally on 2026-10-30 with `PEAKS_DRY_RUN=1`, which exercises
+    # every pack and every `verifyTarball` and nothing else: the whole chain
+    # completed with exit 0. On a shared or cold runner that same chain can
+    # exceed 30 minutes, and a job killed by its own timeout publishes
+    # NOTHING while looking like a silent no-op — the tag lands, the registry
+    # stays on the previous version, and the failure is only visible in the
+    # Actions log.
+    # 60 leaves room for the five provenance-signed publishes without making
+    # the budget unbounded. This is the release PATH's budget, not a gate's.
+    timeout-minutes: 60
 
     steps:
       - name: Checkout

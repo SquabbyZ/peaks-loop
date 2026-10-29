@@ -3,7 +3,10 @@
 ## 4.1.25 — 2026-10-29（授权与发布物）
 
 **版本级别**：**patch**（沿用常设规则"默认版本新增采用最小的版本位"）。本次**没有**改任何门禁的阈值或放行条件；
-**没有**动事件 schema 的版本号（`schemaVersion` 仍是 `z.literal(1)`）；**没有**改发布流程本身。
+**没有**动事件 schema 的版本号（`schemaVersion` 仍是 `z.literal(1)`）。
+**唯一的流程改动**：发布 job 的 `timeout-minutes` 由 **30 提到 60** —— 它跑的是 install + build + 窄测试 + 五道门 +
+**五个包的 OIDC 带 provenance 发布**（根包的 pack 还会再跑一次完整构建），30 分钟在冷 runner 上会把 job 杀掉，
+而**被超时杀掉的 job 什么也不发布，看起来像一次静默的 no-op**。详见 §6 与 backlog §23.23。
 
 **一句话：这一版做两件事 —— 把一个每次 Bash 调用都在静默替你授权的钩子收回来，以及让**真正发布出去的包**不再夹带开发夹具。**
 两件都是「机制声称的和实际做的不是一回事」：前者声称「只是放行」，实际是**授予权限**；后者声称「已排除」，实际**在发布的那条路径上没排除**。
@@ -79,6 +82,13 @@ npm 11 自己的 packlist 认这条 negation；**pnpm 10.11.0 内置的 npm-pack
 - `*test[-_]prompts*` 会连坐任何**含有**该记号的文件名（例如将来的 `test-prompts-extra.json`）。今天为 0。
 - **变异覆盖不完整**：会话级的 `mut/mut-report.json` 是另一个切片的报告；本机 `peaks mut run` 两次 `MUT_FAILED / EPERM`（Stryker 的 Windows 沙箱去拷贝一个已死会话留下的 Unix 符号链接）。断言有效性那一半跑了（30 条断言，0 条弱），「测试能否抓到真变异」那一半是各切片**手工植入变异**验证的，不是门自动覆盖的。
 - **第三方评审全部是 SKIP**：本机没有配置 reviewer provider（`configured: false`，0 个），单模型的自证盲区**没有被缓解**。
+- **发布 job 的 30 分钟超时被提到 60。** 那个 job 跑的是 install + build + 窄测试 + 五道门 +
+  **五个包的 OIDC 带 provenance 发布**（根包的 pack 会再跑一次完整构建）。30 分钟在冷 runner 上会把 job 杀掉，
+  而**被超时杀掉的 job 什么也不发布** —— tag 落地、registry 停在上一版、失败只在 Actions 日志里可见。
+  本机用 `PEAKS_DRY_RUN=1`（打包 + 校验全部五个包、不发布）实测整条链 exit 0，所以机器没问题，是预算不够。
+  同时记下另一条：**tag 的基线是按「可达性」推导的**（`git describe --tags --abbrev=0 <commit>^`），
+  所以一旦 tag 被移动过，「上一个 release tag」就变成了它自己 —— 移动过的 tag 必须用 `PEAKS_GATE_CHANGED_BASE`
+  显式点名真实基线，否则会把整个 4.1.25 的差异漏测。已记入 backlog §23.23。
 - **发布工具链在 Windows 上有一个同类缺陷，这一版没修。** `scripts/_release-shared.mjs` 的 `resolveNpmInvocation()`
   探三个候选、找不到就**大声拒绝**；而 `resolvePnpmInvocation()` 只探一个、找不到就**静默退回裸名 `pnpm`** ——
   而 `pnpm pack` 正是产出**发布 tarball** 的命令。corepack 管理的 pnpm（CI 的形态）没有那个文件，
