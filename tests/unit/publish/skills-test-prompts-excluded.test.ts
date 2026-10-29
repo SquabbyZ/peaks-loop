@@ -33,6 +33,12 @@
 // A MISSING PACKER IS A FAILURE, NOT A SKIP. If `pnpm` or `tar` is not on the
 // PATH, `execFileSync` throws and this file goes red. A guard that reports
 // "allowed" because it ran nothing is worse than no guard.
+//
+// WINDOWS. Every `execFileSync` here carries `windowsHide: true`: the repo
+// convention (enforced by `tests/unit/spawn-windows-hide-guard.test.ts`) is
+// that every `child_process` call site hides its console window, because a
+// spawn without the flag flashes a blank `cmd.exe` at the user on Windows.
+// The four call sites below are the packers, `tar` and `git`.
 
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
@@ -57,13 +63,15 @@ function pack(packer: 'npm' | 'pnpm', dest: string): string {
       cwd: projectRoot,
       env: { ...process.env, npm_config_ignore_scripts: 'true' },
       encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe']
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true
     });
   } else {
     execFileSync('npm', ['pack', '--ignore-scripts', '--pack-destination', dest], {
       cwd: projectRoot,
       encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe']
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true
     });
   }
   const tarballs = readdirSync(dest).filter((name) => name.endsWith('.tgz'));
@@ -83,7 +91,8 @@ function pack(packer: 'npm' | 'pnpm', dest: string): string {
 function tarballEntries(tarball: string): string[] {
   const listed = execFileSync('tar', ['-tzf', basename(tarball)], {
     cwd: dirname(tarball),
-    encoding: 'utf8'
+    encoding: 'utf8',
+    windowsHide: true
   });
   return listed
     .split(/\r?\n/)
@@ -95,7 +104,8 @@ function tarballEntries(tarball: string): string[] {
 function trackedSkillsFiles(): string[] {
   const listed = execFileSync('git', ['ls-files', 'skills'], {
     cwd: projectRoot,
-    encoding: 'utf8'
+    encoding: 'utf8',
+    windowsHide: true
   });
   return listed.split(/\r?\n/).filter((line) => line.length > 0);
 }

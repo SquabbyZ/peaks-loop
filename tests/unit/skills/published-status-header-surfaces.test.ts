@@ -50,6 +50,7 @@
 
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import picomatch from 'picomatch';
 import { describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
@@ -221,6 +222,81 @@ function publishedTiers(source: string): { orchestrator: string[]; bee: string[]
   };
 }
 
+/**
+ * The `SKILL.md` files this repository actually holds, as POSIX repo-relative
+ * paths — the shape a glob entry in `package.json#files` is matched against.
+ */
+function skillDefinitionPaths(): string[] {
+  return markdownFiles(join(REPO_ROOT, 'skills'))
+    .filter((file) => file.endsWith('SKILL.md'))
+    .map((file) => repoRelative(file));
+}
+
+/**
+ * The skill definitions `package.json#files` does NOT ship.
+ *
+ * The manifest must SHIP the `skills/` tree — the rule's shape is not the
+ * contract.
+ *
+ * WHY NOT A LITERAL. This assertion used to be
+ * `expect(manifest.files).toContain('skills/**')`. When slice
+ * `2026-10-29-exclude-test-prompts-from-tarball` replaced that plain glob with
+ * a narrower one that excludes the two `test_prompts` spellings from the
+ * `skills/` tree, the literal broke — and the only way to repair it was to
+ * swap one literal for another. A literal pins the SHAPE of the rule, so every
+ * future change of shape costs a test edit, and a test that must be edited
+ * whenever the rule moves is a test that has stopped guarding anything.
+ *
+ * WHAT THIS ASSERTS INSTEAD. The intent of the old assertion is "the package
+ * ships the `skills/` tree", and that intent is a statement about the SKILL
+ * DEFINITIONS, not about a string in the manifest:
+ *
+ *   1. every `SKILL.md` under `skills/` is matched by some INCLUDING entry of
+ *      `package.json#files` — the manifest really does select them; and
+ *   2. no NEGATING entry (`!…`) matches a `SKILL.md` — the manifest does not
+ *      subtract them.
+ *
+ * Either rule shape satisfies this: the plain `skills` glob, the narrower
+ * fixture-excluding glob the previous slice shipped, a per-skill glob — and any
+ * future spelling that ships the skills all pass, while a spelling that stops
+ * shipping them fails.
+ *
+ * WHERE THE REAL PROOF LIVES. This is a MANIFEST-level statement, and a
+ * manifest can carry the right words while the tarball carries the wrong
+ * files — that is exactly how the eight fixtures shipped in 4.1.24. The
+ * artifact-level guard
+ * (`tests/unit/publish/skills-test-prompts-excluded.test.ts`) is the stronger
+ * statement: it packs the tree with BOTH packers and asserts that all 25
+ * `SKILL.md` files are in the real tarball. The two are complementary: this
+ * one says the manifest selects the skills, that one says the published
+ * artifact contains them.
+ *
+ * The two failure modes are reported SEPARATELY on purpose: a rule that never
+ * selects the skills and a rule that selects them and then subtracts them are
+ * different defects, and a reader who sees both in one bucket has to guess
+ * which one happened.
+ */
+function skillsNotShippedBy(manifestFiles: readonly string[]): {
+  readonly notIncluded: readonly string[];
+  readonly subtracted: readonly string[];
+} {
+  const including = manifestFiles.filter((entry) => !entry.startsWith('!'));
+  const negating = manifestFiles
+    .filter((entry) => entry.startsWith('!'))
+    .map((entry) => entry.slice(1));
+
+  const definitions = skillDefinitionPaths();
+
+  return {
+    notIncluded: definitions.filter(
+      (file) => !including.some((entry) => picomatch.isMatch(file, entry, { dot: true }))
+    ),
+    subtracted: definitions.filter((file) =>
+      negating.some((entry) => picomatch.isMatch(file, entry, { dot: true }))
+    )
+  };
+}
+
 describe('Scenario: behavior — the status header has one shape', () => {
   it('when a three-segment header is parsed, should report the cells it is missing', () => {
     // given: a line publishing the three-segment header
@@ -250,6 +326,46 @@ describe('Scenario: behavior — the status header has one shape', () => {
       'This keeps the header accurate (`Peaks-Loop Skill: peaks-code | Peaks-Loop Role: <role> | Peaks-Loop Gate: <gate> | Peaks-Loop Context: <ratio%> (<zone>) | Next: <one short action>`) instead of showing a stale role name.'
     );
     expect(runs).toEqual([[...CONTRACT_LABELS]]);
+  });
+
+  it('when a rule shape still ships the skills, should report nothing missing', () => {
+    // given: three rule shapes that all ship the whole `skills/` tree — the
+    //        plain glob the old literal asserted, the fixture-excluding glob
+    //        the previous slice shipped, and a per-skill glob
+    // when: each shape is resolved against the real skill definitions
+    // then: none of them reports a missing or a subtracted definition — the
+    //       check is about the SHAPE of the rule, not one spelling of it
+    const shapes: readonly (readonly string[])[] = [
+      ['skills/**', '!skills/**/test-prompts.json'],
+      ['skills/**/!(*test[-_]prompts*).*', '!skills/**/test_prompts.json'],
+      ['skills/*/**', 'skills/bee/*/**']
+    ];
+    const verdicts = shapes.map((shape) => skillsNotShippedBy(shape));
+    for (const verdict of verdicts) {
+      expect(verdict.notIncluded).toEqual([]);
+      expect(verdict.subtracted).toEqual([]);
+    }
+  });
+
+  it('when a rule stops shipping the skills, should report every definition missing', () => {
+    // given: a manifest that ships nothing under `skills/`
+    // when: it is resolved against the real skill definitions
+    // then: EVERY definition is reported — the guard can still fail
+    const shape = ['output-styles/**'];
+    const verdict = skillsNotShippedBy(shape);
+    expect(verdict.notIncluded.length).toBe(skillDefinitionPaths().length);
+    expect(verdict.notIncluded.length).toBeGreaterThan(0);
+  });
+
+  it('when a rule subtracts the skills after selecting them, should report the subtraction', () => {
+    // given: a manifest that selects the skills and then subtracts them —
+    //        the shape the old `toContain('skills/**')` literal could not see
+    // when: it is resolved against the real skill definitions
+    // then: the subtraction is reported, separately from a missing selection
+    const shape = ['skills/**', '!skills/**/SKILL.md'];
+    const verdict = skillsNotShippedBy(shape);
+    expect(verdict.subtracted.length).toBe(skillDefinitionPaths().length);
+    expect(verdict.subtracted.length).toBeGreaterThan(0);
   });
 });
 
@@ -314,7 +430,15 @@ describe('Scenario: integration — the shipped surfaces and the install target'
       files?: readonly string[];
     };
     expect(manifest.files).toContain('output-styles/**');
-    expect(manifest.files).toContain('skills/**');
+    const { notIncluded, subtracted } = skillsNotShippedBy(manifest.files ?? []);
+    expect(
+      notIncluded,
+      `package.json#files selects no entry covering these skill definitions:\n${notIncluded.join('\n')}`
+    ).toEqual([]);
+    expect(
+      subtracted,
+      `package.json#files subtracts these skill definitions:\n${subtracted.join('\n')}`
+    ).toEqual([]);
   });
 });
 
