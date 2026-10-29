@@ -8580,3 +8580,17 @@ paragraph.
 - **THE FIX** (rid `2026-10-28-runtime-guard-cwd-resolution`): resolve the runtime root from `process.cwd()` instead of the module location; the live assertion at line 193 keeps its meaning, and the now-unused `dirname`/`resolve`/`fileURLToPath` imports were deleted. **The assertion was NOT deleted** — deleting it would have made the failure disappear and removed the guard's purpose at the same time.
 - **THE ANTI-SILENCE PROOF, because "the rule still works" is a claim that needs a red**: planting `join(import.meta.url, '.peaks', '_runtime')` in the file makes `no-runtime-input-guard` RED (`1 failed / 19 passed`, offender named); removing the plant makes it green again. The rule file itself was never edited.
 - **PRACTICAL RULE FOR THIS REPO**: before committing a slice that adds or edits a test asserting a cross-cutting invariant, run the suite the INVARIANT lives in, not only the suite the FILE lives in. `tests/unit/runtime/`, `tests/unit/standards/` and `tests/unit/lint/` are the three that guard "how tests may be written" — a slice that writes a test should run all three.
+
+### 23.19 A tarball's file count is not a constant — three different readings of one release, and the published one disagrees with the local one
+
+- **Where**: `.peaks/docs/backlog.md` (this entry) and the 4.1.24 changelog table, against `npm pack --dry-run` and `scripts/release-pack.mjs`.
+- **MEASURED 2026-10-29**, three readings of the SAME release:
+  | reading | files |
+  |---|---|
+  | `npm pack --dry-run --ignore-scripts --json` at the commit that made the packaging fix | 2957 |
+  | the same command on the local release tree (Windows) | 2959 |
+  | the CI publish log, and `tar -tzf` over the **tarball downloaded from the registry** | **2966** |
+- **THE PATTERN THAT MADE THIS EXPENSIVE**: each reading was CORRECT AT THE MOMENT IT WAS TAKEN, and each was written into a permanent document as if it were a property of the package. The changelog therefore carried `2955 → 2957`, then `2959`, and the published artifact ships the wrong one — **inside itself**. A number measured on a working tree is not a statement about a tarball.
+- **WHY THE THREE DIFFER** is not established. Candidates, none verified: the CI build is Linux while the local one is Windows; `release-pack.mjs` packs through `pnpm pack` (which rewrites `workspace:*`) rather than `npm pack`; `dist/` is regenerated per build and `copy-templates` output can differ. **A 7-file gap between two builds of one commit deserves its own look** — it is either packaging nondeterminism (bad: the same commit should ship the same bytes) or a local build that was incomplete (bad in a different way: what else did it miss?).
+- **WHAT THE CHANGELOG NOW SAYS**: the published figure (2966), measured on the downloaded tarball, with the discrepancy stated rather than smoothed. The claims the paragraph turns on were re-verified on that same tarball: both `skills/peaks-mut/SKILL.md` and `skills/peaks-maker/SKILL.md` present, **zero** files under `src/skills/`, 25 `SKILL.md`.
+- **THE RULE**: a released artifact's numbers come from the released artifact. `npm pack --dry-run` measures a tree; `npm pack <pkg>@<version>` + `tar -tzf` measures the package. Only the second one may be quoted in a changelog.

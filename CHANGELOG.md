@@ -42,7 +42,7 @@
 
 | | |
 |---|---|
-| tarball 文件数 | 2955 → **2959**（2957 是在那个 commit 时刻量的；随后一次完整构建把 `dist/skills/peaks-maker/{index.js,index.d.ts}` 补进了 dist，所以**以 `npm pack` 对最终 tarball 的读数为准**） |
+| tarball 文件数 | 2955 → **2966** —— 以**实际发布的 tarball** 为准（`npm pack peaks-loop@4.1.24` 后 `tar -tzf` 数出 2966）。本地 `npm pack --dry-run` 读的是 2959，两次构建差 7 个文件，**原因未查明**；本行此前写的 2955 / 2957 / 2959 都是不同时刻的读数，都不等于发布物。**同一个包在不同构建机上文件数不同，本身是个待查的问题。** |
 | `skills/peaks-mut/SKILL.md`、`skills/peaks-maker/SKILL.md` | **在包里** |
 | `src/skills/` 下的文件 | **0** |
 | 安装器自己的枚举 | **25 个候选**，全部落在根 `skills/` 树内 |
