@@ -272,8 +272,8 @@ describe('Scenario: peaks code gate-step-08 (the job-shape gate)', () => {
       expect(document).toMatchObject({ ok: true, command: 'code.gate-step-08' });
       expect(document.data).toMatchObject({ allow: true, mode: 'no-session' });
       expect(document.nextActions).toBeInstanceOf(Array);
-      // A pass-through is not a grant: `permissionDecision: "allow"` would make
-      // the host skip the user's own permission prompt (see HOOK_ALLOW_DECISION).
+      // A pass-through is not a grant: `hookSpecificOutput.permissionDecision:
+      // "allow"` would make the host skip the user's own permission prompt.
       expect(document).not.toHaveProperty('hookSpecificOutput');
     },
     SUBPROCESS_TEST_TIMEOUT_MS
