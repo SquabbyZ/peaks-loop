@@ -243,9 +243,10 @@ const GATE_ENFORCE_COMMAND = 'peaks gate enforce --project "${CLAUDE_PROJECT_DIR
 const FIXED_HOOKS = [GATE_STEP_08_COMMAND, GATE_ENFORCE_COMMAND, AUTO_COMPACT_HOOK_COMMAND];
 
 describe('Scenario: the installed hook list', () => {
-  it('covers every hook the writers install (a new hook fails this, it cannot pass unnoticed)', () => {
-    // A plant: if the derivation stopped finding hooks, the cases below would
-    // be the only coverage and a NEWLY installed hook would go unpinned.
+  it('when the hook list is derived from the writers, should cover every hook they install', () => {
+    // given: the two writers that install every Bash PreToolUse hook
+    // when: the installed hook list is derived from them
+    // then: it is non-empty, and a NEWLY installed hook fails here instead of passing unnoticed
     const installed = installedBashHookCommands();
     expect(installed.length).toBeGreaterThanOrEqual(3);
     for (const command of installed) {
@@ -260,18 +261,19 @@ describe('Scenario: the installed hook list', () => {
 
 describe('Scenario: peaks code gate-step-08 (the job-shape gate)', () => {
   it(
-    'allow path is ONE host document, keeps its payload, and GRANTS nothing',
+    'when the gate passes a call through, should print one host document and grant nothing',
     () => {
+      // given: a fresh project with no session, and a Bash payload
+      // when: the installed gate-step-08 hook command runs
+      // then: stdout is one document, the payload stays under `data`, and nothing is granted
       const run = runInstalledHook(GATE_STEP_08_COMMAND, makeProject());
       const document = assertHostDocument(run);
-
       expect(run.status).toBe(0);
       // The gate's own decision stays business data under `data`, which is the
       // one key the host does not read as a permission decision.
       expect(document).toMatchObject({ ok: true, command: 'code.gate-step-08' });
       expect(document.data).toMatchObject({ allow: true, mode: 'no-session' });
       expect(document.nextActions).toBeInstanceOf(Array);
-
       // A pass-through is not a grant: `permissionDecision: "allow"` would make
       // the host skip the user's own permission prompt (see HOOK_ALLOW_DECISION).
       expect(document).not.toHaveProperty('hookSpecificOutput');
@@ -280,8 +282,11 @@ describe('Scenario: peaks code gate-step-08 (the job-shape gate)', () => {
   );
 
   it(
-    'block path is the host DENY document with exit 2 (a fix may not make it always allow)',
+    'when the Step 0.8 backup prompt is seen, should emit the host deny document at exit 2',
     () => {
+      // given: a scratch project with no decision or ledger, and the Step 0.8 backup prompt
+      // when: the installed gate-step-08 hook command runs
+      // then: it exits 2 with the host's DENY document, and the reason reaches stderr
       const run = runInstalledHook(GATE_STEP_08_COMMAND, makeProject(), [
         '--session-id',
         '2026-10-28-shape-block-probe',
@@ -290,7 +295,6 @@ describe('Scenario: peaks code gate-step-08 (the job-shape gate)', () => {
         '--prompt',
         '继续执行下个 slice,直到全部添加完,不用考虑费用'
       ]);
-
       expect(run.status).toBe(2);
       const document = assertHostDocument(run);
       expect(document.hookSpecificOutput).toMatchObject({
@@ -305,8 +309,11 @@ describe('Scenario: peaks code gate-step-08 (the job-shape gate)', () => {
   );
 
   it(
-    '--json block path keeps the failure envelope on stdout at exit 2',
+    'when the blocked path is asked for --json, should keep the failure envelope on stdout',
     () => {
+      // given: the same Step 0.8 backup prompt, with `--json` added
+      // when: the installed gate-step-08 hook command runs
+      // then: stdout is still one host document, carrying the STEP_08_BLOCKED envelope at exit 2
       const run = runInstalledHook(GATE_STEP_08_COMMAND, makeProject(), [
         '--session-id',
         '2026-10-28-shape-block-probe',
@@ -314,7 +321,6 @@ describe('Scenario: peaks code gate-step-08 (the job-shape gate)', () => {
         '继续执行下个 slice,直到全部添加完,不用考虑费用',
         '--json'
       ]);
-
       expect(run.status).toBe(2);
       const document = assertHostDocument(run);
       expect(document).toMatchObject({ ok: false, code: 'STEP_08_BLOCKED' });
@@ -331,11 +337,13 @@ describe('Scenario: peaks gate enforce --json (the SOP/worktree gate)', () => {
   const options: GateEnforceCliOptions = { project: '.', json: true };
 
   it(
-    'real invocation is ONE host document with an explicit allow decision',
+    'when gate enforce runs, should print one host document with an explicit allow decision',
     () => {
+      // given: a fresh project, and the one hook whose job includes approving a call
+      // when: the installed gate enforce --json command runs
+      // then: stdout is one document holding both the grant and the envelope tooling reads
       const run = runInstalledHook(GATE_ENFORCE_COMMAND, makeProject());
       const document = assertHostDocument(run);
-
       // This is the one hook in the stack whose job includes approving a call,
       // so it — and only it — may GRANT.
       expect(document.hookSpecificOutput).toMatchObject({
@@ -349,34 +357,43 @@ describe('Scenario: peaks gate enforce --json (the SOP/worktree gate)', () => {
     SUBPROCESS_TEST_TIMEOUT_MS
   );
 
-  it('skipped path: stdout is ONE JSON document the host accepts', () => {
+  it('when the SOP check is skipped, should emit one JSON document the host accepts', () => {
+    // given: an in-process capture around `emitAllowSkipped`
+    // when: the skipped allow path is emitted
+    // then: stdout is one document the host accepts, with no root-level decision
     const { io, captured } = makeCapturedIo();
     emitAllowSkipped(io, options);
-
     const document = parseCaptured(captured.text());
     assertHostAcceptable(document);
     assertNoRootDecision(document);
   });
 
-  it('worktree-allowed path: stdout is ONE JSON document the host accepts', () => {
+  it('when the call runs inside the allowed worktree, should emit one document the host accepts', () => {
+    // given: an in-process capture around `emitAllowWorktree`
+    // when: the worktree-allowed path is emitted
+    // then: stdout is one document the host accepts, with no root-level decision
     const { io, captured } = makeCapturedIo();
     emitAllowWorktree(io, options);
-
     const document = parseCaptured(captured.text());
     assertHostAcceptable(document);
     assertNoRootDecision(document);
   });
 
-  it('SOP-allowed path: stdout is ONE JSON document the host accepts', () => {
+  it('when an SOP matches, should emit one JSON document the host accepts', () => {
+    // given: an in-process capture around `emitSopAllow`, with a minimal allow decision
+    // when: the SOP-allowed path is emitted
+    // then: stdout is one document the host accepts, with no root-level decision
     const { io, captured } = makeCapturedIo();
     emitSopAllow(io, options, SOP_ALLOW);
-
     const document = parseCaptured(captured.text());
     assertHostAcceptable(document);
     assertNoRootDecision(document);
   });
 
-  it('every allow path still reports the --json envelope fields downstream tooling reads', () => {
+  it('when an allow path is emitted, should keep the envelope fields tooling reads', () => {
+    // given: an in-process capture around the skipped allow path
+    // when: the emitted envelope is read
+    // then: ok, command, data.decision, warnings and nextActions keep their values
     const { io, captured } = makeCapturedIo();
     emitAllowSkipped(io, options);
 
@@ -390,10 +407,10 @@ describe('Scenario: peaks gate enforce --json (the SOP/worktree gate)', () => {
     expect(document.nextActions).toBeDefined();
   });
 
-  it('the merged allow document hoists no root-level `decision`', () => {
-    // The merge only ADDS `hookSpecificOutput`; it must not pull the payload's
-    // own `decision` — the one downstream tooling reads at `data.decision` — up
-    // to the root, where the host owns the key.
+  it('when the allow document is merged, should hoist no root-level `decision`', () => {
+    // given: a payload whose own decision lives at `data.decision`
+    // when: `buildAllowDocument` merges the grant into that payload
+    // then: the payload's `decision` stays under `data`, never at the root the host owns
     const document = buildAllowDocument(ok('gate.enforce', { decision: 'allow', skipped: true }));
 
     expect(document).not.toHaveProperty('decision');
@@ -408,13 +425,13 @@ describe('Scenario: peaks gate enforce --json (the SOP/worktree gate)', () => {
 
 describe('Scenario: peaks code auto-compact (the compaction dispatcher)', () => {
   it(
-    'allow path is ONE host document, keeps its payload, and GRANTS nothing',
+    'when auto-compact runs inside a bound session, should print one document and grant nothing',
     () => {
-      // `--session-id` is the ONE argument that is not in the installed
-      // spelling, and it is required for determinism: without a session the
-      // command exits 1 with EMPTY stdout (`AUTO_COMPACT_NO_SESSION`), which is
-      // a precondition failure, not the shape this case is about. The hook
-      // itself always runs inside a bound session.
+      // given: a fresh project, and `--session-id` — the one argument the installed spelling
+      //   omits: without a session the command exits 1 with EMPTY stdout, a precondition
+      //   failure rather than the shape this case measures
+      // when: the installed auto-compact hook command runs
+      // then: stdout is one document, the verdict stays under `data`, and nothing is granted
       const run = runInstalledHook(AUTO_COMPACT_HOOK_COMMAND, makeProject(), [
         '--session-id',
         '2026-10-28-shape-auto-compact'
@@ -453,7 +470,10 @@ describe('Scenario: this repository’s own layer-B dev hooks', () => {
       .flatMap((entry) => entry.hooks.map((hook) => hook.command));
   }
 
-  it('finds the hooks (an empty list would make the cases below vacuous)', () => {
+  it('when the tracked settings are read, should find the layer-B hooks', () => {
+    // given: the tracked `.claude/settings.json`
+    // when: its Bash PreToolUse commands are read
+    // then: there are at least two — an empty list would make the cases below vacuous
     expect(trackedBashHookCommands().length).toBeGreaterThanOrEqual(2);
   });
 

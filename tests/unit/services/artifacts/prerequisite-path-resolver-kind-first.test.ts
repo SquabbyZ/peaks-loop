@@ -71,37 +71,37 @@ afterEach(() => {
 describe('(behavior) — the resolver reads the kind-first numbered form', () => {
   it('when only `security-003-<rid>.md` is on disk, should resolve it', async () => {
     // given: the kind-first form the request writer produces, and NOTHING else
+    // when: the bare rid path is resolved
+    // then: the numbered-after-the-kind file is the evidence
     const sessionRoot = newSessionRoot();
     writeUnder(sessionRoot, `audit/security-003-${RID}.md`);
 
-    // when: the bare rid path is resolved
     const found = await resolve(sessionRoot, securityPrereq(), RID);
 
-    // then: the numbered-after-the-kind file is the evidence
     expect(found).toBe(`security-003-${RID}.md`);
   });
 
   it('when a kind-first name carries a different slug, should NOT claim it', async () => {
     // given: `security-backup-<rid>.md` — the kind plus a word before the rid
+    // when: the bare rid path is resolved
+    // then: a look-alike is not evidence, so the prereq stays unresolved
     const sessionRoot = newSessionRoot();
     writeUnder(sessionRoot, `audit/security-backup-${RID}.md`);
 
-    // when: the bare rid path is resolved
     const found = await resolve(sessionRoot, securityPrereq(), RID);
 
-    // then: a look-alike is not evidence, so the prereq stays unresolved
     expect(found).toBeNull();
   });
 
   it('when a kind-first numbered file belongs to another rid, should NOT claim it', async () => {
     // given: a valid kind-first shape for a DIFFERENT slice in the same directory
+    // when: this slice's bare rid path is resolved
+    // then: the other slice's evidence does not answer for this one
     const sessionRoot = newSessionRoot();
     writeUnder(sessionRoot, `audit/security-003-${OTHER_RID}.md`);
 
-    // when: this slice's bare rid path is resolved
     const found = await resolve(sessionRoot, securityPrereq(), RID);
 
-    // then: the other slice's evidence does not answer for this one
     expect(found).toBeNull();
   });
 });
@@ -109,39 +109,40 @@ describe('(behavior) — the resolver reads the kind-first numbered form', () =>
 describe('(integration) — the pre-existing tiers keep their verdicts', () => {
   it('when the exact bare path is on disk, should still resolve it first', async () => {
     // given: both the exact path and a kind-first numbered sibling
+    // when: the prereq is resolved
+    // then: the exact path still wins — the legacy tiers are unchanged
     const sessionRoot = newSessionRoot();
     writeUnder(sessionRoot, `audit/security-${RID}.md`);
     writeUnder(sessionRoot, `audit/security-003-${RID}.md`);
 
-    // when: the prereq is resolved
     const found = await resolve(sessionRoot, securityPrereq(), RID);
 
-    // then: the exact path still wins — the legacy tiers are unchanged
     expect(found).toBe(`security-${RID}.md`);
   });
 
   it('when the number-first form is on disk, should still resolve it', async () => {
     // given: the `qa/test-cases/` shape, number FIRST, which already worked
+    // when: the bare rid path is resolved
+    // then: the number-first fallback is untouched by the kind-first addition
     const sessionRoot = newSessionRoot();
     writeUnder(sessionRoot, `qa/test-cases/003-${RID}.md`);
 
-    // when: the bare rid path is resolved
     const found = await resolve(
       sessionRoot,
       { relativePath: 'qa/test-cases/<rid>.md', description: 'test cases' },
       RID
     );
 
-    // then: the number-first fallback is untouched by the kind-first addition
     expect(found).toBe(`003-${RID}.md`);
   });
 
   it('when only a legacy tier path is on disk, should still resolve it', async () => {
     // given: an artifact at its pre-rid legacy location, and no canonical file
+    // when: a prereq declaring that legacy tier is resolved
+    // then: the legacy tiers answer exactly as before
     const sessionRoot = newSessionRoot();
     writeUnder(sessionRoot, 'rd/karpathy-review.md');
 
-    // when: a prereq declaring that legacy tier is resolved
     const found = await resolve(
       sessionRoot,
       {
@@ -152,7 +153,6 @@ describe('(integration) — the pre-existing tiers keep their verdicts', () => {
       RID
     );
 
-    // then: the legacy tiers answer exactly as before
     expect(found).toBe('karpathy-review.md');
   });
 });
