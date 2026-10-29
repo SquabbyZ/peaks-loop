@@ -108,12 +108,12 @@ let tracked: string[] = [];
 describe('Scenario: behavior — the tarball that ships carries no test-prompt fixture', () => {
   beforeAll(() => {
     // given: this working tree, and a scratch directory outside it
-    workDir = mkdtempSync(join(tmpdir(), 'peaks-pack-'));
     // when: both packers pack it, and both tarballs are listed
+    // then: the lists exist — a packer that failed throws before this point
+    workDir = mkdtempSync(join(tmpdir(), 'peaks-pack-'));
     npmEntries = tarballEntries(pack('npm', workDir));
     pnpmEntries = tarballEntries(pack('pnpm', workDir));
     tracked = trackedSkillsFiles();
-    // then: the lists exist — a packer that failed throws before this point
   }, 300_000);
 
   afterAll(() => {
@@ -170,14 +170,14 @@ describe('Scenario: behavior — the tarball that ships carries no test-prompt f
 describe('Scenario: behavior — the negations in the manifest remove their targets', () => {
   it('when the manifest names a negated path, should not be in either tarball', () => {
     // given: the negation entries the shipped `package.json#files` carries
+    // when: the target of each negation is looked for in both tarballs
+    // then: none of them is in either tarball
     const manifest = JSON.parse(readFileSync(join(projectRoot, 'package.json'), 'utf8')) as {
       files: string[];
     };
-    // when: the target of each negation is looked for in both tarballs
     const targets = manifest.files
       .filter((entry) => entry.startsWith('!'))
       .map((entry) => entry.slice(entry.lastIndexOf('/') + 1));
-    // then: none of them is in either tarball
     const shipped = [...npmEntries, ...pnpmEntries].map((entry) => basename(entry));
     expect(targets.length, 'the manifest carries no negation to check').toBeGreaterThan(0);
     expect(
@@ -188,10 +188,10 @@ describe('Scenario: behavior — the negations in the manifest remove their targ
 
   it('when the skills are listed in the tarball, should still be all of them', () => {
     // given: the `SKILL.md` files git tracks under `skills/`
-    const trackedSkills = tracked.filter((file) => file.endsWith('SKILL.md'));
     // when: the ones in the published tarball are counted
-    const shipped = pnpmEntries.filter((entry) => entry.endsWith('SKILL.md'));
     // then: every one of them is there — the exclusion ate no skill
+    const trackedSkills = tracked.filter((file) => file.endsWith('SKILL.md'));
+    const shipped = pnpmEntries.filter((entry) => entry.endsWith('SKILL.md'));
     expect(shipped.length, 'the published tarball carries fewer SKILL.md files').toBe(
       trackedSkills.length
     );
