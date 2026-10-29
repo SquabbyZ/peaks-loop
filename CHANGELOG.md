@@ -42,7 +42,7 @@
 
 | | |
 |---|---|
-| tarball 文件数 | 2955 → **2957** |
+| tarball 文件数 | 2955 → **2959**（2957 是在那个 commit 时刻量的；随后一次完整构建把 `dist/skills/peaks-maker/{index.js,index.d.ts}` 补进了 dist，所以**以 `npm pack` 对最终 tarball 的读数为准**） |
 | `skills/peaks-mut/SKILL.md`、`skills/peaks-maker/SKILL.md` | **在包里** |
 | `src/skills/` 下的文件 | **0** |
 | 安装器自己的枚举 | **25 个候选**，全部落在根 `skills/` 树内 |
