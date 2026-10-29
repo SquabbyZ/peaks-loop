@@ -1,5 +1,85 @@
 # Changelog
 
+## 4.1.25 — 2026-10-29（授权与发布物）
+
+**版本级别**：**patch**（沿用常设规则"默认版本新增采用最小的版本位"）。本次**没有**改任何门禁的阈值或放行条件；
+**没有**动事件 schema 的版本号（`schemaVersion` 仍是 `z.literal(1)`）；**没有**改发布流程本身。
+
+**一句话：这一版做两件事 —— 把一个每次 Bash 调用都在静默替你授权的钩子收回来，以及让**真正发布出去的包**不再夹带开发夹具。**
+两件都是「机制声称的和实际做的不是一回事」：前者声称「只是放行」，实际是**授予权限**；后者声称「已排除」，实际**在发布的那条路径上没排除**。
+
+### 1. 钩子不再替你授权
+
+`peaks gate enforce --project "${CLAUDE_PROJECT_DIR}" --json` 是装在 `PreToolUse:Bash` 上的钩子，它此前在**每一次**调用上输出：
+
+```json
+"hookSpecificOutput": { "hookEventName": "PreToolUse", "permissionDecision": "allow" }
+```
+
+按 Claude Code 的钩子契约，`permissionDecision` 不是「允许」，是**真实授权**：宿主批准该调用并**跳过你自己的权限确认**（你显式 deny 的规则仍然优先）。
+实测它在**每一条非空命令、且没有被任何门拦下的** Bash 调用上触发 —— 而那条 catch 是 fail-open 的，SOP 注册表读不出来时同样放行+授权。
+
+**而这个授权从来就不需要。** 最初的报错是
+
+```
+Hook JSON output validation failed — decision: Invalid option: expected one of "approve"|"block"
+```
+
+根因是**根级** `decision` 键；门自己的判定早就挪进 `data`（宿主不读那个键）。宿主读不到根级 `decision` 时，
+**一个不带 `hookSpecificOutput` 的文档它就满意** —— 另外两个兄弟钩子（`gate-step-08`、`auto-compact`）一直如此，在真实会话里逐次运行、零宿主校验错误。
+
+于是三条允许路径（`emitAllowSkipped` / `emitAllowWorktree` / `emitSopAllow`）改为输出普通 CLI 信封，**不带 `hookSpecificOutput`**。
+`buildAllowDocument` 与 `HOOK_ALLOW_DECISION` 被**删除**而不是留着不用 —— 一个只为发授权而存在的助手留在原地，就是下一切片的事故。
+`data.decision` 仍是 `"allow"`：CLI 自己给下游工具的 `--json` 契约没有变。
+
+**拒绝路径一字未动**：`emitBlock` 仍写 `permissionDecision: "deny"` + exit 2，而且拒绝**是因为判定而拒绝**（对照：同一 payload 给了授权后 exit 0 放行）。
+
+代码是**降**的：三条允许路径共用一个 helper（`gate-commands-enforce.ts` 292 → 277、`output.ts` 204 → 164）。
+
+### 2. 发布物不再夹带开发夹具
+
+4.1.24 的 tarball 里带着 **8 个 `test-prompts.json`**，其中一个内嵌一位开发者的本地路径与内部流程细节。
+**QA 是从 registry 把 tarball 拉下来 grep 出来的** —— 这是实测暴露，不是推断。
+
+| 打包器 | 修复前 | 修复后 |
+|---|---|---|
+| `npm pack --ignore-scripts` | 2959 文件 / **1** 个夹具 | 2958 / **0** |
+| `pnpm pack`（**发布用的那个**） | 2966 文件 / **8** 个夹具 | 2958 / **0** |
+
+**机制是 packlist 的版本差异。** `package.json#files` 写的是 `"skills/**"` 再用 `!skills/**/test-prompts.json` 减去。
+npm 11 自己的 packlist 认这条 negation；**pnpm 10.11.0 内置的 npm-packlist 5.1.3 里，include 胜过 negation** ——
+而 `scripts/release-pack.mjs` 用 pnpm 打包，所以这条规则**只在真正要紧的地方失效**。
+而 negation **本来也盖不住第八个**：`skills/peaks-doctor/test_prompts.json` 是**下划线**命名，它在**每一种**清单里都发货。
+
+修法是**正面点名该发什么**，而不是让两个打包器对 negation 的解释一致：`"skills/**/!(*test[-_]prompts*).*"`，
+外加 `"!skills/**/test_prompts.json"`。原有的 negation **保留** —— QA 实测 `!skills/**/.DS_Store` 在 pnpm 下是**承重的**（npm 靠 `.npmignore`/`.gitignore` 也会丢它）。
+
+**修完之后两个打包器产出字节一致的清单**，与 4.1.24 逐文件对比：**只少那 8 个夹具、零新增、零误删**；
+`git ls-files skills/` 减去那 8 个，恰好等于 tarball 里的 `skills/`。
+
+### 3. tarball 第一次有了验收测试
+
+新测试断言的是**产物**而不是清单：它用**两个**打包器**真打** tarball 并读出条目，断言三件事 ——
+任一 tarball 不含夹具；**每个受跟踪的非夹具 `skills/` 文件仍在**（防止排除吃掉别的）；两个打包器**一致**。
+
+**断言 `package.json` 里的字符串正是让这个缺陷溜过去的那种形状**：清单可以写着正确的话，而 tarball 仍然带着文件。
+**只有 tarball 能谈论 tarball。** 而且**缺一个打包器算失败、不算跳过**（把 `tar` 从 `PATH` 拿掉 → `spawnSync tar ENOENT`，exit 1）——
+一个因为什么都没跑而报「通过」的守卫，比没有守卫更糟。
+
+### 4. 一条关于「数数」的教训
+
+这个缺陷藏了这么久，是因为一个数把它盖住了：**「7」**。
+两份清单做差集得到 7 —— 但**第八个在两边都有，差集永远看不见两边都有的文件**。
+这和「门只对一份样本断言」是同一种盲区，只不过那次是别人做的，这次是我自己做的差集。
+
+### 5. 这一版**没有**交付的东西（如实记录）
+
+- **4.1.24 已经带着那 8 个夹具发上去了，npm 上的 tarball 不可变，撤不回。** 这一版能做的是「此后不再发」。
+- **包含规则要求文件名带点**：将来一个**无扩展名**的 `skills/**` 文件会被**静默丢掉，且没有任何测试会红**（守卫断言的是受跟踪文件在位，而未跟踪的文件不在它的集合里）。已记入 backlog §23.20。
+- `*test[-_]prompts*` 会连坐任何**含有**该记号的文件名（例如将来的 `test-prompts-extra.json`）。今天为 0。
+- **变异覆盖不完整**：会话级的 `mut/mut-report.json` 是另一个切片的报告；本机 `peaks mut run` 两次 `MUT_FAILED / EPERM`（Stryker 的 Windows 沙箱去拷贝一个已死会话留下的 Unix 符号链接）。断言有效性那一半跑了（30 条断言，0 条弱），「测试能否抓到真变异」那一半是各切片**手工植入变异**验证的，不是门自动覆盖的。
+- **第三方评审全部是 SKIP**：本机没有配置 reviewer provider（`configured: false`，0 个），单模型的自证盲区**没有被缓解**。
+
 ## 4.1.24 — 2026-10-29（同一个 id，几个读法）
 
 **版本级别**：**patch**（沿用常设规则"默认版本新增采用最小的版本位"）。本次**没有**改任何门禁的阈值或放行条件；
