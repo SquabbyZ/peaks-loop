@@ -8649,7 +8649,21 @@ paragraph.
 
 - **Where**: `.github/workflows/publish.yml`, the `publish` job's `timeout-minutes` (was **30**, raised to 60 on 2026-10-30).
 - **THE SYMPTOM IS THE SHAPE OF A SILENT NO-OP.** The tag `v4.1.25` landed on origin and the registry stayed on `4.1.24` — no error anywhere the release path can be observed from, because **a job killed by its own timeout publishes nothing**. The observable difference between "the publish is slow" and "the publish was killed" is only in the Actions log, and if the log is unreachable (here, `api.github.com` was blocked by the network for over an hour) the two are indistinguishable from the outside.
-- **WHY 30 WAS TOO TIGHT.** The job's cost is not one step: cold `pnpm install --frozen-lockfile` + `npm install -g npm@latest` → `pnpm run build` (4 workspace packages + root tsc + copy-templates) → the narrow release vitest → the gates → `release-pack.mjs`, which packs and publishes **FIVE** packages, each with OIDC provenance signing, and the ROOT's `pnpm pack` runs `prepack` — a full build — again. Measured on 2026-10-30 with `PEAKS_DRY_RUN=1` (pack + verify for all five, no publish): the whole chain completes with exit 0 locally, and each `verifyTarball` passes.
+- **THE MEASUREMENT THAT SETTLES IT — AND IT SETTLES IT AGAINST THE RAISE.** The v4.1.25 publish run, read from the Actions API after the fact:
+
+  | | |
+  |---|---|
+  | queue (created → started) | **0 min** |
+  | job (started → completed) | **98 seconds** |
+  | install | 4s · build 12s · release vitest 5s · capability gate 8s |
+  | **"Publish to npm (OIDC + release-pack.mjs)"** | **53s** |
+  | every other step | 0-4s |
+
+  **So the 30-minute budget was never close to binding — the whole chain takes under two minutes, and every earlier release agrees (4.1.20 through 4.1.24 all completed in 1m56s to 2m50s, queue 0 min every time).** The raise to 60 was made on a misdiagnosis; it is kept as headroom for a runner under load, NOT because 30 was too tight. The number is harmless. **The reason it was raised was wrong, and a budget raised for a reason that turns out to be false is a budget nobody knows the truth about.**
+
+  **BUT THE 30-MINUTE BUDGET WAS NEVER THE BINDING CONSTRAINT — THE QUEUE WAS.** The v4.1.25 tag was pushed at 01:52 and the release completed only around 04:0x, INSIDE the 30-minute job budget. **GitHub's job timeout counts from the job's start, not from the queue**, so a two-and-a-half-hour queue delay is invisible to that timeout while being the whole of the symptom. The orchestrator read the symptom as "the budget killed it" and raised the timeout to 60 on that reading; the release then succeeded with the raised budget — which does not distinguish the two causes.
+
+  **The budget raise was not WRONG — it is more headroom for a chain that publishes five signed packages — but the REASON it was raised was a hypothesis, and the release itself undercuts it.** The real lesson is the one below: **a long delay between a tag landing and the registry moving is a QUEUE symptom until proven otherwise, and the evidence that separates them is the job's own start time, not the caller's patience.** A publish that lands late is not a publish that timed out, and the two produce the same outward symptom — tag present, registry unchanged — which is exactly why the hypothesis was wrong.
 - **THE SECOND FINDING — A RE-PUSH OF AN EXISTING TAG CANNOT RE-TRIGGER THE PUBLISH, AND THE GATE SAYS SO LOUDLY.** The only git-only re-trigger is to push the tag again, and the changed-set leg refuses it:
   ```
   peaks-gate: origin/main resolves to HEAD (12f8e2be), so the changed set is empty
@@ -8658,3 +8672,39 @@ paragraph.
   This is the gate being RIGHT: "nothing to compare" and "compared and clean" are different results. But it means a re-trigger needs either a tag that MOVES (a new commit) or an explicit base: `PEAKS_GATE_CHANGED_BASE=<ref>`, which the leg names itself. **A deleted-then-repushed tag is not a re-trigger either** — git feeds `(delete)` refs, which the leg does not read as tag refs.
 - **THE THIRD FINDING — "the previous release tag" is derived by reachability, so a MOVED tag changes what the release is measured against.** `previousTagBefore(commit)` is `git describe --tags --abbrev=0 <commit>^` — the nearest ancestor tag. Once `v4.1.25` exists on `12f8e2be`, a new commit on top of it has `v4.1.25` as its nearest ancestor tag, so a tag push of that new commit would be measured against **v4.1.25**, not against **v4.1.24** — under-measuring the release by exactly the whole 4.1.25 delta. **The override is therefore required, not a convenience: `PEAKS_GATE_CHANGED_BASE=v4.1.24` names the release's real base.** A derivation by "nearest ancestor tag" is the wrong rule for a moved tag; "the previous tag BY VERSION ORDER" is the right one and is not implemented.
 - **WHAT IT NEEDS**: the publish job's budget sized to the chain it actually runs (done: 60), and the changed-set leg's tag base derived by VERSION ORDER rather than by reachability, with the override documented as the correct way to point a re-tagged release at its real base.
+
+### 23.24 A stale registry packument is indistinguishable from "not published" — and it cost two wrong diagnoses
+
+- **Where**: `npm view peaks-loop@<version>` / `npm view peaks-loop dist-tags.latest` as the evidence that a release had not happened.
+- **WHAT HAPPENED.** The `v4.1.25` tag was pushed at 01:52 local and **the publish completed 98 seconds later** — every step success, "Publish to npm" 53s, queue 0 min (the Actions API, read after the fact). The registry's packument now lists 4.1.25. **But for roughly an hour and a half, `npm view peaks-loop@4.1.25 version` returned 404 and `dist-tags.latest` read 4.1.24**, and every poll said "not published".
+- **THE MECHANISM**: the registry serves the packument with `Cache-Control: public, max-age=300`, and npm keeps its own `_cacache` copy. A `404` from a version query against a CACHED packument means "the cached version list does not contain it", which is **not the same statement** as "the package is not on the registry".
+- **TWO WRONG DIAGNOSES FOLLOWS, AND THE SECOND WAS WORSE THAN THE FIRST.** First: "the publish job's 30-minute budget killed it" → the timeout was raised to 60 on that reading, and the release then succeeded — which did not distinguish the causes, and the orchestrator wrote the budget-raise as the fix. Second, after the release was observed to have completed inside the ORIGINAL 30-minute budget: "it was the QUEUE" — also wrong, because the queue was 0 minutes. **What actually explains the whole delay is the observer, not the publisher.**
+- **IT RECURRED, AND THE SECOND TIME THE INDEX WAS THE LIE IN THE OTHER DIRECTION.** After the 4.1.26 publish, `npm view peaks-loop@4.1.26` 404'd AND a `curl -H "Cache-Control: no-cache"` of the packument still said `latest: 4.1.25, has 4.1.26: false` — while `curl -I https://registry.npmjs.org/peaks-loop/-/peaks-loop-4.1.26.tgz` returned **200 OK**. **The tarball existed and the index did not list it.** The index caught up within a couple of minutes; `npm i -g peaks-loop@4.1.26` then failed with `No matching version found for peaks-loop-shared-channel@0.0.83` — **a dependency of the root, whose own index lagged even after the root's had not.** **So there are THREE states, not two**: published-and-indexed, published-but-not-indexed (the tarball is fetchable; the packument does not list it), and not published. Only the tarball URL separates the first two.
+- **THE TOOL THAT DISTINGUISHES THEM**: a cache-busting read. `npm view --prefer-online <pkg> <version>`, or `curl -H "Cache-Control: no-cache" https://registry.npmjs.org/<pkg>`, or read the registry's own version list rather than the cached one. **A release's existence is a question about the registry's CONTENT, and the cheap way to ask it is the way that can be answered by a cache.**
+- **WHAT IT SHOULD HAVE BEEN HERE**: the publish workflow's own run record is the authoritative signal for "did it publish", and it was readable the whole time — it was only unreachable because `api.github.com` was blocked by the network for over an hour. **Two independent blind spots (a stale registry view AND an unreachable API) turned a two-minute release into a two-and-a-half-hour mystery.** The generalisable rule: **when two signals disagree, the one that is stale is the one that is cached** — and a cached read is not evidence of absence.
+
+### 23.25 A publish can die on a transparency-log duplicate, half-way, leaving the registry in a mixed state
+
+- **Where**: `scripts/release-pack.mjs` → `runNpm(['publish', tarball, '--tag=latest', '--provenance=true'])`; npm's sigstore provenance signing.
+- **WHAT HAPPENED (2026-10-30, the v4.1.26 release)**: the run aborted at the publish step with
+
+  ```
+  npm error code TLOG_CREATE_ENTRY_ERROR
+  npm error (409) an equivalent entry already exists in the transparency log with UUID 108e9186…
+  [release-pack] ABORT: npm publish …/peaks-loop-shared-channel-0.0.83.tgz --tag=latest --provenance=true
+  ```
+
+  The registry was left **mixed**: `peaks-loop-shared@0.0.115`, `peaks-loop-internal-runtime@0.0.66` and `peaks-loop-mut@0.1.80` were published; `peaks-loop-shared-channel@0.0.83` and the root `peaks-loop@4.1.26` were not. **A half-published release is a state nothing in this repository had a rule for.**
+- **WHY IT IS RECOVERABLE, AND WHY THE RECOVERY IS SAFE**: `publishOne` already skips what the registry has —
+
+  ```js
+  if (isAlreadyPublished(name, version) && !isRegistryStale(name, version, tarball)) {
+    console.log(`[release-pack] SKIP ${name}@${version} (already on registry)`);
+    return;
+  }
+  ```
+
+  So re-running the workflow for the same tag publishes ONLY the missing ones. **That SKIP is the reason a half-published release is not a broken one** — and it is worth stating, because without it the only recovery would be a new version number.
+- **THE THING TO NOTICE**: the failure was **not** the code, not the version gates, not the budget — it was npm's provenance transparency log refusing an entry it considered equivalent. **A release path that depends on an external service can fail for a reason that has nothing to do with the artifact, and the failure text names a UUID rather than the package.** The next run may hit it again for the same tarball, because "equivalent entry" is keyed on the subject digest.
+- **WHAT IT WANTS**: the publish step's failure should say which PACKAGE it was on and that the registry may be partially updated, so the next person knows to re-run rather than to bump the version. Today the abort line names the tarball but not the state it left behind.
+- **THE RECOVERY, MEASURED**: re-running the workflow for the same tag (https://github.com/SquabbyZ/peaks-loop/actions/runs/40982896180) SKIPPED the three already-published packages and published the two missing ones — `OK peaks-loop-shared-channel@0.0.83`, `OK peaks-loop@4.1.26`, `DONE` — with the run green. **The tlog 409 did not recur for the same tarball**, which is consistent with "equivalent entry" being keyed on a subject digest that the repack changed. So the recovery is cheap and the cost of the failure was the two-hour wait for someone to look, not the release itself.
