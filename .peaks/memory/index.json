@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-05T11:41:11.734Z",
+  "updatedAt": "2026-11-05T19:22:44.222Z",
   "hot": {
     "rule": [
       {
@@ -1470,6 +1470,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "a-brand-new-npm-package-cannot-be-first-published-through-oidc-trusted-publishing",
+        "kind": "lesson",
+        "description": "The tag-triggered release flow publishes with OIDC Trusted Publishing (no token).",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-brand-new-npm-package-cannot-be-first-published-through-oidc-trusted-publishing.md",
+        "sourceArtifact": ".peaks/_runtime/2026-11-05-session-af31e4/txt/handoff-release.md",
+        "updatedAt": "2026-11-05"
+      },
+      {
         "name": "a-canonical-hash-built-with-an-array-replacer-ignores-nested-keys",
         "kind": "lesson",
         "description": "does not mean \"sort the keys\".",
@@ -2286,6 +2294,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "peaks-mut-run-the-sandbox-copies-the-whole-repo-and-vitest-include-gates-discovery",
+        "kind": "lesson",
+        "description": "Two independent traps make  fail opaquely on this repo.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\peaks-mut-run-the-sandbox-copies-the-whole-repo-and-vitest-include-gates-discovery.md",
+        "sourceArtifact": ".peaks/_runtime/2026-11-05-session-af31e4/txt/handoff-release.md",
+        "updatedAt": "2026-11-05"
+      },
+      {
         "name": "peaks-slice-check-axis-mismatch-false-negatives",
         "kind": "lesson",
         "description": "looks for review-fanout artefacts at the **change-id axis** () but the actual artefacts live at the **session-id axis...",
@@ -2806,6 +2822,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\archived\\2026-06-21-peaks-request-session-id-leaks-into-change-id.md",
         "sourceArtifact": null,
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "the-capability-baseline-lock-hash-only-covers-the-row-count",
+        "kind": "bug",
+        "description": "computes the signed baseline's hash with .",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-capability-baseline-lock-hash-only-covers-the-row-count.md",
+        "sourceArtifact": ".peaks/_runtime/2026-11-05-session-af31e4/txt/handoff-release.md",
+        "updatedAt": "2026-11-05"
       }
     ],
     "investigation": [
@@ -4079,7 +4103,7 @@
         "description": "peaks-loop **不在本地 **。发布由  完成,触发条件只有两个: 或 GitHub UI 手动的 。 **完整链条**(2026-09-12 实发 4.0.43 走通): 1.",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\peaks-loop-release-flow-is-tag-triggered-ci-publish.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-10-10"
+        "updatedAt": "2026-11-05"
       },
       {
         "name": "peaks-loop-slice-review-and-qa-perspective",
