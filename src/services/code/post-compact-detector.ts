@@ -26,6 +26,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { getSkillPresence, type SkillPresenceMode } from '../skills/skill-presence-service.js';
+import { tryGetSessionDir } from '../session/getSessionDir.js';
 import { isExpectedFsMiss } from '../../shared/fs-utils.js';
 
 import { emitObservabilityEvent } from '../observability/observability-service.js';
@@ -144,7 +145,14 @@ export async function detectPostCompactResume(
     return { shouldAutoResume: false, reason: 'sid-unbound', warnings };
   }
 
-  const runtimeDir = join(opts.projectRoot, '.peaks', '_runtime', opts.sessionId);
+  // The TOTAL entry: this probe reports its own misses as reasons, and an id
+  // that cannot name a session dir has no directory to probe — the same
+  // answer `existsSync` gives for a directory that is not there.
+  const sessionDir = tryGetSessionDir(opts.projectRoot, opts.sessionId);
+  if (!sessionDir.ok) {
+    return { shouldAutoResume: false, reason: 'runtime-dir-missing', warnings };
+  }
+  const runtimeDir = sessionDir.dir;
   if (!existsSync(runtimeDir)) {
     return { shouldAutoResume: false, reason: 'runtime-dir-missing', warnings };
   }

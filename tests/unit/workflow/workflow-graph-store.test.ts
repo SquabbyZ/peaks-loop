@@ -7,6 +7,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, afterEach } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
+import { getSessionDir } from '~/src/services/session/getSessionDir.js';
+import { graphPathFor } from '~/src/services/workflow/workflow-graph-store.js';
+import { isInsidePath, normalizePath } from '~/src/shared/path-utils.js';
 
 declareDimensions(
   'tests/unit/workflow/workflow-graph-store.test.ts',
@@ -125,6 +128,45 @@ describe('Scenario: behavior — graph invariants fail closed', () => {
       expect(codeOf(error)).toBe('PEAKS_GRAPH_CORRUPTED');
       expect((error as { legacyFallback?: boolean }).legacyFallback).toBe(false);
     }
+  });
+});
+
+describe('Scenario: behavior — graphPathFor contains the ref inside the session root', () => {
+  it('when the session root is emitted with forward slashes, should resolve a ref inside it', () => {
+    // given: a session id and a graph ref the package itself builds
+    // when: the on-disk path is computed
+    // then: it resolves rather than throwing `graphRef escapes session root`.
+    //   The session root comes from the workspace-runtime package with FORWARD
+    //   slashes, while this resolve lands on the platform separator — on Windows
+    //   the two spellings differ by separator alone, which is exactly the shape
+    //   the old `startsWith(sessionRoot + sep)` test read as an escape.
+    const projectRoot = join(tmpdir(), 'peaks-graph-sep');
+    const sessionId = '2026-11-05-session-af31e4';
+    const workflowId = 'wf-sep-1';
+    const path = graphPathFor({
+      projectRoot,
+      sessionId,
+      graphRef: `graphs/${workflowId}.json`,
+      workflowId
+    });
+    const sessionRoot = getSessionDir(projectRoot, sessionId);
+    expect(normalizePath(sessionRoot)).toMatch(/\/\.peaks\/_runtime\//);
+    expect(normalizePath(path)).toBe(normalizePath(`${sessionRoot}/graphs/${workflowId}.json`));
+    expect(isInsidePath(path, sessionRoot)).toBe(true);
+  });
+
+  it('when the ref is a traversal, should still refuse it', () => {
+    // given: a graph ref that climbs out of the session root
+    // when: the on-disk path is computed
+    // then: the call refuses it as unsafe
+    expect(() =>
+      graphPathFor({
+        projectRoot: join(tmpdir(), 'peaks-graph-sep'),
+        sessionId: '2026-11-05-session-af31e4',
+        graphRef: 'graphs/../../escape.json',
+        workflowId: 'wf-sep-1'
+      })
+    ).toThrow(/graphRef is not safe/);
   });
 });
 

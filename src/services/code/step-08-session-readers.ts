@@ -10,6 +10,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { isExpectedFsMiss } from '../../shared/fs-utils.js';
+import { tryGetSessionDir } from '../session/getSessionDir.js';
 
 const STEP_08_PROGRESS_FILE_NAME = 'progress.json' as const;
 
@@ -22,18 +23,20 @@ export interface Step08Progress {
   readonly updatedAt: string;
 }
 
-function runtimeSessionDir(projectRoot: string, sessionId: string): string {
-  return join(projectRoot, '.peaks', '_runtime', sessionId);
+function runtimeSessionDir(projectRoot: string, sessionId: string): string | null {
+  const resolved = tryGetSessionDir(projectRoot, sessionId);
+  return resolved.ok ? resolved.dir : null;
 }
 
-function progressPath(projectRoot: string, sessionId: string, jid: string): string {
+function progressPath(projectRoot: string, sessionId: string, jid: string): string | null {
   // The progress file lives under job/<jid>/progress.json. The jid
   // comes from job-shape.json (decision.suggestedJobId) — there is
   // exactly one canonical jid per session under Job mode, so we read
   // the matching path directly rather than enumerating the job/ dir.
   // (Rotating mode spawns new jids but only one is "active" at a time;
   // the active jid is the latest write to job-shape.json.)
-  return join(runtimeSessionDir(projectRoot, sessionId), 'job', jid, STEP_08_PROGRESS_FILE_NAME);
+  const dir = runtimeSessionDir(projectRoot, sessionId);
+  return dir === null ? null : join(dir, 'job', jid, STEP_08_PROGRESS_FILE_NAME);
 }
 
 export function readProgressIfAny(
@@ -42,7 +45,7 @@ export function readProgressIfAny(
   jid: string
 ): Step08Progress | null {
   const path = progressPath(projectRoot, sessionId, jid);
-  if (!existsSync(path)) return null;
+  if (path === null || !existsSync(path)) return null;
   try {
     const raw = readFileSync(path, 'utf8');
     const parsed = JSON.parse(raw) as Partial<Step08Progress>;
@@ -75,7 +78,9 @@ export function readProgressIfAny(
 }
 
 export function readPromptFromLastPromptFile(projectRoot: string, sessionId: string): string {
-  const path = join(runtimeSessionDir(projectRoot, sessionId), 'txt', 'last-prompt.txt');
+  const dir = runtimeSessionDir(projectRoot, sessionId);
+  if (dir === null) return '';
+  const path = join(dir, 'txt', 'last-prompt.txt');
   if (!existsSync(path)) return '';
   try {
     return readFileSync(path, 'utf8');
@@ -103,7 +108,9 @@ export function readPromptFromLastPromptFile(projectRoot: string, sessionId: str
  * or a provisional write that failed — not proof the decision step was skipped.
  */
 export function ledgerJobIds(projectRoot: string, sessionId: string): string[] {
-  const jobDir = join(runtimeSessionDir(projectRoot, sessionId), 'job');
+  const dir = runtimeSessionDir(projectRoot, sessionId);
+  if (dir === null) return [];
+  const jobDir = join(dir, 'job');
   if (!existsSync(jobDir)) return [];
   let names: string[];
   try {

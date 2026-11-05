@@ -32,6 +32,7 @@ import {
   type MonotonicScoreRow
 } from './monotonic-guard.js';
 import { appendMetricLine, readMetricLines } from '../observability/jsonl-store.js';
+import { getSessionDir } from '../session/getSessionDir.js';
 import { emitMonotonicReport } from './loop-observability.js';
 import { findProjectRoot } from '../config/config-safety.js';
 import {
@@ -54,7 +55,7 @@ export type {
  *  derive `cyclesDir`). The monotonic-runner writer no longer writes
  *  here; the jsonl-store is the new persistence layer. */
 export function sliceDir(projectRoot: string, sid: string, rid: string): string {
-  return join(projectRoot, '.peaks', '_runtime', sid, 'loop', rid);
+  return join(getSessionDir(projectRoot, sid), 'loop', rid);
 }
 
 /** Load the most recent prior cycle for `(sid, rid)` from the

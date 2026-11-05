@@ -28,15 +28,16 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Command } from 'commander';
 import { fail, ok } from 'peaks-loop-shared/result';
+import { defaultStateRoot } from 'peaks-loop-workspace-runtime';
 
 import { atomicWriteJson } from '../../services/ide/shared/atomic-json.js';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { findProjectRoot } from '../../services/config/config-safety.js';
 
-const OUTER_SESSION_CACHE_REL = join('.peaks', '_runtime', '.outer-session-cache.json');
+const OUTER_SESSION_CACHE_FILE = '.outer-session-cache.json';
 
 function resolveCachePath(projectRoot: string): string {
-  return join(projectRoot, OUTER_SESSION_CACHE_REL);
+  return join(defaultStateRoot(projectRoot), OUTER_SESSION_CACHE_FILE);
 }
 
 function readEnvOuter(): string | undefined {

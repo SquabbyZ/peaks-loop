@@ -20,6 +20,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { getSessionDir, tryGetSessionDir } from '../session/getSessionDir.js';
 
 export type WorkflowSkipState = {
   rid: string;
@@ -40,8 +41,14 @@ export function hasControlChars(value: string): boolean {
   return false;
 }
 
-function stateFilePath(projectRoot: string, sessionId: string, rid: string): string {
-  return join(projectRoot, '.peaks', '_runtime', sessionId, 'workflow-state', `${rid}.json`);
+/**
+ * The state file, or `null` when the session id cannot name a session dir.
+ * The TOTAL entry: the read and delete frames answer "no state" for it; the
+ * write frame cannot proceed and takes the throwing entry instead.
+ */
+function stateFilePath(projectRoot: string, sessionId: string, rid: string): string | null {
+  const resolved = tryGetSessionDir(projectRoot, sessionId);
+  return resolved.ok ? join(resolved.dir, 'workflow-state', `${rid}.json`) : null;
 }
 
 /**
@@ -62,7 +69,7 @@ export function readSkipState(
   rid: string
 ): WorkflowSkipState | null {
   const path = stateFilePath(projectRoot, sessionId, rid);
-  if (!existsSync(path)) {
+  if (path === null || !existsSync(path)) {
     return null;
   }
   try {
@@ -88,7 +95,7 @@ export function writeSkipState(
   sessionId: string,
   state: WorkflowSkipState
 ): string {
-  const path = stateFilePath(projectRoot, sessionId, state.rid);
+  const path = join(getSessionDir(projectRoot, sessionId), 'workflow-state', `${state.rid}.json`);
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
   return path;
@@ -102,7 +109,7 @@ export function writeSkipState(
  */
 export function deleteSkipState(projectRoot: string, sessionId: string, rid: string): boolean {
   const path = stateFilePath(projectRoot, sessionId, rid);
-  if (!existsSync(path)) {
+  if (path === null || !existsSync(path)) {
     return false;
   }
   unlinkSync(path);

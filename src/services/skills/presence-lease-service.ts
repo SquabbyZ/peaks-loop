@@ -21,6 +21,7 @@ import {
 } from './presence-lease-types.js';
 import { normalizePresenceGate, readPresenceGate } from './presence-gate.js';
 import {
+  applyStaleLease,
   callerIndexPath,
   leaseDir,
   leaseFilePath,
@@ -393,25 +394,13 @@ export function gcStalePresenceLeases(input: GcPresenceLeasesInput): GcResult {
       Number.isFinite(lastHeartbeatMs) && now - lastHeartbeatMs > STALE_HEARTBEAT_MS;
     const startedStale = Number.isFinite(startedAtMs) && now - startedAtMs > STALE_STARTED_AFTER_MS;
     if (heartbeatStale && startedStale) {
-      // Verify graphRef exists before removing; missing graph is a typed
-      // warning, not a silent removal.
-      const graphPath = join(
-        sessionRuntimeRoot(input.projectRoot, lease.workflowId),
-        lease.graphRef
-      );
-      // For test seams, `lease.workflowId` may not match a real session; we
-      // skip the existsSync check when the lease points at a non-canonical
-      // path (the test seam is responsible for surfacing its own warning).
-      if (lease.graphRef === 'graphs/missing.json') {
-        warnings.push({
-          code: PEAKS_GRAPH_REF_BROKEN,
-          leaseRef: lease.graphRef,
-          message: 'graph file missing'
-        });
+      // The per-lease decision — resolve the graph path, or report why it
+      // cannot be resolved — lives in the store with the path helper it calls.
+      if (applyStaleLease(input.projectRoot, lease, warnings) === 'removed') {
+        removed += 1;
+      } else {
         retained += 1;
-        continue;
       }
-      removed += 1;
     } else {
       retained += 1;
     }

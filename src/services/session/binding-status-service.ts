@@ -22,6 +22,7 @@
 
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { defaultStateRoot } from 'peaks-loop-workspace-runtime';
 import { readBinding, type Binding, type InstanceRecord } from './binding-store.js';
 import { getSessionMeta } from './session-manager.js';
 
@@ -46,7 +47,7 @@ export type BindingStatusView = {
  */
 export function loadBindingStatus(projectRoot: string): BindingStatusView {
   const binding = readBinding(projectRoot);
-  const canonicalExists = existsSync(join(projectRoot, '.peaks', '_runtime', 'session.json'));
+  const canonicalExists = existsSync(join(defaultStateRoot(projectRoot), 'session.json'));
   const legacyExists = existsSync(join(projectRoot, '.peaks', '.session.json'));
   const source: BindingStatusView['source'] = canonicalExists
     ? 'canonical'

@@ -1,7 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { defaultStateRoot } from 'peaks-loop-workspace-runtime';
 import { tryParseJson } from '../../shared/json-parse.js';
 import { ensureMemoryBootstrap } from '../memory/project-memory-service.js';
+import { getSessionDir } from '../session/getSessionDir.js';
 import { getSessionId, getSessionMeta } from '../session/session-manager.js';
 import { SessionIdentitySchema } from '../session/session-file-schema.js';
 // Slice 4.0.8 compat shim: the canonical write path lives in
@@ -134,8 +136,11 @@ function getCurrentOuterSessionId(): string | undefined {
 // only source of truth. The legacy constants `PRESENCE_FILE` and
 // `PRESENCE_FILE_LEGACY` are deleted; readers use `listPresenceLeases`.
 
-const SESSION_FILE = join('.peaks', '_runtime', 'session.json');
+const SESSION_FILE = 'session.json';
 const SESSION_FILE_LEGACY = '.peaks/.session.json';
+
+// Deprecated single-slot marker; a module constant for the runtime-layout drift guard.
+const STALE_RUNTIME_PRESENCE_FILE = 'active-skill.json';
 
 /**
  * Resolve the active peaks session id.
@@ -168,7 +173,7 @@ export function getCurrentSessionId(projectRootOverride?: string): string | null
   // two answers to "which session is current?" cannot drift again.
   const callerBound = getSessionId(projectRoot);
   if (callerBound !== null) return callerBound;
-  const sessionPath = resolve(projectRoot, SESSION_FILE);
+  const sessionPath = resolve(defaultStateRoot(projectRoot), SESSION_FILE);
   const legacyPath = resolve(projectRoot, SESSION_FILE_LEGACY);
   // Back-compat window: prefer the new canonical path; fall back to the
   // legacy `.peaks/.session.json` for one minor release.
@@ -324,7 +329,7 @@ function getActiveSkillFileForCallerPath(
   peakSessionId: string,
   callerId: string
 ): string {
-  return resolve(projectRoot, '.peaks', '_runtime', peakSessionId, `active-skill-${callerId}.json`);
+  return join(getSessionDir(projectRoot, peakSessionId), `active-skill-${callerId}.json`);
 }
 
 /**
@@ -734,25 +739,14 @@ export function clearSkillPresence(projectRootOverride?: string): boolean {
   // `cleared` / `reason`). Do not read the paragraph above as a
   // promise about this function.
   //
-  // The shim still removes the legacy `active-skill.json` /
-  // `.peaks/.active-skill.json` so a stale marker from a prior CLI
-  // version cannot resurrect after a fresh `clear`. The canonical
-  // lease + index entries are NOT touched by this shim — they
-  // Slice 4.0.11 statusline-sid-scoped-lease C: the deprecated
-  // single-slot presence files (`.peaks/_runtime/active-skill.json`
-  // and `.peaks/.active-skill.json`) are removed. The canonical
-  // sid-scoped lease projection (under
-  // `.peaks/_runtime/<sid>/leases/`) is untouched here — workflow
-  // leases route through `terminalizeWorkflow`, NOT this shim.
-  //
-  // This shim remains as a best-effort stale-file cleanup for
-  // projects that still carry the deprecated single-slot file from
-  // a pre-4.0.11 CLI version. After one minor release the legacy
-  // paths are gone and the loop is a no-op. Returns true when a
-  // stale file was actually removed.
+  // Best-effort cleanup of the deprecated single-slot presence files
+  // (`.peaks/_runtime/active-skill.json` and `.peaks/.active-skill.json`); the
+  // canonical lease + index entries are untouched — workflow leases route
+  // through `terminalizeWorkflow`, NOT this shim. Returns true when a stale
+  // file was actually removed.
   const projectRoot = resolveProjectRoot(projectRootOverride);
   const candidates: ReadonlyArray<string> = [
-    resolve(projectRoot, '.peaks', '_runtime', 'active-skill.json'),
+    join(defaultStateRoot(projectRoot), STALE_RUNTIME_PRESENCE_FILE),
     resolve(projectRoot, '.peaks', '.active-skill.json')
   ];
   let cleared = false;

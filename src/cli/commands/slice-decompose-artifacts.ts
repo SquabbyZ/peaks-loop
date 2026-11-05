@@ -4,6 +4,7 @@
 // 300-line file cap.
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { defaultStateRoot } from 'peaks-loop-workspace-runtime';
 import type { DecompositionResult } from '../../services/slice/slice-decompose-types.js';
 import { slugifyDescription } from '../../shared/incrementing-number.js';
 
@@ -16,12 +17,20 @@ export type BenchmarkMetrics = {
   capturedAt: string;
 };
 
+/**
+ * The runtime root's non-session `benchmarks/` child. Named as a module
+ * constant because the drift guard's reverse check keeps the registry entry
+ * alive through a constant's VALUE — an inline literal is invisible to it once
+ * the join no longer spells `'_runtime'`.
+ */
+const BENCHMARKS_DIR = 'benchmarks';
+
 export function readPrdBody(rid: string, projectRoot: string): string {
   // Search all .peaks/**/prd/requests/*-<rid>.md and .peaks/**/prd/requests/<rid>.md
   const searchRoots = [
     join(projectRoot, '.peaks', '2026'),
     join(projectRoot, '.peaks'),
-    join(projectRoot, '.peaks', '_runtime')
+    defaultStateRoot(projectRoot)
   ];
   const matchInDir = (dir: string): string | null => {
     if (!existsSync(dir)) return null;
@@ -86,7 +95,7 @@ export function writeBenchmarkArtifact(
   // Reuse the current session binding if present; otherwise fall back to
   // a deterministic local dir under the project root. The CLI may be
   // invoked from non-CLI contexts (skill layer); we don't require a session.
-  const dir = join(projectRoot, '.peaks', '_runtime', 'benchmarks');
+  const dir = join(defaultStateRoot(projectRoot), BENCHMARKS_DIR);
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }

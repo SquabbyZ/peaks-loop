@@ -23,6 +23,7 @@
 import { join } from 'node:path';
 
 import { handoffRelativePath } from '../prd/handoff-service.js';
+import { tryGetSessionDir } from '../session/getSessionDir.js';
 
 export type AuditRole = 'security' | 'perf';
 
@@ -69,6 +70,21 @@ function printable(value: string): string {
 }
 
 /**
+ * The session's `prd/` directory, as text the refusal can print.
+ *
+ * The TOTAL entry, deliberately: this module's contract is that a hostile
+ * `--sid` is RENDERED inert, never thrown on (see the a11y block in
+ * `handoff-missing-refusal.test.ts`), and `sid` is guarded only by
+ * `isUnsafePathInput`, which admits NUL and C0/C1 controls. An id the seam
+ * refuses names no directory, so its reason takes the directory's place and is
+ * sanitised by `printable` at the interpolation like every other printed value.
+ */
+function sessionPrdDir(projectRoot: string, sessionId: string): string {
+  const resolved = tryGetSessionDir(projectRoot, sessionId);
+  return resolved.ok ? join(resolved.dir, 'prd') : resolved.reason;
+}
+
+/**
  * Build the refusal payload for a `handoff-missing` detect result.
  *
  * `envelopeValidated` is a MEASUREMENT, not an assumption — pass
@@ -94,7 +110,7 @@ export function handoffMissingRefusal(opts: {
   // runs on exactly the bytes `resolveHandoffPath` would probe. Each value is
   // sanitised at the point it is interpolated, below — not here — so the render
   // is the only thing that changes.
-  const prdDir = join(opts.projectRoot, '.peaks', '_runtime', opts.sessionId, 'prd');
+  const prdDir = sessionPrdDir(opts.projectRoot, opts.sessionId);
 
   // The path the creating command WRITES. With a rid that is the slice-scoped
   // capsule; `resolveHandoffPath` already ran `handoffRelativePath` for these

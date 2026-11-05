@@ -25,6 +25,7 @@ import {
   unlinkSync
 } from 'node:fs';
 import { join } from 'node:path';
+import { getSessionDir } from '../session/getSessionDir.js';
 import {
   isDispatchStatus,
   isOutcome,
@@ -41,7 +42,9 @@ export interface ArchiveResult {
 
 /** Build the canonical archive dir for a given session + slice id. */
 export function archiveDir(projectRoot: string, sessionId: string, sliceId: string): string {
-  return join(projectRoot, '.peaks', '_runtime', sessionId, '_archive', '_sub_agents', sliceId);
+  // A write target (mkdir + rename): the throwing entry, so a refused sid
+  // cannot produce an archive tree outside the session.
+  return join(getSessionDir(projectRoot, sessionId), '_archive', '_sub_agents', sliceId);
 }
 
 /** Build the in-flight subdir (records not yet disposed). */

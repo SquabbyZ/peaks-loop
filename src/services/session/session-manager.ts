@@ -18,6 +18,7 @@ import {
 import { mkdir as mkdirAsync } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { randomBytes } from 'node:crypto';
+import { defaultStateRoot } from 'peaks-loop-workspace-runtime';
 import { projectRootsMatch, stableRealPath } from '../../shared/path-utils.js';
 import { tryParseJson } from '../../shared/json-parse.js';
 import {
@@ -25,6 +26,7 @@ import {
   SessionFileSchema,
   type SessionBinding
 } from './session-file-schema.js';
+import { getSessionDir, tryGetSessionDir } from './getSessionDir.js';
 import { ensureSession } from './session-binding-bridge.js';
 import {
   getCallerBinding,
@@ -72,7 +74,7 @@ export type SessionMeta = {
 // `.peaks/.session.json` path is preserved as a read-only fallback for one
 // minor release so older CLI versions (or trees that have not been migrated
 // by `peaks workspace reconcile`) keep working without a forced re-init.
-const SESSION_FILE = join('_runtime', 'session.json');
+const SESSION_FILE = 'session.json';
 const LEGACY_SESSION_FILE = '.session.json';
 const META_FILE = 'session.json';
 
@@ -143,7 +145,7 @@ function generateSessionId(): string {
  * read-only fallback (see `readSessionFile`).
  */
 function getSessionFilePath(projectRoot: string): string {
-  return join(projectRoot, '.peaks', SESSION_FILE);
+  return join(defaultStateRoot(projectRoot), SESSION_FILE);
 }
 
 /**
@@ -356,19 +358,15 @@ export function setCurrentSessionBinding(projectRoot: string, sessionId: string)
   return info;
 }
 
-function getMetaFilePath(projectRoot: string, sessionId: string): string {
-  // `session.json` (the file written by `setSessionMeta`) lives at the
-  // canonical runtime home `.peaks/_runtime/<sid>/session.json`, NOT
-  // at the top-level `.peaks/_runtime/<sid>/session.json` (which would imply
-  // the legacy session-scoped layout and conflict with the workspace
-  // service's `_runtime/<sid>/` invariant). The migration in slice
-  // 003 moved any top-level meta files into the runtime home.
-  return join(projectRoot, '.peaks', '_runtime', sessionId, META_FILE);
+function getMetaFilePath(projectRoot: string, sessionId: string): string | null {
+  // Canonical runtime home: `.peaks/_runtime/<sid>/session.json`.
+  const resolved = tryGetSessionDir(projectRoot, sessionId);
+  return resolved.ok ? join(resolved.dir, META_FILE) : null;
 }
 
 function readSessionMeta(projectRoot: string, sessionId: string): SessionMeta | null {
   const metaPath = getMetaFilePath(projectRoot, sessionId);
-  if (!existsSync(metaPath)) return null;
+  if (metaPath === null || !existsSync(metaPath)) return null;
 
   try {
     const parsed = tryParseJson(readFileSync(metaPath, 'utf8'), SessionFileSchema);
@@ -380,13 +378,11 @@ function readSessionMeta(projectRoot: string, sessionId: string): SessionMeta | 
 }
 
 function writeSessionMeta(projectRoot: string, sessionId: string, meta: SessionMeta): void {
-  const metaPath = getMetaFilePath(projectRoot, sessionId);
-  // The parent dir of that file is the canonical runtime session dir.
-  const metaDir = dirname(metaPath);
+  const metaDir = getSessionDir(projectRoot, sessionId);
   if (!existsSync(metaDir)) {
     mkdirSync(metaDir, { recursive: true });
   }
-  writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf8');
+  writeFileSync(join(metaDir, META_FILE), JSON.stringify(meta, null, 2), 'utf8');
 }
 
 /**
@@ -443,7 +439,7 @@ export function setSessionTitle(
  * release) but is not authoritative.
  */
 export function listSessionMetas(projectRoot: string): SessionMeta[] {
-  const runtimeRoot = join(projectRoot, '.peaks', '_runtime');
+  const runtimeRoot = defaultStateRoot(projectRoot);
   const peaksRoot = join(projectRoot, '.peaks');
   const seen = new Set<string>();
   const result: SessionMeta[] = [];
@@ -619,7 +615,7 @@ export function resolveCallerBoundSession(projectRoot: string): CallerBoundSessi
  */
 export async function getCurrentSessionDir(projectRoot: string): Promise<string> {
   const sessionId = await ensureSession(projectRoot);
-  return join(projectRoot, '.peaks', '_runtime', sessionId);
+  return getSessionDir(projectRoot, sessionId);
 }
 
 /**
@@ -634,7 +630,7 @@ export async function getCurrentSessionDir(projectRoot: string): Promise<string>
  * @returns Array of session IDs
  */
 export function listSessions(projectRoot: string): string[] {
-  const runtimeRoot = join(projectRoot, '.peaks', '_runtime');
+  const runtimeRoot = defaultStateRoot(projectRoot);
   const peaksRoot = join(projectRoot, '.peaks');
   const seen = new Set<string>();
   const result: string[] = [];
@@ -678,7 +674,7 @@ export async function getProjectScanPath(projectRoot: string): Promise<string> {
   // ephemeral state under `_runtime/`. The parent `rd/` subdir is
   // created on demand so the first scanner call has a place to land
   // (consistent with the legacy behavior pre-1.3.1).
-  const scanPath = join(projectRoot, '.peaks', '_runtime', sessionId, 'rd', 'project-scan.md');
+  const scanPath = join(getSessionDir(projectRoot, sessionId), 'rd', 'project-scan.md');
   await mkdirAsync(dirname(scanPath), { recursive: true });
   return scanPath;
 }
@@ -693,6 +689,6 @@ export function hasProjectScan(projectRoot: string): boolean {
   const info = readSessionFile(projectRoot);
   if (!info) return false;
 
-  const scanPath = join(projectRoot, '.peaks', '_runtime', info.sessionId, 'rd', 'project-scan.md');
-  return existsSync(scanPath);
+  const resolved = tryGetSessionDir(projectRoot, info.sessionId);
+  return resolved.ok && existsSync(join(resolved.dir, 'rd', 'project-scan.md'));
 }

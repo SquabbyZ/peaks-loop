@@ -27,6 +27,7 @@ import {
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
+import { getSessionDir } from '../../services/session/getSessionDir.js';
 import { DEFAULT_REQUEST_TYPE } from '../../services/artifacts/artifact-prerequisites.js';
 import { REQUEST_ID_PATTERN } from '../../services/artifacts/request-artifact-service.js';
 import { contractEvidencePaths } from '../../services/workflow/pipeline-verify-gate-support.js';
@@ -245,14 +246,14 @@ function readAudit<T>(
   parse: AuditParser<T>
 ): T | null {
   for (const rel of rels) {
-    const path = join(projectRoot, '.peaks', '_runtime', sid, rel.replace('<rid>', rid));
+    const path = join(getSessionDir(projectRoot, sid), rel.replace('<rid>', rid));
     if (existsSync(path)) return parse(readFileSync(path, 'utf8'));
   }
   return null;
 }
 
 async function readMut(projectRoot: string, sid: string): Promise<ReturnType<typeof parseMutJson>> {
-  const path = join(projectRoot, '.peaks', '_runtime', sid, MUT_REL);
+  const path = join(getSessionDir(projectRoot, sid), MUT_REL);
   if (!existsSync(path)) return null;
   const raw = readFileSync(path, 'utf8');
   let json: unknown;
@@ -266,7 +267,7 @@ async function readMut(projectRoot: string, sid: string): Promise<ReturnType<typ
 }
 
 function readQa(projectRoot: string, sid: string, rid: string): ReturnType<typeof parseQaEnvelope> {
-  const dir = join(projectRoot, '.peaks', '_runtime', sid, QA_REL);
+  const dir = join(getSessionDir(projectRoot, sid), QA_REL);
   const candidates = [`${rid}.md`, `001-${slugifyDescription(rid)}.md`];
   for (const name of candidates) {
     const path = join(dir, name);

@@ -9,6 +9,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { defaultStateRoot } from 'peaks-loop-workspace-runtime';
 import {
   getPrerequisitesFor,
   type ArtifactPrerequisite,
@@ -17,12 +18,13 @@ import {
 import * as qaPhase from './pipeline-verify-qa-phase.js';
 import { rdEvidenceProbe, rdGatesForType } from './pipeline-verify-rd-phase.js';
 import { prerequisiteBodyViolations } from '../artifacts/prerequisite-checks.js';
-import type {
-  RequestArtifactRole,
-  RequestArtifactState
+import {
+  showRequestArtifact,
+  type RequestArtifactRole,
+  type RequestArtifactState
 } from '../artifacts/request-artifact-service.js';
-import { showRequestArtifact } from '../artifacts/request-artifact-service.js';
 import { readArtifactState } from '../artifacts/request-artifact-state-helpers.js';
+import { tryGetSessionDir } from '../session/getSessionDir.js';
 import type { PipelineGate } from './pipeline-verify-types.js';
 
 export function extractState(markdown: string): string {
@@ -202,7 +204,9 @@ export function resolveRdEvidencePaths(
 ): CanonicalPathTracker {
   // The path each gate is about, read off the table that declared the gate —
   // not a second path table. The contract is consulted first — see
-  // `contractEvidencePaths`.
+  // `contractEvidencePaths`. A scope that is not one path segment names no
+  // session directory, so no canonical candidate can exist for it.
+  const resolvedScope = tryGetSessionDir(projectRoot, rdEvidenceDir);
   let anyEvidenceResolved = tracker.anyEvidenceResolved;
   let allResolvedPathsCanonical = tracker.allResolvedPathsCanonical;
   for (const gate of gates.slice(1)) {
@@ -211,13 +215,9 @@ export function resolveRdEvidencePaths(
       contractEvidencePaths('rd', 'qa-handoff', requestType, probeName) ?? [probeName]
     ).map((relative) => relative.replace('<rid>', rid));
     const primaryRelativePath = relativePaths[0]!;
-    const canonicalPath = join(
-      projectRoot,
-      '.peaks',
-      '_runtime',
-      rdEvidenceDir,
-      primaryRelativePath
-    );
+    // A display path for the "missing" detail; identical to what the old
+    // hand-rolled join produced, without re-composing the runtime root.
+    const canonicalPath = join(defaultStateRoot(projectRoot), rdEvidenceDir, primaryRelativePath);
     // Two independent axes, kept apart because they mean different things:
     //   - `legacyRoot` — the file sits under a pre-F3 session home
     //     (`.peaks/<sid>/…` or `.peaks/_runtime/change/<sid>/…`). That is a
@@ -230,11 +230,12 @@ export function resolveRdEvidencePaths(
     const candidates: Array<{ path: string; legacyRoot: boolean; legacyForm: boolean }> = [];
     for (const relative of relativePaths) {
       const legacyForm = relative !== primaryRelativePath;
-      for (const [root, legacyRoot] of [
-        [join(projectRoot, '.peaks', '_runtime', rdEvidenceDir), false],
+      const roots: Array<[string, boolean]> = [
         [join(projectRoot, '.peaks', rdEvidenceDir), true],
-        [join(projectRoot, '.peaks', '_runtime', 'change', rdEvidenceDir), true]
-      ] as Array<[string, boolean]>) {
+        [join(defaultStateRoot(projectRoot), 'change', rdEvidenceDir), true]
+      ];
+      if (resolvedScope.ok) roots.unshift([resolvedScope.dir, false]);
+      for (const [root, legacyRoot] of roots) {
         candidates.push({ path: join(root, relative), legacyRoot, legacyForm });
       }
     }
@@ -305,6 +306,8 @@ export function resolveQaEvidencePaths(
   const QA_EVIDENCE_PROBE: Record<string, string> = Object.fromEntries(
     qaPhase.QA_EVIDENCE_GATES.map((gate) => [gate.name, gate.relativePath] as const)
   );
+  // Same scope rule as the RD side; the legacy probes still run.
+  const resolvedScope = tryGetSessionDir(projectRoot, rdEvidenceDir);
   let anyEvidenceResolved = tracker.anyEvidenceResolved;
   let allResolvedPathsCanonical = tracker.allResolvedPathsCanonical;
   for (const gate of gates.slice(1)) {
@@ -313,20 +316,15 @@ export function resolveQaEvidencePaths(
       contractEvidencePaths('qa', 'verdict-issued', requestType, probeName) ?? [probeName]
     ).map((relative) => relative.replace('<rid>', rid));
     const primaryRelativePath = relativePaths[0]!;
-    const canonicalQaPath = join(
-      projectRoot,
-      '.peaks',
-      '_runtime',
-      rdEvidenceDir,
-      primaryRelativePath
-    );
+    const canonicalQaPath = join(defaultStateRoot(projectRoot), rdEvidenceDir, primaryRelativePath);
     const candidates: Array<{ path: string; legacyRoot: boolean }> = [];
     for (const relative of relativePaths) {
-      for (const [root, legacyRoot] of [
-        [join(projectRoot, '.peaks', '_runtime', rdEvidenceDir), false],
+      const roots: Array<[string, boolean]> = [
         [join(projectRoot, '.peaks', rdEvidenceDir), true],
-        [join(projectRoot, '.peaks', '_runtime', 'change', rdEvidenceDir), true]
-      ] as Array<[string, boolean]>) {
+        [join(defaultStateRoot(projectRoot), 'change', rdEvidenceDir), true]
+      ];
+      if (resolvedScope.ok) roots.unshift([resolvedScope.dir, false]);
+      for (const [root, legacyRoot] of roots) {
         candidates.push({ path: join(root, relative), legacyRoot });
       }
     }

@@ -11,7 +11,9 @@
  * name from this module so all importers keep resolving the same path.
  */
 
-import { join, resolve, sep } from 'node:path';
+import { resolve } from 'node:path';
+import { isInsidePath } from '../../shared/path-utils.js';
+import { getSessionDir } from '../session/getSessionDir.js';
 import {
   type WorkflowGraph,
   type WorkflowGraphNode,
@@ -58,7 +60,7 @@ function safeSessionRuntimeRoot(projectRoot: string, sessionId: string): string 
     throw makeError(PEAKS_GRAPH_REF_BROKEN, `invalid sessionId: ${sessionId}`);
   }
   const root = resolve(projectRoot);
-  return join(root, '.peaks', '_runtime', sessionId);
+  return getSessionDir(root, sessionId);
 }
 
 /** Compute the on-disk graph path. Validates `graphRef` stays under the session root. */
@@ -76,7 +78,14 @@ export function graphPathFor(input: {
   }
   const sessionRoot = safeSessionRuntimeRoot(input.projectRoot, input.sessionId);
   const resolved = resolve(sessionRoot, input.graphRef);
-  if (!resolved.startsWith(sessionRoot + sep) && resolved !== sessionRoot) {
+  // Containment is asked through `relative()`, never by string-prefix: the
+  // session root is emitted by the workspace-runtime package with FORWARD
+  // slashes, while `resolve()` here returns the platform's separators. On
+  // Windows the prefix test compared `D:/…/_runtime/<sid>` against
+  // `D:\…\graphs\x.json`, was false for every legitimate ref, and threw. Any
+  // prefix scheme has the same defect unless BOTH sides are folded first;
+  // `relative()` folds both and also answers the cross-drive case.
+  if (!isInsidePath(resolved, sessionRoot)) {
     throw makeError(PEAKS_GRAPH_REF_BROKEN, `graphRef escapes session root: ${input.graphRef}`);
   }
   return resolved;

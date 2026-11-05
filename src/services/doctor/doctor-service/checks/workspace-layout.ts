@@ -21,9 +21,10 @@
  */
 
 import { existsSync, lstatSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 
 import { getErrorMessage } from 'peaks-loop-shared/result';
+import { defaultStateRoot } from 'peaks-loop-workspace-runtime';
 
 import type {
   DoctorCheck,
@@ -150,12 +151,16 @@ function defaultLegacyDotfileScanner(projectRoot: string): string[] {
  */
 function defaultStaleSingleSlotScanner(projectRoot: string): string[] {
   const offenders: string[] = [];
+  const runtimeRoot = defaultStateRoot(projectRoot);
+  // The reported path is the project-relative form the doctor prints, derived
+  // from the same state root rather than re-composing `.peaks` + `_runtime`.
+  const runtimeRootRelative = relative(projectRoot, runtimeRoot);
   const candidates: ReadonlyArray<string> = [
-    join(projectRoot, '.peaks', '_runtime', 'active-skill.json'),
+    join(runtimeRoot, 'active-skill.json'),
     join(projectRoot, '.peaks', '.active-skill.json')
   ];
   const reported: ReadonlyArray<string> = [
-    join('.peaks', '_runtime', 'active-skill.json'),
+    join(runtimeRootRelative, 'active-skill.json'),
     join('.peaks', '.active-skill.json')
   ];
   for (let i = 0; i < candidates.length; i++) {

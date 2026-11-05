@@ -111,7 +111,22 @@ export const STRYKER_DEFAULTS = {
   reporters: [] as ReadonlyArray<string>,
   logLevel: 'off',
   fileLogLevel: 'off',
-  allowConsoleColors: false
+  allowConsoleColors: false,
+  /** The caller's sandbox-ignore list is opt-in, so the default is empty. */
+  ignorePatterns: [] as ReadonlyArray<string>,
+  /**
+   * ALWAYS ignored, whatever the caller asked for: Stryker copies the
+   * project into `.stryker-tmp/sandbox-*`, so a sandbox directory that is
+   * itself copied is a copy of the sandbox into itself.
+   */
+  alwaysIgnoredPatterns: ['.stryker-tmp'] as ReadonlyArray<string>,
+  /**
+   * The file-log level the PRODUCTION invoker turns on while a run is in
+   * flight (`production-stryker.ts` reads it). The console level stays
+   * `off` — stdout is reserved for the `--json` envelope — so the file log
+   * is the only place Stryker's real failure reason is written down.
+   */
+  diagnosticFileLogLevel: 'debug'
 } as const;
 
 export interface StrykerOptionsInput {
@@ -121,6 +136,12 @@ export interface StrykerOptionsInput {
   readonly mutate?: ReadonlyArray<string>;
   /** Test files to run. Empty means "let the runner discover them". */
   readonly testFiles?: ReadonlyArray<string>;
+  /**
+   * Patterns NOT to copy into the Stryker sandbox. Empty by default.
+   * Passed through verbatim (Stryker's own glob semantics) and always
+   * extended with the patterns in `STRYKER_DEFAULTS.alwaysIgnoredPatterns`.
+   */
+  readonly ignorePatterns?: ReadonlyArray<string>;
   /** Absolute paths (or file URLs) of Stryker plugins to load. */
   readonly pluginDescriptors?: ReadonlyArray<string>;
   readonly tsconfigFile?: string;
@@ -128,6 +149,7 @@ export interface StrykerOptionsInput {
   readonly concurrency?: number;
   readonly testRunner?: string;
   readonly coverageAnalysis?: string;
+  readonly fileLogLevel?: string;
 }
 
 export interface BuiltStrykerOptions {
@@ -163,6 +185,14 @@ export function buildStrykerOptions(input: StrykerOptionsInput): BuiltStrykerOpt
     // related-mode narrowing discard it. See the module header.
     options.vitest = { related: false };
   }
+
+  // Verbatim, like `mutate`: these are Stryker globs, not file paths.
+  // `.stryker-tmp` is appended unconditionally (see STRYKER_DEFAULTS).
+  options.ignorePatterns = [
+    ...STRYKER_DEFAULTS.ignorePatterns,
+    ...(input.ignorePatterns ?? []),
+    ...STRYKER_DEFAULTS.alwaysIgnoredPatterns
+  ];
 
   if (pluginDescriptors.length > 0) {
     // `appendPlugins` (not `plugins`) so a project `stryker.conf.js` keeps
@@ -202,6 +232,11 @@ function applyCallerOwnedOptions(options: StrykerOptionsShape, input: StrykerOpt
   }
   if (input.tsconfigFile) {
     options.tsconfigFile = input.tsconfigFile;
+  }
+  if (input.fileLogLevel) {
+    // The production invoker raises this to capture Stryker's own reason
+    // when a run fails; the console level stays untouched.
+    options.fileLogLevel = input.fileLogLevel;
   }
 }
 

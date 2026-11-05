@@ -21,6 +21,7 @@ import {
 import { join, sep } from 'node:path';
 import { emitObservabilityEvent } from '../observability/observability-service.js';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
+import { tryGetSessionDir } from './getSessionDir.js';
 
 const CHECKPOINTS_DIR = 'checkpoints';
 const CHECKPOINT_FILENAME_EXT = '.json';
@@ -69,8 +70,14 @@ function toPosix(p: string): string {
   return p.split(sep).join('/');
 }
 
-function checkpointsDirPath(projectRoot: string, sessionId: string): string {
-  return join(projectRoot, '.peaks', '_runtime', sessionId, CHECKPOINTS_DIR);
+/**
+ * The checkpoints dir, or `null` when the session id cannot name a session
+ * dir. The TOTAL entry: the readers here answer "no checkpoints", and the
+ * writer — the one frame that cannot proceed — refuses the id itself.
+ */
+function checkpointsDirPath(projectRoot: string, sessionId: string): string | null {
+  const resolved = tryGetSessionDir(projectRoot, sessionId);
+  return resolved.ok ? join(resolved.dir, CHECKPOINTS_DIR) : null;
 }
 
 function isoTimestamp(d: Date): string {
@@ -85,7 +92,9 @@ export function isValidCheckpointReason(value: string): value is CheckpointReaso
 }
 
 function readSessionLastActivity(projectRoot: string, sessionId: string): string {
-  const sessionJsonPath = join(projectRoot, '.peaks', '_runtime', sessionId, 'session.json');
+  const sessionDir = tryGetSessionDir(projectRoot, sessionId);
+  if (!sessionDir.ok) return '';
+  const sessionJsonPath = join(sessionDir.dir, 'session.json');
   if (!existsSync(sessionJsonPath)) return '';
   try {
     const raw = readFileSync(sessionJsonPath, 'utf8');
@@ -151,6 +160,12 @@ export function writeCheckpoint(
   const createdAt = now.toISOString();
   const lastActivity = readSessionLastActivity(projectRoot, options.sessionId) || createdAt;
   const dir = checkpointsDirPath(projectRoot, options.sessionId);
+  if (dir === null) {
+    // The guard above refuses the traversal shapes; the seam's predicate is
+    // also stricter than `isUnsafePathInput` on nesting (`a/b`), and a write
+    // cannot proceed without a session dir. Same refusal, same message.
+    throw new Error(`Invalid session id: ${options.sessionId} (must be a single path segment)`);
+  }
   mkdirSync(dir, { recursive: true });
 
   const snapshot: CheckpointSnapshot = {
@@ -209,7 +224,9 @@ export function readCheckpoint(path: string): CheckpointSnapshot {
 }
 
 export function listCheckpointPaths(projectRoot: string, sessionId: string): string[] {
-  return listCheckpoints(checkpointsDirPath(projectRoot, sessionId))
+  const dir = checkpointsDirPath(projectRoot, sessionId);
+  if (dir === null) return [];
+  return listCheckpoints(dir)
     .sort((a, b) => b.mtimeMs - a.mtimeMs)
     .map((c) => toPosix(c.path));
 }

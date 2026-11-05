@@ -7,12 +7,6 @@
       "until": "v2.15.0",
       "reason": "No reviewer configured: peaks reviewer status reports no-reviewer-config, and the prerequisite table soft-skips this artifact in that state. Documented deviation: this commit-leg gate does not re-evaluate the reviewer.providers conditional, so the window is accepted here regardless of that config.",
       "reviewBy": "v4.2.0"
-    },
-    {
-      "path": "mut/mut-report.json",
-      "until": "v2.14.0",
-      "reason": "peaks-mut was not run for this slice: it is a verbatim move of runtime code into packages/peaks-loop-workspace-runtime, whose behaviour is pinned by the package's own 58 tests plus the full 7258-case unit suite, and the mut harness's configured scope targets a different file set. Re-running the mut gate over the moved modules is a follow-up together with the 72-site sweep.",
-      "reviewBy": "v4.2.0"
     }
   ]
 }

@@ -1,5 +1,5 @@
 // CONTRACT TEST — implementation pending; this test is the acceptance gate for slice 4.0.8 presence-lease-graph
-// TC coverage: TC-SM-01, TC-SM-02, TC-SM-06, TC-SM-07, TC-SM-08, TC-SM-12,
+// TC coverage: TC-SM-01, TC-SM-02, TC-SM-06, TC-SM-06b, TC-SM-07, TC-SM-08, TC-SM-12,
 // and production ESM repros TC-AG-01, TC-AG-04, TC-AG-05.
 // Omitted render: this service exposes typed state, not a rendered surface.
 
@@ -172,6 +172,36 @@ describe('Scenario: behavior — presence lease state transitions', () => {
     });
     expect(result.removed).toBe(1);
     expect(result.retained).toBe(1);
+  });
+
+  it('when a stale lease cannot be resolved, should TC-SM-06b: report a warning row instead of throwing. RD §3. Pass criterion: assert.equal(gc.retained, 1) and the warning row carries the reason.', async () => {
+    // given: a stale lease whose `workflowId` is `.`
+    // when: gc sweeps it
+    // then: it is retained with a warning row rather than aborting the sweep
+    //   `.` passes WORKFLOW_ID_REGEX and lease files are read off disk without
+    //   re-validation, so the shape is reachable. Before the workspace-runtime
+    //   extraction the path helper was a total `join`; it throws now, and the
+    //   sweep must stay total by reporting the reason instead.
+    const root = await project();
+    const api = await loadPresenceApi();
+    const result = await api.gcStalePresenceLeases({
+      projectRoot: root,
+      now: '2026-08-03T10:00:00.000Z',
+      leases: [
+        {
+          ...input(root, { workflowId: '.' }),
+          startedAt: '2026-08-01T09:00:00.000Z',
+          lastHeartbeat: '2026-08-03T08:00:00.000Z'
+        }
+      ]
+    });
+    expect(result.removed).toBe(0);
+    expect(result.retained).toBe(1);
+    const warnings = result.warnings as Array<{ code: string; message: string }>;
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]?.code).toBe('PEAKS_GRAPH_REF_BROKEN');
+    expect(warnings[0]?.message).toContain('cannot be resolved');
+    expect(warnings[0]?.message).toContain('Invalid session id: .');
   });
 
   it('when invoked, should TC-SM-07: two callers remain isolated when one lease terminalizes. RD §3. Pass criterion: assert.equal(readA.status, "terminalized") and assert.equal(readB.status, "running").', async () => {

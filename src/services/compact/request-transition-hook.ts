@@ -21,6 +21,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { tryGetSessionDir } from '../session/getSessionDir.js';
 import { writeCheckpoint } from '../session/session-checkpoint-service.js';
 import {
   AUTO_COMPACT_PRE_COMPACT_RATIO,
@@ -54,7 +55,10 @@ const PRE_COMPACT_ZONE: { readonly preCompact: number; readonly redLine: number 
 };
 
 function readLatestUsageRow(projectRoot: string, sessionId: string): UsageRow | null {
-  const path = join(projectRoot, '.peaks', '_runtime', sessionId, 'usage.jsonl');
+  // An unresolvable id has no usage row — the same answer as a missing file.
+  const resolved = tryGetSessionDir(projectRoot, sessionId);
+  if (!resolved.ok) return null;
+  const path = join(resolved.dir, 'usage.jsonl');
   if (!existsSync(path)) return null;
   try {
     const raw = readFileSync(path, 'utf8');

@@ -22,6 +22,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 
+import { tryGetSessionDir } from '../session/getSessionDir.js';
 import {
   JUDGED_HEADING,
   parseJudgedDeclaration,
@@ -119,7 +120,9 @@ export function resolveSecurityArtifact(
   sessionId: string,
   rid: string
 ): { readonly relative: string; readonly absolute: string } | null {
-  const root = join(projectRoot, '.peaks', '_runtime', sessionId);
+  const resolved = tryGetSessionDir(projectRoot, sessionId);
+  if (!resolved.ok) return null;
+  const root = resolved.dir;
   for (const relative of securityArtifactTiers(rid)) {
     const absolute = join(root, ...relative.split('/'));
     if (existsSync(absolute)) return { relative, absolute };

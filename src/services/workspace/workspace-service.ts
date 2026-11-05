@@ -9,6 +9,7 @@ import {
   setSessionMeta
 } from '../session/session-manager.js';
 import { updateCallerBindingSessionId } from '../session/caller-binding-service.js';
+import { getSessionDir, tryGetSessionDir } from '../session/getSessionDir.js';
 import { resolveCallerProjection } from '../session/resolve-caller-id.js';
 import { normalizePath } from '../../shared/path-utils.js';
 import { assertWritableProjectRoot } from '../config/config-safety.js';
@@ -322,8 +323,7 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
   // no longer used by writes; pre-1.3.1 trees get their session
   // files migrated to the change-id dir by `peaks workspace reconcile`.
 
-  const runtimeRoot = join(options.projectRoot, '.peaks', '_runtime');
-  const sessionRoot = join(runtimeRoot, options.sessionId);
+  const sessionRoot = getSessionDir(options.projectRoot, options.sessionId);
   const created: string[] = [];
   const alreadyExisted: string[] = [];
 
@@ -420,10 +420,10 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
     // etc.) regardless of whether the per-session metadata file is present.
     // Refuse to rebind without explicit authorization.
     previousSessionId = existingSessionId;
-    const existingSessionDir = join(runtimeRoot, existingSessionId);
-    if ((await isDirectory(existingSessionDir)) && !options.allowSessionRebind) {
+    const existingDir = tryGetSessionDir(options.projectRoot, existingSessionId);
+    if (existingDir.ok && (await isDirectory(existingDir.dir)) && !options.allowSessionRebind) {
       const { readdirSync } = await import('node:fs');
-      const entries = readdirSync(existingSessionDir);
+      const entries = readdirSync(existingDir.dir);
       if (entries.length > 0) {
         throw new ConflictingSessionError(
           `Project is already bound to session "${existingSessionId}". ` +

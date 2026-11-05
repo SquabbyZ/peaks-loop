@@ -26,6 +26,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 
+import { defaultStateRoot } from 'peaks-loop-workspace-runtime';
 import { getSessionDir, tryGetSessionDir } from '../session/getSessionDir.js';
 
 export const METRICS_DIR = 'metrics';
@@ -113,7 +114,9 @@ export type SessionMetricsEntry = {
  * caller decides mtime ordering (see `pruneMetricsFiles`).
  */
 export function listSessionDirsWithMetrics(projectRoot: string): SessionMetricsEntry[] {
-  const runtimeRoot = join(projectRoot, '.peaks', '_runtime');
+  // The bare runtime root, READ-only (existsSync + readdirSync): the seam's
+  // state-root entry, whose separators both accept.
+  const runtimeRoot = defaultStateRoot(projectRoot);
   if (!existsSync(runtimeRoot)) {
     return [];
   }

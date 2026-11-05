@@ -166,21 +166,27 @@ export function parseSourceFile(absolutePath: string, source: string): ts.Source
 //   * limit (m) — a join whose root is a local `const` alias of a runtime path.
 //     One live instance (`slice-integrate-commands.ts:30`, read-only) and it is
 //     guarded by hand; the rule does not see it.
-//   * the 6 "not scanned" rows of the limit (l) census. Repair R5 replaced this
+//   * the "not scanned" rows of the limit (l) census. Repair R5 replaced this
 //     list with the words "unchanged", which took the names out of the artifact
 //     while the literal-first test went on asserting they were named here —
 //     the same "claim the artifact no longer supports" defect the line exists
 //     to remove, in the test layer. Named again, RE-MEASURED by R7 on
 //     2026-09-15 with `findLiteralFirstIdJoins` over all of `src/` (7 rows
-//     total, 1 in reach, these 6 not scanned). Named by WHAT they join, not by
-//     the line they sit on — the test that re-measures them keys on the same
-//     identity, so this note cannot go stale on a line shift without the suite
-//     going red first:
-//       src/services/prd/prd-blocks-checker.ts              pinned 'prd'    later=[requestId]
-//       src/services/prd/prd-blocks-checker.ts              pinned 'change' later=[requestId]
-//       src/services/session/caller-binding-service.ts      pinned 'callers' later=[callerId]
-//       src/services/workflow/artifact-paths.ts             pinned 'change' later=[sessionId]
-//       src/services/workflow/pipeline-verify-gate-support.ts pinned 'change' later=[rdEvidenceDir]  (two rows)
+//     total, 1 in reach, 6 not scanned). They were named by WHAT they join, not
+//     by the line they sat on — src/services/prd/prd-blocks-checker.ts (pinned
+//     'prd' and 'change'), src/services/session/caller-binding-service.ts
+//     (pinned 'callers'), src/services/workflow/artifact-paths.ts (pinned
+//     'change') and src/services/workflow/pipeline-verify-gate-support.ts
+//     (pinned 'change', two rows).
+//
+//     ALL SIX ARE NOW MIGRATED (2026-11-05 runtime-composition sweep) to
+//     `defaultStateRoot(...)` / `getSessionDir(...)`, so none of them spells a
+//     `'_runtime'` literal any more and the census over `src/` is empty —
+//     in reach and out of it. The data list is kept at `[]` rather than
+//     deleted so the re-measurement still keys on the files, and that test now
+//     carries a planted fixture as its live positive: an empty expectation
+//     with a detector that silently stopped reporting the shape is the failure
+//     mode this line exists to prevent.
 //   * `handoff-auto-regen.ts` — a cross-file constructor, invisible to both
 //     routes; guarded in fact through `handoffRelativePath`.
 //
@@ -275,14 +281,22 @@ export const MEASURED_ESCAPE_MODULES: readonly string[] = [
 ];
 
 /**
- * The 6 limit-(l) rows OUTSIDE rule D's reach — named in the reach note above
- * and re-measured by repair R7 on 2026-09-15 with `findLiteralFirstIdJoins`
- * over all of `src/` (7 rows total; the 7th is the in-reach one the test above
- * pins). Held here as data, not as prose, so the note's claim that these rows
- * are named is checked against the files rather than asserted in prose.
+ * The limit-(l) rows OUTSIDE rule D's reach. Held here as data, not as prose,
+ * so the note's claim that these rows are named is checked against the files
+ * rather than asserted in prose.
+ *
+ * EMPTY SINCE THE RUNTIME-COMPOSITION SWEEP (2026-11-05). Repair R7 measured
+ * 6 rows here (2026-09-15). Every one of them was a hand-rolled
+ * `join(…, '.peaks', '_runtime', '<pinned>', <id>, …)` and every one has since
+ * been migrated to `defaultStateRoot(...)` / `getSessionDir(...)`, which emits
+ * no `'_runtime'` literal — so the shape this census counts no longer exists in
+ * `src/` at all, in reach or out of it. The list is retained (and the test that
+ * re-measures it is retained) because the census is what makes a NEW
+ * literal-first join announce itself; the planted fixture in that test is the
+ * live positive that keeps an empty expectation from being vacuous.
  *
  * No `line` field. These rows are named by the slot they pin and the id joined after
- * it, which is what makes one of them a problem; two of the six share a file AND a
+ * it, which is what makes one of them a problem; two of the six shared a file AND a
  * slot, so the re-measurement compares them as a multiset, and a line number here
  * would be a pointer nothing checks.
  */
@@ -290,22 +304,7 @@ export const NOT_SCANNED_LITERAL_FIRST: readonly {
   readonly file: string;
   readonly pinned: string;
   readonly later: string;
-}[] = [
-  { file: 'src/services/prd/prd-blocks-checker.ts', pinned: 'prd', later: 'requestId' },
-  { file: 'src/services/prd/prd-blocks-checker.ts', pinned: 'change', later: 'requestId' },
-  { file: 'src/services/session/caller-binding-service.ts', pinned: 'callers', later: 'callerId' },
-  { file: 'src/services/workflow/artifact-paths.ts', pinned: 'change', later: 'sessionId' },
-  {
-    file: 'src/services/workflow/pipeline-verify-gate-support.ts',
-    pinned: 'change',
-    later: 'rdEvidenceDir'
-  },
-  {
-    file: 'src/services/workflow/pipeline-verify-gate-support.ts',
-    pinned: 'change',
-    later: 'rdEvidenceDir'
-  }
-];
+}[] = [];
 
 interface ScanResult {
   /** Files the walk LISTED. The denominator the read count is reported against. */

@@ -33,6 +33,7 @@ import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { schemasDir, skillsDir } from 'peaks-loop-shared/paths';
+import { defaultStateRoot } from 'peaks-loop-workspace-runtime';
 
 import { PLUGINS } from './plugin-registry.js';
 import { buildReport } from './report/final-summary.js';
@@ -94,7 +95,7 @@ function defaultProjectRootResolver(): string | null {
  */
 export function isWorkspaceInitializedAt(projectRoot: string): boolean {
   return (
-    existsSync(join(projectRoot, '.peaks', '_runtime', 'session.json')) ||
+    existsSync(join(defaultStateRoot(projectRoot), 'session.json')) ||
     existsSync(join(projectRoot, '.peaks', '.session.json'))
   );
 }

@@ -20,7 +20,8 @@
  */
 
 import { readdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { resolve } from 'node:path';
+import { defaultStateRoot } from 'peaks-loop-workspace-runtime';
 import { findProjectRoot } from '../config/config-safety.js';
 import { getSessionId } from '../session/session-manager.js';
 import { listPresenceLeases } from './presence-lease-service.js';
@@ -80,7 +81,7 @@ export function collectPresenceLeaseCandidates(
   boundSessionId: string | null
 ): PresenceLeaseCandidate[] {
   const candidates: PresenceLeaseCandidate[] = [];
-  const runtimeRoot = join(projectRoot, '.peaks', '_runtime');
+  const runtimeRoot = defaultStateRoot(projectRoot);
   let entries: string[] = [];
   try {
     entries = readdirSync(runtimeRoot, { withFileTypes: true })

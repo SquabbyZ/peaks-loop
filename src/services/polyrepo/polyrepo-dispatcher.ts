@@ -24,6 +24,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { defaultStateRoot, sessionRuntimeDir } from 'peaks-loop-workspace-runtime';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
 import type { PolyrepoDispatch, PolyrepoManifest } from './polyrepo-types.js';
 
@@ -65,7 +66,10 @@ function childArtifactPath(
   sourcePath: string
 ): string {
   const filename = sourcePath.split(/[\\/]/).pop() ?? 'artifact.md';
-  return join(childRoot, '.peaks', '_runtime', sid, role, filename);
+  // The child project has the same runtime layout as this one; only the root
+  // differs, so the state root is resolved against the CHILD.
+  const sessionDir = sessionRuntimeDir({ stateRoot: defaultStateRoot(childRoot), sessionId: sid });
+  return join(sessionDir, role, filename);
 }
 
 function ensureDirFor(file: string): void {

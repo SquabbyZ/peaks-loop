@@ -24,6 +24,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { tryGetSessionDir } from '../session/getSessionDir.js';
 import {
   JobShapeDecisionError,
   JOB_SHAPE_ALREADY_DECIDED,
@@ -72,7 +73,14 @@ export function ensureProvisionalJobShapeDecision(
   sessionId: string,
   input: ProvisionalDecisionInput
 ): ProvisionalDecisionOutcome {
-  const path = join(projectRoot, '.peaks', '_runtime', sessionId, JOB_SHAPE_FILE_NAME);
+  // The function's contract is "any failure is RETURNED, never thrown", so the
+  // id is resolved through the total entry; an unresolvable id is the same
+  // `write-failed` outcome as a refused write, with no path to name.
+  const resolved = tryGetSessionDir(projectRoot, sessionId);
+  if (!resolved.ok) {
+    return { written: false, path: '', reason: 'write-failed', error: resolved.reason };
+  }
+  const path = join(resolved.dir, JOB_SHAPE_FILE_NAME);
   if (existsSync(path)) {
     try {
       readJobShapeDecision(projectRoot, sessionId);

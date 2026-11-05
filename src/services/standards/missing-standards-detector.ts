@@ -28,6 +28,7 @@
 import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join, sep as pathSep } from 'node:path';
 
+import { getSessionDir } from '../session/getSessionDir.js';
 import type { StandardsLanguage } from './project-standards-service.js';
 
 export type MissingProjectStandardsDiagnostic = {
@@ -196,7 +197,7 @@ export function detectMissingProjectStandards(
 export function getStandardsCheckedMarkerPath(projectRoot: string, sessionId: string): string {
   const normalizedRoot = normalizeProjectRoot(projectRoot);
   // Canonical session runtime dir — see `.peaks/memory/session-dir-canonical-resolver-must-route-all-writes.md`.
-  return join(normalizedRoot, '.peaks', '_runtime', sessionId, '.standards-checked');
+  return join(getSessionDir(normalizedRoot, sessionId), '.standards-checked');
 }
 
 /**

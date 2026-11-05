@@ -11,6 +11,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import { isAbsolute, join, relative } from 'node:path';
 
+import { getSessionDir } from '../session/getSessionDir.js';
 import {
   SPILL_TTL_MS,
   type SpillId,
@@ -60,7 +61,7 @@ export function assertNotSymlink(path: string): void {
 
 export function spillDir(projectRoot: string, sessionId: string): string {
   assertSafeSegment(sessionId, 'sessionId');
-  return join(projectRoot, '.peaks', '_runtime', sessionId, 'spill');
+  return join(getSessionDir(projectRoot, sessionId), 'spill');
 }
 
 export function spillPath(projectRoot: string, sessionId: string, spillId: SpillId): string {

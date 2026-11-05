@@ -34,6 +34,8 @@ export interface StrykerInvokerInput {
   readonly testFiles: ReadonlyArray<string>;
   /** Source patterns to mutate. Empty means "let the project config decide". */
   readonly mutate?: ReadonlyArray<string>;
+  /** Patterns NOT to copy into the Stryker sandbox. Empty means "copy all". */
+  readonly ignorePatterns?: ReadonlyArray<string>;
   readonly tsconfigFile?: string;
   readonly timeoutMs?: number;
   readonly concurrency?: number;
@@ -45,6 +47,7 @@ export interface RunMutationInput {
   readonly project: string;
   readonly testFiles: ReadonlyArray<string>;
   readonly mutate?: ReadonlyArray<string>;
+  readonly ignorePatterns?: ReadonlyArray<string>;
   readonly tsconfigFile?: string;
   readonly timeoutMs?: number;
   readonly concurrency?: number;
@@ -62,6 +65,7 @@ export async function runMutation(input: RunMutationInput): Promise<RunMutationO
       project: input.project,
       testFiles: input.testFiles,
       mutate: input.mutate,
+      ignorePatterns: input.ignorePatterns,
       tsconfigFile: input.tsconfigFile,
       timeoutMs: input.timeoutMs,
       concurrency: input.concurrency
@@ -88,18 +92,28 @@ export async function runMutation(input: RunMutationInput): Promise<RunMutationO
 }
 
 /**
- * Wrap an invoker failure while KEEPING its machine-readable `code`.
- * The production invoker raises named codes (`MUT_TOOLCHAIN_UNAVAILABLE`,
- * `MUT_NO_MUTANTS`, …) and the CLI envelope must surface them instead of
- * collapsing every failure into one anonymous message.
+ * Wrap an invoker failure while KEEPING its machine-readable `code` and its
+ * `details`. The production invoker raises named codes
+ * (`MUT_TOOLCHAIN_UNAVAILABLE`, `MUT_NO_MUTANTS`, …) and attaches the
+ * captured Stryker log as `details.strykerLog`; the CLI envelope must surface
+ * both instead of collapsing every failure into one anonymous message.
  */
 function wrapInvocationError(err: unknown): Error {
   const message = err instanceof Error ? err.message : String(err);
-  const wrapped = new Error(`Stryker invocation failed: ${message}`);
-  if (err && typeof err === 'object' && 'code' in err) {
-    const code = (err as { code?: unknown }).code;
-    if (typeof code === 'string') {
-      (wrapped as Error & { code?: string }).code = code;
+  const wrapped = new Error(`Stryker invocation failed: ${message}`, { cause: err });
+  if (err && typeof err === 'object') {
+    if ('code' in err) {
+      const code = (err as { code?: unknown }).code;
+      if (typeof code === 'string') {
+        (wrapped as Error & { code?: string }).code = code;
+      }
+    }
+    const details = (err as { details?: unknown }).details;
+    if (details && typeof details === 'object') {
+      (wrapped as Error & { details?: Record<string, unknown> }).details = details as Record<
+        string,
+        unknown
+      >;
     }
   }
   return wrapped;

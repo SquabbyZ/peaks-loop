@@ -115,8 +115,8 @@ All artifact-producing subcommands require `--session-id <sid>` (one-axis envelo
 
 | Subcommand | Flags                                                                                                                          | What it writes                                           | Exit code                                                                                  |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `run`      | `--project <path> --test-files <files...> [--mutate <patterns...>] --input-sig <hex> --session-id <sid> --out <path> [--json]` | full `MutReportJson` (mutation + assertions + followups) | `1` if `thresholds.passed === false`                                                       |
-| `mutants`  | `--project <path> --test-files <files...> [--mutate <patterns...>] --input-sig <hex> --session-id <sid> --out <path> [--json]` | full `MutReportJson` with empty assertions               | `1` if `thresholds.passed === false`                                                       |
+| `run`      | `--project <path> --test-files <files...> [--mutate <patterns...>] [--ignore <patterns...>] --input-sig <hex> --session-id <sid> --out <path> [--json]` | full `MutReportJson` (mutation + assertions + followups) | `1` if `thresholds.passed === false`                                                       |
+| `mutants`  | `--project <path> --test-files <files...> [--mutate <patterns...>] [--ignore <patterns...>] --input-sig <hex> --session-id <sid> --out <path> [--json]` | full `MutReportJson` with empty assertions               | `1` if `thresholds.passed === false`                                                       |
 | `asserts`  | `--project <path> --test-files <files...> --input-sig <hex> --session-id <sid> --out <path> [--json]`                          | full `MutReportJson` with empty mutation                 | `1` if `thresholds.passed === false`                                                       |
 | `report`   | `--in <path> --session-id <sid> [--json]`                                                                                      | nothing on disk — re-emits a one-line summary            | `1` if input report's `thresholds.passed === false`; `2` on invalid JSON or schema failure |
 
@@ -131,6 +131,10 @@ MEASURED: `peaks mut asserts` writes an **empty** mutation block, so its `mutati
 `--mutate <patterns...>` is the **mutation scope**: source patterns, relative to `--project`. It is optional on the parser but required in practice — without it the runner falls back to a project-root `stryker.conf.js`, and with neither the run is refused with the named code `MUT_MUTATE_PATTERN_REQUIRED`.
 
 The Stryker configuration is **built programmatically** by the CLI (`peaks-loop-mut` → `buildStrykerOptions`): the test runner, the timing, the coverage mode and the mutation scope all come from the flags. A project-root `stryker.conf.js` is **optional** — a backwards-compatible fallback for projects that already ship one. When one exists, the CLI's own options win over it (Stryker deep-merges the CLI options over the config file).
+
+`--ignore <patterns...>` names paths that must **not** be copied into the Stryker sandbox (repeatable: `--ignore .peaks --ignore dist`). It is optional and empty by default; the builder always appends `.stryker-tmp`, because the sandbox must never be copied into itself. Use it on a repository whose gitignored directories hold symlinks or junction fixtures: Stryker copies the whole project into `.stryker-tmp/sandbox-*`, and such a tree makes that copy fail with `EPERM` unless it is ignored.
+
+When a Stryker run fails, the CLI writes `<out dir>/stryker-failure.log` — the error chain plus the log Stryker itself wrote — and names that absolute path in the envelope's `data.diagnosticPath` and `nextActions`. Stryker's console log is off (stdout belongs to `--json`), so this file is the only place the real reason appears: `Something went wrong in the initial test run` is Stryker's bare summary, not a diagnosis. A successful run writes no diagnostic.
 
 Named error codes the mut family can emit:
 

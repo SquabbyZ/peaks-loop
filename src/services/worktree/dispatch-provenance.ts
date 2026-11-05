@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { tryGetSessionDir } from '../session/getSessionDir.js';
 
 export const DISPATCH_PROVENANCE_ENV = 'PEAKS_SUB_AGENT_DISPATCH_PROVENANCE';
 const PROVENANCE_DIR = 'dispatch-provenance';
@@ -30,8 +31,11 @@ export function dispatchProvenanceFilePath(
   projectRoot: string,
   sessionId: string,
   token: string
-): string {
-  return join(projectRoot, '.peaks', '_runtime', sessionId, PROVENANCE_DIR, `${token}.json`);
+): string | null {
+  // Total: the reader treats an unresolvable id as "no provenance record",
+  // the same answer as a missing file.
+  const resolved = tryGetSessionDir(projectRoot, sessionId);
+  return resolved.ok ? join(resolved.dir, PROVENANCE_DIR, `${token}.json`) : null;
 }
 
 export function writeDispatchProvenance(input: {
@@ -43,6 +47,11 @@ export function writeDispatchProvenance(input: {
     input.record.sessionId,
     input.record.token
   );
+  if (path === null) {
+    throw new Error(
+      `Invalid session id: ${input.record.sessionId} (must be a single path segment)`
+    );
+  }
   mkdirSync(dirname(path), { recursive: true });
   const tempPath = `${path}.tmp-${process.pid}-${Date.now()}`;
   writeFileSync(tempPath, `${JSON.stringify(input.record, null, 2)}\n`, 'utf8');
@@ -56,7 +65,7 @@ export function readDispatchProvenance(input: {
 }): DispatchProvenance | null {
   if (!/^[a-f0-9]{32}$/.test(input.token)) return null;
   const path = dispatchProvenanceFilePath(input.projectRoot, input.sessionId, input.token);
-  if (!existsSync(path)) return null;
+  if (path === null || !existsSync(path)) return null;
   try {
     const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
     if (parsed === null || typeof parsed !== 'object') return null;

@@ -19,9 +19,13 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, resolve } from 'node:path';
+import { defaultStateRoot } from 'peaks-loop-workspace-runtime';
 import { atomicWriteJson } from '../ide/shared/atomic-json.js';
 import { CALLER_ID_REGEX, type CallerBinding } from './caller-id-types.js';
 import { getSessionDir } from './getSessionDir.js';
+
+/** The runtime root's non-session `callers/` child (registry name). */
+const CALLERS_DIR = 'callers';
 
 /**
  * On-disk location of the per-caller binding file. P4 invariant:
@@ -34,7 +38,7 @@ export function getCallerBindingFile(projectRoot: string, callerId: string): str
     // The caller is expected to validate via `resolveCallerId` first.
     throw new Error(`getCallerBindingFile: invalid callerId "${callerId}"`);
   }
-  return join(projectRoot, '.peaks', '_runtime', 'callers', `${callerId}.json`);
+  return join(defaultStateRoot(projectRoot), CALLERS_DIR, `${callerId}.json`);
 }
 
 /**
@@ -210,7 +214,7 @@ export function updateCallerBindingSessionId(
  * re-reading).
  */
 export function listCallerBindings(projectRoot: string): CallerBinding[] {
-  const dir = join(projectRoot, '.peaks', '_runtime', 'callers');
+  const dir = join(defaultStateRoot(projectRoot), CALLERS_DIR);
   if (!existsSync(dir)) return [];
   let names: string[];
   try {

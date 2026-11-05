@@ -6,6 +6,7 @@
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { defaultStateRoot, sessionRuntimeDir } from 'peaks-loop-workspace-runtime';
 import { isUnsafePathInput } from '../../../shared/path-safety.js';
 
 export async function doctorInvokeFromCode(opts: { sid: string; json: boolean }) {
@@ -14,7 +15,14 @@ export async function doctorInvokeFromCode(opts: { sid: string; json: boolean })
   if (isUnsafePathInput(opts.sid)) {
     throw new Error(`Invalid session id: ${opts.sid} (must be a single path segment)`);
   }
-  const dir = join('.peaks', '_runtime', opts.sid, 'doctor');
+  // No project root reaches this frame: the stub is written relative to the
+  // caller's cwd on purpose, and the returned path stays relative. So the
+  // runtime root is the one of the current directory ("."), and the session
+  // segment goes through the same seam as every other session-scoped path.
+  const dir = join(
+    sessionRuntimeDir({ stateRoot: defaultStateRoot('.'), sessionId: opts.sid }),
+    'doctor'
+  );
   mkdirSync(dir, { recursive: true });
   const proposalPath = join(dir, 'proposal.md');
   // Stub: real implementation invokes peaks-doctor sub-skill

@@ -31,6 +31,7 @@ import {
 } from './final-review-evidence-budget.js';
 import { evidenceSourcesFor } from './final-review-service.js';
 import type { DimensionKind } from './final-review-types.js';
+import { getSessionDir } from '../session/getSessionDir.js';
 
 /**
  * ENOENT is "no such file"; every other errno is "the file is there and this
@@ -48,7 +49,10 @@ export function readEvidence(
   rid: string,
   prePostDiffAvailable: boolean
 ): readonly EvidenceCandidate[] {
-  const runtimeRoot = join(projectRoot, '.peaks', '_runtime', sessionId);
+  // The throwing entry: this read phase cannot proceed without a session dir,
+  // and its only production caller (`final-review-prepare-command`) refuses
+  // the empty / traversal / separator id shapes before reaching here.
+  const runtimeRoot = getSessionDir(projectRoot, sessionId);
 
   return evidenceSourcesFor(rid, prePostDiffAvailable).map((source) => {
     // The canonical location first; an older one is tried only when the

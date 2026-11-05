@@ -26,6 +26,7 @@ import { join, resolve, isAbsolute } from 'node:path';
 import { createHash } from 'node:crypto';
 import { REQUEST_ID_PATTERN } from '../artifacts/request-artifact-service.js';
 import { resolveHandoffPath } from '../prd/handoff-service.js';
+import { getSessionDir } from '../session/getSessionDir.js';
 import { handoffMissingRefusal } from './handoff-missing-refusal.js';
 
 /**
@@ -362,11 +363,9 @@ export function renderPerfAuditArtifact(
 }
 
 /**
- * Write the rendered audit artifact to
- * `.peaks/_runtime/<sid>/audit/perf-<rid>.md`.
+ * Write the rendered audit artifact to `.peaks/_runtime/<sid>/audit/perf-<rid>.md`.
  *
- * Atomic write (tmp + rename) to avoid partial writes on crash.
- * Returns the absolute path on success.
+ * Atomic write (tmp + rename); returns the absolute path on success.
  */
 export function writePerfAuditArtifact(
   projectRoot: string,
@@ -382,7 +381,7 @@ export function writePerfAuditArtifact(
       `Invalid request id: ${rid} (expected letters, digits, dots, underscores, or dashes)`
     );
   }
-  const targetDir = join(projectRoot, '.peaks', '_runtime', sessionId, 'audit');
+  const targetDir = join(getSessionDir(projectRoot, sessionId), 'audit');
   mkdirSync(targetDir, { recursive: true });
   const targetPath = join(targetDir, `perf-${rid}.md`);
   // tmp + rename for atomicity

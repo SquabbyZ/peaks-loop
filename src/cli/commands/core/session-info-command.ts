@@ -1,6 +1,7 @@
 import type { Command } from 'commander';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { defaultStateRoot } from 'peaks-loop-workspace-runtime';
 import { getSessionMeta } from '../../../services/session/session-manager.js';
 import { resolveCanonicalProjectRoot } from '../../../services/config/config-service.js';
 import { findProjectRoot } from '../../../services/config/config-safety.js';
@@ -27,14 +28,12 @@ const LEGACY_WARNING =
 
 /** `canonical` = `.peaks/_runtime/session.json`; `legacy` = `.peaks/.session.json`. */
 function bindingSourceOf(projectRoot: string): BindingSource {
-  return existsSync(join(projectRoot, '.peaks', '_runtime', 'session.json'))
-    ? 'canonical'
-    : 'legacy';
+  return existsSync(join(defaultStateRoot(projectRoot), 'session.json')) ? 'canonical' : 'legacy';
 }
 
 function bindingPathOf(projectRoot: string, source: BindingSource): string {
   return source === 'canonical'
-    ? join(projectRoot, '.peaks', '_runtime', 'session.json')
+    ? join(defaultStateRoot(projectRoot), 'session.json')
     : join(projectRoot, '.peaks', '.session.json');
 }
 

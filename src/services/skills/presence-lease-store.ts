@@ -13,7 +13,10 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve, sep } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { normalizePath } from '../../shared/path-utils.js';
+import { getSessionDir } from '../session/getSessionDir.js';
+import { PEAKS_GRAPH_REF_BROKEN } from '../workflow/workflow-graph-store.js';
 
 export interface PresenceError extends Error {
   readonly code: string;
@@ -28,8 +31,20 @@ export function presenceError(code: string, message: string): PresenceError {
 
 /** Resolve the session runtime root. */
 export function sessionRuntimeRoot(projectRoot: string, sessionId: string): string {
-  const root = resolve(projectRoot);
-  return join(root, '.peaks', '_runtime', sessionId);
+  // `resolve` first: callers may hand a relative root and this helper has
+  // always returned an absolute path. Then the canonical session-dir entry.
+  return getSessionDir(resolve(projectRoot), sessionId);
+}
+
+/**
+ * Is `path` the session root itself, or under it? Compared through
+ * `normalizePath`: the session dir is emitted with forward slashes while
+ * `join()` emits the platform separator, so the raw strings differ on Windows.
+ */
+function isUnderSessionRoot(path: string, root: string): boolean {
+  const pathKey = normalizePath(path);
+  const rootKey = normalizePath(root);
+  return pathKey === rootKey || pathKey.startsWith(`${rootKey}/`);
 }
 
 /** Resolve the lease directory. */
@@ -61,7 +76,7 @@ export function leaseFilePath(
     `presence-${safeCaller}-${safeWorkflow}.json`
   );
   const root = sessionRuntimeRoot(projectRoot, sessionId);
-  if (!path.startsWith(root + sep) && path !== root) {
+  if (!isUnderSessionRoot(path, root)) {
     throw presenceError('PEAKS_GRAPH_REF_BROKEN', `lease path escapes session root: ${path}`);
   }
   return path;
@@ -72,7 +87,7 @@ export function callerIndexPath(projectRoot: string, sessionId: string, callerId
   const safeCaller = callerId.replace(/[^a-zA-Z0-9._-]/g, '_');
   const path = join(presenceIndexDir(projectRoot, sessionId), `${safeCaller}.json`);
   const root = sessionRuntimeRoot(projectRoot, sessionId);
-  if (!path.startsWith(root + sep) && path !== root) {
+  if (!isUnderSessionRoot(path, root)) {
     throw presenceError('PEAKS_GRAPH_REF_BROKEN', `index path escapes session root: ${path}`);
   }
   return path;
@@ -111,4 +126,56 @@ export function readJsonStrict<T>(path: string, codeOnError: string): T {
   } catch (err) {
     throw presenceError(codeOnError, `JSON malformed: ${(err as Error).message}`);
   }
+}
+
+/** A GC warning row — the same shape `GcResult.warnings` carries. */
+export interface LeaseWarningRow {
+  readonly code: string;
+  readonly leaseRef: string;
+  readonly message: string;
+}
+
+/**
+ * Decide what ONE stale lease contributes to a GC sweep: `removed`, or
+ * `retained` with a warning row pushed onto `warnings`.
+ *
+ * A lease is read off disk and never re-validated, so `workflowId` can hold a
+ * shape `sessionRuntimeRoot` refuses — `'.'` passes `WORKFLOW_ID_REGEX`. That
+ * helper was a total `join` before the workspace-runtime extraction and throws
+ * now, so the refusal is caught HERE and turned back into the value GC already
+ * reports for an unreadable lease: a retained count plus a warning row. The
+ * sweep stays total, and the reason travels in the row rather than being
+ * swallowed.
+ *
+ * Lives beside the path helper it calls rather than in the service, which is
+ * over the raw-line cap and may only shrink. Structurally typed on the two
+ * fields it reads, so the store needs no dependency on the lease record.
+ */
+export function applyStaleLease(
+  projectRoot: string,
+  lease: { readonly workflowId: string; readonly graphRef: string },
+  warnings: LeaseWarningRow[]
+): 'removed' | 'retained' {
+  try {
+    sessionRuntimeRoot(projectRoot, lease.workflowId);
+  } catch (err) {
+    warnings.push({
+      code: PEAKS_GRAPH_REF_BROKEN,
+      leaseRef: lease.graphRef,
+      message: `lease workflowId cannot be resolved: ${(err as Error).message}`
+    });
+    return 'retained';
+  }
+  // For test seams, `workflowId` may not match a real session; the
+  // graph-exists check is skipped for the sentinel a seam points at, because
+  // the seam is responsible for surfacing its own warning.
+  if (lease.graphRef === 'graphs/missing.json') {
+    warnings.push({
+      code: PEAKS_GRAPH_REF_BROKEN,
+      leaseRef: lease.graphRef,
+      message: 'graph file missing'
+    });
+    return 'retained';
+  }
+  return 'removed';
 }

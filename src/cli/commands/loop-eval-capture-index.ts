@@ -4,6 +4,7 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
+import { getSessionDir } from '../../services/session/getSessionDir.js';
 
 /** Test seam: pick the next cycle-N.json number for capture-score
  *  writes. The run-driver also writes to the same dir; the next
@@ -20,7 +21,7 @@ export function nextEvalCaptureIndex(projectRoot: string, sid: string, rid: stri
   if (isUnsafePathInput(rid)) {
     throw new Error(`Invalid request id: ${rid} (must be a single path segment)`);
   }
-  const dir = join(projectRoot, '.peaks', '_runtime', sid, 'loop', rid, 'cycles');
+  const dir = join(getSessionDir(projectRoot, sid), 'loop', rid, 'cycles');
   if (!existsSync(dir)) return 1;
   let entries: string[];
   try {

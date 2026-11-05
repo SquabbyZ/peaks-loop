@@ -16,6 +16,7 @@ import { fail, ok } from 'peaks-loop-shared/result';
 import { archiveScreenshots } from '../../services/qa/screenshot-archive-service.js';
 import { getSessionId } from '../../services/session/session-manager.js';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
+import { getSessionDir } from '../../services/session/getSessionDir.js';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 
 interface ArchiveOptions {
@@ -51,7 +52,7 @@ export function registerQaArchiveScreenshotsCommand(qa: Command, io: ProgramIO):
       if (isUnsafePathInput(sid)) {
         throw new Error(`Invalid session id: ${sid} (must be a single path segment)`);
       }
-      const targetDir = join(projectRoot, '.peaks', '_runtime', sid, 'qa', 'screenshots');
+      const targetDir = join(getSessionDir(projectRoot, sid), 'qa', 'screenshots');
       const envelope = archiveScreenshots({ sourceDir: options.source, targetDir });
       printResult(
         io,

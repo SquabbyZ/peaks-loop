@@ -8,6 +8,7 @@ import { mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { REQUEST_ID_PATTERN } from '../artifacts/request-artifact-service.js';
+import { getSessionDir } from '../session/getSessionDir.js';
 import type { SecurityAuditEnvelope, SecurityAuditVerdict } from './security-audit-service.js';
 
 /**
@@ -100,7 +101,10 @@ export function writeSecurityAuditArtifact(
       `Invalid request id: ${rid} (expected letters, digits, dots, underscores, or dashes)`
     );
   }
-  const targetDir = join(projectRoot, '.peaks', '_runtime', sessionId, 'audit');
+  // This is a WRITE target and is one segment below the session dir, so it
+  // takes the throwing entry: a bad sid refuses here the same way a bad rid
+  // does above, instead of composing a path outside the session.
+  const targetDir = join(getSessionDir(projectRoot, sessionId), 'audit');
   mkdirSync(targetDir, { recursive: true });
   const targetPath = join(targetDir, `security-${rid}.md`);
   // tmp + rename for atomicity

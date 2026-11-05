@@ -333,11 +333,18 @@ function testCorpus(): Array<{ file: string; specifiers: string[] }> {
 }
 
 describe('the repository dogfood configuration measures something (behavior)', () => {
-  it('when the repository dogfood configuration is read, should name at most four mutate targets', () => {
+  it('when the repository dogfood configuration is read, should name at most five mutate targets', () => {
     // given: the mutate targets named by stryker.conf.js
     // when: they are counted
-    // then: there are at most four
-    expect(strykerMutateTargets().length).toBeLessThanOrEqual(4);
+    // then: there are at most five
+    expect(strykerMutateTargets().length).toBeLessThanOrEqual(5);
+    // The bound is a cost cap on the dogfood run (each target widens the dry
+    // run and the sandbox copy), not a quality bar. It was four until
+    // 2026-11-05, when `src/services/session/getSessionDir.ts` joined the list
+    // as the single implementation of the repo-wide runtime-path invariant.
+    // The note lives BELOW the assertion on purpose: the BDD style contract
+    // requires `given` / `when` / `then` to be the first three leading
+    // comments before the first statement.
   });
 
   it('when every mutate target is looked up, should find a test that imports it', () => {

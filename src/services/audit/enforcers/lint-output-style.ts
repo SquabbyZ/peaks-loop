@@ -14,6 +14,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { tryGetSessionDir } from '../../session/getSessionDir.js';
 import type { LintHit, SkillFile } from './lint-style.js';
 
 const FLUFF_GREETINGS = [
@@ -93,7 +94,9 @@ export function lintNoClosingPrompt(skill: SkillFile): readonly LintHit[] {
  * empty array (the runtime check is elsewhere).
  */
 export function lintStatusHeader(projectRoot: string, sessionId: string): readonly LintHit[] {
-  const logPath = join(projectRoot, '.peaks', '_runtime', sessionId, 'session.log');
+  const resolved = tryGetSessionDir(projectRoot, sessionId);
+  if (!resolved.ok) return [];
+  const logPath = join(resolved.dir, 'session.log');
   let body: string;
   try {
     body = readFileSync(logPath, 'utf8');

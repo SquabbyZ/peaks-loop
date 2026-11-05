@@ -27,13 +27,12 @@
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { defaultStateRoot } from 'peaks-loop-workspace-runtime';
+import { tryGetSessionDir } from '../../session/getSessionDir.js';
 import type { LintHit, SkillFile } from './lint-style.js';
 
 const COVERAGE_TARGET = /100%\s*coverage target[^\n]*testable files/i;
 const NO_PADDING = /must not write coverage-padding tests/i;
-
-/** The artifact whose absence makes an RD→QA handoff invalid. */
-const RD_ARTIFACT_RELATIVE = '.peaks/_runtime';
 
 interface SessionBinding {
   readonly sessionId: string | null;
@@ -46,7 +45,7 @@ interface SessionBinding {
  * as `sessionId`, and reading only one silently disables the check.
  */
 function resolveSessionBinding(projectRoot: string): SessionBinding {
-  const sessionJsonPath = join(projectRoot, '.peaks', '_runtime', 'session.json');
+  const sessionJsonPath = join(defaultStateRoot(projectRoot), 'session.json');
   if (!existsSync(sessionJsonPath)) {
     return { sessionId: null, reason: 'no .peaks/_runtime/session.json' };
   }
@@ -115,7 +114,12 @@ export function lintRdHandoffContract(
   const binding = resolveSessionBinding(projectRoot);
   if (binding.sessionId === null) return [];
 
-  const requestsDir = join(projectRoot, RD_ARTIFACT_RELATIVE, binding.sessionId, 'rd', 'requests');
+  // An id that names no session directory is the same soft-pass as no binding:
+  // this enforcer never refuses on a value it cannot resolve.
+  const sessionDir = tryGetSessionDir(projectRoot, binding.sessionId);
+  if (!sessionDir.ok) return [];
+
+  const requestsDir = join(sessionDir.dir, 'rd', 'requests');
   const artifactCount = countNonEmptyArtifacts(requestsDir);
   if (artifactCount > 0) return [];
 

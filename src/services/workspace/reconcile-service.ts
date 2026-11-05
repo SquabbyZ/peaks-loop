@@ -28,6 +28,8 @@ import {
   writeFileSync
 } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { defaultStateRoot } from 'peaks-loop-workspace-runtime';
+import { getSessionDir } from '../session/getSessionDir.js';
 import { getSessionIdCanonical, setCurrentSessionBinding } from '../session/session-manager.js';
 import type { ReconcileOptions, ReconcileResult, SessionEntry } from './reconcile-types.js';
 import { migrateOldRuntimeState, migrateSubAgentState } from './reconcile-migrate.js';
@@ -37,16 +39,14 @@ const META_FILE = 'session.json';
 
 /**
  * Walk the project root's `.peaks/` directory and return an entry per
- * session dir matching the standard naming pattern, sorted by name
- * ascending (the most recent is last by sort order, since the date
- * prefix dominates the lexicographic order).
+ * session dir matching the standard naming pattern, sorted by name ascending
+ * (the date prefix dominates the lexicographic order).
  *
- * Each entry's `lastActivity` is the mtime of the inner `session.json`
- * file, or null if that file is missing. `artifactCount` is the count
- * of files under the dir excluding `session.json` itself.
+ * `lastActivity` is the mtime of the inner `session.json` (or null when it is
+ * missing); `artifactCount` counts the files under the dir excluding it.
  */
 export function discoverSessions(projectRoot: string): SessionEntry[] {
-  const runtimeRoot = join(projectRoot, '.peaks', '_runtime');
+  const runtimeRoot = defaultStateRoot(projectRoot);
   const peaksRoot = join(projectRoot, '.peaks');
   // `.peaks/_runtime/<sid>/`. The legacy top-level layout is
   // read for back-compat (one minor release) so pre-migration
@@ -302,7 +302,7 @@ export function applyDeletions(
  * Returns null when the file is missing or malformed.
  */
 function readActiveSkillSessionId(projectRoot: string): string | null {
-  const newPath = join(projectRoot, '.peaks', '_runtime', 'active-skill.json');
+  const newPath = join(defaultStateRoot(projectRoot), 'active-skill.json');
   const legacyPath = join(projectRoot, '.peaks', '.active-skill.json');
   const pathToRead = existsSync(newPath) ? newPath : legacyPath;
   if (!existsSync(pathToRead)) return null;
@@ -352,7 +352,7 @@ export function syncChangeMarker(
   canonicalSessionId: string
 ): { removed: string[]; created: string | null; error: string | null } {
   const root = resolve(projectRoot);
-  const changeDir = join(root, '.peaks', '_runtime', 'change');
+  const changeDir = join(defaultStateRoot(root), 'change');
   const removed: string[] = [];
   let created: string | null = null;
   let error: string | null = null;
@@ -540,8 +540,8 @@ export function reconcilePresenceLeases(input: ReconcilePresenceInput): Reconcil
   const legacyPaths: string[] = [];
 
   // Canonical target tree (RD §6).
-  const runtimeRoot = join(projectRoot, '.peaks', '_runtime');
-  const sessionRoot = join(runtimeRoot, sessionId);
+  const runtimeRoot = defaultStateRoot(projectRoot);
+  const sessionRoot = getSessionDir(projectRoot, sessionId);
   const leasesDir = join(sessionRoot, 'leases');
   const presenceIndexDir = join(sessionRoot, 'presence-index');
   const migrationsDir = join(sessionRoot, 'migrations');

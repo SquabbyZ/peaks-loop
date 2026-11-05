@@ -20,6 +20,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isArray } from '../../shared/array-guards.js';
+import { tryGetSessionDir } from '../session/getSessionDir.js';
 
 /** Public surface of a finished slice. */
 export interface SliceContract {
@@ -66,7 +67,7 @@ export function isOrphanContract(opts: {
   now?: Date;
 }): boolean {
   const path = contractPath(opts.projectRoot, opts.sessionId, opts.sliceId);
-  if (!existsSync(path)) return true;
+  if (path === null || !existsSync(path)) return true;
   const s = statSync(path);
   const now = opts.now ?? new Date();
   const ageMs = now.getTime() - s.mtimeMs;
@@ -74,14 +75,27 @@ export function isOrphanContract(opts: {
   return ageMs > ttlMs;
 }
 
-/** Resolve the contracts directory for a session. */
-export function contractsDir(projectRoot: string, sessionId: string): string {
-  return join(projectRoot, '.peaks', '_runtime', sessionId, 'dispatch', 'contracts');
+/**
+ * Resolve the contracts directory for a session, or `null` when the session id
+ * cannot name a session dir.
+ *
+ * The TOTAL entry: every reader here answers "no contract" for a directory it
+ * cannot reach, and an unresolvable id is that same answer. The writer is the
+ * one frame that cannot proceed, and it says so with its own typed error.
+ */
+export function contractsDir(projectRoot: string, sessionId: string): string | null {
+  const resolved = tryGetSessionDir(projectRoot, sessionId);
+  return resolved.ok ? join(resolved.dir, 'dispatch', 'contracts') : null;
 }
 
-/** Resolve a single contract file path. */
-export function contractPath(projectRoot: string, sessionId: string, sliceId: string): string {
-  return join(contractsDir(projectRoot, sessionId), `${sliceId}.json`);
+/** Resolve a single contract file path, or `null` on an unresolvable session id. */
+export function contractPath(
+  projectRoot: string,
+  sessionId: string,
+  sliceId: string
+): string | null {
+  const dir = contractsDir(projectRoot, sessionId);
+  return dir === null ? null : join(dir, `${sliceId}.json`);
 }
 
 /** Canonicalize a contract for hashing. Keys sorted; arrays preserved. */
@@ -139,10 +153,15 @@ export function writeContract(
     contractHash
   };
   const dir = contractsDir(projectRoot, sessionId);
+  const path = contractPath(projectRoot, sessionId, input.sliceId);
+  if (dir === null || path === null) {
+    throw new ContractStoreError(
+      `Invalid session id: ${sessionId} (must be a single path segment)`
+    );
+  }
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
-  const path = contractPath(projectRoot, sessionId, input.sliceId);
   writeFileSync(path, JSON.stringify(contract, null, 2) + '\n', 'utf8');
   return { path, contract };
 }
@@ -154,7 +173,7 @@ export function readContract(
   sliceId: string
 ): SliceContract | null {
   const path = contractPath(projectRoot, sessionId, sliceId);
-  if (!existsSync(path)) return null;
+  if (path === null || !existsSync(path)) return null;
   try {
     const raw = readFileSync(path, 'utf8');
     return JSON.parse(raw) as SliceContract;
@@ -166,7 +185,7 @@ export function readContract(
 /** List all contracts for a session. */
 export function listContracts(projectRoot: string, sessionId: string): readonly SliceContract[] {
   const dir = contractsDir(projectRoot, sessionId);
-  if (!existsSync(dir)) return [];
+  if (dir === null || !existsSync(dir)) return [];
   const files = readdirSync(dir).filter((f) => f.endsWith('.json'));
   const out: SliceContract[] = [];
   for (const f of files) {

@@ -6,13 +6,13 @@
  *   3. the `## API Migration` endpoint list in `.peaks/_runtime/<sid>/txt/*.md`
  *
  * All three are OPTIONAL: absence is reported in the report's `notes`, never
- * silently. `typescript` is a devDependency and is NOT available at runtime, so
- * recorded interfaces are read by the line-based extractor below — its limits
- * are documented on the function and exercised by tests.
+ * silently. `typescript` is not available at runtime, so recorded interfaces are
+ * read by the line-based extractor below, whose limits its doc and tests name.
  */
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { defaultStateRoot } from 'peaks-loop-workspace-runtime';
 
 import {
   toDisplayPath,
@@ -415,7 +415,7 @@ function newest(files: readonly string[]): string | null {
 
 /** Source 1: the most recent `.peaks/_runtime/<sid>/rd/mock-plan.md`. */
 export function findMockPlan(projectRoot: string): string | null {
-  const runtime = join(projectRoot, '.peaks', '_runtime');
+  const runtime = defaultStateRoot(projectRoot);
   const candidates = listDirs(runtime)
     .map((sid) => join(runtime, sid, 'rd', 'mock-plan.md'))
     .filter((file) => mtimeOf(file) >= 0);
@@ -450,7 +450,7 @@ export function findRecordedInterfaceFiles(projectRoot: string, mockPlan: string
 
 /** Source 3: the newest TXT handoff that actually carries an `## API Migration` section. */
 export function findHandoffWithApiMigration(projectRoot: string): string | null {
-  const runtime = join(projectRoot, '.peaks', '_runtime');
+  const runtime = defaultStateRoot(projectRoot);
   const candidates: string[] = [];
   for (const sid of listDirs(runtime))
     candidates.push(...listFiles(join(runtime, sid, 'txt'), '.md'));

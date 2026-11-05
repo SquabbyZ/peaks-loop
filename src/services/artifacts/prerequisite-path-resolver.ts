@@ -14,6 +14,7 @@ import { readdir } from 'node:fs/promises';
 import { pathExists } from 'peaks-loop-shared/fs';
 
 import { NUMBERED_PREFIX_RE, slugifyDescription } from '../../shared/incrementing-number.js';
+import { tryGetSessionDir } from '../session/getSessionDir.js';
 import type { ArtifactPrerequisite } from './artifact-prerequisites.js';
 
 export function resolvePrerequisitePath(
@@ -30,8 +31,11 @@ export type SessionRoots = { canonical: string | null; legacy: string | null };
 
 export function sessionRootsFor(projectRoot: string, sessionId: string | undefined): SessionRoots {
   if (sessionId === undefined) return { canonical: null, legacy: null };
+  // A bad id resolves to "no canonical tier" rather than a hand-rolled path:
+  // the resolver below already treats an absent tier as "probe the next one".
+  const canonical = tryGetSessionDir(projectRoot, sessionId);
   return {
-    canonical: join(projectRoot, '.peaks', '_runtime', sessionId),
+    canonical: canonical.ok ? canonical.dir : null,
     legacy: join(projectRoot, '.peaks', sessionId)
   };
 }

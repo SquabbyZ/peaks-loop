@@ -25,11 +25,15 @@
  *     has no Stryker config of its own.
  *
  * The mutate scope below is the fallback for a run that passes no `--mutate`.
- * Every target is imported by a test, and all four are covered by the ONE test
- * file `stryker.vitest.config.mjs` includes —
- * `tests/unit/cli/commands/verdict-aggregate-missing-evidence.test.ts` — at
+ * Every target is imported by a test. The four original targets are covered
+ * by `tests/unit/cli/commands/verdict-aggregate-missing-evidence.test.ts` —
+ * one of the TWO test files `stryker.vitest.config.mjs` includes — at
  * 75.43% / 15.51% / 55.55% / 58.82% of their LINES, so the dry run has
  * something to execute and the mutants get coverage instead of NoCoverage.
+ * The fifth target, `src/services/session/getSessionDir.ts` (added
+ * 2026-11-05), is covered by the other included file,
+ * `tests/unit/services/session/get-session-dir.test.ts`, which value-imports
+ * it through the `~/src/**` alias.
  *
  * The previous four targets (`src/services/loop/{evaluator-dispatcher,
  * monotonic-guard,monotonic-runner,run-driver}.ts`) were the other story, and
@@ -44,7 +48,7 @@
  * Every coverage figure in this header names the file it was measured FROM.
  * Measured
  * from `tests/unit/cli/commands/verdict-aggregate-missing-evidence.test.ts`
- * alone — the ONE test file `stryker.vitest.config.mjs` includes — all four of
+ * alone — the only test file that config included on 2026-10-24 — all four of
  * the previous targets measure 0% of their LINES: 0 of 177 lines in
  * evaluator-dispatcher, 0 of 75 in monotonic-guard, 0 of 94 in monotonic-runner
  * and 0 of 139 in run-driver, so a dogfood run over them reported NoCoverage,
@@ -60,7 +64,8 @@ export default {
     'src/cli/commands/verdict-aggregate-command.ts',
     'src/cli/cli-helpers.ts',
     'src/services/workflow/pipeline-verify-qa-phase.ts',
-    'src/shared/path-safety.ts'
+    'src/shared/path-safety.ts',
+    'src/services/session/getSessionDir.ts'
   ],
   // `pathFilters` used to sit here. It was REMOVED 2026-09-15 (diagnosis E3):
   // Stryker has no such option — it is absent from the installed
@@ -78,7 +83,8 @@ export default {
   concurrency: 2,
   plugins: ['@stryker-mutator/vitest-runner'],
   // Point the vitest-runner at a minimal config that includes ONLY the test
-  // file covering the mutate targets above. The main vitest.config.ts pulls in
+  // files covering the mutate targets above (two files since 2026-11-05). The
+  // main vitest.config.ts pulls in
   // the whole unit suite (600+ files) and adds a globalSetup that builds the
   // workspace packages; the suite also includes CLI tests that call
   // process.chdir(), which fail in Stryker's forced-threaded vitest workers.

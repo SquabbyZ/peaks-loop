@@ -30,6 +30,7 @@ import {
   writeFileSync
 } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { defaultStateRoot } from 'peaks-loop-workspace-runtime';
 import { z } from 'zod';
 
 export const InstanceRecordSchema = z.object({
@@ -51,10 +52,9 @@ export type InstanceRecord = z.infer<typeof InstanceRecordSchema>;
 export type Binding = z.infer<typeof BindingSchema>;
 
 const LEGACY_SESSION_FILE = '.session.json';
-const CANONICAL_SESSION_FILE = join('_runtime', 'session.json');
 
 function getCanonicalPath(projectRoot: string): string {
-  return join(projectRoot, '.peaks', CANONICAL_SESSION_FILE);
+  return join(defaultStateRoot(projectRoot), 'session.json');
 }
 
 function getLegacyPath(projectRoot: string): string {
@@ -442,17 +442,17 @@ export type RebuildResult = {
   noop: boolean;
 };
 
+const REBUILD_LOCK_NAME = '.rebuild-binding.lock';
+
 function acquireRebuildLock(projectRoot: string): { fd: number; path: string } | null {
-  const lockPath = join(projectRoot, '.peaks', '_runtime', '.rebuild-binding.lock');
+  const lockPath = join(defaultStateRoot(projectRoot), REBUILD_LOCK_NAME);
   const dir = dirname(lockPath);
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
   try {
-    // O_EXCL (`wx` in Node): atomic create-or-fail. If the lock file
-    // already exists, another `rebuildBindingFromLegacy` invocation
-    // holds it. The holder is expected to release it via
-    // `closeSync` + `unlinkSync` (see `releaseRebuildLock`).
+    // O_EXCL (`wx` in Node): atomic create-or-fail; an existing lock means
+    // another `rebuildBindingFromLegacy` invocation holds it.
     const fd = openSync(lockPath, fsConstants.O_WRONLY | fsConstants.O_CREAT | fsConstants.O_EXCL);
     return { fd, path: lockPath };
   } catch (err) {

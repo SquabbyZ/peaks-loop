@@ -65,6 +65,7 @@ import { join } from 'node:path';
 
 import { readJobShapeDecision } from '../code/job-shape-decision.js';
 import { describeNextSlice, tryReadJobProgress } from '../job/job-progress-store.js';
+import { tryGetSessionDir } from '../session/getSessionDir.js';
 import { getSessionIdCanonical } from '../session/session-manager.js';
 
 /**
@@ -288,28 +289,27 @@ function toPosix(p: string): string {
 /**
  * Find the most recently modified request artifact under the session tree.
  *
- * This is a POINTER RESOLVER, not a content reader: it returns the artifact's
- * name so the card can name it, and never opens it. Deliberately limited to
- * `<session>/<role>/requests/*.md` — the tree every role already writes to —
- * rather than a repo-wide search, so the answer cannot be some unrelated
- * markdown file that happens to be newer.
+ * A POINTER RESOLVER, not a content reader: it returns the artifact's name so
+ * the card can name it, and never opens it. Deliberately limited to
+ * `<session>/<role>/requests/*.md` — the tree every role already writes to — so
+ * the answer cannot be some unrelated newer markdown file.
  *
- * Returns its failures alongside the answer instead of swallowing them. The
- * tempting shape here — a bare `catch { continue }` — makes two very different
- * states indistinguishable to the caller: "this role has no requests yet"
- * (ordinary, most roles) and "this role's requests directory exists but could
- * not be read" (a real problem worth reporting). Only `ENOENT` is the ordinary
- * one, so only `ENOENT` is silent.
+ * Returns its failures alongside the answer instead of swallowing them: a bare
+ * `catch { continue }` makes "no requests yet" (ordinary, most roles) and "the
+ * directory exists but could not be read" (a real problem worth reporting)
+ * indistinguishable. Only `ENOENT` is the ordinary one, so only `ENOENT` is
+ * silent.
  */
 function findLatestRequestArtifact(
   projectRoot: string,
   sessionId: string
 ): { readonly rel: string | null; readonly warnings: readonly string[] } {
-  const sessionDir = join(projectRoot, '.peaks', '_runtime', sessionId);
+  const resolved = tryGetSessionDir(projectRoot, sessionId);
+  if (!resolved.ok) return { rel: null, warnings: [] };
   const warnings: string[] = [];
   let roles: string[];
   try {
-    roles = readdirSync(sessionDir, { withFileTypes: true })
+    roles = readdirSync(resolved.dir, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)
       .sort();
@@ -321,7 +321,7 @@ function findLatestRequestArtifact(
   }
   let best: { rel: string; mtimeMs: number } | null = null;
   for (const role of roles) {
-    const requestsDir = join(sessionDir, role, 'requests');
+    const requestsDir = join(resolved.dir, role, 'requests');
     let files: string[];
     try {
       files = readdirSync(requestsDir).filter((name) => name.endsWith('.md'));

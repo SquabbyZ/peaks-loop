@@ -23,6 +23,8 @@ import { join } from 'node:path';
 
 import { z } from 'zod';
 
+import { getSessionDir, tryGetSessionDir } from '../session/getSessionDir.js';
+
 export type JobStrategy = 'single' | 'rotating';
 export type JobConfidence = 'high' | 'medium' | 'low';
 
@@ -87,7 +89,7 @@ export class JobShapeDecisionError extends Error {
 }
 
 function runtimeDir(projectRoot: string, sessionId: string): string {
-  return join(projectRoot, '.peaks', '_runtime', sessionId);
+  return getSessionDir(projectRoot, sessionId);
 }
 
 function decisionPath(projectRoot: string, sessionId: string): string {
@@ -109,7 +111,17 @@ function validateRecord(input: unknown): JobShapeRecord {
 
 /** Read the canonical record; throws JOB_SHAPE_NOT_DECIDED if absent or malformed. */
 export function readJobShapeDecision(projectRoot: string, sessionId: string): JobShapeRecord {
-  const path = decisionPath(projectRoot, sessionId);
+  // A frame that promises a typed refusal, not a throw: an id that names no
+  // session directory is the same "no record" answer as an absent file.
+  const resolved = tryGetSessionDir(projectRoot, sessionId);
+  if (!resolved.ok) {
+    throw new JobShapeDecisionError({
+      code: JOB_SHAPE_NOT_DECIDED,
+      message: `No Job-shape decision recorded for session ${sessionId}. Run \`peaks code detect-job\` to record a decision.`,
+      details: { reason: resolved.reason }
+    });
+  }
+  const path = join(resolved.dir, JOB_SHAPE_FILE_NAME);
   if (!existsSync(path)) {
     throw new JobShapeDecisionError({
       code: JOB_SHAPE_NOT_DECIDED,

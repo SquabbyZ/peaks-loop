@@ -99,6 +99,22 @@ describe('Scenario: behavior — session id must be a single path segment', () =
     }
   );
 
+  it('when given `C:foo` or `a@b:c`, should reject them even though the package resolver admits them', () => {
+    // given: two shapes the local guard refuses on axes the package does not check
+    // when: both entries are asked for the directory
+    // then: both refuse, so the predicate is load-bearing rather than a restatement
+    //   The package's `sessionRuntimeDir` ACCEPTS both — a bare drive letter and a
+    //   user@host authority — so without these two the guard is only ever
+    //   exercised on inputs the package would have refused anyway.
+    expect(isUnsafePathInput('C:foo')).toBe(true);
+    expect(isUnsafePathInput('a@b:c')).toBe(true);
+    for (const id of ['C:foo', 'a@b:c']) {
+      const message = `Invalid session id: ${id} (must be a single path segment)`;
+      expect(() => getSessionDir('/proj', id)).toThrow(message);
+      expect(tryGetSessionDir('/proj', id)).toEqual({ ok: false, reason: message });
+    }
+  });
+
   it('when given a valid id, should return the canonical path from both entries', () => {
     // given: a well-formed single-segment id
     const dir = '/proj/.peaks/_runtime/valid-sid-1';

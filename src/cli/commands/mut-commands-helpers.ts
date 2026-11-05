@@ -2,12 +2,13 @@
  * `peaks mut` — command builders and helper functions.
  *
  * Originally extracted from `mut-commands.ts` (file-size cap campaign).
- * It holds the stub-report factories, the summary emitter, the named-error
- * mapping, and — after the `max-lines-per-function` rule was measured at
- * 209 code lines for `createMutCommands` — the three subcommand builders
- * that drive the mutation pipeline (`run`, `mutants`, `asserts`).
+ * It holds the stub-report factories, the summary emitter and — after the
+ * `max-lines-per-function` rule was measured at 209 code lines for
+ * `createMutCommands` — the three subcommand builders that drive the
+ * mutation pipeline (`run`, `mutants`, `asserts`).
  * The `report` subcommand — a pure reader of an already-written file —
- * lives with the CLI surface in `mut-commands.ts`.
+ * lives with the CLI surface in `mut-commands.ts`; the named-error mapping
+ * and the failure diagnostic live in `mut-failure-diagnostic.ts`.
  *
  * The named-error part exists for R7: a missing or unloadable mutation
  * toolchain must surface a MACHINE-READABLE error code (for example
@@ -26,17 +27,8 @@ import {
   type MutationReport,
   type StrykerInvoker
 } from 'peaks-loop-mut';
-import { printErrorEnvelope, type ProgramIO } from '../cli-helpers.js';
-
-/**
- * Fallback code for a mutation failure that carries no named code of its
- * own. The production invoker raises the specific codes; anything that
- * escapes it without one still gets a stable, greppable name.
- */
-export const MUT_CLI_ERROR_CODE = 'MUT_FAILED';
-
-/** Named mutation codes are always `MUT_` + upper snake case. */
-const NAMED_CODE_PATTERN = /^MUT_[A-Z0-9_]+$/;
+import type { ProgramIO } from '../cli-helpers.js';
+import { emitMutError, mutationFailureLogPath } from './mut-failure-diagnostic.js';
 
 /**
  * The IO the mut family writes to when the caller injects none. Same
@@ -53,6 +45,8 @@ export interface MutCommandArgs {
   readonly project: string;
   readonly testFiles: string[];
   readonly mutate?: string[];
+  /** Patterns NOT to copy into the Stryker sandbox. Empty by default. */
+  readonly ignore?: string[];
   readonly inputSig: string;
   readonly sessionId: string;
   readonly out: string;
@@ -111,39 +105,6 @@ export function emitSummary(
 }
 
 /**
- * Read the machine-readable code off a failure. The production invoker
- * raises named codes (`MUT_TOOLCHAIN_UNAVAILABLE`, `MUT_NO_MUTANTS`,
- * `MUT_MUTATE_PATTERN_REQUIRED`, …) and `runMutation` preserves them
- * while wrapping. Anything without a recognised code falls back to
- * `MUT_FAILED` so the envelope is never anonymous.
- */
-export function mutErrorCode(err: unknown): string {
-  if (err && typeof err === 'object' && 'code' in err) {
-    const code = (err as { code?: unknown }).code;
-    if (typeof code === 'string' && NAMED_CODE_PATTERN.test(code)) {
-      return code;
-    }
-  }
-  return MUT_CLI_ERROR_CODE;
-}
-
-/** The human-readable half of the envelope. */
-export function mutErrorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
-
-/**
- * Emit the failure envelope on stderr and set a non-zero exit code. Its
- * `data` field carries the machine-readable detail — where an ABSOLUTE path
- * belongs; stdout stays reserved for the `--json` payload (R6).
- */
-export function emitMutError(io: ProgramIO, err: unknown): void {
-  const details = (err as { details?: unknown } | null)?.details;
-  const data = details && typeof details === 'object' ? (details as Record<string, unknown>) : {};
-  printErrorEnvelope(io, 'mut', mutErrorCode(err), mutErrorMessage(err), data, []);
-}
-
-/**
  * Validate `--test-files` BEFORE any Stryker run, scan or report write: a
  * missing path must fail with the named code, never reach the mutation
  * engine. A PATTERN is accepted here — Stryker expands patterns.
@@ -163,6 +124,7 @@ function assertMutTestFiles(a: MutCommandArgs): void {
     .requiredOption('--project <path>', 'project root')
     .requiredOption('--test-files <files...>', 'test files to mutate against')
     .option('--mutate <patterns...>', 'source patterns to mutate, relative to --project')
+    .option('--ignore <patterns...>', 'paths or globs NOT to copy into the Stryker sandbox')
     .requiredOption('--input-sig <hex>', 'TACT.sig (sha256) for chain')
     .requiredOption(
       '--session-id <sid>',
@@ -177,6 +139,7 @@ function assertMutTestFiles(a: MutCommandArgs): void {
           project: a.project,
           testFiles: a.testFiles,
           mutate: a.mutate ?? [],
+          ignorePatterns: a.ignore ?? [],
           invokeStryker
         });
         const assertions = await scanAssertions({
@@ -203,7 +166,7 @@ function assertMutTestFiles(a: MutCommandArgs): void {
       } catch (err: unknown) {
         // R7: a named code + actionable message + non-zero exit, never an
         // UNHANDLED_ERROR envelope with a bare "Cannot find package".
-        emitMutError(io, err);
+        emitMutError(io, err, mutationFailureLogPath(a.out));
       }
     });
 }
@@ -220,6 +183,7 @@ export function buildMutMutantsCommand(invokeStryker: StrykerInvoker, io: Progra
     .requiredOption('--project <path>', 'project root')
     .requiredOption('--test-files <files...>', 'test files to mutate against')
     .option('--mutate <patterns...>', 'source patterns to mutate, relative to --project')
+    .option('--ignore <patterns...>', 'paths or globs NOT to copy into the Stryker sandbox')
     .requiredOption('--input-sig <hex>', 'TACT.sig')
     .requiredOption('--session-id <sid>', 'session id')
     .requiredOption('--out <path>', 'output path for mut-report.json')
@@ -231,6 +195,7 @@ export function buildMutMutantsCommand(invokeStryker: StrykerInvoker, io: Progra
           project: a.project,
           testFiles: a.testFiles,
           mutate: a.mutate ?? [],
+          ignorePatterns: a.ignore ?? [],
           invokeStryker
         });
         const report = await buildMutReport({
@@ -249,7 +214,7 @@ export function buildMutMutantsCommand(invokeStryker: StrykerInvoker, io: Progra
           process.exitCode = 1;
         }
       } catch (err: unknown) {
-        emitMutError(io, err);
+        emitMutError(io, err, mutationFailureLogPath(a.out));
       }
     });
 }

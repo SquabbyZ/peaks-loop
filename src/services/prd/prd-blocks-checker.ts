@@ -17,6 +17,7 @@
 
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { defaultStateRoot } from 'peaks-loop-workspace-runtime';
 
 export interface PrdBlockFinding {
   /** Block identifier (1-4). */
@@ -80,31 +81,28 @@ const BLOCK_HEADINGS: readonly {
 
 const MIN_CONTENT_LENGTH = 50;
 
+/**
+ * The runtime root's non-session `prd/` child. Named once because this module
+ * is the reader the runtime-layout registry points at for that entry.
+ */
+const PRD_RUNTIME_DIR = 'prd';
+
 export function findPrdArtifact(projectRoot: string, requestId: string): string | null {
+  const stateRoot = defaultStateRoot(projectRoot);
   // Look under .peaks/_runtime/<session>/prd/requests/<rid>.md
   // Use the first hit (the most common layout is single-session).
   const candidates = [
-    join(projectRoot, '.peaks', '_runtime', 'prd', 'requests', `${requestId}.md`),
-    join(
-      projectRoot,
-      '.peaks',
-      '_runtime',
-      'change',
-      requestId,
-      'prd',
-      'requests',
-      `${requestId}.md`
-    )
+    join(stateRoot, PRD_RUNTIME_DIR, 'requests', `${requestId}.md`),
+    join(stateRoot, 'change', requestId, PRD_RUNTIME_DIR, 'requests', `${requestId}.md`)
   ];
   for (const c of candidates) {
     if (existsSync(c)) return c;
   }
   // Fall back to a glob-like search through .peaks/_runtime/*/prd/requests/.
-  const runtimeRoot = join(projectRoot, '.peaks', '_runtime');
-  if (!existsSync(runtimeRoot)) return null;
-  for (const sessionOrChange of readdirSync(runtimeRoot)) {
+  if (!existsSync(stateRoot)) return null;
+  for (const sessionOrChange of readdirSync(stateRoot)) {
     for (const sub of ['prd/requests', 'change']) {
-      const dir = join(runtimeRoot, sessionOrChange, sub, requestId);
+      const dir = join(stateRoot, sessionOrChange, sub, requestId);
       if (existsSync(dir) && statSync(dir).isFile()) return dir;
     }
   }

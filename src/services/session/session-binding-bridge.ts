@@ -11,17 +11,15 @@
  *
  * `session-manager.ts` re-exports the two functions and the two result
  * types so the 5 external callers (`request-artifact-service.ts`,
- * `upgrade-commands.ts`, `init-command.ts`, plus 2 test files) do NOT
- * need to change their import path. The re-export shim is the only
- * added code in `session-manager.ts`.
- *
- * Body of every function moved verbatim per Karpathy #3 (Surgical
- * Changes). No behavior change. The bridge adds nothing of its own.
+ * `upgrade-commands.ts`, `init-command.ts`, plus 2 test files) keep
+ * their import path.
+ * Body of every function moved verbatim per Karpathy #3 (Surgical Changes).
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { randomBytes } from 'node:crypto';
+import { defaultStateRoot } from 'peaks-loop-workspace-runtime';
 import { initWorkspace } from '../workspace/workspace-service.js';
 import { projectRootsMatch, stableRealPath } from '../../shared/path-utils.js';
 import { tryParseJson } from '../../shared/json-parse.js';
@@ -33,6 +31,7 @@ import {
 import { resolveCallerBinding, setCallerBinding } from './caller-binding-service.js';
 import type { CallerBinding } from './caller-id-types.js';
 import { resolveCallerProjection } from './resolve-caller-id.js';
+import { getSessionDir, tryGetSessionDir } from './getSessionDir.js';
 import {
   getSessionId,
   getSessionIdCanonical,
@@ -43,7 +42,7 @@ import {
 
 // --- Lower-level helpers the bridge needs (moved verbatim) ---
 
-const SESSION_FILE = join('_runtime', 'session.json');
+const SESSION_FILE = 'session.json';
 const LEGACY_SESSION_FILE = '.session.json';
 const META_FILE = 'session.json';
 // outer (Claude Code / Trae / IDE) session id. Written by the
@@ -51,7 +50,7 @@ const META_FILE = 'session.json';
 // sub-processes (which do NOT inherit CLAUDE_CODE_SESSION_ID) can still
 // resolve the current outer session. Lives under the gitignored
 // `.peaks/_runtime/` tree, so no .gitignore change is required.
-const OUTER_SESSION_CACHE_FILE = join('_runtime', '.outer-session-cache.json');
+const OUTER_SESSION_CACHE_FILE = '.outer-session-cache.json';
 
 function getLegacySessionFilePath(projectRoot: string): string {
   return join(projectRoot, '.peaks', LEGACY_SESSION_FILE);
@@ -68,7 +67,7 @@ function generateSessionId(): string {
 }
 
 function getSessionFilePath(projectRoot: string): string {
-  return join(projectRoot, '.peaks', SESSION_FILE);
+  return join(defaultStateRoot(projectRoot), SESSION_FILE);
 }
 
 function readSessionFile(projectRoot: string): SessionBinding | null {
@@ -126,8 +125,9 @@ function writeSessionFile(
   writeFileSync(sessionFile, JSON.stringify(canonicalInfo, null, 2), 'utf8');
 }
 
-function getMetaFilePath(projectRoot: string, sessionId: string): string {
-  return join(projectRoot, '.peaks', '_runtime', sessionId, META_FILE);
+function getMetaFilePath(projectRoot: string, sessionId: string): string | null {
+  const resolved = tryGetSessionDir(projectRoot, sessionId);
+  return resolved.ok ? join(resolved.dir, META_FILE) : null;
 }
 
 function readSessionMeta(
@@ -143,7 +143,7 @@ function readSessionMeta(
   [k: string]: unknown;
 } | null {
   const metaPath = getMetaFilePath(projectRoot, sessionId);
-  if (!existsSync(metaPath)) return null;
+  if (metaPath === null || !existsSync(metaPath)) return null;
 
   try {
     const parsed = tryParseJson(readFileSync(metaPath, 'utf8'), SessionFileSchema);
@@ -165,7 +165,7 @@ function writeSessionMeta(
     [k: string]: unknown;
   }
 ): void {
-  const metaPath = getMetaFilePath(projectRoot, sessionId);
+  const metaPath = join(getSessionDir(projectRoot, sessionId), META_FILE);
   const metaDir = dirname(metaPath);
   if (!existsSync(metaDir)) {
     mkdirSync(metaDir, { recursive: true });
@@ -200,7 +200,7 @@ function getCurrentOuterSessionId(projectRoot?: string): string | undefined {
       // required. Any IO error or non-string `outerSessionId` field is
       // treated as a cache miss — never throw.
       if (projectRoot !== undefined) {
-        const cachePath = join(projectRoot, '.peaks', OUTER_SESSION_CACHE_FILE);
+        const cachePath = join(defaultStateRoot(projectRoot), OUTER_SESSION_CACHE_FILE);
         if (existsSync(cachePath)) {
           try {
             const raw = readFileSync(cachePath, 'utf8');

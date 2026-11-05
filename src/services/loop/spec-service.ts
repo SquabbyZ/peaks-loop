@@ -4,8 +4,7 @@
  * Spec-as-first-class CLI backing service. Reads / writes / lints
  * `.peaks/_runtime/<sid>/loop/<rid>/spec.yaml` — the project-level
  * (third-tier) spec origin per Slice A resolver (project → global →
- * bundled). Authors may also pass an explicit file path to `peaks loop
- * spec lint`.
+ * bundled). Authors may also pass an explicit path to `peaks loop spec lint`.
  *
  * Spec schema (v1):
  *   - evaluators[].kind (native EvaluatorKind)
@@ -14,18 +13,17 @@
  *   - sla[].evaluator (must match an evaluator.kind above)
  *   - sla[].maxScore (0..1; the floor above which the evaluator is
  *     considered to have held its SLA)
- *   - termination.strategy ("max-cycles" | "monotonic-violation" |
- *     "manual")
+ *   - termination.strategy ("max-cycles" | "monotonic-violation" | "manual")
  *   - termination.maxCycles? (positive integer when strategy = max-cycles)
  *
- * Karpathy §2 Simplicity First: pure data + a single hand-rolled
- * YAML parser inline; no new deps.
+ * Karpathy §2 Simplicity First: pure data + a single hand-rolled YAML parser.
  *
  * File budget: ≤ 800 lines.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, isAbsolute } from 'node:path';
 import { isArray } from '../../shared/array-guards.js';
+import { getSessionDir, tryGetSessionDir } from '../session/getSessionDir.js';
 
 /** Spec origin — exposed as part of `peaks loop spec` output. */
 export type SpecOrigin =
@@ -83,7 +81,9 @@ export function resolveLoopSpec(
   sid: string,
   rid: string
 ): { origin: SpecOrigin; spec: LoopSpec | null } {
-  const path = join(projectRoot, '.peaks', '_runtime', sid, 'loop', rid, 'spec.yaml');
+  const resolved = tryGetSessionDir(projectRoot, sid);
+  if (!resolved.ok) return { origin: { kind: 'missing' }, spec: null };
+  const path = join(resolved.dir, 'loop', rid, 'spec.yaml');
   if (!existsSync(path)) return { origin: { kind: 'missing' }, spec: null };
   const raw = readFileSync(path, 'utf8');
   const spec = parseSpecYaml(raw, rid);
@@ -259,7 +259,7 @@ export function serializeSpec(spec: LoopSpec): string {
 /** Persist a LoopSpec to disk at the project-level path; ensures the
  *  parent directory exists. Returns the resolved path. */
 export function persistSpec(projectRoot: string, sid: string, spec: LoopSpec): string {
-  const path = join(projectRoot, '.peaks', '_runtime', sid, 'loop', spec.rid, 'spec.yaml');
+  const path = join(getSessionDir(projectRoot, sid), 'loop', spec.rid, 'spec.yaml');
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, serializeSpec(spec), 'utf8');
   return path;
@@ -650,7 +650,7 @@ function parseScalarNumber(raw: string): number | null {
 }
 
 export function specPath(projectRoot: string, sid: string, rid: string): string {
-  return join(projectRoot, '.peaks', '_runtime', sid, 'loop', rid, 'spec.yaml');
+  return join(getSessionDir(projectRoot, sid), 'loop', rid, 'spec.yaml');
 }
 
 /** Force a path to be inside the project root — guards against the

@@ -35,7 +35,7 @@
  * codes), `stryker-plugin.ts` (the plugin path) and `stryker-result.ts`
  * (the report shaping). The names THIS module exports are unchanged.
  */
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { StrykerInvoker } from './mut-runner.js';
 import { MUT_ERROR_CODES, MutToolchainError } from './stryker-errors.js';
@@ -91,8 +91,13 @@ export function createProductionStrykerInvoker(): StrykerInvoker {
       project,
       mutate: input.mutate,
       testFiles: input.testFiles,
+      ignorePatterns: input.ignorePatterns,
       pluginDescriptors,
       tsconfigFile: input.tsconfigFile,
+      // The console log stays 'off' (stdout belongs to --json), so this is
+      // the ONLY channel that records WHY Stryker failed. `runInProject`
+      // removes the file again unless the project already had one.
+      fileLogLevel: STRYKER_DEFAULTS.diagnosticFileLogLevel,
       ...projectOwned
     });
     const mutants = await runInProject(project, options);
@@ -133,6 +138,15 @@ function hasProjectStrykerConfig(project: string): boolean {
 /**
  * Run Stryker with the project as the CWD, restoring the previous CWD
  * afterwards. Serialised so concurrent invocations cannot interleave.
+ *
+ * THE FILE LOG. Stryker writes its file log to `stryker.log` in the CWD,
+ * which is the project root for the duration of the run (the path is fixed
+ * in `core/logging/logging-backend.js`). The console level is `off`, so that
+ * file is the only record of the real failure reason — `Something went wrong
+ * in the initial test run` is thrown bare. So on failure the bytes this run
+ * appended are read into the error's `details`, and unless the project
+ * ALREADY had a `stryker.log` (a developer's own), the file is removed
+ * afterwards so the working tree is left as it was found.
  */
 async function runInProject(
   project: string,
@@ -140,16 +154,35 @@ async function runInProject(
 ): Promise<ReadonlyArray<StrykerMutant>> {
   return runExclusive(async () => {
     const previousCwd = process.cwd();
+    const logPath = resolve(project, 'stryker.log');
+    const logExistedBefore = existsSync(logPath);
+    const logBytesBefore = logExistedBefore ? statSync(logPath).size : 0;
     try {
       process.chdir(project);
       const Stryker = (await import('@stryker-mutator/core')).Stryker;
       return await new Stryker(options).runMutationTest();
     } catch (err: unknown) {
-      throw toMutError(err);
+      throw toMutError(err, readLogSince(logPath, logBytesBefore));
     } finally {
       process.chdir(previousCwd);
+      if (!logExistedBefore) {
+        rmSync(logPath, { force: true });
+      }
     }
   });
+}
+
+/**
+ * The part of `stryker.log` this run wrote. The file is APPENDED to, so a
+ * project that already had one keeps its older lines out of the diagnostic.
+ * A missing file is not an error — it only means nothing was logged.
+ */
+function readLogSince(logPath: string, offset: number): string {
+  try {
+    return readFileSync(logPath).subarray(offset).toString('utf8');
+  } catch {
+    return '';
+  }
 }
 
 /** Queue a unit of work so only one Stryker run owns the CWD at a time. */
@@ -163,12 +196,17 @@ function runExclusive<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 /** Map a Stryker failure onto a named error code. */
-function toMutError(err: unknown): Error {
+function toMutError(err: unknown, strykerLog: string): Error {
   if (err instanceof MutToolchainError) {
     return err;
   }
   const message = err instanceof Error ? err.message : String(err);
-  return new MutToolchainError(classifyStrykerFailure(message), message, { cause: err });
+  return new MutToolchainError(classifyStrykerFailure(message), message, {
+    cause: err,
+    // Only present when Stryker wrote something — an empty entry would make
+    // the caller think a log exists when it does not.
+    ...(strykerLog.trim().length > 0 ? { details: { strykerLog } } : {})
+  });
 }
 
 /** A missing plugin / package / runner is a toolchain problem, not a generic failure. */

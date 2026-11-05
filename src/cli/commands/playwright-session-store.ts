@@ -17,6 +17,7 @@ import {
 } from 'node:fs';
 import net from 'node:net';
 import { join, dirname, resolve } from 'node:path';
+import { defaultStateRoot } from 'peaks-loop-workspace-runtime';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
 
 export const DEFAULT_PORT = 8931;
@@ -42,9 +43,11 @@ export interface PlaywrightSession {
 }
 
 export const PLAYWRIGHT_SESSIONS_DIR = 'playwright-sessions';
+/** The runtime root's non-session child holding per-terminal browser profiles. */
+const PLAYWRIGHT_USERDATA_DIR = 'playwright-userdata';
 
 export function playwrightSessionsDir(projectRoot: string): string {
-  return join(projectRoot, '.peaks', '_runtime', PLAYWRIGHT_SESSIONS_DIR);
+  return join(defaultStateRoot(projectRoot), PLAYWRIGHT_SESSIONS_DIR);
 }
 
 export function sessionFilePath(projectRoot: string, terminalId: string): string {
@@ -73,7 +76,7 @@ export function defaultUserDataDir(projectRoot: string, terminalId: string): str
   if (isUnsafePathInput(terminalId)) {
     throw new Error(`Invalid terminal id: ${terminalId} (must be a single path segment)`);
   }
-  return join(projectRoot, '.peaks', '_runtime', 'playwright-userdata', terminalId);
+  return join(defaultStateRoot(projectRoot), PLAYWRIGHT_USERDATA_DIR, terminalId);
 }
 
 /**

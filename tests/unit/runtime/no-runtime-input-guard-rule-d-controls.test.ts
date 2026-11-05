@@ -374,8 +374,10 @@ describe('rule D — an id joined into the runtime tree carries a guard (slice 2
     // Every join in the scanned layer that rule D cannot see. A NEW one fails
     // here — that is the point: the shape that hid a live escape must announce
     // itself, not wait to be noticed. Measured 2026-09-15: 7 in the whole of
-    // `src/`, of which this is the only one in reach (the other 6 are named in
-    // the reach note and are NOT scanned).
+    // `src/`, of which this was the only one in reach (the other 6 were named
+    // in the reach note and were NOT scanned). All 7 have since been migrated to
+    // the runtime package's composition, so the census is empty both in reach
+    // and out of it and the reach note records that.
     //
     // Request 014 moved the join, and with it this row, out of
     // `playwright-commands.ts` into `playwright-session-store.ts` — the file the
@@ -384,14 +386,20 @@ describe('rule D — an id joined into the runtime tree carries a guard (slice 2
     // and a future repair that replaced this expectation with `[]` would still
     // pass while the row it was meant to name had merely changed shape. The
     // synthetic plant below is the arm that keeps that from being silent.
+    //
+    // The last composition was then MIGRATED to `defaultStateRoot(projectRoot)`
+    // (`PLAYWRIGHT_USERDATA_DIR`, no `'_runtime'` literal), so the shape the
+    // census counts is gone from the tree and the expectation below became
+    // `[]` for the honest reason. The planted arm is therefore now the ONLY
+    // positive in this test: an empty expectation with a detector that stopped
+    // reporting the shape would otherwise be indistinguishable from a clean
+    // tree — which is the defect this test exists to prevent.
     expect(
       SRC_SCAN.literalFirstJoins.map((h) => `${relativeToRoot(h.file)} ${rowText(h)}`),
       `measured rows, with lines for the note: ${JSON.stringify(
         SRC_SCAN.literalFirstJoins.map((h) => `${relativeToRoot(h.file)}:${h.line}`)
       )}`
-    ).toEqual([
-      "src/cli/commands/playwright-session-store.ts pinned='playwright-userdata' later=[terminalId]"
-    ]);
+    ).toEqual([]);
 
     // The census DETECTOR, planted with the same shape off-tree: if the live row
     // above were ever the only thing keeping this test awake, an edit that
@@ -407,7 +415,7 @@ describe('rule D — an id joined into the runtime tree carries a guard (slice 2
     ).toEqual(["pinned='playwright-userdata' later=[sid]"]);
   });
 
-  it('the 6 literal-first rows OUTSIDE the reach are named, and each named row is really there', () => {
+  it('the rows OUTSIDE the reach are named, and each named row is really there', () => {
     // Repair R7. The reach note used to ENUMERATE these rows; R5 replaced the
     // list with the words "unchanged" and this file went on asserting they were
     // named — a claim no artifact supported, which is the same defect class as
@@ -423,6 +431,12 @@ describe('rule D — an id joined into the runtime tree carries a guard (slice 2
     // MULTISET against the named list. That is strictly stronger than the old row-by-row
     // line lookup: a named row that is gone fails, a new row in a named file fails, and a
     // row that only MOVED does not — which is what a comment deletion above the join does.
+    //
+    // The named set is EMPTY as of the 2026-11-05 runtime-composition sweep: all six
+    // rows were migrated to `defaultStateRoot(...)`, so none of them composes a
+    // `'_runtime'` literal and the multiset is really empty. The planted fixture below
+    // is therefore the arm's live positive — without it, "no rows" would be
+    // indistinguishable from a detector that stopped reporting the shape.
     const expected = NOT_SCANNED_LITERAL_FIRST.map(
       (named) => `${named.file} pinned='${named.pinned}' later=[${named.later}]`
     ).sort();
@@ -440,5 +454,18 @@ describe('rule D — an id joined into the runtime tree carries a guard (slice 2
       found.sort(),
       `rows and their measured lines: ${JSON.stringify([...where.entries()])}`
     ).toEqual(expected);
+
+    // The shape the last outside-reach row had (`pipeline-verify-gate-support.ts`,
+    // `pinned 'change' later=[rdEvidenceDir]`), planted off-tree. If the detector
+    // stopped reporting literal-first joins, this fails while `found` above stays
+    // `[]` — which is the only way an empty expectation can still mean something.
+    const planted = [
+      `function f(root: string, rdEvidenceDir: string) {`,
+      `  return join(root, '.peaks', '_runtime', 'change', rdEvidenceDir);`,
+      `}`
+    ].join('\n');
+    expect(
+      findLiteralFirstIdJoins(parseSourceFile('fixture.ts', planted)).map((h) => rowText(h))
+    ).toEqual(["pinned='change' later=[rdEvidenceDir]"]);
   });
 });

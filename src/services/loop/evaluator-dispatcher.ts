@@ -8,16 +8,15 @@
  * `verdict-aggregator` envelope union (`karpathy` / `security` / `perf`).
  *
  * Karpathy §2 Simplicity First: no new dependencies, no LLM scheduling,
- * one binary per evaluator. Each evaluator returns the same envelope
- * shape the existing reviewer fan-out produces; verdict-aggregator
- * accepts them via `envelopesToAggregatorInput` unchanged (BC).
- *
- * File budget: ≤ 800 lines.
+ * one binary per evaluator. Each returns the same envelope shape the
+ * reviewer fan-out produces; verdict-aggregator accepts them via
+ * `envelopesToAggregatorInput` unchanged (BC). File budget: ≤ 800 lines.
  */
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { EvaluatorKind } from '../workflow/workflow-spec.js';
+import { tryGetSessionDir } from '../session/getSessionDir.js';
 import { runMonotonicCheck } from './monotonic-runner.js';
 
 /** Standard evaluator verdict envelope — matches the union members
@@ -715,8 +714,9 @@ export function loadEnvelopeFromDisk(
   rel: string,
   kind: 'security-review' | 'perf-baseline'
 ): EvaluatorVerdictEnvelope | null {
-  const path = join(projectRoot, '.peaks', '_runtime', sid, rel);
-  if (!existsSync(path)) return null;
+  const dir = tryGetSessionDir(projectRoot, sid);
+  const path = dir.ok ? join(dir.dir, rel) : '';
+  if (!path || !existsSync(path)) return null;
   const md = readFileSync(path, 'utf8');
   return parseAuditMarkdownEnvelope(md, kind);
 }

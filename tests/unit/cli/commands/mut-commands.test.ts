@@ -17,7 +17,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Command } from 'commander';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createMutCommands } from '~/src/cli/commands/mut-commands';
@@ -170,6 +170,158 @@ describe('peaks mut CLI', () => {
     );
 
     expect(captured?.mutate).toEqual([]);
+  });
+
+  it('when --ignore is repeated, should forward every pattern to the invoker', async () => {
+    // given: a stub invoker that records its input
+    // when: the CLI parses `mut run --ignore .peaks --ignore dist`
+    // then: both patterns reach the invoker as one list
+    let captured: InvokerInput | undefined;
+    const invokeStryker = vi.fn(async (opts: InvokerInput) => {
+      captured = opts;
+      return stubResult();
+    });
+
+    await runMut(
+      [
+        'mut',
+        'run',
+        '--project',
+        project,
+        '--test-files',
+        'src/add.test.ts',
+        '--mutate',
+        'src/**/*.ts',
+        '--ignore',
+        '.peaks',
+        '--ignore',
+        'dist',
+        '--input-sig',
+        HEX_SIG,
+        '--session-id',
+        '2026-10-24-session-5e40e0',
+        '--out',
+        out,
+        '--json'
+      ],
+      invokeStryker
+    );
+
+    expect(captured?.ignorePatterns).toEqual(['.peaks', 'dist']);
+  });
+
+  it('when --ignore is absent, should hand an empty ignore list to the invoker', async () => {
+    // given: a stub invoker that records its input
+    // when: the CLI parses `mut run` without --ignore
+    // then: the invoker receives an empty list (the builder adds .stryker-tmp)
+    let captured: InvokerInput | undefined;
+    const invokeStryker = vi.fn(async (opts: InvokerInput) => {
+      captured = opts;
+      return stubResult();
+    });
+
+    await runMut(
+      [
+        'mut',
+        'run',
+        '--project',
+        project,
+        '--test-files',
+        'src/add.test.ts',
+        '--mutate',
+        'src/**/*.ts',
+        '--input-sig',
+        HEX_SIG,
+        '--session-id',
+        '2026-10-24-session-5e40e0',
+        '--out',
+        out,
+        '--json'
+      ],
+      invokeStryker
+    );
+
+    expect(captured?.ignorePatterns).toEqual([]);
+  });
+
+  it('when the run fails, should write a diagnostic log and name it in the envelope', async () => {
+    // given: an invoker that fails with Stryker's own log attached
+    // when: the CLI reports the failure
+    // then: the diagnostic exists next to the report, carries Stryker's reason,
+    //   and the envelope points at it without dumping it to stderr
+    const failure = Object.assign(new Error('Something went wrong in the initial test run'), {
+      code: 'MUT_FAILED',
+      details: { strykerLog: 'ERROR One or more tests resulted in an error: EPERM copyfile' }
+    });
+    const invokeStryker = vi.fn(async () => {
+      throw failure;
+    });
+
+    const { stdout, stderr } = await runMut(
+      [
+        'mut',
+        'run',
+        '--project',
+        project,
+        '--test-files',
+        'src/add.test.ts',
+        '--mutate',
+        'src/**/*.ts',
+        '--input-sig',
+        HEX_SIG,
+        '--session-id',
+        '2026-10-24-session-5e40e0',
+        '--out',
+        out,
+        '--json'
+      ],
+      invokeStryker
+    );
+
+    const diagnosticPath = join(project, 'stryker-failure.log');
+    expect(existsSync(diagnosticPath)).toBe(true);
+    expect(readFileSync(diagnosticPath, 'utf8')).toContain('EPERM copyfile');
+    expect(stdout).toBe('');
+    const envelope = JSON.parse(stderr) as {
+      data: { diagnosticPath?: string; strykerLog?: string };
+      nextActions: string[];
+    };
+    expect(envelope.data.diagnosticPath).toBe(diagnosticPath);
+    expect(envelope.data.strykerLog).toBeUndefined();
+    expect(envelope.nextActions.join('\n')).toContain(diagnosticPath);
+    expect(process.exitCode).toBe(1);
+  });
+
+  it('when the run succeeds, should not write a diagnostic log', async () => {
+    // given: a stub invoker that succeeds
+    // when: the CLI finishes the run
+    // then: no diagnostic file appears and stdout is clean
+    const invokeStryker = vi.fn(async () => stubResult());
+
+    const { stdout } = await runMut(
+      [
+        'mut',
+        'run',
+        '--project',
+        project,
+        '--test-files',
+        'src/add.test.ts',
+        '--mutate',
+        'src/**/*.ts',
+        '--input-sig',
+        HEX_SIG,
+        '--session-id',
+        '2026-10-24-session-5e40e0',
+        '--out',
+        out,
+        '--json'
+      ],
+      invokeStryker
+    );
+
+    // then: no diagnostic file appears and stdout is clean
+    expect(existsSync(join(project, 'stryker-failure.log'))).toBe(false);
+    expect(JSON.parse(stdout).ok).toBe(true);
   });
 
   it('when the toolchain fails, should print a NAMED error code and exit non-zero', async () => {

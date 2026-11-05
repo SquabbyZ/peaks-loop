@@ -5,6 +5,7 @@ import type { Command } from 'commander';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
+import { getSessionDir } from '../../services/session/getSessionDir.js';
 import { type EvaluatorKind } from '../../services/workflow/workflow-spec.js';
 import {
   dispatchEvaluator,
@@ -147,7 +148,7 @@ function captureEvalScore(
       : envelope.gateAction === 'warn'
         ? 0.5
         : 0.0;
-  const dir = join(projectRoot, '.peaks', '_runtime', sid, 'loop', rid, 'cycles');
+  const dir = join(getSessionDir(projectRoot, sid), 'loop', rid, 'cycles');
   const n = nextEvalCaptureIndex(projectRoot, sid, rid);
   const path = join(dir, `cycle-${n}.json`);
   try {

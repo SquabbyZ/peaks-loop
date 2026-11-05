@@ -31,6 +31,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { isExpectedFsMiss } from '../../shared/fs-utils.js';
+import { tryGetSessionDir } from '../session/getSessionDir.js';
 import {
   readJobShapeDecision,
   JobShapeDecisionError,
@@ -111,8 +112,14 @@ function countRemaining(statePath: string): number {
   return parsed.slices.filter((sl) => sl.status !== 'done' && sl.status !== 'skipped').length;
 }
 
+/**
+ * The Job state file. An id that cannot name a session dir names no file, and
+ * the empty string is what `existsSync` already reads as "nothing here" — the
+ * frame's existing answer, kept as a value so no new branch appears in it.
+ */
 function statePath(projectRoot: string, sessionId: string, jobId: string): string {
-  return join(projectRoot, '.peaks', '_runtime', sessionId, 'job', jobId, 'state.json');
+  const resolved = tryGetSessionDir(projectRoot, sessionId);
+  return resolved.ok ? join(resolved.dir, 'job', jobId, 'state.json') : '';
 }
 
 /**

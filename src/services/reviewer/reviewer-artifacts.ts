@@ -10,6 +10,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
 import { REQUEST_ID_PATTERN } from '../artifacts/request-artifact-service.js';
+import { getSessionDir } from '../session/getSessionDir.js';
 import type { ReviewerEnvelope } from './reviewer-types.js';
 
 export type ReviewerArtifactPaths = { markdown: string; json: string };
@@ -71,7 +72,7 @@ export function writeReviewerArtifacts(input: {
       `Invalid request id: ${input.rid} (expected letters, digits, dots, underscores, or dashes)`
     );
   }
-  const dir = join(input.projectRoot, '.peaks', '_runtime', input.sessionId, 'rd');
+  const dir = join(getSessionDir(input.projectRoot, input.sessionId), 'rd');
   mkdirSync(dir, { recursive: true });
   const paths = {
     markdown: join(dir, `third-party-review-${input.rid}.md`),

@@ -35,6 +35,7 @@ import {
   statSync
 } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
+import { defaultStateRoot } from 'peaks-loop-workspace-runtime';
 
 export type TestFramework = 'jest' | 'vitest' | 'mocha';
 
@@ -59,7 +60,7 @@ export interface TestCacheFile {
 export const TEST_CACHE_DIR = 'test-cache';
 
 export function testCacheDir(projectRoot: string): string {
-  return join(projectRoot, '.peaks', '_runtime', TEST_CACHE_DIR);
+  return join(defaultStateRoot(projectRoot), TEST_CACHE_DIR);
 }
 
 export function testCachePath(projectRoot: string, filePath: string): string {

@@ -8,6 +8,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { tryGetSessionDir } from '../session/getSessionDir.js';
 
 const FRESH_CONTEXT_HEADING = '## Fresh context';
 
@@ -29,7 +30,9 @@ export function extractFreshContextBlock(content: string): string | null {
  * callers treat `null` as "no block", never a hard error.
  */
 export function readFreshContextBlock(projectRoot: string, sessionId: string): string | null {
-  const path = join(projectRoot, '.peaks', '_runtime', sessionId, 'fresh-context.md');
+  const resolved = tryGetSessionDir(projectRoot, sessionId);
+  if (!resolved.ok) return null;
+  const path = join(resolved.dir, 'fresh-context.md');
   let content: string;
   try {
     content = readFileSync(path, 'utf-8');

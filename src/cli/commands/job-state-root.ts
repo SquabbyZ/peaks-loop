@@ -3,7 +3,9 @@
 // `<project>/.peaks/_runtime/<sessionId>/job/<jobId>/state.json`.
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { defaultStateRoot } from 'peaks-loop-workspace-runtime';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
+import { getSessionDir } from '../../services/session/getSessionDir.js';
 import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
 import { projectRoot, type JobRootOpts } from './job-command-shared.js';
 
@@ -23,7 +25,7 @@ export const SESSION_ID_HELP =
  * session must be reported by name so the caller can re-run with --session-id.
  */
 function findSessionHoldingJob(project: string, jobId: string): string | null {
-  const runtimeDir = join(project, '.peaks', '_runtime');
+  const runtimeDir = defaultStateRoot(project);
   if (!existsSync(runtimeDir)) return null;
   for (const entry of readdirSync(runtimeDir, { withFileTypes: true })) {
     if (
@@ -75,7 +77,7 @@ export function resolveJobStateRoot(
   if (isUnsafePathInput(sessionId)) {
     throw new Error(`Invalid session id: ${sessionId} (must be a single path segment)`);
   }
-  const rootDir = join(project, '.peaks', '_runtime', sessionId, 'job');
+  const rootDir = join(getSessionDir(project, sessionId), 'job');
   if (jobId && !existsSync(join(rootDir, jobId, 'state.json'))) {
     const other = findSessionHoldingJob(project, jobId);
     throw new Error(

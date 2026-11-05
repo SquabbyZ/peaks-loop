@@ -2,9 +2,9 @@
 // pre-transition refusals `peaks request transition` runs before it touches an
 // artifact — session-id resolution, the `--allow-incomplete` reason rule, and
 // the assisted/strict-mode bypass gate.
-import { join } from 'node:path';
 import { fail } from 'peaks-loop-shared/result';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
+import { getSessionDir } from '../../services/session/getSessionDir.js';
 import { printResult, type ProgramIO } from '../cli-helpers.js';
 import {
   isBypassLimitReached,
@@ -143,7 +143,7 @@ async function applyRestrictedBypassGate(io: ProgramIO, ctx: BypassContext): Pro
     refuseAllowIncompleteRestricted(io, ctx, presence.mode);
     return false;
   }
-  const sessionRoot = join(options.project, '.peaks', '_runtime', resolvedSessionId ?? 'default');
+  const sessionRoot = getSessionDir(options.project, resolvedSessionId ?? 'default');
   if (isBypassLimitReached(sessionRoot)) {
     refuseBypassLimitReached(io, ctx);
     return false;

@@ -49,6 +49,7 @@ import {
   leaseFilePath,
   type WorktreeLease
 } from 'peaks-loop-workspace-runtime';
+import { getSessionDir, tryGetSessionDir } from '../session/getSessionDir.js';
 import { readDispatchProvenance } from '../worktree/dispatch-provenance.js';
 import {
   containerLeaseFilePath,
@@ -193,7 +194,7 @@ export function currentAuthFingerprint(input: WorktreeAuthCheckInput): string {
 
 /** The file the gate reads. Default location: `.peaks/_runtime/<sessionId>/worktree-auth.json`. */
 export function worktreeAuthFilePath(projectRoot: string, sessionId: string): string {
-  return join(projectRoot, '.peaks', '_runtime', sessionId, WORKTREE_AUTH_FILE);
+  return join(getSessionDir(projectRoot, sessionId), WORKTREE_AUTH_FILE);
 }
 
 /**
@@ -488,15 +489,14 @@ export function evaluateWorktreeAuth(input: WorktreeAuthCheckInput): WorktreeAut
  */
 export function decideFromContainerLease(input: WorktreeAuthCheckInput): WorktreeAuthDecision {
   const containerLeaseId = input.containerLeaseId ?? '';
-  const file = containerLeaseFilePath(
-    `${input.projectRoot}/.peaks/_runtime/${input.sessionId}`,
-    containerLeaseId
-  );
-  if (!existsSync(file)) {
+  // Total: a bad id is "no lease" — this function's existing fail-closed branch.
+  const sessionDir = tryGetSessionDir(input.projectRoot, input.sessionId);
+  const file = sessionDir.ok ? containerLeaseFilePath(sessionDir.dir, containerLeaseId) : null;
+  if (file === null || !existsSync(file)) {
     return {
       allow: false,
       code: 'CONTAINER_LEASE_FILE_INVALID',
-      reason: `No container lease at ${file} (leaseId=${containerLeaseId}).`,
+      reason: `No container lease at ${file ?? 'an unresolved session directory'} (leaseId=${containerLeaseId}).`,
       remediation: `Run \`peaks container spawn --rid <rid> --role <role> --purpose "<why>"\` to create the lease, then re-run. The PEAKS_CONTAINER_LEASE_ID env is the source of truth (dispatch injects it).`
     };
   }
@@ -539,15 +539,15 @@ export function decideFromContainerLease(input: WorktreeAuthCheckInput): Worktre
 export function decideFromLease(input: WorktreeAuthCheckInput): WorktreeAuthDecision {
   const leaseId = input.leaseId ?? '';
   // `leaseFilePath` expects the per-session runtime dir as its first
-  // argument, NOT the project root. Compose the same path the spawn
-  // CLI writes to (`<projectRoot>/.peaks/_runtime/<sid>`).
-  const runtimeDir = `${input.projectRoot.replace(/[\\/]+$/, '')}/.peaks/_runtime/${input.sessionId}`;
-  const file = leaseFilePath(runtimeDir, leaseId);
-  if (!existsSync(file)) {
+  // argument, NOT the project root. Total: a bad id resolves to "no lease",
+  // the same fail-closed branch as a missing file.
+  const sessionDir = tryGetSessionDir(input.projectRoot, input.sessionId);
+  const file = sessionDir.ok ? leaseFilePath(sessionDir.dir, leaseId) : null;
+  if (file === null || !existsSync(file)) {
     return {
       allow: false,
       code: 'WORKTREE_USER_AUTH_REQUIRED',
-      reason: `No worktree auth grant AND no lease at ${file} (leaseId=${leaseId}).`,
+      reason: `No worktree auth grant AND no lease at ${file ?? 'an unresolved session directory'} (leaseId=${leaseId}).`,
       remediation:
         `Either run \`peaks worktree auth grant --operation <op> --reason "<why>"\` or ` +
         `run \`peaks worktree spawn --rid <rid> --role <role> --purpose "<why>"\` to create the lease.`

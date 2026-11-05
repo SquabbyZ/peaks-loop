@@ -24,6 +24,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { tryGetSessionDir } from '../session/getSessionDir.js';
 import {
   lookupPhaseTransition,
   buildSuggestedCompactMessage,
@@ -49,7 +50,12 @@ const SURVIVAL_TABLE_PERSISTS = SURVIVAL_TABLE.persists;
 const SURVIVAL_TABLE_LOST = SURVIVAL_TABLE.lost;
 
 function readLatestUsageRow(projectRoot: string, sessionId: string): UsageRow | null {
-  const path = join(projectRoot, '.peaks', '_runtime', sessionId, 'usage.jsonl');
+  // Total by contract — "never throws" is this module's documented surface —
+  // so an id that cannot name a session dir reads as "no usage row", which is
+  // the same answer an absent file gets.
+  const sessionDir = tryGetSessionDir(projectRoot, sessionId);
+  if (!sessionDir.ok) return null;
+  const path = join(sessionDir.dir, 'usage.jsonl');
   if (!existsSync(path)) return null;
   try {
     const raw = readFileSync(path, 'utf8');

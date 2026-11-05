@@ -22,6 +22,8 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { getSessionDir } from '../session/getSessionDir.js';
+
 // Frozen: the filenames release 1.4.1 wrote, not the current contract. The
 // entries name what this migration must FIND on an upgraded tree, so they stay
 // bare even where a later release put the request id in the canonical name.
@@ -118,7 +120,7 @@ function buildPlan(projectRoot: string): MigrationPlanEntry[] {
   const plan: MigrationPlanEntry[] = [];
   for (const sid of enumerateLegacySessions(projectRoot)) {
     const legacyRoot = join(projectRoot, '.peaks', sid);
-    const canonicalRoot = join(projectRoot, '.peaks', '_runtime', sid);
+    const canonicalRoot = getSessionDir(projectRoot, sid);
     // Per-session files (no <rid> template).
     for (const rel of PER_SESSION_ARTIFACT_TYPES) {
       const from = join(legacyRoot, rel);

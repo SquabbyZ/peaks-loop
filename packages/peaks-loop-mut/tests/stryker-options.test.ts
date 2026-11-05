@@ -149,6 +149,45 @@ describe('buildStrykerOptions', () => {
     expect(with_.options.tsconfigFile).toBe('tsconfig.mut.json');
   });
 
+  it('passes sandbox-ignore patterns through verbatim and always adds .stryker-tmp', () => {
+    // given: a caller that names the trees it does not want copied
+    const patterns = ['.peaks', 'dist', 'coverage/**'];
+    // when: the options are built
+    const { options } = buildStrykerOptions({
+      project: PROJECT,
+      mutate: ['src'],
+      ignorePatterns: patterns
+    });
+
+    // then: the patterns survive untouched, and the sandbox directory is
+    // appended so the sandbox can never be copied into itself
+    expect(options.ignorePatterns).toEqual([...patterns, '.stryker-tmp']);
+  });
+
+  it('leaves only the always-ignored sandbox directory when the caller names none', () => {
+    // given: a caller that names no ignore pattern (the flag is opt-in)
+    // when: the options are built
+    const { options } = buildStrykerOptions({ project: PROJECT, mutate: ['src'] });
+
+    // then: no caller pattern is invented, but the sandbox is still ignored
+    expect(options.ignorePatterns).toEqual(['.stryker-tmp']);
+  });
+
+  it('sets the file log level only when the caller asks for one', () => {
+    // given: the builder's default (the invoker raises it for diagnostics)
+    const without = buildStrykerOptions({ project: PROJECT, mutate: ['src'] });
+    const with_ = buildStrykerOptions({
+      project: PROJECT,
+      mutate: ['src'],
+      fileLogLevel: 'debug'
+    });
+
+    // then: the console log level is untouched in both cases
+    expect(without.options.fileLogLevel).toBe('off');
+    expect(with_.options.fileLogLevel).toBe('debug');
+    expect(with_.options.logLevel).toBe('off');
+  });
+
   it('is pure: the same input yields the same output', () => {
     const input = {
       project: PROJECT,

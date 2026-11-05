@@ -1,6 +1,7 @@
 import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
+import { defaultStateRoot } from 'peaks-loop-workspace-runtime';
 import { isInsidePath } from '../../shared/path-utils.js';
 import { getWorkspaceConfigForPath } from '../config/config-service.js';
 import {
@@ -265,17 +266,16 @@ function readActiveSkillSessionId(projectRoot: string): string | null {
 }
 
 /**
- * Read the workspace session binding and return its `sessionId`,
- * or null when the file is missing / malformed.
+ * Read the workspace session binding and return its `sessionId`, or null when
+ * the file is missing / malformed.
  *
- * `<projectRoot>/.peaks/_runtime/session.json`. The legacy
- * `<projectRoot>/.peaks/.session.json` is consulted as a
- * one-minor-release back-compat fallback: if the new path is
- * absent but the legacy path is present and valid, we use the
- * legacy value. The new path always wins when both exist.
+ * `<projectRoot>/.peaks/_runtime/session.json`; the legacy
+ * `<projectRoot>/.peaks/.session.json` is a one-minor-release back-compat
+ * fallback: if the new path is absent but the legacy path is present and valid,
+ * we use the legacy value. The new path always wins when both exist.
  */
 function readSessionJsonBinding(projectRoot: string): string | null {
-  const newPath = join(projectRoot, '.peaks', '_runtime', 'session.json');
+  const newPath = join(defaultStateRoot(projectRoot), 'session.json');
   const legacyPath = join(projectRoot, '.peaks', '.session.json');
   const pathToRead = existsSync(newPath) ? newPath : legacyPath;
   if (!existsSync(pathToRead)) return null;

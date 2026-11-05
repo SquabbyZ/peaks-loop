@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { getSessionDir } from '../session/getSessionDir.js';
 import { crossCheck } from './cross-check.js';
 import { runIndependentCheck } from './independent-checker.js';
 import type { CapabilityAuditResult, AuditDimension } from './types.js';
@@ -141,7 +142,9 @@ export async function runAudit(input: RunAuditInput): Promise<CapabilityAuditRes
     coverage: check === null ? null : check.coverage
   };
 
-  const dir = join(input.projectRoot, '.peaks', '_runtime', input.sessionId, 'capability-audit');
+  // Write target: the throwing entry, so a refused sid cannot produce a
+  // directory outside the session.
+  const dir = join(getSessionDir(input.projectRoot, input.sessionId), 'capability-audit');
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, `${auditId}.json`), JSON.stringify(out, null, 2));
   return out;

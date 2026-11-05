@@ -13,6 +13,7 @@ import {
   decideCompactStatusline,
   type CompactStatuslineState
 } from '../compact-statusline/compact-statusline-service.js';
+import { tryGetSessionDir } from '../session/getSessionDir.js';
 import { getSessionIdCanonical } from '../session/session-manager.js';
 import {
   readActiveDispatchIndex,
@@ -119,8 +120,11 @@ export function read24hOverlay(
   projectRoot: string,
   sessionId: string
 ): TwentyFourHourOverlay | null {
-  if (!projectRoot || !sessionId) return null;
-  const path = join(projectRoot, '.peaks', '_runtime', sessionId, '24h-state.json');
+  // An empty id is refused by the total entry below like any other bad id.
+  if (!projectRoot) return null;
+  const resolved = tryGetSessionDir(projectRoot, sessionId);
+  if (!resolved.ok) return null;
+  const path = join(resolved.dir, '24h-state.json');
   let raw: string;
   try {
     raw = readFileSync(path, 'utf8');

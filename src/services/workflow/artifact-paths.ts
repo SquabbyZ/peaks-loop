@@ -16,6 +16,8 @@
  */
 import { existsSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
+import { defaultStateRoot } from 'peaks-loop-workspace-runtime';
+import { getSessionDir } from '../session/getSessionDir.js';
 
 const QA_DIR = 'qa';
 
@@ -56,10 +58,12 @@ function canonicalQaDir(projectRoot: string, sessionId: string): string {
   // as the on-disk session dir name (it equals the sessionId under
   // the session-axis layout). Under v2.16.0 layouts the same string
   // was the change-id dir name.
-  return join(projectRoot, '.peaks', '_runtime', sessionId, QA_DIR);
+  return join(getSessionDir(projectRoot, sessionId), QA_DIR);
 }
 function legacyChangeAxisQaDir(projectRoot: string, sessionId: string): string {
-  return join(projectRoot, '.peaks', '_runtime', 'change', sessionId, QA_DIR);
+  // A NON-session child of the runtime root (`_runtime/change/<id>/`), so the
+  // state-root entry is the one that names it; the id is not a session dir.
+  return join(defaultStateRoot(projectRoot), 'change', sessionId, QA_DIR);
 }
 function legacyMisplacedQaDir(projectRoot: string, sessionId: string): string {
   return join(projectRoot, '.peaks', sessionId, QA_DIR);

@@ -13,6 +13,7 @@
 
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { defaultStateRoot } from 'peaks-loop-workspace-runtime';
 
 import {
   readObservabilityEvents,
@@ -88,7 +89,7 @@ export function readAllSessionLeaseEvents(projectRoot: string): {
   sessions: ReadonlyArray<{ sessionId: string; events: ReadonlyArray<ObservabilityEvent> }>;
   missingSessions: number;
 } {
-  const runtimeDir = join(projectRoot, '.peaks', '_runtime');
+  const runtimeDir = defaultStateRoot(projectRoot);
   if (!existsSync(runtimeDir)) return { sessions: [], missingSessions: 0 };
   let entries: ReadonlyArray<string>;
   try {

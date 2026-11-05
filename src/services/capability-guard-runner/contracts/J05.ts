@@ -11,6 +11,7 @@ import {
 } from '../../final-review/final-review-service.js';
 import type { LlmRunner } from '../../final-review/final-review-service.js';
 import type { DimensionKind } from '../../final-review/final-review-types.js';
+import { getSessionDir } from '../../session/getSessionDir.js';
 import type { GuardContext, GuardRunResult } from '../types.js';
 import {
   combineProbes,
@@ -116,11 +117,9 @@ async function probePrepareFinalReview(): Promise<{
   const root = mkdtempSync(join(tmpdir(), 'cbl-J05-'));
   try {
     const sessionId = 'guard-J05';
-    mkdirSync(join(root, '.peaks', '_runtime', sessionId, 'audit-goal'), { recursive: true });
-    writeFileSync(
-      join(root, '.peaks', '_runtime', sessionId, 'audit-goal', 'J05-fixture.json'),
-      JSON.stringify({ successCriteria: ['c'] })
-    );
+    const fixtureDir = join(getSessionDir(root, sessionId), 'audit-goal');
+    mkdirSync(fixtureDir, { recursive: true });
+    writeFileSync(join(fixtureDir, 'J05-fixture.json'), JSON.stringify({ successCriteria: ['c'] }));
     const opts = { projectRoot: root, sessionId };
 
     let rejected = false;

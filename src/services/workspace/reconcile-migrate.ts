@@ -15,6 +15,7 @@ import {
   unlinkSync
 } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { defaultStateRoot } from 'peaks-loop-workspace-runtime';
 // Call-time-only dependency on the sibling service: `migrateSubAgentState`
 // walks every discovered session via `discoverSessions`, which is invoked
 // only at call time (after both modules have fully evaluated), so the
@@ -40,7 +41,6 @@ const RUNTIME_OLD_PATHS: ReadonlyArray<string> = [
   '.active-skill.json',
   'sop-state'
 ];
-const RUNTIME_DIR = join('.peaks', '_runtime');
 
 /**
  * Map a legacy path basename (e.g. `.session.json`) to its canonical
@@ -88,7 +88,7 @@ export function migrateOldRuntimeState(projectRoot: string): {
 } {
   const root = resolve(projectRoot);
   const peaksRoot = join(root, '.peaks');
-  const newDir = join(root, RUNTIME_DIR);
+  const newDir = defaultStateRoot(root);
   const migratedFiles: string[] = [];
   const errors: Array<{ path: string; message: string }> = [];
 

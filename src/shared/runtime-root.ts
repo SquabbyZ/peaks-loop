@@ -24,6 +24,7 @@
  */
 
 import { join } from 'node:path';
+import { defaultStateRoot } from 'peaks-loop-workspace-runtime';
 import { isUnsafePathInput } from './path-safety.js';
 
 declare const RUNTIME_SEGMENT: unique symbol;
@@ -68,7 +69,11 @@ export class RuntimeRoot {
 
   /** The runtime root of `projectRoot`. */
   static at(projectRoot: string): RuntimeRoot {
-    return new RuntimeRoot(join(projectRoot, '.peaks', '_runtime'));
+    // The layout lives in the workspace-runtime package (the single place this
+    // project composes it). `join` over the one value is separator
+    // normalization only: `dir()` has always emitted the platform's separator
+    // and callers compare against it byte-for-byte.
+    return new RuntimeRoot(join(defaultStateRoot(projectRoot)));
   }
 
   /**

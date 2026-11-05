@@ -2,13 +2,14 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, copyFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { getSessionDir } from '../session/getSessionDir.js';
 import type { BaselineError, BaselineLock, CapabilityBaselineFile } from './types.js';
 
 const CURRENT_DIR = (root: string) => join(root, 'openspec', 'baselines', 'current');
 const FILE_PATH = (root: string) => join(CURRENT_DIR(root), 'capability-baseline.json');
 const LOCK_PATH = (root: string) => join(CURRENT_DIR(root), 'capability-baseline.lock');
 const POINTER = (root: string, sessionId: string) =>
-  join(root, '.peaks', '_runtime', sessionId, 'baselines', 'current.json');
+  join(getSessionDir(root, sessionId), 'baselines', 'current.json');
 
 function hashFor(file: CapabilityBaselineFile): string {
   const stripped: Omit<CapabilityBaselineFile, 'signedBy' | 'signedAt'> = {
