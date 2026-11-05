@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-28T11:59:04.896Z",
+  "updatedAt": "2026-11-05T11:41:11.734Z",
   "hot": {
     "rule": [
       {
@@ -636,6 +636,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\reviewer-producer-retires-the-third-party-review-acceptance.md",
         "sourceArtifact": ".peaks/_runtime/2026-10-18-session-dedff6/txt/handoff.md",
         "updatedAt": "2026-10-19"
+      },
+      {
+        "name": "s1-shared-workspace-runtime-package-what-moved-and-what-stayed",
+        "kind": "decision",
+        "description": "is the cross-repo runtime seam shared with peaks-harness.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\s1-shared-workspace-runtime-package-what-moved-and-what-stayed.md",
+        "sourceArtifact": ".peaks/_runtime/2026-11-05-session-af31e4/txt/handoff.md",
+        "updatedAt": "2026-11-05"
       },
       {
         "name": "skill-first-cli-auxiliary-sub-agent-dispatch",
@@ -2054,6 +2062,14 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "extracting-a-workspace-package-three-gates-that-only-fire-after-wiring",
+        "kind": "lesson",
+        "description": "When adding a package under , three separate gates bite only after the package is wired in, and each has a different ...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\extracting-a-workspace-package-three-gates-that-only-fire-after-wiring.md",
+        "sourceArtifact": ".peaks/_runtime/2026-11-05-session-af31e4/txt/handoff.md",
+        "updatedAt": "2026-11-05"
+      },
+      {
         "name": "F2 detached arch ship + 4.0.21 publish closure (with publish.yml auto-bump lesson + 4.0.22 retry) — session 476090 final sediment",
         "kind": "lesson",
         "description": "F2 detached arch ship + 4.0.21 publish closure > **优先级**：项目级 lesson。任何未来 release 必须 DELETE publish.yml line 189 ( ste...",
@@ -2380,6 +2396,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\refactoring-a-guard-into-pieces-needs-an-arm-that-can-see-the-difference.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-29-session-b7cf21/rd/requests/2026-10-02-wave9-generator-split-repair1.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "regenerate-the-gate-baseline-after-the-last-line-count-edit-not-before",
+        "kind": "lesson",
+        "description": "publishes measured numbers that  asserts against the live census.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\regenerate-the-gate-baseline-after-the-last-line-count-edit-not-before.md",
+        "sourceArtifact": ".peaks/_runtime/2026-11-05-session-af31e4/txt/handoff.md",
+        "updatedAt": "2026-11-05"
       },
       {
         "name": "registry-check-after-publish-hits-subpackage-lag",
@@ -3983,7 +4007,7 @@
         "description": "peaks-loop = 现有 AI CLI 之上的增强层,不造新 AI CLI > **Why:** 用户 2026-07-04 明确给出定位:\"peaks-loop 的定位不是要开发一款新的 AI CLI,而是增强\"。这条直接影响...",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\peaks-loop-is-enhancement-not-new-cli.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-10-08"
+        "updatedAt": "2026-11-03"
       },
       {
         "name": "peaks-loop-job-introduction",
