@@ -18,7 +18,21 @@ peaks-loop **不在本地 `npm publish`**。发布由 `.github/workflows/publish
 5. publish.yml 跑 `install → build → vitest → 条件 changeset → scripts/release-pack.mjs`,用 **OIDC Trusted Publishing** 发 tarball
 6. `npm i -g peaks-loop@X.Y.Z`
 
-**版本号要改 9 处**(规则从 4.0.42 发布 commit `fba04265` 反推):root `package.json`;`packages/peaks-loop-shared/src/version.ts` 的 `CLI_VERSION`;`packages/peaks-loop-internal-runtime/src/index.ts` 的 `RUNTIME_VERSION`(这两个跟 root 走);**四个子包各自的 `package.json` 各自 patch +1**(它们版本号与 root 无关:internal-runtime 0.0.x、mut 0.1.x、shared-channel 0.0.x、shared 0.0.x);`README.md` + `README-en.md` 的版本行。加 CHANGELOG 共 10 个文件。
+**版本号要改 10 处**(规则从 4.0.42 发布 commit `fba04265` 反推,2026-11-06 加入第五个子包
+`peaks-loop-workspace-runtime` 后由 9 处变 10 处):root `package.json`;`packages/peaks-loop-shared/src/version.ts`
+的 `CLI_VERSION`;`packages/peaks-loop-internal-runtime/src/index.ts` 的 `RUNTIME_VERSION`(这两个跟 root 走);
+**五个子包各自的 `package.json` 各自 patch +1**(它们版本号与 root 无关:internal-runtime 0.0.x、mut 0.1.x、
+shared-channel 0.0.x、shared 0.0.x、workspace-runtime 0.0.x);`README.md` + `README-en.md` 的版本行。
+加 CHANGELOG 共 11 个文件。
+
+**子包清单是动态发现的,不要手写**:`scripts/bump-version.mjs` 扫 `packages/*/package.json` 逐个
+patch +1,`scripts/release-pack-packages-graph.mjs` 的 `discoverSubpackages()` 也扫同一个目录,并按依赖拓扑
+排序后发布(依赖先发)。**新增一个子包不需要改这两个脚本** —— 但需要确认它的 `package.json` 是
+`private: false` 且版本是干净的 `x.y.z`,否则会被跳过。
+
+**新子包的首次发布**:`bump-version.mjs` 对每个子包无条件 patch +1,所以首版想发 `0.0.1` 时,先把该包
+`package.json` 写成 `0.0.0`,再跑 `node scripts/bump-version.mjs --to <root 版本>` —— 结果就是 `0.0.1`。
+直接跑会把首版推成 `0.0.2`(合法但别扭)。
 
 **第三个容易踩的点（2026-10-10 实测）**: **bump 之后、跑任何测试之前，必须先 `pnpm build`。**
 `bump-version.mjs` 会改 `packages/peaks-loop-shared/src/version.ts` 与

@@ -1,5 +1,57 @@
 # Changelog
 
+## 4.2.0 — 2026-11-06（运行态接缝收口）
+
+**版本级别**：**minor**（新增 `peaks mut run --ignore` 能力，并把一个新的 workspace 包发到 registry）。
+本次**没有**改任何门禁阈值或放行条件；**没有**改事件 schema 版本号（`schemaVersion` 仍是 `z.literal(1)`）。
+门禁的天花板只降不升：`eslintFindings` 1667 → 1666、`eslintErrors` 553 → 552、
+`fileSizeExcessLines` 21825 → 21801。
+
+**一句话：这一版把「运行态路径从哪里拼」收成一个入口，并把 `peaks mut run` 从「只在一个仓库上能用」
+修成「在任何仓库上都能用」。**
+
+### 1. 72 处手拼路径收进 state-root 接缝
+
+`src/**` 里 72 处手写 `join(root, '.peaks', '_runtime', sid)` 全部改走
+`getSessionDir` / `tryGetSessionDir` / `defaultStateRoot`。**抛错 / 保持 total 的语义逐个核对过**：
+原本会抛的仍然抛，原本承诺不抛的改走 `tryGetSessionDir` 并把 `ok:false` 映射回该帧原有的失败形态
+（例如 `gcStalePresenceLeases` 对无法解析的 lease 记一条告警行，而不是抛）。
+单行形态的棘轮基线由 72 条降到 **2 条**——剩下两条是「项目相对路径、无 `projectRoot`、纯函数且从不抛」，
+接缝表达不了，已注明原因。**多行 `join(...)` / `resolve(...)` 形态不在本次范围内**（属已排期的后续清扫）。
+
+### 2. `--branch` 的 shell 注入面关闭
+
+`peaks worktree spawn --branch` 的值此前经双引号拼进 `execSync` 的命令串。现改为
+`execFileSync('git', argv, …)`：不再经过任何 shell，含引号、反引号、`$(...)` 的分支名以**单个 argv 元素**
+到达 git。失败信息形状随之变为不带引号的 `Command failed: git worktree add <path> -b <branch>`（已实测确认，
+仓库内无测试钉住旧形状）。独立安全审计由 `warn` 转为 **`pass`**。
+
+### 3. Windows 分隔符 bug
+
+`workflow-graph-store-helpers.ts` 用 `resolve()` 得到的原生分隔符去和接缝产出的正斜杠根路径做
+`startsWith`，在 Windows 上对**每一个**合法图引用都判为越界，`peaks workflow init` 直接失败。
+改为 `relative()` 包含判断，并补了一个在旧代码下必红的测试。
+
+### 4. `peaks mut run` 真正可用
+
+- 新增 `--ignore <patterns...>`：沙箱复制时排除指定路径（默认空，`.stryker-tmp` 始终排除）。
+  此前仓库里任何 gitignored 目录带符号链接都会让 Stryker 复制沙箱 `EPERM`。
+- 失败时写出 `stryker-failure.log` 并在信封里给出其路径——此前 `logLevel: 'off'` 把真因吞掉，
+  只能看到一句 `Something went wrong in the initial test run`。
+- 变异面新增 `src/services/session/getSessionDir.ts`（本次 72 处调用的共同入口），
+  **33 个变异体全部被杀死**（killRate 1.0）。
+
+### 5. 构建完整性
+
+`packages/peaks-loop-workspace-runtime` 的 `package.json#exports` 声明 `./lease` / `./worktree`，
+而 `check-build-integrity.mjs` 按子路径推导 `src/<subpath>.ts`。补两个一行 re-export shim 之后
+`pnpm build` 端到端干净（此前是 `phantom export` 失败）。
+
+### 6. 新包首次发布
+
+`peaks-loop-workspace-runtime@0.0.1` 首次发到公共 registry；`peaks-loop` 依赖它，
+`workspace:*` 由 `pnpm pack` 改写成精确版本。
+
 ## 4.1.26 — 2026-10-30（授权与发布物）
 > **这一版原定是 4.1.25。** 那个 tag 已在 2026-10-30 推送，但发布没有完成 —— publish job 的
 > 30 分钟预算不足以跑完它要跑的链（install + build + 窄测试 + 五道门 + **五个包的 OIDC 带 provenance
