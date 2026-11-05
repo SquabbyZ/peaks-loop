@@ -2,12 +2,15 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 
-import { leaseStoreDir, listLeasesSync } from './worktree-lease.js';
 import {
+  defaultStateRoot,
   isPathInside,
+  leaseStoreDir,
+  listLeasesSync,
   parseGitWorktreePorcelain,
+  sessionRuntimeDir,
   type GitWorktreeRecord
-} from './git-worktree-parser.js';
+} from 'peaks-loop-workspace-runtime';
 
 export type HostWorktreeFinding = GitWorktreeRecord & {
   readonly managedLeaseId: string | null;
@@ -39,7 +42,12 @@ export function reconcileHostWorktrees(input: {
     records = [];
   }
 
-  const storeDir = leaseStoreDir(join(input.projectRoot, '.peaks', '_runtime', input.sessionId));
+  const storeDir = leaseStoreDir(
+    sessionRuntimeDir({
+      stateRoot: defaultStateRoot(input.projectRoot),
+      sessionId: input.sessionId
+    })
+  );
   const leaseResult = listLeasesSync(storeDir, {
     existsSync,
     readdir: (path) => readdirSync(path),

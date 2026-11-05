@@ -1,26 +1,22 @@
 /**
  * `peaks worktree renew` — extend an active lease's `expiresAt`.
  *
- * Extracted verbatim from `worktree-lease-commands.ts` (mechanical move of
- * the `.action()` body). The lease-file failures route through the shared
- * `loadLeaseOrStop`; the LEASE_NOT_RENEWABLE / INVALID_TTL guards, the
- * renewal write, the metric emit and the ok/fail envelopes are unchanged.
+ * The action body is `runRenew` from `peaks-loop-workspace-runtime`; this file
+ * owns the host policy, the effects and the envelope. Every result kind is
+ * mapped back onto the envelope/exit code it produced before the extraction
+ * (LEASE_NOT_FOUND / LEASE_FILE_INVALID / LEASE_NOT_RENEWABLE / INVALID_TTL),
+ * and the metric emit stays here.
  */
 
 import type { Command } from 'commander';
 import { fail, ok } from 'peaks-loop-shared/result';
+import { defaultStateRoot, runRenew, type WorktreeLease } from 'peaks-loop-workspace-runtime';
 
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
-import { atomicWriteJson } from '../../services/ide/shared/atomic-json.js';
 import { emitLeaseEvent } from '../../services/observability/observability-service.js';
-import {
-  leaseFilePath,
-  renewLease,
-  ttlForRole,
-  type WorktreeLease
-} from '../../services/worktree/worktree-lease.js';
-import { loadLeaseOrStop } from './worktree-lease-load.js';
-import { joinPathSession, resolveProjectRoot, resolveSessionId } from './worktree-lease-session.js';
+import { leaseEffects } from './worktree-lease-effects.js';
+import { stopOnLeaseFileFailure } from './worktree-lease-load.js';
+import { resolveProjectRoot, resolveSessionId } from './worktree-lease-session.js';
 
 const RENEW_DESCRIPTION =
   "Extend an active lease's `expiresAt` and persist it. Idempotent for already-active leases. " +
@@ -125,36 +121,46 @@ function printRenewFailed(
   process.exitCode = 1;
 }
 
-function runRenew(options: RenewOptions, io: ProgramIO): void {
+function runRenewAction(options: RenewOptions, io: ProgramIO): void {
   const projectRoot = resolveProjectRoot(options);
   const sessionId = resolveSessionId(options, projectRoot);
   try {
-    const file = leaseFilePath(joinPathSession(projectRoot, sessionId), options.leaseId);
-    const loaded = loadLeaseOrStop(io, options, {
-      command: 'worktree.renew',
-      file,
-      hints: { missing: RENEW_MISSING_HINTS, invalid: RENEW_INVALID_HINTS }
-    });
-    if (loaded.stop) {
-      process.exitCode = 1;
-      return;
-    }
-    const lease = loaded.lease;
+    const result = runRenew(
+      {
+        projectRoot,
+        stateRoot: defaultStateRoot(projectRoot),
+        sessionId,
+        leaseId: options.leaseId,
+        // `exactOptionalPropertyTypes`: absent means the role's default TTL.
+        ...(options.ttl === undefined ? {} : { ttlMs: Number.parseInt(options.ttl, 10) })
+      },
+      leaseEffects(Date.now())
+    );
 
-    if (lease.status === 'released' || lease.status === 'gc') {
-      printRenewNotRenewable(io, options, lease);
-      return;
+    switch (result.kind) {
+      case 'lease-not-found':
+      case 'lease-invalid':
+        stopOnLeaseFileFailure(
+          io,
+          options,
+          {
+            command: 'worktree.renew',
+            hints: { missing: RENEW_MISSING_HINTS, invalid: RENEW_INVALID_HINTS }
+          },
+          result
+        );
+        return;
+      case 'not-renewable':
+        printRenewNotRenewable(io, options, result.lease);
+        return;
+      case 'invalid-ttl':
+        printRenewInvalidTtl(io, options);
+        return;
+      case 'ok':
+        break;
     }
 
-    const now = Date.now();
-    const ttlMs =
-      options.ttl === undefined ? ttlForRole(lease.role) : Number.parseInt(options.ttl, 10);
-    if (!Number.isInteger(ttlMs) || ttlMs <= 0) {
-      printRenewInvalidTtl(io, options);
-      return;
-    }
-    const renewed = renewLease(lease, now + ttlMs);
-    atomicWriteJson(file, renewed);
+    const { lease: renewed, previous: lease, ttlMs } = result;
     // Part 4.A: emit renew metric.
     emitLeaseEvent({
       sessionId,
@@ -179,5 +185,5 @@ export function registerWorktreeLeaseRenewCommand(auth: Command, io: ProgramIO):
       .option('--ttl <ms>', 'time-to-live in ms from now (default: role-default)')
       .option('--session <sid>', 'override session id')
       .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
-  ).action((options: RenewOptions) => runRenew(options, io));
+  ).action((options: RenewOptions) => runRenewAction(options, io));
 }

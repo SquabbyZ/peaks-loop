@@ -10,7 +10,7 @@ import {
   createDispatchProvenanceToken,
   writeDispatchProvenance
 } from '~/src/services/worktree/dispatch-provenance';
-import { finalizeLease, serializeLease } from '~/src/services/worktree/worktree-lease';
+import { finalizeLease, serializeLease } from 'peaks-loop-workspace-runtime';
 import { withTmpWorkspacePerTest } from '../_setup/tmp-workspace.js';
 
 const SID = '2026-08-01-provenance';

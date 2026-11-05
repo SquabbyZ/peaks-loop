@@ -1,38 +1,31 @@
 /**
- * worktree-lease — pure-function lease store for `peaks worktree spawn`.
+ * worktree-lease store — pure-function lease records for `peaks worktree spawn`.
  *
- * governance complement to Layer 3 (`permissions.deny` for the superpowers
- * chain) and Layer 1 (sub-agent dispatch prompt refusal). Together the
- * three layers close the superpowers-chain jailbreak that previously
- * bypassed peaks-loop's worktree posture.
- *
- * The store is a pure function module: every helper takes the lease
- * directory path as an argument and returns structured data. Atomic
- * filesystem writes happen at the call site (CLI command), keeping the
- * helpers trivially testable. The CLI surface lives in
+ * The store is a pure module: every helper takes the lease directory path as an
+ * argument and returns structured data. Filesystem writes happen at the call
+ * site (`lifecycle.ts` takes them through an injected `fs`), which keeps these
+ * helpers trivially testable. Time and randomness are parameters with
+ * production defaults, so a caller can make a run deterministic; a caller that
+ * wants them can also leave them alone.
  *
  * Why a separate lease (vs reusing `peaks worktree auth grant`):
- * - `auth grant` is a single-shot, short-lived token file consulted by
- *   the PreToolUse hook BEFORE `git worktree add` runs. It answers
+ * - `auth grant` is a single-shot, short-lived token file consulted by the
+ *   PreToolUse hook BEFORE `git worktree add` runs. It answers
  *   "is the LLM allowed to do this right now?"
- * - `lease` is a long-lived lifecycle object that owns the worktree
- *   path, branch, expiry, and consumption log. It answers
+ * - `lease` is a long-lived lifecycle object that owns the worktree path,
+ *   branch, expiry, and consumption log. It answers
  *   "what worktrees does this session own, and which are still alive?"
- * The two coexist: `spawn` writes a lease; the lease's existence
- * implicitly authorizes worktree operations on its path (the hook
- * integration is Part 2 of this slice).
  */
 
-import { randomBytes } from 'node:crypto';
+import { randomBytes as cryptoRandomBytes } from 'node:crypto';
 import { posix as path } from 'node:path';
-import { normalizePath } from '../../shared/path-utils.js';
 import type {
   LeaseListResult,
   LeaseReadError,
   WorktreeLease,
   WorktreeLeaseDraft,
   WorktreeLeaseStatus
-} from './worktree-lease-types.js';
+} from './types.js';
 
 export type {
   LeaseListResult,
@@ -40,20 +33,8 @@ export type {
   WorktreeLease,
   WorktreeLeaseDraft,
   WorktreeLeaseStatus
-} from './worktree-lease-types.js';
+} from './types.js';
 
-/**
- * Per-role default TTL. Sub-agent dispatch duration varies by role:
- * - rd (long planning + impl) → 30 min
- * - qa (test design + browser validation) → 15 min
- * - ui (high-fidelity prototype iteration) → 1 h
- * - txt (handoff capsule, no worktree expected) → n/a (no worktree)
- * - general-purpose / unknown → 30 min (rd-like)
- *
- * Users MAY override with `--ttl <duration>` (e.g. `--ttl 4h`).
- */
-// PRD-002b slice 2 — extract lease-TTL primitives (same shape as
-// container-lease.ts / vm-lease.ts). See config diff comment.
 const MINUTES_PER_HOUR = 60;
 const MS_PER_MINUTE = MINUTES_PER_HOUR * 1_000;
 const LEASE_RD_TTL_MINUTES = 30;
@@ -64,6 +45,15 @@ const LEASE_PRD_TTL_MINUTES = 15;
 const LEASE_GENERAL_TTL_MINUTES = 30;
 const LEASE_ID_RANDOM_BYTES = 8;
 
+/**
+ * Per-role default TTL. Sub-agent dispatch duration varies by role:
+ * - rd (long planning + impl) → 30 min
+ * - qa (test design + browser validation) → 15 min
+ * - ui (high-fidelity prototype iteration) → 1 h
+ * - general / unknown → 30 min (rd-like)
+ *
+ * A caller MAY override with its own `ttlMs`.
+ */
 export const DEFAULT_TTL_BY_ROLE: Readonly<Record<string, number>> = Object.freeze({
   rd: LEASE_RD_TTL_MINUTES * MS_PER_MINUTE,
   qa: LEASE_QA_TTL_MINUTES * MS_PER_MINUTE,
@@ -75,16 +65,13 @@ export const DEFAULT_TTL_BY_ROLE: Readonly<Record<string, number>> = Object.free
 
 export const DEFAULT_TTL_MS = DEFAULT_TTL_BY_ROLE.rd;
 
+/** The randomness seam: `node:crypto#randomBytes` unless a caller injects one. */
+export type RandomBytes = (size: number) => Buffer;
+
 /**
  * Compose a deterministic lease path under the per-session runtime dir.
- * The function is pure: same inputs → same output. The caller passes
- * `<sessionId>` (NOT a bare `<sid>` per the 2.7.1 single-scope-axis rule).
- *
- * Path layout:
- *   .peaks/_runtime/<sessionId>/worktree-leases/<leaseId>.json
- *
- * The `worktree-leases/` directory is gitignored per the .peaks/_runtime/
- * rule (committed in .gitignore for all runtime artifacts).
+ * Pure: same inputs → same output. The layout is
+ * `<sessionRuntimeDir>/worktree-leases/<leaseId>.json`.
  */
 export function leaseStoreDir(sessionRuntimeDir: string): string {
   return joinPath(sessionRuntimeDir, 'worktree-leases');
@@ -94,27 +81,24 @@ export function leaseFilePath(sessionRuntimeDir: string, leaseId: string): strin
   return joinPath(leaseStoreDir(sessionRuntimeDir), `${leaseId}.json`);
 }
 
-/**
- * Compose the absolute worktree path (the `git worktree add <path>` target).
- * Sits adjacent to the lease file under the same runtime dir.
- */
+/** Compose the absolute worktree path (the `git worktree add <path>` target). */
 export function worktreePath(sessionRuntimeDir: string, leaseId: string): string {
   return joinPath(sessionRuntimeDir, 'worktrees', leaseId);
 }
 
 /**
- * Generate a 16-hex lease id (8 random bytes, hex-encoded). The id is
- * unique enough for the per-session scope; collisions across sessions
- * are irrelevant because each session has its own lease directory.
+ * Generate a 16-hex lease id (8 random bytes, hex-encoded). The id is unique
+ * enough for the per-session scope; collisions across sessions are irrelevant
+ * because each session has its own lease directory.
  */
-export function generateLeaseId(): string {
-  return randomBytes(LEASE_ID_RANDOM_BYTES).toString('hex');
+export function generateLeaseId(options: { readonly randomBytes?: RandomBytes } = {}): string {
+  const draw = options.randomBytes ?? cryptoRandomBytes;
+  return draw(LEASE_ID_RANDOM_BYTES).toString('hex');
 }
 
 /**
- * Compute the TTL ms for a role, falling back to DEFAULT_TTL_MS for
- * unknown roles. The CLI overrides with `--ttl <ms>` when the user
- * passes a positive value.
+ * Compute the TTL ms for a role, falling back to `DEFAULT_TTL_MS` for unknown
+ * roles. The caller overrides with a positive `ttlMs` when it has one.
  */
 export function ttlForRole(role: string): number {
   const normalized = role.toLowerCase();
@@ -124,9 +108,8 @@ export function ttlForRole(role: string): number {
 }
 
 /**
- * Pure: produce a fresh `WorktreeLease` from a draft + status.
- * `status` defaults to `'active'`; `consumedBySubAgents` defaults to [].
- * Used by the CLI's atomicWriteJson call.
+ * Pure: produce a fresh `WorktreeLease` from a draft.
+ * `status` starts at `'active'`; `consumedBySubAgents` starts empty.
  */
 export function finalizeLease(draft: WorktreeLeaseDraft): WorktreeLease {
   return {
@@ -159,9 +142,9 @@ export function recordConsumption(lease: WorktreeLease, subAgentId: string): Wor
 
 /**
  * Pure: is the lease still active (status === 'active' AND not past expiry).
- * Expired leases are NOT auto-released; the gc CLI is the only path that
- * transitions them to 'gc'. Until then, the on-disk state stays 'active'
- * but `isLeaseActive` returns false so consumers skip the lease.
+ * Expired leases are NOT auto-released; the gc action is the only path that
+ * transitions them. Until then the on-disk status stays 'active' but this
+ * helper returns false so consumers skip the lease.
  */
 export function isLeaseActive(lease: WorktreeLease, now: number = Date.now()): boolean {
   return lease.status === 'active' && lease.expiresAt > now;
@@ -170,9 +153,11 @@ export function isLeaseActive(lease: WorktreeLease, now: number = Date.now()): b
 /**
  * List every lease file under the session's lease store dir.
  *
- * Pure with respect to its inputs: it does NOT sort or filter, and it
- * does NOT mark anything expired. Callers (the `list` CLI) apply their
- * own sort/filter and run `markExpired` lazily.
+ * Pure with respect to its inputs: it does NOT sort or filter, and it does NOT
+ * mark anything expired. Callers apply their own sort/filter and treat an
+ * over-expiry lease as an expired candidate. A malformed file is surfaced as a
+ * `{ file, error }` record rather than thrown, so one bad file cannot hide the
+ * rest of the store.
  */
 export function listLeasesSync(
   storeDir: string,
@@ -200,40 +185,31 @@ export function listLeasesSync(
 }
 
 /**
- * Pure: a lease is eligible for `gc` if its status is one of {released,
- * expired} AND its worktree path is no longer attached to git (`git
- * worktree list` would not include it). The CLI re-checks with git and
- * uses this helper as a coarse pre-filter.
+ * Pure: a lease is eligible for gc if its status is one of {released, expired}
+ * or it is still 'active' but past its expiry. A 'gc' lease is terminal.
  */
 export function isLeaseGcEligible(lease: WorktreeLease, now: number = Date.now()): boolean {
   if (lease.status === 'gc') return false;
   if (lease.status === 'released') return true;
-  // status === 'active' but past expiry → treat as expired candidate
   return lease.expiresAt <= now;
 }
 
 /**
- * Pure: derive a new lease from an existing one with an extended
- * `expiresAt`. Other fields are preserved. The CLI writes the new lease
- * atomically. Used by `peaks worktree renew --lease-id <id> --ttl <ms>`.
+ * Pure: derive a new lease from an existing one with an extended `expiresAt`.
+ * Other fields are preserved; the status returns to 'active'.
  */
 export function renewLease(lease: WorktreeLease, newExpiresAt: number): WorktreeLease {
   return { ...lease, expiresAt: newExpiresAt, status: 'active' };
 }
 
-/**
- * Pure: serialize a lease to JSON with stable field order (deterministic
- * output for diff-friendly audit logs). The CLI passes the result to
- * `atomicWriteJson`. The function does NOT mutate the input.
- */
+/** Pure: serialize a lease to JSON with stable field order (deterministic output). */
 export function serializeLease(lease: WorktreeLease): string {
   return JSON.stringify(lease, null, 2) + '\n';
 }
 
 /**
- * Pure: deserialize a lease from JSON. Throws on malformed input — the
- * CLI catches and returns a `LEASE_FILE_INVALID` envelope (mirroring the
- * `peaks worktree auth` FILE_INVALID convention).
+ * Pure: deserialize a lease from JSON. Throws on malformed input — callers
+ * catch and surface the reason instead of failing open on a malformed lease.
  */
 export function deserializeLease(raw: string): WorktreeLease {
   const parsed: unknown = JSON.parse(raw);
@@ -265,13 +241,12 @@ export function deserializeLease(raw: string): WorktreeLease {
   };
 }
 
-/** Internal: normalize a path segment to forward slashes (Windows
- *  callers pass `C:\Users\...`; posix.join sees the backslash and
- *  silently mangles). Then posix-join. The CLI uses the same module
- *  so reads + writes always agree. */
+/** Internal: fold separators to forward slashes, then posix-join. A Windows
+ *  caller passes `C:\dir`; posix.join sees the backslashes and mangles the
+ *  path, so both the read and the write here go through this one function. */
 function joinPath(...segments: ReadonlyArray<string>): string {
   if (segments.length === 0) return '';
-  const normalized = segments.map((s) => normalizePath(s));
+  const normalized = segments.map((s) => s.replace(/\\/g, '/'));
   let acc: string = normalized[0] as string;
   for (let i = 1; i < normalized.length; i++) {
     acc = path.join(acc, normalized[i] as string);

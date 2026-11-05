@@ -2,27 +2,21 @@
  * `peaks worktree release` — transition a lease to 'released' and run
  * `git worktree remove`.
  *
- * Extracted verbatim from `worktree-lease-commands.ts` (mechanical move of
- * the `.action()` body). The lease-file failures now route through the
- * shared `loadLeaseOrStop` (same envelope, same hints, same exit code);
- * the idempotent already-released branch, the best-effort git removal and
- * the ok/fail envelopes are unchanged.
+ * The action body is `runRelease` from `peaks-loop-workspace-runtime`; this
+ * file owns the host policy, the effects and the envelope. The idempotent
+ * already-released branch, the best-effort git removal, the lease-file failure
+ * envelopes and the metric emit are unchanged.
  */
 
 import type { Command } from 'commander';
 import { fail, ok } from 'peaks-loop-shared/result';
+import { defaultStateRoot, runRelease, type WorktreeLease } from 'peaks-loop-workspace-runtime';
 
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
-import { atomicWriteJson } from '../../services/ide/shared/atomic-json.js';
 import { emitLeaseEvent } from '../../services/observability/observability-service.js';
-import {
-  leaseFilePath,
-  markReleased,
-  type WorktreeLease
-} from '../../services/worktree/worktree-lease.js';
-import { loadLeaseOrStop } from './worktree-lease-load.js';
-import { removeWorktreeBestEffort } from './worktree-lease-git.js';
-import { joinPathSession, resolveProjectRoot, resolveSessionId } from './worktree-lease-session.js';
+import { leaseEffects } from './worktree-lease-effects.js';
+import { stopOnLeaseFileFailure } from './worktree-lease-load.js';
+import { resolveProjectRoot, resolveSessionId } from './worktree-lease-session.js';
 
 const RELEASE_DESCRIPTION =
   'Transition a lease to released and run `git worktree remove`. Idempotent on already-released leases.';
@@ -116,52 +110,84 @@ function printReleaseFailed(
   process.exitCode = 1;
 }
 
-function runRelease(options: ReleaseOptions, io: ProgramIO): void {
+/**
+ * The success tail: the release metric, then the envelope.
+ * Part 4.A: the manual path emits here; auto-release is recorded in
+ * dispatch-record-writer's tryAutoReleaseLease.
+ */
+function finishRelease(
+  io: ProgramIO,
+  options: ReleaseOptions,
+  ctx: {
+    lease: WorktreeLease;
+    released: WorktreeLease;
+    sessionId: string;
+    projectRoot: string;
+    gitWorktreeRemoveFailed: boolean;
+  }
+): void {
+  const { lease, released, sessionId, projectRoot, gitWorktreeRemoveFailed } = ctx;
+  emitLeaseEvent({
+    sessionId,
+    projectRoot,
+    kind: 'release',
+    leaseId: released.leaseId,
+    rid: released.rid,
+    role: released.role
+  });
+  printReleaseDone(io, options, {
+    lease,
+    released,
+    sessionId,
+    projectRoot,
+    gitWorktreeRemoveFailed
+  });
+}
+
+function runReleaseAction(options: ReleaseOptions, io: ProgramIO): void {
   const projectRoot = resolveProjectRoot(options);
   const sessionId = resolveSessionId(options, projectRoot);
   try {
-    const file = leaseFilePath(joinPathSession(projectRoot, sessionId), options.leaseId);
-    const loaded = loadLeaseOrStop(io, options, {
-      command: 'worktree.release',
-      file,
-      hints: { missing: RELEASE_MISSING_HINTS, invalid: RELEASE_INVALID_HINTS }
-    });
-    if (loaded.stop) {
-      process.exitCode = 1;
-      return;
+    const result = runRelease(
+      {
+        projectRoot,
+        stateRoot: defaultStateRoot(projectRoot),
+        sessionId,
+        leaseId: options.leaseId
+      },
+      leaseEffects(Date.now())
+    );
+
+    switch (result.kind) {
+      case 'lease-not-found':
+      case 'lease-invalid':
+        stopOnLeaseFileFailure(
+          io,
+          options,
+          {
+            command: 'worktree.release',
+            hints: { missing: RELEASE_MISSING_HINTS, invalid: RELEASE_INVALID_HINTS }
+          },
+          result
+        );
+        return;
+      case 'already-released':
+        printReleaseAlreadyReleased(io, options, {
+          lease: result.lease,
+          sessionId,
+          projectRoot
+        });
+        return;
+      case 'ok':
+        break;
     }
-    const lease = loaded.lease;
 
-    if (lease.status === 'released') {
-      printReleaseAlreadyReleased(io, options, { lease, sessionId, projectRoot });
-      return;
-    }
-
-    // Run `git worktree remove` from the project root. If the path is
-    // missing on disk (e.g. manually pruned), this fails; we still
-    // update the lease state so the L2 hook (Part 2) treats it as
-    // released.
-    const gitWorktreeRemoveFailed = removeWorktreeBestEffort(projectRoot, lease.path);
-
-    const released = markReleased(lease);
-    atomicWriteJson(file, released);
-    // Part 4.A: emit release metric (manual path; auto-release is
-    // recorded in dispatch-record-writer's tryAutoReleaseLease).
-    emitLeaseEvent({
+    finishRelease(io, options, {
+      lease: result.previous,
+      released: result.lease,
       sessionId,
       projectRoot,
-      kind: 'release',
-      leaseId: released.leaseId,
-      rid: released.rid,
-      role: released.role
-    });
-
-    printReleaseDone(io, options, {
-      lease,
-      released,
-      sessionId,
-      projectRoot,
-      gitWorktreeRemoveFailed
+      gitWorktreeRemoveFailed: result.gitWorktreeRemoveFailed
     });
   } catch (error: unknown) {
     printReleaseFailed(io, options, error, sessionId);
@@ -176,5 +202,5 @@ export function registerWorktreeLeaseReleaseCommand(auth: Command, io: ProgramIO
       .requiredOption('--lease-id <id>', 'lease id returned by `peaks worktree spawn`')
       .option('--session <sid>', 'override session id')
       .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
-  ).action((options: ReleaseOptions) => runRelease(options, io));
+  ).action((options: ReleaseOptions) => runReleaseAction(options, io));
 }

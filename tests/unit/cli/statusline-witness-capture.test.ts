@@ -45,6 +45,7 @@ declareDimensions(
 import { makeCapturedIo, withEnv } from '../_setup/io.js';
 import { withTmpWorkspacePerTest } from '../_setup/tmp-workspace.js';
 import { runDefaultStatuslineRender } from '~/src/cli/commands/statusline-commands';
+import { normalizePath } from '~/src/shared/path-utils';
 import {
   harnessWitnessPath,
   readHarnessWitness
@@ -141,9 +142,13 @@ describe('peaks statusline — harness context witness capture', () => {
       expect(witness!.modelWindowTokens).toBe(WINDOW);
       expect(witness!.usageTokens).toBe(420_000);
       expect(witness!.outerSessionId).toBe(OUTER);
-      expect(harnessWitnessPath(root, SID).startsWith(join(root, '.peaks', '_runtime', SID))).toBe(
-        true
-      );
+      // Compared through the shared normaliser: the session dir comes from the
+      // workspace-runtime package, which emits forward slashes on every host.
+      expect(
+        normalizePath(harnessWitnessPath(root, SID)).startsWith(
+          normalizePath(join(root, '.peaks', '_runtime', SID))
+        )
+      ).toBe(true);
       // and nothing was written into a harness-owned location
       expect(existsSync(join(root, '.claude', 'settings.json'))).toBe(false);
     });

@@ -1,28 +1,26 @@
 /**
  * `peaks worktree spawn` — write a lease and run `git worktree add`.
  *
- * Extracted verbatim from `worktree-lease-commands.ts` (mechanical move of
- * the `.action()` body plus its two local helpers). The command name,
- * every option and its help text, the ok/fail envelopes and the
+ * The action body is `runSpawn` from `peaks-loop-workspace-runtime`; this file
+ * owns the host policy (project root, session id, TTL parsing, `Date.now()`),
+ * the effects (`./worktree-lease-effects.ts`) and the envelope. The command
+ * name, every option and its help text, the ok/fail envelopes and the
  * `process.exitCode = 1` on failure are unchanged.
  */
 
 import type { Command } from 'commander';
 import { fail, ok } from 'peaks-loop-shared/result';
-import { execSync } from 'node:child_process';
+import {
+  defaultStateRoot,
+  runSpawn,
+  ttlForRole,
+  type WorktreeLease
+} from 'peaks-loop-workspace-runtime';
 
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
-import { atomicWriteJson } from '../../services/ide/shared/atomic-json.js';
 import { emitLeaseEvent } from '../../services/observability/observability-service.js';
-import {
-  finalizeLease,
-  generateLeaseId,
-  leaseFilePath,
-  ttlForRole,
-  worktreePath,
-  type WorktreeLease
-} from '../../services/worktree/worktree-lease.js';
-import { joinPathSession, resolveProjectRoot, resolveSessionId } from './worktree-lease-session.js';
+import { leaseEffects } from './worktree-lease-effects.js';
+import { resolveProjectRoot, resolveSessionId } from './worktree-lease-session.js';
 
 const SPAWN_DESCRIPTION =
   `Spawn a worktree under .peaks/_runtime/<sid>/worktrees/<leaseId>/ with a managed lease. ` +
@@ -32,10 +30,6 @@ const SPAWN_DESCRIPTION =
   `(rd=30m / qa=15m / ui=1h); pass --ttl <ms> to override.`;
 
 const SPAWN_TTL_DESCRIPTION = `time-to-live in ms (default role-aware; override with positive number)`;
-
-// Branch names must be safe for git ref-format; the cap keeps a pathological
-// rid from producing an unusable ref.
-const MAX_BRANCH_NAME_LENGTH = 80;
 
 type SpawnOptions = {
   rid: string;
@@ -53,12 +47,6 @@ function resolveTtlMs(raw: string | undefined, role: string): number {
   const parsed = Number(raw);
   if (!Number.isFinite(parsed) || parsed <= 0) return ttlForRole(role);
   return parsed;
-}
-
-function deriveBranch(rid: string): string {
-  // Branch names must be safe for git ref-format. Strip leading
-  // `rid-` if present and replace any non-safe chars with `-`.
-  return rid.replace(/[^A-Za-z0-9._/-]/g, '-').slice(0, MAX_BRANCH_NAME_LENGTH);
 }
 
 function printSpawnOk(
@@ -101,7 +89,7 @@ function printSpawnOk(
 function printSpawnFailed(
   io: ProgramIO,
   options: SpawnOptions,
-  error: unknown,
+  error: string,
   sessionId: string
 ): void {
   printResult(
@@ -109,7 +97,7 @@ function printSpawnFailed(
     fail(
       'worktree.spawn',
       'SPAWN_FAILED',
-      getErrorMessage(error),
+      error,
       { rid: options.rid, role: options.role, sessionId },
       [
         'Verify `git worktree add` succeeded (output above).',
@@ -122,52 +110,53 @@ function printSpawnFailed(
   process.exitCode = 1;
 }
 
-function runSpawn(options: SpawnOptions, io: ProgramIO): void {
+function runSpawnAction(options: SpawnOptions, io: ProgramIO): void {
   const projectRoot = resolveProjectRoot(options);
   const sessionId = resolveSessionId(options, projectRoot);
   try {
-    const leaseId = generateLeaseId();
-    const now = Date.now();
-    const ttlMs = resolveTtlMs(options.ttl, options.role);
-    const branch = options.branch ?? deriveBranch(options.rid);
-    const wtPath = worktreePath(joinPathSession(projectRoot, sessionId), leaseId);
-    const lease = finalizeLease({
-      leaseId,
-      rid: options.rid,
-      role: options.role,
-      path: wtPath,
-      branch,
-      createdAt: now,
-      expiresAt: now + ttlMs,
-      purpose: options.purpose
-    });
-
-    // Run `git worktree add` from the project root. The PreToolUse hook
-    // (Part 2 of this slice) will consult the lease file we just wrote
-    // and authorize this very `git worktree add`; for Part 1 we still
-    // require a current `peaks worktree auth grant` token to remain
-    // consistent with the slice-027 hard gate contract.
-    execSync(`git worktree add "${wtPath}" -b "${branch}"`, {
-      cwd: projectRoot,
-      stdio: 'pipe',
-      encoding: 'utf8',
-      windowsHide: true
-    });
-
-    atomicWriteJson(leaseFilePath(joinPathSession(projectRoot, sessionId), leaseId), lease);
+    // `runSpawn` runs `git worktree add` first and writes the lease only once
+    // it succeeds, so a failed add never leaves a lease pointing at a
+    // worktree that does not exist.
+    const result = runSpawn(
+      {
+        projectRoot,
+        stateRoot: defaultStateRoot(projectRoot),
+        sessionId,
+        rid: options.rid,
+        role: options.role,
+        purpose: options.purpose,
+        ttlMs: resolveTtlMs(options.ttl, options.role),
+        // `exactOptionalPropertyTypes`: absent means "derive from rid", so the
+        // key is omitted rather than set to undefined.
+        ...(options.branch === undefined ? {} : { branch: options.branch })
+      },
+      leaseEffects(Date.now())
+    );
+    if (result.kind === 'failed') {
+      printSpawnFailed(io, options, result.error, sessionId);
+      return;
+    }
+    const { lease, ttlMs } = result;
     // Part 4.A: emit spawn metric (fire-and-forget; never blocks).
     emitLeaseEvent({
       sessionId,
       projectRoot,
       kind: 'spawn',
-      leaseId,
+      leaseId: lease.leaseId,
       rid: options.rid,
       role: options.role
     });
 
-    printSpawnOk(io, options, { lease, sessionId, projectRoot, ttlMs, wtPath, branch });
+    printSpawnOk(io, options, {
+      lease,
+      sessionId,
+      projectRoot,
+      ttlMs,
+      wtPath: lease.path,
+      branch: lease.branch
+    });
   } catch (error: unknown) {
-    printSpawnFailed(io, options, error, sessionId);
+    printSpawnFailed(io, options, getErrorMessage(error), sessionId);
   }
 }
 
@@ -183,5 +172,5 @@ export function registerWorktreeLeaseSpawnCommand(auth: Command, io: ProgramIO):
       .option('--branch <name>', 'git branch name (default: derived from rid)')
       .option('--session <sid>', 'override session id')
       .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
-  ).action((options: SpawnOptions) => runSpawn(options, io));
+  ).action((options: SpawnOptions) => runSpawnAction(options, io));
 }

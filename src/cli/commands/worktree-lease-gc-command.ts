@@ -1,30 +1,27 @@
 /**
  * `peaks worktree gc` — sweep released/expired leases.
  *
- * Extracted verbatim from `worktree-lease-commands.ts` (mechanical move of
- * the `.action()` body). The per-lease sweep is now `sweepLease`; the
+ * The sweep is `runGc` from `peaks-loop-workspace-runtime`; this file owns the
+ * host policy, the effects, the per-lease metric emit and the envelope. The
  * `--lease-id` / `--dry-run` semantics, the expired-active transition, the
- * best-effort git removal + prune, the per-lease metric emit and the
- * ok/fail envelopes are unchanged.
+ * best-effort git removal + prune and the ok/fail envelopes are unchanged.
  */
 
 import type { Command } from 'commander';
 import { fail, ok } from 'peaks-loop-shared/result';
+import {
+  defaultStateRoot,
+  runGc,
+  type GcResult,
+  type LeaseReadError,
+  type WorktreeLeaseStatus
+} from 'peaks-loop-workspace-runtime';
 
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
-import { atomicWriteJson } from '../../services/ide/shared/atomic-json.js';
 import { emitLeaseEvent } from '../../services/observability/observability-service.js';
-import {
-  isLeaseGcEligible,
-  leaseFilePath,
-  markExpired,
-  markGc,
-  type LeaseReadError,
-  type WorktreeLease
-} from '../../services/worktree/worktree-lease.js';
-import { pruneWorktreesBestEffort, removeWorktreeBestEffort } from './worktree-lease-git.js';
+import { leaseEffects } from './worktree-lease-effects.js';
 import { loadLeaseStore, malformedLeaseWarnings } from './worktree-lease-store.js';
-import { joinPathSession, resolveProjectRoot, resolveSessionId } from './worktree-lease-session.js';
+import { resolveProjectRoot, resolveSessionId } from './worktree-lease-session.js';
 
 const GC_DESCRIPTION =
   "Sweep released/expired leases: remove their git worktree (if still attached), prune git's " +
@@ -49,54 +46,14 @@ type GcOptions = {
 interface SweptLease {
   leaseId: string;
   path: string;
-  prevStatus: WorktreeLease['status'];
+  prevStatus: WorktreeLeaseStatus;
   gitWorktreeRemoveFailed: boolean;
 }
 
-interface SweepContext {
-  lease: WorktreeLease;
-  dryRun: boolean;
-  now: number;
-  projectRoot: string;
-  sessionId: string;
-}
-
-function sweepLease(ctx: SweepContext): SweptLease {
-  const { lease, dryRun, now, projectRoot, sessionId } = ctx;
-  let prevStatus: WorktreeLease['status'] = lease.status;
-  let updated: WorktreeLease = lease;
-  // If the lease is still marked active but past expiresAt, transition to expired first.
-  if (lease.status === 'active' && lease.expiresAt <= now) {
-    updated = markExpired(lease);
-    prevStatus = 'active';
-  }
-  if (dryRun) {
-    return {
-      leaseId: lease.leaseId,
-      path: lease.path,
-      prevStatus,
-      gitWorktreeRemoveFailed: false
-    };
-  }
-  // `git worktree remove --force` is best-effort — if the path is
-  // already gone we still mark the lease gc.
-  const gitWorktreeRemoveFailed = removeWorktreeBestEffort(projectRoot, updated.path);
-  pruneWorktreesBestEffort(projectRoot);
-  const finalLease = markGc(updated);
-  atomicWriteJson(
-    leaseFilePath(joinPathSession(projectRoot, sessionId), lease.leaseId),
-    finalLease
-  );
-  // Part 4.A: emit gc metric (per swept lease).
-  emitLeaseEvent({
-    sessionId,
-    projectRoot,
-    kind: 'gc',
-    leaseId: lease.leaseId,
-    rid: lease.rid,
-    role: lease.role
-  });
-  return { leaseId: lease.leaseId, path: lease.path, prevStatus, gitWorktreeRemoveFailed };
+/** The two lease fields the gc metric row carries. */
+interface LeaseIdentity {
+  rid: string;
+  role: string;
 }
 
 function printGcStoreMissing(
@@ -158,32 +115,75 @@ function printGcFailed(io: ProgramIO, options: GcOptions, err: unknown, sessionI
   process.exitCode = 1;
 }
 
-function runGc(options: GcOptions, io: ProgramIO): void {
+/**
+ * The rid/role the gc metric row needs, keyed by lease id. The package's sweep
+ * result carries the id and path but not the lease itself, so the store is
+ * read once more here — the single directory scan this command made before.
+ */
+function leaseIdentity(projectRoot: string, sessionId: string): Map<string, LeaseIdentity> {
+  const listed = loadLeaseStore(projectRoot, sessionId);
+  const leases = listed.result.kind === 'ok' ? listed.result.leases : [];
+  return new Map(leases.map((lease) => [lease.leaseId, { rid: lease.rid, role: lease.role }]));
+}
+
+/** Part 4.A: one gc metric per swept lease; a dry run emits nothing. */
+function emitGcMetrics(
+  result: GcResult,
+  ctx: { projectRoot: string; sessionId: string; identity: Map<string, LeaseIdentity> }
+): void {
+  if (result.kind !== 'ok' || result.dryRun) return;
+  for (const entry of result.swept) {
+    const identity = ctx.identity.get(entry.leaseId);
+    // A swept lease came from the store just read, so a miss only happens if
+    // the store changed underneath us; never emit a row with an invented rid.
+    if (identity === undefined) continue;
+    emitLeaseEvent({
+      sessionId: ctx.sessionId,
+      projectRoot: ctx.projectRoot,
+      kind: 'gc',
+      leaseId: entry.leaseId,
+      rid: identity.rid,
+      role: identity.role
+    });
+  }
+}
+
+function runGcAction(options: GcOptions, io: ProgramIO): void {
   const projectRoot = resolveProjectRoot(options);
   const sessionId = resolveSessionId(options, projectRoot);
   try {
-    const { storeDir, result } = loadLeaseStore(projectRoot, sessionId);
+    // Read BEFORE the sweep, as before: a store that cannot be read fails the
+    // command without having mutated anything.
+    const identity = leaseIdentity(projectRoot, sessionId);
+    const result = runGc(
+      {
+        projectRoot,
+        stateRoot: defaultStateRoot(projectRoot),
+        sessionId,
+        // A falsy `--lease-id` means "every lease", as before.
+        ...(options.leaseId ? { leaseId: options.leaseId } : {}),
+        dryRun: options.dryRun === true
+      },
+      leaseEffects(Date.now())
+    );
     if (result.kind === 'store-missing') {
-      printGcStoreMissing(io, options, { sessionId, projectRoot, storeDir });
+      printGcStoreMissing(io, options, { sessionId, projectRoot, storeDir: result.storeDir });
       return;
     }
-    const now = Date.now();
-    const candidates = result.leases
-      .filter((l) => (options.leaseId ? l.leaseId === options.leaseId : true))
-      .filter((l) => isLeaseGcEligible(l, now));
 
-    const dryRun = options.dryRun === true;
-    const swept: SweptLease[] = [];
-    for (const lease of candidates) {
-      swept.push(sweepLease({ lease, dryRun, now, projectRoot, sessionId }));
-    }
+    emitGcMetrics(result, { projectRoot, sessionId, identity });
 
     printGcOk(io, options, {
       sessionId,
       projectRoot,
-      dryRun,
-      candidates: candidates.length,
-      swept,
+      dryRun: result.dryRun,
+      candidates: result.candidates,
+      swept: result.swept.map((entry) => ({
+        leaseId: entry.leaseId,
+        path: entry.path,
+        prevStatus: entry.previousStatus,
+        gitWorktreeRemoveFailed: entry.gitWorktreeRemoveFailed
+      })),
       errors: result.errors
     });
   } catch (err) {
@@ -200,5 +200,5 @@ export function registerWorktreeLeaseGcCommand(auth: Command, io: ProgramIO): vo
       .option('--dry-run', GC_DRY_RUN_DESCRIPTION)
       .option('--session <sid>', 'override session id')
       .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
-  ).action((options: GcOptions) => runGc(options, io));
+  ).action((options: GcOptions) => runGcAction(options, io));
 }

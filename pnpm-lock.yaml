@@ -40,6 +40,9 @@ importers:
       peaks-loop-shared-channel:
         specifier: workspace:*
         version: link:packages/peaks-loop-shared-channel
+      peaks-loop-workspace-runtime:
+        specifier: workspace:*
+        version: link:packages/peaks-loop-workspace-runtime
       picomatch:
         specifier: 4.0.7
         version: 4.0.7
@@ -143,6 +146,8 @@ importers:
       vitest:
         specifier: ^4.1.0
         version: 4.1.10(patch_hash=8345f65f3461f834377a05e49a9728f673f2f66a7dc6d8c8043e969bbbbe66b2)(@opentelemetry/api@1.9.1)(@types/node@24.19.1)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(msw@2.14.6(@types/node@24.19.1)(typescript@5.9.3))(vite@6.4.3(@types/node@24.19.1)(tsx@4.22.0)(yaml@2.9.1))
+
+  packages/peaks-loop-workspace-runtime: {}
 
 packages:
 

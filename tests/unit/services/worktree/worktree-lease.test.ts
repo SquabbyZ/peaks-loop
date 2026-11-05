@@ -1,6 +1,10 @@
 // tests/unit/services/worktree/worktree-lease.test.ts
 //
-// 4-dimension unit test for src/services/worktree/worktree-lease.ts.
+// 4-dimension unit test for the worktree lease store. The implementation moved
+// to `packages/peaks-loop-workspace-runtime` (`lease/store.ts`) and this file
+// keeps its coverage, re-pointed at the package entry the root suite resolves
+// through `node_modules` — the same built `dist/` the CLI imports.
+//
 // The module is mostly pure (status transitions, expiry checks,
 // TTL-by-role table, ID/path composition) plus one fs-injected
 // `listLeasesSync` helper. We pin the public surface as documented
@@ -42,10 +46,9 @@ import {
   recordConsumption,
   renewLease,
   ttlForRole,
-  worktreePath,
-  type WorktreeLease,
-  type WorktreeLeaseDraft
-} from '~/src/services/worktree/worktree-lease';
+  worktreePath
+} from 'peaks-loop-workspace-runtime';
+import type { WorktreeLease, WorktreeLeaseDraft } from 'peaks-loop-workspace-runtime';
 
 function makeDraft(overrides: Partial<WorktreeLeaseDraft> = {}): WorktreeLeaseDraft {
   return {

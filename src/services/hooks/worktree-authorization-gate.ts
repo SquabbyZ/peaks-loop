@@ -48,7 +48,7 @@ import {
   isLeaseActive,
   leaseFilePath,
   type WorktreeLease
-} from '../worktree/worktree-lease.js';
+} from 'peaks-loop-workspace-runtime';
 import { readDispatchProvenance } from '../worktree/dispatch-provenance.js';
 import {
   containerLeaseFilePath,

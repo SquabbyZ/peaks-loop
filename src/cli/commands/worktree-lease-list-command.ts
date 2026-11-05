@@ -10,13 +10,13 @@
 
 import type { Command } from 'commander';
 import { fail, ok } from 'peaks-loop-shared/result';
-
-import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import {
   isLeaseActive,
   type LeaseReadError,
   type WorktreeLease
-} from '../../services/worktree/worktree-lease.js';
+} from 'peaks-loop-workspace-runtime';
+
+import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { loadLeaseStore, malformedLeaseWarnings } from './worktree-lease-store.js';
 import { resolveProjectRoot, resolveSessionId } from './worktree-lease-session.js';
 

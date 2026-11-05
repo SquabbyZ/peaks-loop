@@ -55,6 +55,7 @@ import {
   writeCompactLifecycle
 } from '~/src/services/compact-statusline/compact-lifecycle-store';
 import { getSessionDir, tryGetSessionDir } from '~/src/services/session/getSessionDir';
+import { normalizePath } from '~/src/shared/path-utils';
 import {
   emitObservabilityEvent,
   readObservabilityEvents
@@ -125,7 +126,9 @@ describe('Scenario: integration — site 2, the same directory reached by two id
   it('when invoked, should find the open run for the legal id and NOT answer "none" for the equivalent that names the same directory', () => {
     // given: a real open run, and two ids that join to the identical path
     plantArmedRun(projectRoot);
-    expect(getSessionDir(projectRoot, SID)).toBe(join(projectRoot, '.peaks', '_runtime', EQUIV));
+    expect(normalizePath(getSessionDir(projectRoot, SID))).toBe(
+      normalizePath(join(projectRoot, '.peaks', '_runtime', EQUIV))
+    );
 
     // when / then: the control leg still finds it — the backoff itself is intact
     expect(readOpenDispatchRun({ projectRoot, sessionId: SID })).toMatchObject({
@@ -196,7 +199,10 @@ describe('Scenario: behavior — site 3, the never-throws contract on the observ
     // the other failure mode this entry point has to absorb rather than raise.
     const emitted = emitObservabilityEvent({ ...event(), sessionId: 'a b' }, { projectRoot });
     expect(emitted.written).toBe(false);
-    expect(emitted.reason).toBe('write-failed');
+    // The NUL axis is now refused by the segment predicate itself (the shared
+    // resolver throws on it), so the failure is reported as a bad id rather
+    // than surfaced as a write error — and the entry point still never throws.
+    expect(emitted.reason).toBe('invalid-session-id');
   });
 });
 
@@ -308,7 +314,12 @@ describe('Scenario: render — the totality split on the axis', () => {
 
   it('when invoked, should keep getSessionDir throwing — the partial entry is unchanged (AC4 direction 1)', () => {
     expect(() => getSessionDir(projectRoot, UNSAFE)).toThrow(/Invalid session id/);
-    expect(getSessionDir(projectRoot, SID)).toBe(join(projectRoot, '.peaks', '_runtime', SID));
+    // The path now comes from the workspace-runtime package, which emits
+    // forward slashes on every host; compare through the shared normaliser
+    // rather than pinning the host separator.
+    expect(normalizePath(getSessionDir(projectRoot, SID))).toBe(
+      normalizePath(join(projectRoot, '.peaks', '_runtime', SID))
+    );
   });
 });
 

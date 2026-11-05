@@ -1,49 +1,46 @@
 /**
- * Best-effort `git worktree` shell helpers shared by `release` and `gc`.
+ * The peaks-loop `RunGit` implementation handed to the workspace-runtime
+ * package.
  *
- * Both commands detach a worktree the same way (and `gc` additionally
- * prunes stale admin entries). Extracted verbatim from
- * `worktree-lease-commands.ts`: the commands, cwd, stdio/encoding flags
- * and the swallow-on-failure posture are unchanged.
+ * peaks-loop keeps its shell: every worktree call is one `execSync` command
+ * string with the same `cwd`, `stdio`, `encoding` and `windowsHide` as before
+ * the extraction. The package never imports `node:child_process`; it takes
+ * this function as an effect (S1 rule 3).
+ *
+ * The argv → command-string mapping reproduces the literals this module used
+ * to spell out (`git worktree add "<path>" -b "<branch>"`,
+ * `git worktree remove --force "<path>"`, `git worktree prune`): the git
+ * tokens of those three calls are passed through bare, and every other
+ * argument — a path, a branch — is double-quoted, which is how the call sites
+ * wrote them. A closed set, not a "looks like a word" heuristic: a branch
+ * named `main` was quoted before and stays quoted.
  */
 
 import { execSync } from 'node:child_process';
+import type { RunGit } from 'peaks-loop-workspace-runtime';
 
-/**
- * `git worktree remove --force` is best-effort: when the path is already
- * pruned the caller still marks the lease released / gc. Returns whether
- * the git invocation failed.
- *
- * `windowsHide: true` is spelled at each call site rather than shared: the
- * guard (`tests/unit/spawn-windows-hide-guard.test.ts`) resolves a same-file
- * plain-`const` object literal and a spread of it, but not one declared
- * `as const`, frozen, `let`, or imported from another file — measured: both
- * call sites below were reported while the shared constant was `as const`.
- */
-export function removeWorktreeBestEffort(projectRoot: string, wtPath: string): boolean {
-  try {
-    execSync(`git worktree remove --force "${wtPath}"`, {
-      cwd: projectRoot,
-      stdio: 'pipe',
-      encoding: 'utf8',
-      windowsHide: true
-    });
-    return false;
-  } catch {
-    return true;
-  }
-}
+/** Every bare token the three worktree calls pass to git. */
+const BARE_GIT_ARGUMENTS: ReadonlySet<string> = new Set([
+  'worktree',
+  'add',
+  'remove',
+  'prune',
+  '-b',
+  '--force'
+]);
 
-/** `git worktree prune` clears stale admin entries. Best-effort. */
-export function pruneWorktreesBestEffort(projectRoot: string): void {
-  try {
-    execSync('git worktree prune', {
-      cwd: projectRoot,
-      stdio: 'pipe',
-      encoding: 'utf8',
-      windowsHide: true
-    });
-  } catch {
-    // ignore — prune is idempotent
-  }
-}
+export const runGitShell: RunGit = (argv, opts) => {
+  const command = `git ${argv
+    .map((argument) => (BARE_GIT_ARGUMENTS.has(argument) ? argument : `"${argument}"`))
+    .join(' ')}`;
+  // `windowsHide: true` is spelled at the call site on purpose: the guard in
+  // `tests/unit/spawn-windows-hide-guard.test.ts` resolves an inline object
+  // literal, not one imported or declared `as const`.
+  const stdout = execSync(command, {
+    cwd: opts.cwd,
+    stdio: 'pipe',
+    encoding: 'utf8',
+    windowsHide: true
+  });
+  return { ok: true, stdout };
+};

@@ -36,9 +36,8 @@ import {
   rmSync,
   writeFileSync
 } from 'node:fs';
-import { dirname } from 'node:path';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 
@@ -85,6 +84,7 @@ import {
 import type { StatusLineStdin } from '~/src/services/skills/skill-statusline-service';
 import { z } from 'zod';
 import { parseJson } from '~/src/shared/json-parse';
+import { normalizePath } from '~/src/shared/path-utils';
 
 const SID = '2026-09-13-session-witness';
 const WINDOW = 1_000_000;
@@ -441,7 +441,7 @@ describe('harness context witness — capture (AC1)', () => {
     it('when the session dir exists, should write the witness under `.peaks/_runtime/<sid>/`', () => {
       // given
       const root = makeProject();
-      withSessionDir(root);
+      const sessionDir = withSessionDir(root);
       // when
       const written = writeHarnessWitness({
         projectRoot: root,
@@ -449,11 +449,11 @@ describe('harness context witness — capture (AC1)', () => {
         stdin: payloadOf(),
         nowMs: 0
       });
-      // then: on disk, under the session runtime path, and readable back
+      // then: on disk, under the session runtime path (normalised), and readable back
       expect(written).toBe(true);
       const path = harnessWitnessPath(root, SID);
       expect(existsSync(path)).toBe(true);
-      expect(path.startsWith(join(root, '.peaks', '_runtime', SID))).toBe(true);
+      expect(normalizePath(path).startsWith(normalizePath(sessionDir))).toBe(true);
       // ...and NOT anywhere the harness owns
       expect(existsSync(join(root, '.claude', 'settings.json'))).toBe(false);
       expect(witnessAt(root)!.usageTokens).toBe(PAYLOAD_USAGE_TOKENS);

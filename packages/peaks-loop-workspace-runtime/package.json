@@ -1,0 +1,57 @@
+{
+  "name": "peaks-loop-workspace-runtime",
+  "version": "0.0.1",
+  "description": "Worktree and session runtime primitives shared by peaks-loop and peaks-harness: state roots, worktree leases, and injectable git/fs/clock/random effects.",
+  "keywords": [
+    "peaks-loop",
+    "peaks-loop-workspace-runtime",
+    "loop-engineering",
+    "worktree",
+    "lease",
+    "session-runtime",
+    "ai-orchestration",
+    "monorepo",
+    "typescript",
+    "esm"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./state-root": {
+      "types": "./dist/state-root.d.ts",
+      "default": "./dist/state-root.js"
+    },
+    "./lease": {
+      "types": "./dist/lease/index.d.ts",
+      "default": "./dist/lease/index.js"
+    },
+    "./worktree": {
+      "types": "./dist/worktree/index.d.ts",
+      "default": "./dist/worktree/index.js"
+    }
+  },
+  "files": [
+    "dist/**"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SquabbyZ/peaks-loop.git"
+  },
+  "bugs": {
+    "url": "https://github.com/SquabbyZ/peaks-loop/issues"
+  }
+}

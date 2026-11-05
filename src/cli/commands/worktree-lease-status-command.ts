@@ -11,12 +11,9 @@ import type { Command } from 'commander';
 import { fail, ok } from 'peaks-loop-shared/result';
 import { existsSync, statSync } from 'node:fs';
 
+import { isLeaseActive, leaseFilePath, type WorktreeLease } from 'peaks-loop-workspace-runtime';
+
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
-import {
-  isLeaseActive,
-  leaseFilePath,
-  type WorktreeLease
-} from '../../services/worktree/worktree-lease.js';
 import { loadLeaseOrStop } from './worktree-lease-load.js';
 import { joinPathSession, resolveProjectRoot, resolveSessionId } from './worktree-lease-session.js';
 

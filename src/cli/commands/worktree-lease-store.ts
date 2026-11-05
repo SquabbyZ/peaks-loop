@@ -4,16 +4,14 @@
  * Both enumerate the session's lease directory through the pure
  * `listLeasesSync` helper with the same real-fs bindings, and both render
  * the same `Malformed lease: <file> (<error>)` warning line per unreadable
- * file. Extracted verbatim from `worktree-lease-commands.ts`.
+ * file. The helpers now come from `peaks-loop-workspace-runtime`, the one
+ * implementation shared with peaks-harness.
  */
 
 import { existsSync, readdirSync, readFileSync as readFileSyncNode } from 'node:fs';
 
-import {
-  leaseStoreDir,
-  listLeasesSync,
-  type LeaseListResult
-} from '../../services/worktree/worktree-lease.js';
+import { leaseStoreDir, listLeasesSync, type LeaseListResult } from 'peaks-loop-workspace-runtime';
+
 import { joinPathSession } from './worktree-lease-session.js';
 
 export interface LeaseStoreSnapshot {

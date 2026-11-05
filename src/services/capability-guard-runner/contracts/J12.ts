@@ -21,9 +21,9 @@ import {
   recordConsumption,
   renewLease,
   serializeLease,
-  ttlForRole
-} from '../../worktree/worktree-lease.js';
-import type { WorktreeLeaseDraft } from '../../worktree/worktree-lease.js';
+  ttlForRole,
+  type WorktreeLeaseDraft
+} from 'peaks-loop-workspace-runtime';
 import type { GuardContext, GuardRunResult } from '../types.js';
 import {
   combineProbes,
@@ -135,7 +135,8 @@ export async function runJ12Contract(ctx: GuardContext): Promise<GuardRunResult>
       )
     ]);
 
-    const artifact = row.sourceFiles[0] ?? 'src/services/worktree/worktree-lease.ts';
+    const artifact =
+      row.sourceFiles[0] ?? 'packages/peaks-loop-workspace-runtime/src/lease/store.ts';
     if (result.ok) return pass(ctx, artifact);
     return fail(
       ctx,

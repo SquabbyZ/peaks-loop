@@ -24,7 +24,6 @@
 
 import { describe, expect, it } from 'vitest';
 import { declareDimensions } from '../../_setup/4dim-template.js';
-import { join } from 'node:path';
 
 declareDimensions(
   'tests/unit/services/session/get-session-dir.test.ts',
@@ -42,21 +41,26 @@ import {
   type CallerSkillPresence
 } from '~/src/services/session/caller-id-types';
 
+/** The session dir comes from the workspace-runtime package, which emits forward
+ *  slashes on every host so a Windows and a POSIX caller get the same string.
+ *  These assertions normalise rather than pin the host separator. */
+const posix = (value: string): string => value.replace(/\\/g, '/');
+
 describe('Scenario: render — getSessionDir shape', () => {
   it('when invoked, should composes <projectRoot>/.peaks/_runtime/<sessionId>', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
-    expect(getSessionDir('/proj', 'sid-1')).toBe(join('/proj', '.peaks', '_runtime', 'sid-1'));
+    expect(posix(getSessionDir('/proj', 'sid-1'))).toBe('/proj/.peaks/_runtime/sid-1');
   });
 
   it('when invoked, should handles a project root that already ends with a path separator', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
-    // node:path.join collapses redundant separators, so the result is
-    // well-formed regardless. The test pins that.
-    expect(getSessionDir('/proj/', 'sid-1')).toBe(join('/proj', '.peaks', '_runtime', 'sid-1'));
+    // The trailing separator is collapsed, so the result is well-formed
+    // regardless. The test pins that.
+    expect(posix(getSessionDir('/proj/', 'sid-1'))).toBe('/proj/.peaks/_runtime/sid-1');
   });
 
   it('when invoked, should uses only the canonical 3-segment path (no legacy top-level layout)', () => {
@@ -97,10 +101,10 @@ describe('Scenario: behavior — session id must be a single path segment', () =
 
   it('when given a valid id, should return the canonical path from both entries', () => {
     // given: a well-formed single-segment id
-    const dir = join('/proj', '.peaks', '_runtime', 'valid-sid-1');
+    const dir = '/proj/.peaks/_runtime/valid-sid-1';
     // when:  both entries are asked for its directory
     // then:  both return that canonical path
-    expect(getSessionDir('/proj', 'valid-sid-1')).toBe(dir);
+    expect(posix(getSessionDir('/proj', 'valid-sid-1'))).toBe(dir);
     expect(tryGetSessionDir('/proj', 'valid-sid-1')).toEqual({ ok: true, dir });
   });
 });
