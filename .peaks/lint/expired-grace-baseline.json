@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "currentMinor": "4.1",
+  "currentMinor": "4.2",
   "files": [
     {
       "path": "src/cli/commands/classify-signals.ts",

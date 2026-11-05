@@ -76,8 +76,11 @@ export function emitMutError(io: ProgramIO, err: unknown, diagnosticPath?: strin
   // Stryker's log can be large; it belongs in the file, not in stderr.
   const data: Record<string, unknown> = { ...details };
   delete data.strykerLog;
-  if (written) {
-    data.diagnosticPath = written;
+  if (written?.ok) {
+    data.diagnosticPath = written.path;
+  } else if (written) {
+    // The original failure stays primary; this only says the file is absent.
+    data.diagnosticWriteFailure = written.reason;
   }
   printErrorEnvelope(
     io,
@@ -85,7 +88,7 @@ export function emitMutError(io: ProgramIO, err: unknown, diagnosticPath?: strin
     mutErrorCode(err),
     mutErrorMessage(err),
     data,
-    written ? [`Read the Stryker diagnostic log at ${written}`] : []
+    written?.ok ? [`Read the Stryker diagnostic log at ${written.path}`] : []
   );
 }
 
@@ -104,20 +107,26 @@ export function mutationFailureLogPath(outPath: string): string {
 }
 
 /**
- * Persist the failure. Returns the path it wrote, or `undefined` when the
- * write itself failed — a diagnostic must never mask the original error.
+ * What became of the diagnostic write. A discriminated result rather than
+ * `string | undefined`, so a caller cannot mistake a failed write for "no
+ * diagnostic requested" — and a diagnostic must never mask the original error.
  */
+export type MutDiagnosticResult =
+  { readonly ok: true; readonly path: string } | { readonly ok: false; readonly reason: string };
+
+/** Persist the failure; the reason a write failed is kept, not swallowed. */
 export function writeMutFailureDiagnostic(
   path: string,
   err: unknown,
   details: Record<string, unknown>
-): string | undefined {
+): MutDiagnosticResult {
   try {
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, renderMutFailureLog(err, details), 'utf8');
-    return path;
-  } catch {
-    return undefined;
+    return { ok: true, path };
+  } catch (writeError) {
+    const reason = writeError instanceof Error ? writeError.message : String(writeError);
+    return { ok: false, reason };
   }
 }
 
