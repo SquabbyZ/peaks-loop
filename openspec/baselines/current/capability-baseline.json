@@ -463,7 +463,8 @@
         "Running gc against a lease whose heartbeat is still active"
       ],
       "sourceFiles": [
-        "src/services/worktree/worktree-lease.ts",
+        "packages/peaks-loop-workspace-runtime/src/lease/store.ts",
+        "packages/peaks-loop-workspace-runtime/src/lease/types.ts",
         "src/services/dispatch/sub-agent-dispatcher.ts",
         "src/services/dispatch/await-batch.ts",
         "tests/integration/worktree-lease-lifecycle.test.ts",
