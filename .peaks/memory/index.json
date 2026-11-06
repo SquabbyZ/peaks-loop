@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-05T19:22:44.222Z",
+  "updatedAt": "2026-11-06T00:24:53.987Z",
   "hot": {
     "rule": [
       {
@@ -1475,7 +1475,7 @@
         "description": "The tag-triggered release flow publishes with OIDC Trusted Publishing (no token).",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-brand-new-npm-package-cannot-be-first-published-through-oidc-trusted-publishing.md",
         "sourceArtifact": ".peaks/_runtime/2026-11-05-session-af31e4/txt/handoff-release.md",
-        "updatedAt": "2026-11-05"
+        "updatedAt": "2026-11-06"
       },
       {
         "name": "a-canonical-hash-built-with-an-array-replacer-ignores-nested-keys",
