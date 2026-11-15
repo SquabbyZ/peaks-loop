@@ -1,37 +1,47 @@
 ---
 schemaVersion: 1
-capturedAt: 2026-11-15T09:15:00.000Z
+capturedAt: 2026-11-15T17:19:28.274Z
 techStack:
-  language: typescript
-  packageManager: "pnpm@10.11.0"
-  runtime: "node>=24.0.0 (active v24.12.0)"
-  buildTool: tsc -p tsconfig.build.json
   testRunner: vitest
   mutationRunner: "@stryker-mutator/core ^9.6.1"
   lintTool: eslint@8.57.1
+  language: typescript
+  packageManager: pnpm@10.11.0
+  runtime: node>=24.0.0 (active v24.12.0)
+  buildTool: tsc -p tsconfig.build.json
 libraryVersions:
-  commander: "^12.1.0"
-  yaml: "^2.9.1"
-  zod: "^4.6.7"
-  fzf: "^0.5.2"
-  picomatch: "4.0.7"
-  vitest: "^4.1.10"
-  "@vitest/coverage-v8": "^4.1.10"
-  "@vitest/coverage-istanbul": "^4.1.10"
-  c8: "^10.1.3"
-  vite: "^6.0.0"
-  typescript: "^5.7.2"
-  tsx: "^4.19.2"
-  eslint: "8.57.1"
-  prettier: "^3.9.8"
-  husky: "^9.1.7"
-  lint-staged: "^15.5.2"
-  "@types/node": "^24.19.1"
-  "@stryker-mutator/core": "^9.6.1"
-  "@stryker-mutator/vitest-runner": "^9.6.1"
-  "@colbymchenry/codegraph": "1.6.2"
-  "@upstash/context7-mcp": "^4.4.4"
-  "@alibaba-group/open-code-review": "^1.13.1 (required dep, see slice PRD-002 sediment)"
+  "@alibaba-group/open-code-review": ^1.13.1
+  "@colbymchenry/codegraph": 1.6.2
+  "@upstash/context7-mcp": ^4.4.4
+  commander: ^12.1.0
+  fzf: ^0.5.2
+  peaks-loop-internal-runtime: workspace:*
+  peaks-loop-mut: workspace:*
+  peaks-loop-shared: workspace:*
+  peaks-loop-shared-channel: workspace:*
+  peaks-loop-workspace-runtime: workspace:*
+  picomatch: 4.0.7
+  yaml: ^2.9.1
+  zod: ^4.6.7
+  "@changesets/cli": 2.31.1
+  "@jridgewell/trace-mapping": ^0.3.31
+  "@stryker-mutator/core": ^9.6.1
+  "@stryker-mutator/vitest-runner": ^9.6.1
+  "@types/node": ^24.19.1
+  "@types/picomatch": 4.0.3
+  "@typescript-eslint/eslint-plugin": 8.66.0
+  "@typescript-eslint/parser": 8.66.0
+  "@vitest/coverage-istanbul": ^4.1.10
+  "@vitest/coverage-v8": ^4.1.10
+  c8: ^10.1.3
+  eslint: 8.57.1
+  husky: ^9.1.7
+  lint-staged: ^15.5.2
+  prettier: ^3.9.8
+  tsx: ^4.19.2
+  typescript: ^5.7.2
+  vite: ^6.0.0
+  vitest: ^4.1.10
 architecture: |
   peaks-loop is a TypeScript Node CLI monorepo for AI-coding workflow orchestration.
   Architecture:
@@ -139,6 +149,17 @@ karpathySelfCheck:
 | `@colbymchenry/codegraph` | `1.6.2` | optional project analysis (untrusted, supporting evidence only) |
 | `@upstash/context7-mcp` | `^4.4.4` | declared but not yet imported (`scan-orchestrator.ts` TODO) |
 | `@alibaba-group/open-code-review` | `^1.13.1` | required runtime dep; 1.13.x per-platform optionalDependencies replaces 2.0.3 HTTPS postinstall |
+| `@changesets/cli` | `2.31.1` | |
+| `@jridgewell/trace-mapping` | `^0.3.31` | |
+| `@types/picomatch` | `4.0.3` | |
+| `@typescript-eslint/eslint-plugin` | `8.66.0` | |
+| `@typescript-eslint/parser` | `8.66.0` | |
+| `peaks-loop-internal-runtime` | `workspace:*` | |
+| `peaks-loop-mut` | `workspace:*` | |
+| `peaks-loop-shared` | `workspace:*` | |
+| `peaks-loop-shared-channel` | `workspace:*` | |
+| `peaks-loop-workspace-runtime` | `workspace:*` | |
+| `typescript` | `^5.7.2` | |
 
 ## Workspace packages (`packages/`)
 

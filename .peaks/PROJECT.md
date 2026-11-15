@@ -2,7 +2,7 @@
 
 > Auto-generated project memory. Peaks reads this at the start of each session to understand
 > the project's history, tech stack, conventions, and past decisions.
-> Last updated: 2026-11-15T09:13:41.935Z
+> Last updated: 2026-11-15T17:19:27.967Z
 
 ## Project: peaks-loop
 
@@ -49,7 +49,7 @@
 
 | Date | Directory | Title | What |
 |------|-----------|-------|------|
-| 2026-11-15 | `2026-11-15-session-de77f6` | Untitled | peaks-code |
+| 2026-11-15 | `2026-11-15-session-de77f6` | Untitled | Consumer projects install peaks-loop and run `peaks workspace init` on |
 | 2026-11-05 | `2026-11-05-session-af31e4` | S1 抽 workspace-runtime 共享包 | requestId: "2026-11-05-workspace-runtime-extract" |
 | 2026-11-03 | `2026-11-03-session-70b238` | peaks-harness: pi 融合方向 PRD 与切片拆分 | 本工件的交付物是 **peaks-harness 方向的实现契约与切片分解**，不是实现。按 D3，本次不写任何 `src/**`、`pac |
 | 2026-10-28 | `2026-10-28-session-2ffed0` | Untitled | peaks-prd |

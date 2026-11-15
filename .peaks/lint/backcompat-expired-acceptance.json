@@ -7,6 +7,12 @@
       "until": "v2.15.0",
       "reason": "No reviewer configured: peaks reviewer status reports no-reviewer-config, and the prerequisite table soft-skips this artifact in that state. Documented deviation: this commit-leg gate does not re-evaluate the reviewer.providers conditional, so the window is accepted here regardless of that config.",
       "reviewBy": "v4.4.0"
+    },
+    {
+      "path": "mut/mut-report.json",
+      "until": "v2.14.0",
+      "reason": "peaks mut is unusable on this host for two independent reasons, both measured 2026-11-15/16: (1) the PATH `peaks` binary resolves @stryker-mutator/core from a global install, which cannot find `typescript`; (2) invoking src/cli/index.ts directly reaches Stryker's file-system step and fails with ENOENT on `.peaks/_runtime/<sid>/rd/_probe`. Neither is caused by the slice under audit. No mutation score was measured for it; the slice's 79 unit cases and the 767-case repo tier carry the verification instead.",
+      "reviewBy": "v4.4.0"
     }
   ]
 }
