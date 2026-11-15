@@ -130,6 +130,7 @@ export async function bootstrapProjectScanForInit(
       envelope: {
         created: false,
         skipped: true,
+        refreshed: false,
         templatesBooted: 0,
         templatesSkipped: 0,
         projectScanPath: `${projectRoot}/.peaks/project-scan/project-scan.md`,

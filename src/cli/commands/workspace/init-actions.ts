@@ -223,6 +223,10 @@ function pushProjectScanActions(
   const { projectScanError, projectScanEnvelope, projectRoot } = ctx;
   if (projectScanError !== null) {
     warnings.push(`project-scan bootstrap failed: ${projectScanError}`);
+  } else if (projectScanEnvelope !== null && projectScanEnvelope.refreshWarning !== undefined) {
+    // An unparseable or unreadable scan is REPORTED, not silently skipped: the
+    // machine fields stay stale and nothing else in this envelope would say so.
+    warnings.push(projectScanEnvelope.refreshWarning);
   } else if (projectScanEnvelope !== null && projectScanEnvelope.created) {
     nextActions.push(
       `Bootstrapped .peaks/project-scan/ (project-scan.md + 4 audit/business templates) — ` +

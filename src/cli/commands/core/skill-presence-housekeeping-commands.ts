@@ -74,7 +74,13 @@ async function runPresenceClear(options: PresenceClearOptions, io: ProgramIO): P
   // bootstraps `.peaks/project-scan/` (idempotent). Await the async
   // signature; failure is still non-fatal so we don't block the clear.
   try {
-    await generateProjectContext(projectRoot);
+    // `refreshProjectScan: false` keeps this housekeeping path's semantics
+    // unchanged: it regenerates `.peaks/PROJECT.md` and does NOT refresh the
+    // scan's machine fields. (The bootstrap it calls still repairs a
+    // never-populated shell on any path — that arm does not consult this
+    // option. `peaks project context` is the surface that refreshes a populated
+    // scan's fields; this path leaves those alone.)
+    await generateProjectContext(projectRoot, { refreshProjectScan: false });
   } catch {
     // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     // non-fatal: context update failure should not block presence clear

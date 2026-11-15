@@ -27,6 +27,16 @@ export type ProjectContextEnvelope = {
   projectScan: BootstrapProjectScanEnvelope;
 };
 
+export type GenerateProjectContextOptions = {
+  /**
+   * Refresh the machine-derivable frontmatter fields of an existing
+   * `project-scan.md` (default `true` — `peaks project context` is itself the
+   * refresh command). `false` reproduces the pre-refresh behaviour, where an
+   * existing file is skipped untouched.
+   */
+  readonly refreshProjectScan?: boolean;
+};
+
 const PROJECT_CONTEXT_FILE = '.peaks/PROJECT.md';
 
 const CONTEXT_HEADER = `# Peaks Project Context
@@ -150,7 +160,10 @@ function buildSessionHistory(projectRoot: string): string {
   return body;
 }
 
-export async function generateProjectContext(projectRoot: string): Promise<ProjectContextEnvelope> {
+export async function generateProjectContext(
+  projectRoot: string,
+  options: GenerateProjectContextOptions = {}
+): Promise<ProjectContextEnvelope> {
   const peaksDir = join(projectRoot, '.peaks');
   if (!existsSync(peaksDir)) {
     mkdirSync(peaksDir, { recursive: true });
@@ -188,11 +201,18 @@ export async function generateProjectContext(projectRoot: string): Promise<Proje
   writeFileSync(contextPath, content, 'utf8');
 
   // After writing PROJECT.md, also bootstrap `.peaks/project-scan/`
-  // (project-scan.md + 4 bundled audit/business templates). Idempotent
-  // — re-running this call does not overwrite existing files (unless
-  // the caller passes `force` / `forceTemplates`, which we do NOT do
-  // here; peaks workspace init owns the force variants).
-  const projectScan = await bootstrapProjectScan({ projectRoot });
+  // (project-scan.md + 4 bundled audit/business templates). The 4 templates
+  // are sediment-protected (skipped when present). The scan's OWN machine
+  // fields are refreshed by default, because this command already regenerates
+  // `.peaks/PROJECT.md` unconditionally on every run: a frozen
+  // `libraryVersions` map makes peaks-rd's breaking-change cross-check pass on
+  // stale input. `refreshMachineFields` rewrites only `capturedAt` /
+  // `techStack` / `libraryVersions` and preserves every other byte, so the
+  // hand-authored prose survives. Pass `refreshProjectScan: false` to skip.
+  const projectScan = await bootstrapProjectScan({
+    projectRoot,
+    refreshMachineFields: options.refreshProjectScan !== false
+  });
 
   return {
     path: contextPath,

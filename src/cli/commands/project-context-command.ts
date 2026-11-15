@@ -16,6 +16,7 @@ import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../
 type ProjectContextOptions = {
   project: string;
   read?: boolean;
+  projectScanRefresh?: boolean;
   json?: boolean;
 };
 
@@ -32,7 +33,11 @@ async function runProjectContext(io: ProgramIO, options: ProjectContextOptions):
       printResult(io, ok('project.context', readContextData(options.project)), options.json);
       return;
     }
-    const result = await generateProjectContext(options.project);
+    const result = await generateProjectContext(options.project, {
+      // `--no-project-scan-refresh` is the only way to turn the refresh off;
+      // absence leaves this `undefined`, which the service reads as "refresh".
+      refreshProjectScan: options.projectScanRefresh !== false
+    });
     printResult(
       io,
       ok('project.context', {
@@ -71,5 +76,9 @@ export function registerProjectContextCommand(project: Command, io: ProgramIO): 
       )
       .requiredOption('--project <path>', 'target project root')
       .option('--read', 'read existing PROJECT.md without regenerating')
+      .option(
+        '--no-project-scan-refresh',
+        'skip refreshing the machine fields (capturedAt / techStack / libraryVersions) of an existing project-scan.md'
+      )
   ).action((options: ProjectContextOptions) => runProjectContext(io, options));
 }

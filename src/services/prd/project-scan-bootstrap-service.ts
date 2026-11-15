@@ -11,7 +11,10 @@
  *     `src/services/workspace/templates/project-scan/`) into
  *     `.peaks/project-scan/` (AC9)
  *   - idempotent: skips re-writes when the existing file is at
- *     schemaVersion:1 (AC3); --force / --force-templates override
+ *     schemaVersion:1 (AC3); `refreshMachineFields` rewrites only the
+ *     machine-derivable fields of such a file (see
+ *     `project-scan-field-refresh.ts`), and `forceTemplates` overrides the
+ *     4 bundled templates' skip
  *
  * Called by:
  *   - `peaks project context` (via `generateProjectContext`)
@@ -27,14 +30,21 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { join } from 'node:path';
 import { scanArchetype } from '../scan/archetype-service.js';
 import { scanLibraries } from '../scan/libraries-service.js';
-import type { ArchetypeReport } from '../scan/scan-types.js';
-import type { LibraryReport } from '../scan/libraries-types.js';
 import { TEMPLATE_FILES, readTemplateStrict } from '../workspace/templates/project-scan/index.js';
+import { refreshProjectScanOnDisk } from './project-scan-field-refresh.js';
+import { deriveTechStack } from './project-scan-techstack.js';
+import { buildExistingProjectScan, buildZeroToOneProjectScan } from './project-scan-content.js';
 
 export type BootstrapProjectScanOptions = {
   readonly projectRoot: string;
-  /** Override the existing-file skip and rewrite project-scan.md. */
-  readonly force?: boolean;
+  /**
+   * Rewrite the machine-derivable frontmatter fields (`capturedAt`,
+   * `techStack`, `libraryVersions`) of an existing `schemaVersion: 1`
+   * project-scan.md, preserving every other byte. A file that was never
+   * populated (empty `architecture` AND empty `techStack`) is refreshed even
+   * without this option — it is a shell, not sediment.
+   */
+  readonly refreshMachineFields?: boolean;
   /** Override the bundled-template skip and overwrite audit/business files. */
   readonly forceTemplates?: boolean;
 };
@@ -44,6 +54,8 @@ export type BootstrapProjectScanEnvelope = {
   readonly created: boolean;
   /** True iff project-scan.md existed and was skipped (idempotent). */
   readonly skipped: boolean;
+  /** True iff only the machine-derivable frontmatter fields were rewritten. */
+  readonly refreshed: boolean;
   /** Count of files written to .peaks/project-scan/ (1 project-scan.md + N templates). */
   readonly templatesBooted: number;
   /** Count of files already present and skipped (sediment-preserved). */
@@ -52,6 +64,8 @@ export type BootstrapProjectScanEnvelope = {
   readonly projectScanPath: string;
   /** Resolved archetype (when existing-project path was taken). */
   readonly archetype?: string;
+  /** Why an existing project-scan.md could not be machine-refreshed. */
+  readonly refreshWarning?: string;
   /** Total wall-time of the bootstrap call. */
   readonly durationMs: number;
 };
@@ -144,11 +158,14 @@ function directoryContainsSourceFiles(rootDir: string): boolean {
  * Heuristic for "this directory holds source code".
  *
  * 1. `src/` at the root (single-package layout).
- * 2. Any of the monorepo source roots: `packages/`, `apps/`, `libs/`,
- *    `services/`, `workspaces/` — each is checked recursively for at
- *    test, 2026-07-15): the original implementation only looked at
- *    `src/` and mis-classified monorepos as 0-1 (pnpm-workspace layout
- *    puts source under `packages/<pkg>/src/`, not `<root>/src/`).
+ * 2. Any of the monorepo / framework source roots: `packages/`, `apps/`,
+ *    `libs/`, `services/`, `workspaces/`, `app/` (Next.js App Router), and
+ *    `server/` — each is checked recursively for source files.
+ * 3. The project ROOT itself, recursively — which catches the layouts that name
+ *    none of the above. Measured 2026-11-16: without it, a Next.js `app/*.tsx`
+ *    tree, a `server/` layout and a flat repo with `index.ts` at the root were
+ *    all classified 0-1, and because `zeroToOne` gates the refresh their scans
+ *    stayed stale forever.
  *
  * Returns true on the first hit. False when none of the candidate
  * roots contain source files (genuine 0-1).
@@ -156,13 +173,21 @@ function directoryContainsSourceFiles(rootDir: string): boolean {
 function projectHasSourceFiles(projectRoot: string): boolean {
   if (directoryContainsSourceFiles(join(projectRoot, 'src'))) return true;
 
-  const monorepoSourceRoots = ['packages', 'apps', 'libs', 'services', 'workspaces'];
+  const monorepoSourceRoots = [
+    'packages',
+    'apps',
+    'libs',
+    'services',
+    'workspaces',
+    'app',
+    'server'
+  ];
   for (const candidate of monorepoSourceRoots) {
     const dir = join(projectRoot, candidate);
     if (!existsSync(dir)) continue;
     if (directoryContainsSourceFiles(dir)) return true;
   }
-  return false;
+  return directoryContainsSourceFiles(projectRoot);
 }
 
 /** Detect 0-1: no package.json OR no source files.
@@ -183,10 +208,22 @@ function isZeroToOneProject(projectRoot: string): boolean {
 
 /**
  * Parse the frontmatter `schemaVersion` from an existing project-scan.md.
- * Returns `null` when the file is absent, malformed, or has no version.
- * The reader in `services/prd/project-scan-reader.ts` is the canonical
- * parser; we re-implement the minimum here to avoid coupling the
- * bootstrap path to that reader's strict shape validation.
+ *
+ * Three answers, and the difference between them is load-bearing:
+ *   - `null`   — no file at all. The caller may create one.
+ *   - `1`      — a file this code understands. Refresh it in place.
+ *   - `0`      — a file IS present but its version could not be read. The caller
+ *                must NOT regenerate it: `0` exists precisely so that "present,
+ *                unclassifiable" is never mistaken for "absent", because
+ *                regenerating destroys whatever prose the file holds.
+ *
+ * CRLF-TOLERANT. `core.autocrlf=true` is the default on Windows, so a checkout
+ * hands this function `---\r\n`. A pattern anchored on `\n` alone read such a
+ * file as version 0 — which used to fall through to the CREATE branch and
+ * overwrite hand-written architecture notes, pinned-version warnings and memory
+ * blocks. Measured on 2026-11-16: a CRLF copy of a hand-authored scan lost all
+ * three. Hence the `\r?\n` below, which is what keeps a Windows checkout out of
+ * that branch.
  */
 function readExistingSchemaVersion(absPath: string): number | null {
   if (!existsSync(absPath)) return null;
@@ -194,192 +231,15 @@ function readExistingSchemaVersion(absPath: string): number | null {
   try {
     raw = readFileSync(absPath, 'utf8');
   } catch {
-    return null;
+    return 0;
   }
-  const match = /^---\n([\s\S]*?)\n---/.exec(raw);
-  if (!match) return null;
+  const match = /^---\r?\n([\s\S]*?)\r?\n---/.exec(raw);
+  if (!match) return 0;
   const frontmatter = match[1] ?? '';
   const versionMatch = /^\s*schemaVersion:\s*(\d+)/m.exec(frontmatter);
-  if (!versionMatch) return null;
+  if (!versionMatch) return 0;
   const parsed = Number(versionMatch[1]);
-  return Number.isSafeInteger(parsed) ? parsed : null;
-}
-
-/** Build the project-scan.md content for a 0-1 project (empty placeholders). */
-function buildZeroToOneProjectScan(): string {
-  const now = new Date().toISOString();
-  return [
-    '---',
-    'schemaVersion: 1',
-    `capturedAt: ${now}`,
-    'archetype: unknown',
-    'confidence: low',
-    'techStack: {}',
-    'libraryVersions: {}',
-    'architecture: ""',
-    'karpathySelfCheck: {}',
-    '---',
-    '',
-    '# Project Scan (0-1 bootstrap)',
-    '',
-    `> Auto-generated by \`peaks workspace init\` / \`peaks project context\` on ${now}. ` +
-      'Refresh with `peaks project context --project <repo>` once the project has a `package.json` + source files.',
-    '',
-    '## Archetype',
-    '',
-    '| Field | Value |',
-    '|---|---|',
-    '| Type | `unknown` |',
-    '| Confidence | `low` |',
-    '',
-    '## Project mode',
-    '',
-    '| Field | Value |',
-    '|---|---|',
-    '| Integration mode | unknown |',
-    '| Integration mode reason | 0-1 bootstrap — refresh after the first source file lands |',
-    '| Frontend-only | `false` |',
-    '| Reason | 0-1 project, no package.json or source files |',
-    '',
-    '## Tech stack',
-    '',
-    '| Concern | Value |',
-    '|---|---|',
-    '| Language | (empty) |',
-    '| Package manager | (empty) |',
-    '| Node runtime | (empty) |',
-    '| Build | (empty) |',
-    '| Tests | (empty) |',
-    '',
-    '## Library versions',
-    '',
-    '| Package | Pinned range | Major | Scope | Ecosystem |',
-    '|---|---|---|---|---|',
-    '| (empty) | — | — | — | — |',
-    '',
-    '## Architecture',
-    '',
-    '_No architecture recorded yet — refresh with `peaks project context --project <repo>` once the project has source files._',
-    '',
-    '## Karpathy self-check',
-    '',
-    '| Guideline | Where enforced |',
-    '|---|---|',
-    '| §1 Think Before Coding | (empty) |',
-    '| §2 Simplicity First | (empty) |',
-    '| §3 Surgical Changes | (empty) |',
-    '| §4 Goal-Driven Execution | (empty) |',
-    '',
-    '## Refresh procedure',
-    '',
-    '1. Add a `package.json` (with `pnpm init` or equivalent).',
-    '2. Add at least one TypeScript/JavaScript/Vue/Svelte source file under `src/`.',
-    '3. Re-run `peaks project context --project <repo>` — the empty placeholders are replaced with real archetype + libraryVersions.',
-    ''
-  ].join('\n');
-}
-
-/** Render a LibraryReport as a markdown table body (header row included). */
-function renderLibraryTable(libraryReport: LibraryReport): string {
-  const header = '| Package | Pinned range | Major | Scope | Ecosystem |';
-  const sep = '|---|---|---|---|---|';
-  if (libraryReport.libraries.length === 0) {
-    return [header, sep, '| (empty) | — | — | — | — |'].join('\n');
-  }
-  const rows = libraryReport.libraries.map((entry) => {
-    const major = entry.major === null ? '—' : String(entry.major);
-    return `| \`${entry.name}\` | \`${entry.version}\` | ${major} | ${entry.scope} | ${entry.ecosystem} |`;
-  });
-  return [header, sep, ...rows].join('\n');
-}
-
-/** Build the project-scan.md content for an existing project. */
-async function buildExistingProjectScan(args: {
-  archetypeReport: ArchetypeReport;
-  libraryReport: LibraryReport;
-}): Promise<string> {
-  const { archetypeReport, libraryReport } = args;
-  const now = new Date().toISOString();
-  const runtime = (process.versions.node ?? 'unknown').trim();
-
-  // Library versions snapshot: a flat {name: version} map. Mirrors the
-  // shape consumed by `services/prd/project-scan-types.ts`
-  // `ProjectScanLibraryVersions`.
-  const libraryVersionsMap: Record<string, string> = {};
-  for (const entry of libraryReport.libraries) {
-    libraryVersionsMap[entry.name] = entry.version;
-  }
-
-  const lines: string[] = [
-    '---',
-    'schemaVersion: 1',
-    `capturedAt: ${now}`,
-    `archetype: ${archetypeReport.archetype}`,
-    `confidence: ${archetypeReport.confidence}`,
-    'techStack: {}',
-    `libraryVersions: ${JSON.stringify(libraryVersionsMap, null, 2)
-      .split('\n')
-      .map((line, idx) => (idx === 0 ? line : '  ' + line))
-      .join('\n')}`,
-    'architecture: ""',
-    'karpathySelfCheck: {}',
-    '---',
-    '',
-    `# Project Scan (refreshed ${now})`,
-    '',
-    '> Auto-generated by `peaks workspace init` / `peaks project context`.',
-    '',
-    '## Archetype',
-    '',
-    '| Field | Value |',
-    '|---|---|',
-    `| Type | \`${archetypeReport.archetype}\` |`,
-    `| Confidence | \`${archetypeReport.confidence}\` |`,
-    '',
-    '## Project mode',
-    '',
-    '| Field | Value |',
-    '|---|---|',
-    `| Integration mode | ${archetypeReport.integrationMode} |`,
-    `| Integration mode reason | ${archetypeReport.integrationModeReason} |`,
-    `| Frontend-only | \`${String(archetypeReport.frontendOnly)}\` |`,
-    `| Reason | ${archetypeReport.frontendOnlyReason} |`,
-    '',
-    '## Tech stack',
-    '',
-    '| Concern | Value |',
-    '|---|---|',
-    '| Language | TypeScript (best-effort — re-confirm via package.json devDeps) |',
-    '| Package manager | pnpm (best-effort) |',
-    `| Node runtime | node ${runtime} |`,
-    '| Build | tsc / package.json `build` script |',
-    '| Tests | vitest (best-effort) |',
-    '',
-    '## Library versions',
-    '',
-    renderLibraryTable(libraryReport),
-    '',
-    '## Architecture',
-    '',
-    `_Auto-generated from \`scanArchetype\` signals — see archetypeReport.backendFrameworks / .backendDirsPresent / .swaggerPaths in \`.peaks/_runtime/<sid>/rd/project-scan.md\` (legacy) or \`.peaks/project-scan/project-scan.md\` (this file) for the raw facts._`,
-    '',
-    '## Karpathy self-check',
-    '',
-    '| Guideline | Where enforced |',
-    '|---|---|',
-    '| §1 Think Before Coding | (refresh with LLM review) |',
-    '| §2 Simplicity First | (refresh with LLM review) |',
-    '| §3 Surgical Changes | (refresh with LLM review) |',
-    '| §4 Goal-Driven Execution | (refresh with LLM review) |',
-    '',
-    '## Refresh procedure',
-    '',
-    '1. Re-run `peaks scan archetype --project <repo> --json` and `peaks scan libraries --project <repo> --json` after any dependency / archetype change.',
-    '2. Re-run `peaks project context --project <repo>` to refresh this file.',
-    '3. Commit the regenerated project-scan.md alongside the dependency bump.',
-    ''
-  ];
-  return lines.join('\n');
+  return Number.isSafeInteger(parsed) ? parsed : 0;
 }
 
 /**
@@ -411,6 +271,88 @@ async function bootTemplate(args: {
   return true;
 }
 
+/** What the create-or-refresh-or-skip decision reached, and why. */
+type ScanWriteDecision = {
+  readonly created: boolean;
+  readonly skipped: boolean;
+  readonly refreshed: boolean;
+  readonly archetype?: string;
+  readonly warning?: string;
+};
+
+/**
+ * Write, refresh, or leave alone the project-scan.md, and say which happened.
+ *
+ * The three outcomes are mutually exclusive and each has a reason the envelope
+ * has to carry:
+ *   - CREATE only when the file is ABSENT (`existingVersion === null`);
+ *   - REFRESH when a file is present and editable — at schemaVersion 1, or at an
+ *     unreadable version (`0`), where the refresh rewrites the machine fields
+ *     it can find and leaves everything else alone;
+ *   - SKIP otherwise — including a still-0-1 project, whose placeholder is
+ *     TRUTHFUL rather than stale.
+ *
+ * A PRESENT but unclassifiable file never reaches CREATE. That is the rule the
+ * `0` return exists for: regenerating a file whose prose nobody can classify is
+ * how a hand-written architecture note, a pinned-version warning and a memory
+ * block get destroyed, and the file's own body is not something this layer has
+ * any right to replace.
+ */
+async function decideProjectScanWrite(args: {
+  readonly absPath: string;
+  readonly projectRoot: string;
+  readonly existingVersion: number | null;
+  readonly zeroToOne: boolean;
+  readonly refreshMachineFields: boolean;
+}): Promise<ScanWriteDecision> {
+  if (args.existingVersion !== null) {
+    const outcome = await refreshProjectScanOnDisk({
+      absolutePath: args.absPath,
+      projectRoot: args.projectRoot,
+      zeroToOne: args.zeroToOne,
+      requested: args.refreshMachineFields
+    });
+    return {
+      created: false,
+      skipped: outcome.skipped,
+      refreshed: outcome.refreshed,
+      ...(outcome.warning !== undefined ? { warning: outcome.warning } : {})
+    };
+  }
+  if (args.zeroToOne) {
+    writeFileSync(args.absPath, buildZeroToOneProjectScan(), 'utf8');
+    return { created: true, skipped: false, refreshed: false, archetype: 'unknown' };
+  }
+  const archetypeReport = await scanArchetype({ projectRoot: args.projectRoot });
+  const libraryReport = await scanLibraries({ projectRoot: args.projectRoot });
+  const content = buildExistingProjectScan({
+    archetypeReport,
+    libraryReport,
+    techStack: deriveTechStack(args.projectRoot)
+  });
+  writeFileSync(args.absPath, content, 'utf8');
+  return { created: true, skipped: false, refreshed: false, archetype: archetypeReport.archetype };
+}
+
+/** Boot the 4 bundled templates (AC9) and count what was written vs preserved. */
+async function bootTemplates(args: {
+  readonly projectRoot: string;
+  readonly force: boolean;
+}): Promise<{ readonly booted: number; readonly skipped: number }> {
+  let booted = 0;
+  let skipped = 0;
+  for (const name of TEMPLATE_FILES) {
+    const wrote = await bootTemplate({
+      projectRoot: args.projectRoot,
+      name,
+      force: args.force
+    });
+    if (wrote) booted += 1;
+    else skipped += 1;
+  }
+  return { booted, skipped };
+}
+
 /**
  * Public entry point. See the file header for the full contract.
  */
@@ -419,59 +361,31 @@ export async function bootstrapProjectScan(
 ): Promise<BootstrapProjectScanEnvelope> {
   const startedAt = Date.now();
   ensureProjectScanDir(options.projectRoot);
-
   const projectScanAbsPath = join(options.projectRoot, PROJECT_SCAN_PATH);
-  const existingVersion = readExistingSchemaVersion(projectScanAbsPath);
 
-  // Decide whether project-scan.md is created or skipped. Idempotency:
-  // when an existing file already declares schemaVersion:1 we honor
-  // sediment unless `force=true`.
-  let created = false;
-  let skipped = false;
-  let archetype: string | undefined;
+  const decision = await decideProjectScanWrite({
+    absPath: projectScanAbsPath,
+    projectRoot: options.projectRoot,
+    existingVersion: readExistingSchemaVersion(projectScanAbsPath),
+    zeroToOne: isZeroToOneProject(options.projectRoot),
+    refreshMachineFields: options.refreshMachineFields === true
+  });
 
-  if (existingVersion === 1 && options.force !== true) {
-    skipped = true;
-  } else {
-    const zeroToOne = isZeroToOneProject(options.projectRoot);
-    if (zeroToOne) {
-      archetype = 'unknown';
-      writeFileSync(projectScanAbsPath, buildZeroToOneProjectScan(), 'utf8');
-    } else {
-      const archetypeReport = await scanArchetype({ projectRoot: options.projectRoot });
-      const libraryReport = await scanLibraries({ projectRoot: options.projectRoot });
-      archetype = archetypeReport.archetype;
-      const content = await buildExistingProjectScan({ archetypeReport, libraryReport });
-      writeFileSync(projectScanAbsPath, content, 'utf8');
-    }
-    created = true;
-  }
+  const templates = await bootTemplates({
+    projectRoot: options.projectRoot,
+    force: options.forceTemplates === true
+  });
 
-  // Boot the 4 bundled templates (AC9). The project-scan.md we just
-  // wrote (or preserved) is also counted as 1 template.
-  let templatesBooted = created ? 1 : 0;
-  let templatesSkipped = created ? 0 : 1;
-
-  for (const name of TEMPLATE_FILES) {
-    const wrote = await bootTemplate({
-      projectRoot: options.projectRoot,
-      name,
-      force: options.forceTemplates === true
-    });
-    if (wrote) {
-      templatesBooted += 1;
-    } else {
-      templatesSkipped += 1;
-    }
-  }
-
+  // The project-scan.md this call wrote (or preserved) counts as 1 template.
   return {
-    created,
-    skipped,
-    templatesBooted,
-    templatesSkipped,
+    created: decision.created,
+    skipped: decision.skipped,
+    refreshed: decision.refreshed,
+    templatesBooted: templates.booted + (decision.created ? 1 : 0),
+    templatesSkipped: templates.skipped + (decision.created ? 0 : 1),
     projectScanPath: projectScanAbsPath,
-    ...(archetype !== undefined ? { archetype } : {}),
+    ...(decision.archetype !== undefined ? { archetype: decision.archetype } : {}),
+    ...(decision.warning !== undefined ? { refreshWarning: decision.warning } : {}),
     durationMs: Date.now() - startedAt
   };
 }
