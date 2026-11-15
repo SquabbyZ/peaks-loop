@@ -2,7 +2,7 @@
 
 > Auto-generated project memory. Peaks reads this at the start of each session to understand
 > the project's history, tech stack, conventions, and past decisions.
-> Last updated: 2026-10-28T14:05:39.837Z
+> Last updated: 2026-11-15T09:13:41.935Z
 
 ## Project: peaks-loop
 
@@ -45,10 +45,13 @@
 
 <!-- peaks-managed:session-history-start -->
 
-## Timeline (27 sessions, showing last 15)
+## Timeline (30 sessions, showing last 15)
 
 | Date | Directory | Title | What |
 |------|-----------|-------|------|
+| 2026-11-15 | `2026-11-15-session-de77f6` | Untitled | peaks-code |
+| 2026-11-05 | `2026-11-05-session-af31e4` | S1 抽 workspace-runtime 共享包 | requestId: "2026-11-05-workspace-runtime-extract" |
+| 2026-11-03 | `2026-11-03-session-70b238` | peaks-harness: pi 融合方向 PRD 与切片拆分 | 本工件的交付物是 **peaks-harness 方向的实现契约与切片分解**，不是实现。按 D3，本次不写任何 `src/**`、`pac |
 | 2026-10-28 | `2026-10-28-session-2ffed0` | Untitled | peaks-prd |
 | 2026-10-26 | `2026-10-26-session-fb8cc6` | Untitled | > **日期**：2026-10-28 |
 | 2026-10-25 | `2026-10-25-session-267981a1` | Untitled | **「单测时长会超长」不是将来可能发生的风险，而是已经发生、且可预测的线性增长。** |
@@ -61,8 +64,5 @@
 | 2026-10-20 | `2026-10-20-session-a545d0` | 生产依赖升版与适配 | peaks-code |
 | 2026-10-19 | `2026-10-19-session-94b084` | Step 0.8 gate remedy exemption | peaks-code |
 | 2026-10-18 | `2026-10-18-session-dedff6` | 硬化 backCompatUntil 过期窗口 | Started 2026-10-19 after the user asked for 24h mode and full backlog  |
-| 2026-10-18 | `2026-10-18-session-0e1a6c` | 项目功能整体评测 | > 评测对象：`D:\projects\peaks-loop` @ `0b30c497`（v4.1.6） |
-| 2026-10-15 | `2026-10-15-session-172124` | Untitled | Role: peaks-perf-audit (independent). HEAD `dd697a08`, change staged + |
-| 2026-10-14 | `2026-10-15-session-060d3b` | Untitled | - |
 
 <!-- peaks-managed:session-history-end -->
