@@ -39,6 +39,9 @@ export interface StrykerInvokerInput {
   readonly tsconfigFile?: string;
   readonly timeoutMs?: number;
   readonly concurrency?: number;
+  /** Session id — scopes the generated per-run vitest config. Optional at this
+   *  layer: an invoker that receives no test files has nothing to scope. */
+  readonly sessionId?: string;
 }
 
 export type StrykerInvoker = (opts: StrykerInvokerInput) => Promise<StrykerRawResult>;
@@ -51,6 +54,10 @@ export interface RunMutationInput {
   readonly tsconfigFile?: string;
   readonly timeoutMs?: number;
   readonly concurrency?: number;
+  /** Session id — scopes the generated per-run vitest config. Optional here so a
+   *  caller that fails earlier (a missing test file, say) still gets THAT named
+   *  error; the options builder refuses a test-file run without one. */
+  readonly sessionId?: string;
   readonly invokeStryker: StrykerInvoker;
 }
 
@@ -68,7 +75,8 @@ export async function runMutation(input: RunMutationInput): Promise<RunMutationO
       ignorePatterns: input.ignorePatterns,
       tsconfigFile: input.tsconfigFile,
       timeoutMs: input.timeoutMs,
-      concurrency: input.concurrency
+      concurrency: input.concurrency,
+      sessionId: input.sessionId
     });
   } catch (err: unknown) {
     throw wrapInvocationError(err);

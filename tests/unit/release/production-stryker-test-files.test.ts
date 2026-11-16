@@ -148,7 +148,13 @@ describe('peaks-loop-mut — the production invoker refuses a missing test file'
       const failure = await invokeStryker({
         project,
         testFiles: [EXISTING],
-        mutate: ['src/add.ts']
+        mutate: ['src/add.ts'],
+        // The invoker refuses a test-file run without a session id, because the
+        // per-run vitest config it generates lives under
+        // `.peaks/_runtime/<sid>/mut/`. This case asserts the call site is
+        // REACHED, so it must supply one — otherwise it passes for the wrong
+        // reason (stopped at the session guard, not at the chdir marker).
+        sessionId: '2026-01-01-session-test'
       }).catch((err: unknown) => err);
 
       expect(chdir).toHaveBeenCalled();

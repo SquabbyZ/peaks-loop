@@ -67,8 +67,9 @@
  *     rootInjector, process.stdout)`) and the built-in reporters write
  *     there too. Measured: stdout length 0 for a real run.
  */
-import { isAbsolute, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import type { Stryker } from '@stryker-mutator/core';
+import { resolveTestFiles, scopedVitestOptions } from './stryker-run-config.js';
 
 /**
  * The exact option type `new Stryker(...)` accepts, derived from the
@@ -115,11 +116,26 @@ export const STRYKER_DEFAULTS = {
   /** The caller's sandbox-ignore list is opt-in, so the default is empty. */
   ignorePatterns: [] as ReadonlyArray<string>,
   /**
-   * ALWAYS ignored, whatever the caller asked for: Stryker copies the
-   * project into `.stryker-tmp/sandbox-*`, so a sandbox directory that is
-   * itself copied is a copy of the sandbox into itself.
+   * ALWAYS ignored, whatever the caller asked for.
+   *
+   * `.stryker-tmp`: Stryker copies the project into `.stryker-tmp/sandbox-*`, so
+   * a sandbox directory that is itself copied is a copy of the sandbox into
+   * itself.
+   *
+   * `.peaks`: the runtime artifact tree. Two measured reasons (2026-11-17):
+   *   - it holds past sessions whose scratch fixtures contain Windows junctions
+   *     and symlinks, and Stryker's copier dies on them with `EPERM: operation
+   *     not permitted, copyfile` — the run never started, on a tree that has
+   *     nothing to do with the code under mutation;
+   *   - it is large and grows with every session, so copying it per mutant is
+   *     pure cost. A mutation run needs the source, the tests and the toolchain,
+   *     never the session archive.
+   *
+   * No mutation target or test lives under `.peaks/**`: that tree is gitignored
+   * runtime state, and `git ls-files` — which every gate scope is built from —
+   * never lists it.
    */
-  alwaysIgnoredPatterns: ['.stryker-tmp'] as ReadonlyArray<string>,
+  alwaysIgnoredPatterns: ['.stryker-tmp', '.peaks'] as ReadonlyArray<string>,
   /**
    * The file-log level the PRODUCTION invoker turns on while a run is in
    * flight (`production-stryker.ts` reads it). The console level stays
@@ -136,6 +152,19 @@ export interface StrykerOptionsInput {
   readonly mutate?: ReadonlyArray<string>;
   /** Test files to run. Empty means "let the runner discover them". */
   readonly testFiles?: ReadonlyArray<string>;
+  /**
+   * Session id, used to place the per-run generated vitest config under
+   * `.peaks/_runtime/<sessionId>/mut/`. Required whenever `testFiles` is given:
+   * the generated config's `include` is what makes `--test-files` mean anything
+   * (see `stryker-run-config.ts`).
+   */
+  readonly sessionId?: string;
+  /**
+   * Setup files the generated per-run config should carry. A suite that depends
+   * on global setup fails without it, and a setup failure reports mutants as
+   * killed when nothing actually ran.
+   */
+  readonly setupFiles?: ReadonlyArray<string>;
   /**
    * Patterns NOT to copy into the Stryker sandbox. Empty by default.
    * Passed through verbatim (Stryker's own glob semantics) and always
@@ -181,9 +210,12 @@ export function buildStrykerOptions(input: StrykerOptionsInput): BuiltStrykerOpt
   const testFiles = resolveTestFiles(project, input.testFiles);
   if (testFiles.length > 0) {
     options.testFiles = testFiles;
-    // An explicit test list is authoritative — do not let vitest's
-    // related-mode narrowing discard it. See the module header.
-    options.vitest = { related: false };
+    options.vitest = scopedVitestOptions({
+      project,
+      testFiles,
+      sessionId: input.sessionId,
+      ...(input.setupFiles !== undefined ? { setupFiles: input.setupFiles } : {})
+    });
   }
 
   // Verbatim, like `mutate`: these are Stryker globs, not file paths.
@@ -205,6 +237,7 @@ export function buildStrykerOptions(input: StrykerOptionsInput): BuiltStrykerOpt
 
 /**
  * Apply the options the caller owns. Everything here is a PROJECT-owned
+
  * setting: it is written only when the caller asked for it, so a project
  * `stryker.conf.js` keeps its own value.
  *
@@ -249,19 +282,4 @@ function applyCallerOwnedOptions(options: StrykerOptionsShape, input: StrykerOpt
  */
 export function toStrykerCliOptions(options: StrykerOptionsShape): StrykerCliOptions {
   return options as StrykerCliOptions;
-}
-
-/**
- * Resolve test-file patterns against the project root so the result does
- * not depend on the caller's CWD. Absolute patterns are kept as-is.
- *
- * PURE: a path that does not exist is resolved anyway. Rejecting it is the
- * validator's job (`test-files.ts`), and the validator runs at the boundary
- * that owns the file system — see the module header.
- */
-function resolveTestFiles(project: string, patterns: ReadonlyArray<string> | undefined): string[] {
-  if (!patterns || patterns.length === 0) {
-    return [];
-  }
-  return patterns.map((pattern) => (isAbsolute(pattern) ? pattern : resolve(project, pattern)));
 }

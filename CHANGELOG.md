@@ -1,5 +1,113 @@
 # Changelog
 
+## 4.2.1 — 2026-11-17（auto-compact 真正接上恢复；project-scan 不再冻结）
+
+**版本级别**：**patch**（三个缺陷修复 + 一个 MCP 工具；无门禁阈值放宽，无 schema 变更）。
+门禁天花板只降不升：`fileSizeExcessLines` 21801 → 21715。
+
+**一句话：这一版让 `.peaks/project-scan/project-scan.md` 不再装完就冻结，让 auto-compact 在子目录下
+不再静默失效，并让压缩后的恢复真的拿到内容，而不是一个空壳。**
+
+### 1. `project-scan.md` 从「写一次就冻结」改成「机器字段就地刷新」
+
+`bootstrapProjectScan` 过去写完一次就永远跳过：盘上只要有 `schemaVersion: 1`，之后每次运行都报
+`skipped: true`，`libraryVersions` 冻结在装机当天的版本。而该文件是**消费方契约**——peaks-rd 读它的
+`## Library versions` 去比对 `schemas/library-breaking-changes.data.json`，它同时被声明为 Gate C 证据，
+所以一份冻结的版本表会让破坏性变更检查**在过期输入上通过**。
+
+死选项 `force`（声明了、读了、但没有任何调用方传 `true`）替换为只重写 `capturedAt` / `techStack` /
+`libraryVersions` 三个字段的就地刷新，其余字节原样保留。`peaks project context` 默认刷新，
+`--no-project-scan-refresh` 关闭。
+
+同批修掉的、每个都由一次复现发现的：
+
+- **CRLF**。`core.autocrlf=true` 是 Windows 默认，版本探测和 frontmatter 切分都改成 `\r?\n` 锚定。
+  此前 CRLF 文件会落到 CREATE 分支，**销毁**手写架构说明、锁定版本注释和 memory 块。
+- 文件**存在但无法归类**时刷新，绝不重建。
+- `libraryVersions` 的 specifier 读**根 manifest**。取扫描首行时，除 `packages/*` 外的 workspace glob
+  （`apps/*`、`libs/*`）会把工作区的 `^5.4.0` 记成项目版本，覆盖根上的 `^5.7.2`。
+- 正文 `## Library versions` 表跟随 frontmatter（改版本单元格、补缺行、保留 Notes 列）。
+  修复前实测：frontmatter 32 个包，正文表 21 行。
+- **正文散文永不覆盖**：`## Tech stack` 表只填空单元格，截断的派生 `buildTool` 不得替换更完整的作者行。
+- 源码探测覆盖 `app/`、`server/` 和扁平根目录，这些布局不再被误判为 0-1 而永远陈旧。
+- 读到坏的 `package.json` 时降级，不再让 `peaks project context` 失败。
+
+### 2. `AUTO_COMPACT_NO_SESSION`：hook 在子目录下静默失效
+
+`peaks code auto-compact` 由 PreToolUse hook 在每次 Bash/Task 调用时触发，参数是 `--project .`。
+`.` 相对**hook 的工作目录**解析，所以在子目录里跑的工具调用会让它去子目录找
+`.peaks/_runtime/session.json`，找不到就返回 `AUTO_COMPACT_NO_SESSION`。
+
+比报错更糟的是：**hook 忽略退出码**，所以从那一刻起整个会话的 auto-compact 静默失效。
+2026-11-16 实测：同一条命令在仓库根成功（ratio 31.8%），在 `./src` 失败。
+
+命令构造 input 时直接用了 `opts.project`，从未做规范化，而该文件自己的注释声称 `.` 会被
+`resolveCanonicalProjectRoot` 提升到 git 根——**注释描述的调用根本不存在**。现在真正调用了。
+
+曾尝试把 hook 改成 `${CLAUDE_PROJECT_DIR:-.}` 并回退：本项目的 Windows hook 由 PowerShell 承载，
+变量不展开，`--project` 收到字面文本、运行器试图 `mkdir` 同名目录。CLI 侧修复不依赖任何展开。
+
+### 3. 压缩后的 checkpoint 从空壳变成可用
+
+`writePreCompactCheckpoint` 把 post-compact 探测器要读的字段全部写空：`openQuestions` /
+`recentDecisions` / `recentArtifactPaths` 是 `[]`，`gitStatus` 是 `''`，`currentPlan` 只有一句
+"resume from auto-decisions.md"。于是恢复时**无从恢复**。
+
+实测：一个有活跃 request、且 `txt/auto-decisions.md` 有内容的会话，checkpoint 仍带 7 个空字段。
+修复后只剩 1 个（`todoState`，无可信数据源，保持为空而不是编造）。
+
+数据一直都在盘上，只是没被读：决策日志给出 resume hint 与 next actions，会话的 request 产物给出
+恢复时先开的路径，`git status --porcelain -b` 给出工作树状态。
+
+### 4. 新增 MCP 工具 `peaks_context_compress`
+
+在可选 rid/role 下返回工作流当前状态的事实摘要——活跃技能、gate、上下文占比、request 状态与产物路径
+——供模型在把旧轮次移出工作集**之前**取用。
+
+**它不是压缩。** MCP 工具返回的是一个**值**，这里的值是文本。billion-context 的压缩靠坐在网络路径上
+改写出站请求体，peaks-loop 不在那个位置（其 `writeMainSessionCompactIntent` 的头注释写明：
+hook 只能观察或否决，不能发起）。它不减少任何 token 账单，也不替代 `/compact`；收益在「不必重读」。
+
+它**按组合方式保持只读**：只运行已为 `peaks_status` 白名单化的 argv，不新增 CLI 命令，不新增 argv，
+`validateSurface` 仍在漂移时拒绝启动。
+
+### 5. `peaks mut` 从「完全不可用」修成「可跑」
+
+两处独立的工具链缺陷，都让变异测试在任何项目上都无法启动：
+
+- **沙箱复制 `.peaks/` 撞上 Windows junction**。Stryker 把项目整树复制进
+  `.stryker-tmp/sandbox-*`，而 `.peaks/_runtime/` 里存着往期会话的 scratch fixture，
+  含 junction/符号链接，复制以 `EPERM: operation not permitted, copyfile` 失败——一次都没跑起来，
+  而它的失败与待测代码毫无关系。`.peaks` 现加入 `alwaysIgnoredPatterns`（与 `.stryker-tmp` 同级）：
+  运行时产物树不进沙箱，既避开链接，也不必为每个变异体复制整个会话档案。
+- **`--test-files` 被项目的 `include` 过滤成 0 个测试**。`stryker.conf.js` 把
+  `vitest.configFile` 指向 `stryker.vitest.config.mjs`，后者的 `include` 是**两个硬编码文件**；
+  vitest 会用 `--test-files` 去过滤这个 `include`，于是任何别的文件都选不中，dry run 以
+  "No tests were executed" 中止。**新写的测试根本无法进入变异测试。**
+  现在每次运行生成一份临时 config，`include` 就是调用方给的文件。
+
+顺带修掉的：
+
+- `sessionId` 在 CLI → runner → invoker → options builder 这条链上断了三处，逐个接上。
+- 生成的 config 用**相对路径**且**不设 `root`**：Stryker 在沙箱内求值该 config，
+  绝对路径会指向原始树（在沙箱 `root` 之外），vitest 全部过滤掉——实测正是 0 tests。
+- `.stryker-tmp` 之前**不在 `.gitignore`**：崩溃的 run 会留下整树副本，
+  门禁把它当作「未声明的可执行代码」。已忽略，并清掉残留。
+
+**首次实测**：152 变异体 / 92 杀 / kill rate **60.5%**（阈值 80%）。
+这说明新代码的断言仍偏弱——是变异测试**应该**告诉我们的信息，已单独记录待补。
+
+### 6. 已知未修
+
+- `scanLibraries` 仍为每个 workspace 各返回一行，同一包名重复。本次只在消费端修正了 specifier 来源；
+  改 scan service 会影响 `peaks scan libraries` 的输出契约与集成测试断言。
+- **kill rate 60.5% < 80% 阈值**：52 个变异体存活，断言覆盖不足，待补。
+- **全局安装的 `peaks` 找不到 `typescript`**：全局 `node_modules` 没有这个 devDependency。
+  用项目本地命令可绕过，且全局安装本就不宜跑变异测试。
+- **依赖运行时状态的测试不能做变异目标**：`context-tool.test.ts` 在沙箱内失败（它读 `.peaks/`，
+  而该树已被忽略）。应给出明确前置提示，而不是让 Stryker 报 "failed tests in initial run"。
+- `todoState` 保持空：会话树里尚无可信的待办来源。
+
 ## 4.2.0 — 2026-11-06（运行态接缝收口）
 
 **版本级别**：**minor**（新增 `peaks mut run --ignore` 能力，并把一个新的 workspace 包发到 registry）。

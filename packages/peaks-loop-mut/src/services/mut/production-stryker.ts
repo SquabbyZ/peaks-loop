@@ -94,6 +94,9 @@ export function createProductionStrykerInvoker(): StrykerInvoker {
       ignorePatterns: input.ignorePatterns,
       pluginDescriptors,
       tsconfigFile: input.tsconfigFile,
+      // Scopes the per-run vitest config whose `include` IS `--test-files`.
+      // Without it the project's own config filters the list to zero tests.
+      ...(input.sessionId !== undefined ? { sessionId: input.sessionId } : {}),
       // The console log stays 'off' (stdout belongs to --json), so this is
       // the ONLY channel that records WHY Stryker failed. `runInProject`
       // removes the file again unless the project already had one.

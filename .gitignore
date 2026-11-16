@@ -1,6 +1,12 @@
 node_modules/
 dist/
 coverage/
+# Stryker copies the project into `.stryker-tmp/sandbox-*` for every mutation
+# run. It removes the sandbox on a clean exit; a CRASHED or interrupted run
+# leaves the whole copy behind, executable fixtures and all (measured
+# 2026-11-17: two sandboxes from failed runs, which the repo gate then flagged
+# as undeclared executable code). It is never a file anyone means to commit.
+.stryker-tmp/
 # The content digests of packages/*/src, recorded by the build so the test
 # entry points can tell a fresh packages/*/dist from a stale one. It lives
 # OUTSIDE every package on purpose: `files: ["dist/**"]` would otherwise ship

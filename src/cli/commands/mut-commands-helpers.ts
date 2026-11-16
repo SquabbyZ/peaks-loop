@@ -133,42 +133,52 @@ function assertMutTestFiles(a: MutCommandArgs): void {
     .requiredOption('--out <path>', 'output path for mut-report.json')
     .option('--json', 'machine-readable output', false)
     .action(async (a: MutCommandArgs) => {
-      try {
-        assertMutTestFiles(a);
-        const { mutation } = await runMutation({
-          project: a.project,
-          testFiles: a.testFiles,
-          mutate: a.mutate ?? [],
-          ignorePatterns: a.ignore ?? [],
-          invokeStryker
-        });
-        const assertions = await scanAssertions({
-          project: a.project,
-          testFiles: a.testFiles
-        });
-        const report = await buildMutReport({
-          inputSig: a.inputSig,
-          out: a.out,
-          mutation,
-          assertions
-        });
-        emitSummary(io, a.json, {
-          ok: true,
-          sha256: report.sha256,
-          passed: report.thresholds.passed,
-          path: a.out
-        });
-        if (!report.thresholds.passed) {
-          // H6: CLI裁决 — threshold breach is a non-zero exit so callers
-          // (peaks-rd, peaks-qa, CI) can block on it without parsing stdout.
-          process.exitCode = 1;
-        }
-      } catch (err: unknown) {
-        // R7: a named code + actionable message + non-zero exit, never an
-        // UNHANDLED_ERROR envelope with a bare "Cannot find package".
-        emitMutError(io, err, mutationFailureLogPath(a.out));
-      }
+      await runMutRunAction(a, invokeStryker, io);
     });
+}
+
+/** The `run` action body, split out so the builder stays inside its line budget. */
+async function runMutRunAction(
+  a: MutCommandArgs,
+  invokeStryker: StrykerInvoker,
+  io: ProgramIO
+): Promise<void> {
+  try {
+    assertMutTestFiles(a);
+    const { mutation } = await runMutation({
+      project: a.project,
+      testFiles: a.testFiles,
+      mutate: a.mutate ?? [],
+      ignorePatterns: a.ignore ?? [],
+      sessionId: a.sessionId,
+      invokeStryker
+    });
+    const assertions = await scanAssertions({
+      project: a.project,
+      testFiles: a.testFiles
+    });
+    const report = await buildMutReport({
+      inputSig: a.inputSig,
+      out: a.out,
+      mutation,
+      assertions
+    });
+    emitSummary(io, a.json, {
+      ok: true,
+      sha256: report.sha256,
+      passed: report.thresholds.passed,
+      path: a.out
+    });
+    if (!report.thresholds.passed) {
+      // H6: CLI裁决 — threshold breach is a non-zero exit so callers
+      // (peaks-rd, peaks-qa, CI) can block on it without parsing stdout.
+      process.exitCode = 1;
+    }
+  } catch (err: unknown) {
+    // R7: a named code + actionable message + non-zero exit, never an
+    // UNHANDLED_ERROR envelope with a bare "Cannot find package".
+    emitMutError(io, err, mutationFailureLogPath(a.out));
+  }
 }
 
 /**
@@ -196,6 +206,7 @@ export function buildMutMutantsCommand(invokeStryker: StrykerInvoker, io: Progra
           testFiles: a.testFiles,
           mutate: a.mutate ?? [],
           ignorePatterns: a.ignore ?? [],
+          sessionId: a.sessionId,
           invokeStryker
         });
         const report = await buildMutReport({
