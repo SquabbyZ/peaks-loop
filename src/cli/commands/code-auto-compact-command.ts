@@ -14,6 +14,7 @@ import {
 } from '../../services/workflow/workflow-inflight-probe.js';
 import { readDispatchLedgerFacts } from '../../services/dispatch/dispatch-ledger-reader.js';
 import { readActiveSid } from './code-runtime-session.js';
+import { resolveCanonicalProjectRoot } from '../../services/config/config-safety.js';
 import { emitResultDocument } from '../../services/hooks/output.js';
 import { buildAutoCompactEnvelope } from './code-auto-compact-envelope.js';
 import {
@@ -97,10 +98,18 @@ function buildAutoCompactInput(
   // `workflow-inflight-probe.ts` service fed by the ledger reader, so the
   // production decision is ledger-backed.
   const isTestSeam = process.env.PEAKS_TEST_SEAM === '1';
-  const projectRoot = opts.project;
+  // CANONICALISE. The hook fires on every Bash/Task call, and `--project .`
+  // resolves against the HOOK'S working directory, which is wherever the tool
+  // call happens to run — a `cd src && ...` puts it in a subdirectory, where
+  // `.peaks/_runtime/session.json` is not on the path and the run reported
+  // `AUTO_COMPACT_NO_SESSION` (non-blocking, so it failed silently). Promoting
+  // `.` to the git root is what makes the documented contract true; the
+  // previous version passed `opts.project` through untouched and the comment
+  // claiming otherwise was wrong. Measured 2026-11-16 from `./src`.
+  const projectRoot = resolveCanonicalProjectRoot(opts.project);
   return {
     projectRoot,
-    sessionId: opts.sessionId ?? readActiveSid(opts.project) ?? undefined,
+    sessionId: opts.sessionId ?? readActiveSid(projectRoot) ?? undefined,
     ...(isTestSeam && opts.inFlightBatch === true
       ? { inFlightBatch: { hasInFlightBatch: true } }
       : {}),
@@ -172,7 +181,10 @@ async function runAutoCompactAction(opts: AutoCompactOpts, io: ProgramIO): Promi
       reportInvalidAutoCompactMode(io, opts.mode, opts.json);
       return;
     }
-    const selection = resolveAutoCompactProfile({ projectRoot: opts.project, cliMode });
+    const selection = resolveAutoCompactProfile({
+      projectRoot: resolveCanonicalProjectRoot(opts.project),
+      cliMode
+    });
     const capture: ProbeCapture = { last: null };
     const result = await runAutoCompact(buildAutoCompactInput(opts, selection.profile, capture));
     const code = result.code;

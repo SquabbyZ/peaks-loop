@@ -138,7 +138,7 @@ function settleBelowThreshold(ctx: CompactRun): void {
  */
 export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompactResult> {
   const sessionId = input.sessionId ?? getSessionIdCanonical(input.projectRoot);
-  if (sessionId === null) return noSessionResult();
+  if (sessionId === null) return noSessionResult(input.projectRoot);
   const mode: AutoCompactMode = input.mode ?? resolveAutoCompactProfile(input.projectRoot);
   const ctx = await openRun(input, sessionId, mode);
   if (!ctx.decision.shouldCompact) {

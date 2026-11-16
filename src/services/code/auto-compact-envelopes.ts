@@ -20,13 +20,28 @@ import { summarizeLifecycleError } from './auto-compact-lifecycle.js';
 import type { CompactTarget } from '../context/auto-compact-dispatcher.js';
 import type { CompactRun } from './auto-compact-run-types.js';
 
-/** No session is bound, so there is nothing to probe. */
-export function noSessionResult(): AutoCompactResult {
+/**
+ * No session is bound, so there is nothing to probe.
+ *
+ * The message names the LIKELY CAUSE, not just the remedy. This envelope is
+ * returned from a PreToolUse hook, where the exit status is ignored, so the
+ * text is the only thing a reader ever sees — and the field failure was a
+ * wrong `--project` (a `.` resolved against a subdirectory), not a workspace
+ * that was never initialised. Telling the user to run `workspace init` in that
+ * case sends them to re-initialise a workspace that already exists.
+ */
+export function noSessionResult(projectRoot?: string): AutoCompactResult {
   return {
     ok: false,
     code: 'AUTO_COMPACT_NO_SESSION',
-    message: 'No active session; cannot run auto-compact. Run `peaks workspace init` first.',
-    nextActions: ['Run `peaks workspace init --change-id <id>` to bind a session']
+    message:
+      `No active session under '${projectRoot ?? '(unknown)'}'; cannot run auto-compact. ` +
+      'A workspace that IS initialised usually means --project resolved to the wrong directory ' +
+      '(it defaults to the current working directory).',
+    nextActions: [
+      `Confirm the workspace exists: ls ${projectRoot ?? '.'}/.peaks/_runtime/session.json`,
+      'If it does not, run `peaks workspace init` there to bind a session'
+    ]
   };
 }
 

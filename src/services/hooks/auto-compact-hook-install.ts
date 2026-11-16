@@ -52,9 +52,19 @@ export const AUTO_COMPACT_HOOK_MATCHER = 'Bash|Task';
  * hook exited with `error: required option '--project <path>' not
  * specified` on EVERY matching tool call — a non-blocking failure, so
  * the hook looked installed while the zero-human-intervention
- * auto-compact contract never once fired. `.` is promoted to the git
- * root by `resolveCanonicalProjectRoot`, the same convention the
- * `post-compact-detect` hook already documents in its own option help.
+ * auto-compact contract never once fired.
+ *
+ * WHY `.` AND NOT `${CLAUDE_PROJECT_DIR}`. A shell variable was tried first
+ * (2026-11-16) and reverted: on this project's Windows hook the value is NOT
+ * expanded, so `--project` received the literal `${CLAUDE_PROJECT_DIR:-.}`
+ * and the run tried to `mkdir` a directory by that name. The variable is only
+ * safe in a hook whose `shell` guarantees POSIX expansion; this matcher is
+ * `Bash|Task` and may be served by PowerShell. `.` is expanded by no one, so
+ * it is portable — and it is made correct by the CLI instead:
+ * `peaks code auto-compact` canonicalises `--project` with
+ * `resolveCanonicalProjectRoot`, promoting `.` to the git root whatever
+ * directory the intercepted tool call ran in. That is what fixes the
+ * `AUTO_COMPACT_NO_SESSION` field failure; it does not depend on this string.
  *
  * `npx peaks` is deliberately omitted: the project-local install
  * puts `peaks` on PATH inside the consumer repo (postinstall step),
