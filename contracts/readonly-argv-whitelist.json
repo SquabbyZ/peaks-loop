@@ -206,6 +206,122 @@
         ],
         "positionalCount": 1
       }
+    },
+    {
+      "id": "ctx-skill-presence",
+      "tool": "peaks_context_compress",
+      "commandPath": [
+        "skill",
+        "presence"
+      ],
+      "argv": [
+        {
+          "kind": "literal",
+          "value": "skill"
+        },
+        {
+          "kind": "literal",
+          "value": "presence"
+        },
+        {
+          "kind": "literal",
+          "value": "--json"
+        }
+      ],
+      "params": {},
+      "introspection": {
+        "optionTokens": [
+          "--json"
+        ],
+        "positionalCount": 0
+      }
+    },
+    {
+      "id": "ctx-request-show",
+      "tool": "peaks_context_compress",
+      "commandPath": [
+        "request",
+        "show"
+      ],
+      "argv": [
+        {
+          "kind": "literal",
+          "value": "request"
+        },
+        {
+          "kind": "literal",
+          "value": "show"
+        },
+        {
+          "kind": "param",
+          "name": "rid"
+        },
+        {
+          "kind": "literal",
+          "value": "--role"
+        },
+        {
+          "kind": "param",
+          "name": "role"
+        },
+        {
+          "kind": "literal",
+          "value": "--json"
+        },
+        {
+          "kind": "literal",
+          "value": "--project"
+        },
+        {
+          "kind": "param",
+          "name": "project"
+        }
+      ],
+      "params": {
+        "rid": {
+          "type": "slug",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "binding": {
+            "kind": "positional",
+            "token": "request-id",
+            "required": true
+          },
+          "constraintSource": "handwritten"
+        },
+        "role": {
+          "type": "enum",
+          "values": [
+            "prd",
+            "ui",
+            "rd",
+            "qa",
+            "sc"
+          ],
+          "binding": {
+            "kind": "option",
+            "token": "--role",
+            "required": true
+          },
+          "constraintSource": "handwritten"
+        },
+        "project": {
+          "type": "path",
+          "binding": {
+            "kind": "option",
+            "token": "--project",
+            "required": true
+          },
+          "constraintSource": "handwritten"
+        }
+      },
+      "introspection": {
+        "optionTokens": [
+          "--role",
+          "--json",
+          "--project"
+        ],
+        "positionalCount": 1
+      }
     }
   ]
 }

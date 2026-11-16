@@ -81,6 +81,36 @@
           }
         }
       ]
+    },
+    {
+      "tool": "peaks_context_compress",
+      "entries": [
+        {
+          "id": "ctx-skill-presence",
+          "commandPath": ["skill", "presence"],
+          "argv": ["skill", "presence", "--json"],
+          "params": {}
+        },
+        {
+          "id": "ctx-request-show",
+          "commandPath": ["request", "show"],
+          "argv": [
+            "request",
+            "show",
+            "<rid>",
+            "--role",
+            "<role>",
+            "--json",
+            "--project",
+            "<project>"
+          ],
+          "params": {
+            "rid": { "type": "slug", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+            "role": { "type": "enum", "values": ["prd", "ui", "rd", "qa", "sc"] },
+            "project": { "type": "path" }
+          }
+        }
+      ]
     }
   ]
 }

@@ -42,6 +42,7 @@ const NEUTRAL_MODULES = [
   'src/services/mcp/tools.ts',
   'src/services/mcp/tool-core.ts',
   'src/services/mcp/memory-tool.ts',
+  'src/services/mcp/context-tool.ts',
   'src/services/mcp/server.ts',
   'src/services/mcp/server-main.ts',
   'src/services/ide/mcp-tool-matcher.ts',

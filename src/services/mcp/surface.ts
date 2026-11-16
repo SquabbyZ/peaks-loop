@@ -72,7 +72,14 @@ const TOOL_DESCRIPTIONS: Readonly<Record<string, string>> = {
   peaks_memory_search:
     'Search this project’s durable memory for a term, and get back NAMES and short excerpts — ' +
     'never note bodies. Read-only. Use it to answer "has this project settled anything about X?" ' +
-    'Requires a Peaks-Loop project (a `.peaks/` directory) as the working directory.'
+    'Requires a Peaks-Loop project (a `.peaks/` directory) as the working directory.',
+  peaks_context_compress:
+    'Build a short, factual resume summary of where this Peaks-Loop workflow stands — active ' +
+    'skill, gate, context ratio and (given a rid and role) the request state. Read-only. ' +
+    'Use it BEFORE folding older turns out of your working set, so what you keep is recorded ' +
+    'fact rather than recollection. It does NOT compact anything: it changes no request, ' +
+    'reduces no token count, and replaces no `/compact`. Anything it omits is not recorded — ' +
+    'follow the artifact paths it returns. Requires a Peaks-Loop project as the working directory.'
 };
 
 /** Per-parameter prose, by placeholder name. Absent names simply carry no description. */

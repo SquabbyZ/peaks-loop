@@ -13,6 +13,7 @@
 
 import { buildArgv } from '../readonly-surface/argv-guard.js';
 import { callMemorySearchTool } from './memory-tool.js';
+import { callContextCompressTool } from './context-tool.js';
 import type { McpToolDefinition } from './surface.js';
 import {
   rejectedResult,
@@ -67,7 +68,8 @@ type ToolHandler = (
  */
 const TOOL_HANDLERS: Readonly<Record<string, ToolHandler>> = {
   peaks_status: callStatusTool,
-  peaks_memory_search: callMemorySearchTool
+  peaks_memory_search: callMemorySearchTool,
+  peaks_context_compress: callContextCompressTool
 };
 
 /** Tools the surface declares that no handler can serve. Non-empty = refuse to start. */
