@@ -5,9 +5,11 @@
  * orchestrator re-exports every name declared here, so existing importers keep
  * using `./auto-compact-orchestrator.js` unchanged.
  */
+import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { getSessionDir } from '../session/getSessionDir.js';
+import { buildCheckpointContent } from './auto-compact-checkpoint-content.js';
 import {
   describeHarnessWindowSync,
   type HarnessWindowSyncResult
@@ -133,26 +135,54 @@ export function writePreCompactCheckpoint(input: {
   const prefix = input.redLine === true ? 'red-line-' : 'pre-compact-';
   const filename = `${prefix}${input.now.toISOString().replace(/[:.]/g, '-')}.json`;
   const path = join(dir, filename);
+  // D7 reads `mode`, `currentPlan`, `openQuestions`, `recentDecisions` out of
+  // this JSON. Until 2026-11-16 every one of those was seeded EMPTY, so the
+  // resume the detector enabled had nothing to restore — measured: a checkpoint
+  // written from a session with an active request and a populated decisions log
+  // still carried seven empty fields. `buildCheckpointContent` reads what the
+  // session already wrote to disk and renders it into the shape D7 expects.
+  const populated = buildCheckpointContent({
+    projectRoot: input.projectRoot,
+    sessionId: input.sessionId,
+    ...(input.redLine === true ? { redLine: true } : {})
+  });
   const content = {
     schemaVersion: 1,
     reason: input.redLine === true ? 'pre-compact-red-line' : PRE_COMPACT_REASON,
     sessionId: input.sessionId,
     createdAt: input.now.toISOString(),
-    // D7 reads `mode`, `currentPlan`, `openQuestions`, `recentDecisions`
-    // out of this JSON. We seed empty arrays; the post-compact LLM
-    // rehydrates from the auto-decisions log + open question list.
     mode: 'full-auto',
-    currentPlan:
-      input.redLine === true
-        ? 'RED-LINE compact REQUESTED from the harness (not executed by peaks-loop); work continues'
-        : 'auto-compact in progress; resume from auto-decisions.md',
-    openQuestions: [] as string[],
-    recentDecisions: [] as string[],
-    recentArtifactPaths: [] as string[],
-    gitStatus: '',
+    currentPlan: populated.currentPlan,
+    openQuestions: populated.openQuestions,
+    recentDecisions: populated.recentDecisions,
+    recentArtifactPaths: populated.recentArtifactPaths,
+    gitStatus: readGitStatusQuietly(input.projectRoot),
     skillsActive: ['peaks-code'],
     todoState: [] as string[]
   };
   writeFileSync(path, JSON.stringify(content, null, 2), 'utf8');
   return path;
+}
+
+/** Cap on the working-tree lines a checkpoint carries; the rest stay in git. */
+const MAX_GIT_STATUS_LINES = 20;
+
+/**
+ * `git status --porcelain -b` for the checkpoint, or `''`.
+ *
+ * A checkpoint is written on the compact path, where a few hundred milliseconds
+ * spent on git is acceptable and a resume that knows the working tree was dirty
+ * is materially better than one that does not. Failure is not an error: a repo
+ * without git, or a locked index, simply leaves the field empty.
+ */
+function readGitStatusQuietly(projectRoot: string): string {
+  const result = spawnSync('git', ['status', '--porcelain', '-b'], {
+    cwd: projectRoot,
+    encoding: 'utf8',
+    timeout: 5_000
+  });
+  if (result.error !== undefined || result.status !== 0 || typeof result.stdout !== 'string') {
+    return '';
+  }
+  return result.stdout.trim().split('\n').slice(0, MAX_GIT_STATUS_LINES).join('\n');
 }
