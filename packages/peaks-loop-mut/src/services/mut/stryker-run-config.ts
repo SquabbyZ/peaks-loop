@@ -66,13 +66,25 @@ export function writeRunScopedVitestConfig(input: {
   const includes = input.testFiles.map((f) => includeLine(projectRoot, f)).join('\n');
   const setup = (input.setupFiles ?? []).map((f) => includeLine(projectRoot, f)).join('\n');
 
-  const source = [
+  writeFileSync(configPath, renderConfigSource(includes, setup), 'utf8');
+  return { configPath };
+}
+
+/** The module text a run-scoped config is made of. Separate from the file write
+ *  so the template stays readable (and under the function-length cap). */
+function renderConfigSource(includes: string, setup: string): string {
+  return [
     '// GENERATED PER MUTATION RUN — do not edit, do not commit.',
     '//',
     '// Its `include` is exactly the test files this run was asked for, which is',
     "// what `--test-files` means. See writeRunScopedVitestConfig's header.",
-    "import { defineConfig } from 'vitest/config';",
-    "import { resolve } from 'node:path';",
+    '',
+    '// NO `vitest/config` IMPORT, and a PLAIN OBJECT export. A target project may',
+    '// have no node_modules at all — the integration fixture deliberately has',
+    '// none, to prove the runner is loaded from peaks-loop own installation — so',
+    '// `import { defineConfig } from "vitest/config"` would fail to resolve and',
+    '// the run would die before Stryker started. `defineConfig` is a typing',
+    '// helper, not a requirement: vitest accepts an exported plain object.',
     '',
     '// NO `root`, AND RELATIVE `include`/`alias` BASE. Stryker evaluates this',
     '// config inside a copy of the project at `.stryker-tmp/sandbox-*`, so any',
@@ -82,11 +94,11 @@ export function writeRunScopedVitestConfig(input: {
     '// `root` lets vitest use its own cwd, which is the sandbox.',
     'const projectRoot = process.cwd();',
     '',
-    'export default defineConfig({',
+    'export default {',
     '  resolve: {',
     '    alias: [',
-    "      { find: /^~\\/src\\/(.*)$/, replacement: resolve(projectRoot, 'src', '$1') },",
-    "      { find: /^~\\/src\\/(.*)\\.js$/, replacement: resolve(projectRoot, 'src', '$1') + '.ts' }",
+    "      { find: /^~\\/src\\/(.*)$/, replacement: projectRoot + '/src/' + '$1' },",
+    "      { find: /^~\\/src\\/(.*)\\.js$/, replacement: projectRoot + '/src/' + '$1' + '.ts' }",
     '    ]',
     '  },',
     '  test: {',
@@ -94,12 +106,9 @@ export function writeRunScopedVitestConfig(input: {
     ...(setup === '' ? [] : ['    setupFiles: [\n' + setup + '\n    ],']),
     '    passWithNoTests: false',
     '  }',
-    '});',
+    '};',
     ''
   ].join('\n');
-
-  writeFileSync(configPath, source, 'utf8');
-  return { configPath };
 }
 
 /** Display path for a generated config, relative to the project when possible. */
@@ -121,21 +130,24 @@ export function displayConfigPath(project: string, configPath: string): string {
  *     executed". Measured 2026-11-17: a new test file could not be
  *     mutation-tested at all.
  *
- * A run without a session id cannot place that config, and falling back to the
- * project's own `include` is precisely the silent-zero-tests failure above — so
- * it is refused rather than degraded.
+ * WITHOUT A SESSION ID, `configFile` is OMITTED and only `related` is returned.
+ * This function builds OPTIONS; it does not own the run's preconditions. An
+ * earlier version threw here, which made every caller that only inspects the
+ * built options — the package's own `stryker-options.test.ts` does exactly that
+ * — supply a session id it has no use for. The requirement belongs where the
+ * run is started: `peaks mut run` declares `--session-id` a REQUIRED option, so
+ * an unscoped run cannot reach Stryker through the CLI. A programmatic caller
+ * that omits it falls back to the project's own `include` and sees the
+ * zero-tests abort, which is loud and names its own cause.
  */
 export function scopedVitestOptions(input: {
   readonly project: string;
   readonly testFiles: ReadonlyArray<string>;
   readonly sessionId: string | undefined;
   readonly setupFiles?: ReadonlyArray<string>;
-}): { related: boolean; configFile: string } {
+}): { related: boolean; configFile?: string } {
   if (input.sessionId === undefined) {
-    throw new Error(
-      'peaks mut needs a session id to scope the test files: without one, the vitest ' +
-        "config's own `include` filters --test-files down to zero tests. Pass --session-id."
-    );
+    return { related: false };
   }
   const generated = writeRunScopedVitestConfig({
     project: input.project,

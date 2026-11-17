@@ -103,6 +103,38 @@ afterAll(() => {
 });
 
 /**
+ * Fixture-legal values for an entry's placeholders, keyed by the PLACEHOLDER
+ * name rather than by entry id.
+ *
+ * WHY NOT BY ID. The first version branched on `entry.id === 'request-show'`,
+ * so when `peaks_context_compress` added a second entry carrying the same argv
+ * (`ctx-request-show`), the branch did not match, `rid` was never supplied, and
+ * the proof failed with "cannot render ctx-request-show". That failure was
+ * correct — the proof refuses an entry it cannot render — but the lookup was
+ * keyed on the wrong axis: what an entry needs is decided by its placeholders,
+ * not by what someone named it. Keying on the placeholder means a new entry
+ * reusing an existing argv renders without touching this file.
+ */
+const PLACEHOLDER_VALUES: Readonly<Record<string, () => string>> = {
+  rid: () => 'fixture-request',
+  role: () => 'rd',
+  query: () => 'fixture',
+  limit: () => '6',
+  // A placeholder with no fixture-legal value is a failure, not a default —
+  // see `curatedArgv` below.
+  project: () => fixture.projectRoot
+};
+
+/**
+ * Every `<placeholder>` an entry carries, read off its `params` — the generated
+ * artifact records each placeholder as a `param` token with a `name`, not as a
+ * `<name>` string in `argv`.
+ */
+function placeholdersOf(entry: { readonly params: Readonly<Record<string, unknown>> }): string[] {
+  return Object.keys(entry.params);
+}
+
+/**
  * The whitelist's own entries, rendered with fixture-legal values through the
  * AC-5/AC-6 guard. Deriving the proof's input from the artifact - rather than
  * restating a list - means the proof covers exactly what the artifact claims, and
@@ -110,12 +142,16 @@ afterAll(() => {
  */
 function curatedArgv(): ReadonlyArray<readonly string[]> {
   return loadReadOnlyWhitelist().entries.map((entry) => {
-    const values: Record<string, string> =
-      entry.id === 'request-show'
-        ? { rid: 'fixture-request', role: 'rd', project: fixture.projectRoot }
-        : entry.id === 'memory-search'
-          ? { query: 'fixture', limit: '6' }
-          : {};
+    const values: Record<string, string> = {};
+    for (const name of placeholdersOf(entry)) {
+      const supply = PLACEHOLDER_VALUES[name];
+      if (supply === undefined) {
+        // Report WHICH placeholder has no fixture value; silently passing `''`
+        // would render an argv the guard then rejects for a misleading reason.
+        throw new Error(`cannot render ${entry.id}: no fixture value for placeholder <${name}>`);
+      }
+      values[name] = supply();
+    }
     const built = buildArgv(entry, values);
     if (!built.ok) throw new Error(`cannot render ${entry.id}: ${built.message}`);
     return built.argv;

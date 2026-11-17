@@ -159,9 +159,10 @@ describe('buildStrykerOptions', () => {
       ignorePatterns: patterns
     });
 
-    // then: the patterns survive untouched, and the sandbox directory is
-    // appended so the sandbox can never be copied into itself
-    expect(options.ignorePatterns).toEqual([...patterns, '.stryker-tmp']);
+    // then: the caller's patterns survive, the sandbox directory is appended so
+    //       it can never be copied into itself, and `.peaks` is deduped rather
+    //       than repeated (it is always-ignored now)
+    expect(options.ignorePatterns).toEqual(['.peaks', 'dist', 'coverage/**', '.stryker-tmp']);
   });
 
   it('leaves only the always-ignored sandbox directory when the caller names none', () => {
@@ -170,7 +171,9 @@ describe('buildStrykerOptions', () => {
     const { options } = buildStrykerOptions({ project: PROJECT, mutate: ['src'] });
 
     // then: no caller pattern is invented, but the sandbox is still ignored
-    expect(options.ignorePatterns).toEqual(['.stryker-tmp']);
+    // `.peaks` joined the always-ignored list on 2026-11-17: Stryker's sandbox
+    // copy died on Windows junctions inside past sessions' fixtures.
+    expect(options.ignorePatterns).toEqual(['.stryker-tmp', '.peaks']);
   });
 
   it('sets the file log level only when the caller asks for one', () => {

@@ -1,6 +1,10 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
+// The envelope parser is shared with `misc-commands-e2e`; its `CliEnvelope` is
+// structurally the harness's own, so this file keeps importing the harness type
+// and only takes the function from here.
+import { parseCliEnvelope } from './_envelope-parser.js';
 
 import {
   makeProject,
@@ -8,32 +12,8 @@ import {
   REPO,
   runCli,
   seedCanaryPrecheckFixture,
-  type Envelope,
   type RunResult
 } from './_cross-cutting-e2e-harness.js';
-
-/**
- * Commander prints "{ok:false envelope}" to STDERR (not stdout) when an
- * option is missing or a subcommand is unknown. Try stdout first, then
- * fall back to stderr, and as a last resort try the combined stream —
- * whichever contains a parseable JSON envelope wins.
- */
-function parseEnvelope(result: RunResult): Envelope {
-  const candidates = [result.stdout, result.stderr, result.stdout + result.stderr];
-  let lastError: unknown = null;
-  for (const raw of candidates) {
-    const trimmed = raw.trim();
-    if (!trimmed) continue;
-    const start = trimmed.indexOf('{');
-    if (start < 0) continue;
-    try {
-      return JSON.parse(trimmed.slice(start)) as Envelope;
-    } catch (error: unknown) {
-      lastError = error;
-    }
-  }
-  throw lastError ?? new Error('parseEnvelope: no JSON envelope found in stdout/stderr');
-}
 
 afterEach(() => {
   for (const project of projects) {
@@ -57,7 +37,7 @@ describe('peaks release lifecycle (P2-D cross-cutting e2e)', () => {
     seedCanaryPrecheckFixture(project, version);
 
     // plan
-    const planned = parseEnvelope(
+    const planned = parseCliEnvelope(
       runCli(['release', 'plan', version, '--project', project, '--json'], project)
     );
     expect(planned.command).toBe('release.plan');
@@ -67,7 +47,7 @@ describe('peaks release lifecycle (P2-D cross-cutting e2e)', () => {
     expect(planData.currentStage).toBe('planned');
 
     // canary 10
-    const canary10 = parseEnvelope(
+    const canary10 = parseCliEnvelope(
       runCli(['release', 'canary', '--percent', '10', '--project', project, '--json'], project)
     );
     expect(canary10.command).toBe('release.canary');
@@ -77,7 +57,7 @@ describe('peaks release lifecycle (P2-D cross-cutting e2e)', () => {
     expect(canary10Data.currentStage).toBe('canary-10');
 
     // canary 50
-    const canary50 = parseEnvelope(
+    const canary50 = parseCliEnvelope(
       runCli(['release', 'canary', '--percent', '50', '--project', project, '--json'], project)
     );
     expect(canary50.command).toBe('release.canary');
@@ -87,7 +67,7 @@ describe('peaks release lifecycle (P2-D cross-cutting e2e)', () => {
     expect(canary50Data.currentStage).toBe('canary-50');
 
     // rollback (clears the active release so a fresh hotfix can begin)
-    const rolledBack = parseEnvelope(
+    const rolledBack = parseCliEnvelope(
       runCli(
         ['release', 'rollback', '--note', 'p2-d fixture rollback', '--project', project, '--json'],
         project
@@ -100,7 +80,7 @@ describe('peaks release lifecycle (P2-D cross-cutting e2e)', () => {
     expect(rollbackData.finalStage).toBe('rolled-back');
 
     // hotfix skips 'planned' and starts at canary-10
-    const hotfix = parseEnvelope(
+    const hotfix = parseCliEnvelope(
       runCli(
         [
           'release',
@@ -122,7 +102,7 @@ describe('peaks release lifecycle (P2-D cross-cutting e2e)', () => {
     expect(hotfixData.currentStage).toBe('canary-10');
 
     // watch returns the structured window status (still in canary-10)
-    const watch = parseEnvelope(
+    const watch = parseCliEnvelope(
       runCli(['release', 'watch', '--project', project, '--json'], project)
     );
     expect(watch.command).toBe('release.watch');
@@ -167,7 +147,7 @@ describe('peaks bee export / loop export — share bundle round-trip (P2-D cross
       ],
       project
     );
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(envelope.command).toBe('loop.export');
     expect(envelope.ok).toBe(false);
     expect(envelope.code).toBe('BUNDLE_ASSET_NOT_FOUND');
@@ -178,7 +158,7 @@ describe('peaks bee export / loop export — share bundle round-trip (P2-D cross
     const project = makeProject('peaks-p2d-share-bundle-');
     const result = runCli(['share', 'bundle', 'write', '--project', project, '--json'], project);
     expect(result.code).not.toBe(0);
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     // The actual peaks.bundle/1 surface is `peaks bee export/import` and
     // `peaks loop export/import`. `peaks share bundle *` is not registered.
     expect(envelope.code).toBe('COMMAND_NOT_FOUND');
@@ -246,7 +226,7 @@ describe('peaks skill sync --platform cross-platform dry-run (P2-D cross-cutting
       REPO
     );
     expect(result.code).toBe(0);
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(envelope.command).toBe('skill.sync');
     expect(envelope.ok).toBe(true);
     const data = envelope.data as {
@@ -276,7 +256,7 @@ describe('peaks skill sync --platform cross-platform dry-run (P2-D cross-cutting
       REPO
     );
     expect(result.code).toBe(0);
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(envelope.command).toBe('skill.sync');
     expect(envelope.ok).toBe(true);
     const data = envelope.data as {
@@ -307,7 +287,7 @@ describe('peaks project context 5-template boot (P2-D cross-cutting e2e)', () =>
     const project = makeProject('peaks-p2d-context-');
     const result = runCli(['project', 'context', '--project', project, '--json'], project);
     expect(result.code).toBe(0);
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(envelope.command).toBe('project.context');
     expect(envelope.ok).toBe(true);
 
@@ -364,7 +344,7 @@ describe('peaks config migrate dry-run with fake legacy v1.x config (P2-D cross-
       project
     );
     expect(result.code).toBe(0);
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(envelope.command).toBe('config.migrate');
     expect(envelope.ok).toBe(true);
 
@@ -391,12 +371,12 @@ describe('peaks loop status / loop show drift pointer (P2-D cross-cutting e2e)',
     const project = makeProject('peaks-p2d-loop-status-');
     const status = runCli(['loop', 'status', '--project', project, '--json'], project);
     expect(status.code).not.toBe(0);
-    const statusEnvelope = parseEnvelope(status);
+    const statusEnvelope = parseCliEnvelope(status);
     expect(statusEnvelope.code).toBe('COMMAND_NOT_FOUND');
 
     const show = runCli(['loop', 'show', '--project', project, '--json'], project);
     expect(show.code).not.toBe(0);
-    const showEnvelope = parseEnvelope(show);
+    const showEnvelope = parseCliEnvelope(show);
     expect(showEnvelope.code).toBe('COMMAND_NOT_FOUND');
   });
 
@@ -407,7 +387,7 @@ describe('peaks loop status / loop show drift pointer (P2-D cross-cutting e2e)',
     // tmp project there's no session artifact to extract, so memory extract fails
     // and loop.distill returns a LOOP_DISTILL_FAILED envelope — that's the
     // structured contract we want to verify here.
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(envelope.command).toBe('loop.distill');
     // Either ok:true with a structured delegate payload, or ok:false with the
     // LOOP_DISTILL_FAILED code; both are valid structured envelopes.
@@ -429,7 +409,7 @@ describe('peaks classify run round-trip (P2-D cross-cutting e2e)', () => {
   test('returns a structured classify envelope with one of 5 levels (typo|bug|feature|refactor|migration)', () => {
     const result = runCli(['classify', 'run', '--project', REPO, '--json'], REPO);
     expect(result.code).toBe(0);
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(envelope.command).toBe('classify.run');
     expect(envelope.ok).toBe(true);
 
@@ -469,7 +449,7 @@ describe('peaks classify run round-trip (P2-D cross-cutting e2e)', () => {
       REPO
     );
     expect(result.code).not.toBe(0);
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     // The header envelope is `cli` because commander routes the refusal through
     // the global error path; the structured code we want is the refusal reason.
     expect(envelope.ok).toBe(false);

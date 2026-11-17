@@ -3,6 +3,7 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
+import { parseCliEnvelope, type CliEnvelope } from './_envelope-parser.js';
 
 const BIN = resolve(__dirname, '../../bin/peaks.js');
 const REPO = resolve(__dirname, '../..');
@@ -36,40 +37,6 @@ function runCli(args: readonly string[], cwd: string): RunResult {
   }
 }
 
-interface Envelope {
-  ok: boolean;
-  command: string;
-  code?: string;
-  message?: string;
-  data: unknown;
-  warnings: readonly unknown[];
-  nextActions: readonly string[];
-}
-
-/**
- * Commander prints "{ok:false envelope}" to STDERR (not stdout) when an
- * option is missing or a subcommand is unknown. Try stdout first, then
- * fall back to stderr, and as a last resort try the combined stream —
- * whichever contains a parseable JSON envelope wins.
- */
-function parseEnvelope(result: RunResult): Envelope {
-  const candidates = [result.stdout, result.stderr, result.stdout + result.stderr];
-  let lastError: unknown = null;
-  for (const raw of candidates) {
-    const trimmed = raw.trim();
-    if (!trimmed) continue;
-    // Find the first '{' so we skip leading "error: ..." commander prefixes.
-    const start = trimmed.indexOf('{');
-    if (start < 0) continue;
-    try {
-      return JSON.parse(trimmed.slice(start)) as Envelope;
-    } catch (error: unknown) {
-      lastError = error;
-    }
-  }
-  throw lastError ?? new Error('parseEnvelope: no JSON envelope found in stdout/stderr');
-}
-
 const projects: string[] = [];
 
 function makeProject(prefix: string): string {
@@ -98,7 +65,7 @@ describe('peaks prd handoff show (P2-B.6 misc e2e)', () => {
     const project = makeProject('peaks-p2b6-prd-show-');
     const result = runCli(['prd', 'handoff', 'show', '--project', project, '--json'], project);
     expect(result.code).not.toBe(0);
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(envelope.ok).toBe(false);
     expect(envelope.code).toBe('MISSING_REQUIRED_OPTION');
     // The two facts the caller needs: WHICH command, and WHICH option (with the
@@ -122,7 +89,7 @@ describe('peaks release canary (P2-B.6 misc e2e)', () => {
     const project = makeProject('peaks-p2b6-release-canary-');
     const result = runCli(['release', 'canary', '--project', project, '--json'], project);
     expect(result.code).not.toBe(0);
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(envelope.ok).toBe(false);
     expect(envelope.code).toBe('MISSING_REQUIRED_OPTION');
     expect(envelope.command).toBe('release canary');
@@ -145,7 +112,7 @@ describe('peaks prd check-blocks (P2-B.6 misc e2e)', () => {
     // `prd.check-blocks` exits 1 (not 0) when its findings include missing
     // required blocks — that's exactly the contract we want to verify.
     expect(result.code).not.toBe(0);
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(envelope.command).toBe('prd.check-blocks');
     expect(envelope.ok).toBe(true);
     const data = envelope.data as {
@@ -170,7 +137,7 @@ describe('peaks prd-blocks top-level (P2-B.6 misc e2e)', () => {
   test('returns COMMAND_NOT_FOUND envelope (drift: actual surface is `peaks prd check-blocks`)', () => {
     const result = runCli(['prd-blocks', '--json'], REPO);
     expect(result.code).not.toBe(0);
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(envelope.code).toBe('COMMAND_NOT_FOUND');
   });
 });
@@ -183,7 +150,7 @@ describe('peaks release pack (P2-B.6 misc e2e)', () => {
   test('returns COMMAND_NOT_FOUND envelope (drift: actual subcommands are plan / canary / promote / watch / done / rollback / hotfix)', () => {
     const result = runCli(['release', 'pack', '--json'], REPO);
     expect(result.code).not.toBe(0);
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(envelope.code).toBe('COMMAND_NOT_FOUND');
   });
 });
@@ -196,7 +163,7 @@ describe('peaks release publish (P2-B.6 misc e2e)', () => {
   test('returns COMMAND_NOT_FOUND envelope (drift: actual release surface is the canary state machine, not publish)', () => {
     const result = runCli(['release', 'publish', '--json'], REPO);
     expect(result.code).not.toBe(0);
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(envelope.code).toBe('COMMAND_NOT_FOUND');
   });
 });
@@ -209,7 +176,7 @@ describe('peaks release status (P2-B.6 misc e2e)', () => {
   test('returns COMMAND_NOT_FOUND envelope (drift: actual surface is `peaks release watch`)', () => {
     const result = runCli(['release', 'status', '--json'], REPO);
     expect(result.code).not.toBe(0);
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(envelope.code).toBe('COMMAND_NOT_FOUND');
   });
 });
@@ -226,7 +193,7 @@ describe('peaks release plan (P2-B.6 misc e2e)', () => {
       project
     );
     expect(result.code).toBe(0);
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(envelope.command).toBe('release.plan');
     // On an empty tmp project, release.plan writes a planned release and returns ok:true.
     // On a real repo where an active release exists, it returns ok:false with a structured error.
@@ -289,7 +256,7 @@ describe('peaks playwright ls (P2-B.6 misc e2e)', () => {
   test('returns a structured playwright.ls envelope listing zero or more sessions', () => {
     const result = runCli(['playwright', 'ls', '--json'], REPO);
     expect(result.code).toBe(0);
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(envelope.ok).toBe(true);
     // `playwright.ls` does NOT populate the `command` field on its data envelope.
     const data = envelope.data as { sessions?: ReadonlyArray<unknown>; count?: number };
@@ -323,7 +290,7 @@ describe('peaks polyrepo status (P2-B.6 misc e2e)', () => {
     // polyrepo uses --root, not --project.
     const result = runCli(['polyrepo', 'status', '--root', project, '--json'], project);
     expect(result.code).toBe(0);
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(envelope.command).toBe('polyrepo.status');
     expect(envelope.ok).toBe(true);
     const data = envelope.data as { children?: ReadonlyArray<unknown>; initialized?: boolean };
@@ -340,7 +307,7 @@ describe('peaks polyrepo init (P2-B.6 misc e2e)', () => {
     const project = makeProject('peaks-p2b6-polyrepo-init-');
     const result = runCli(['polyrepo', 'init', '--root', project, '--json'], project);
     expect(result.code).toBe(0);
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(envelope.command).toBe('polyrepo.init');
     expect(envelope.ok).toBe(true);
     const data = envelope.data as { children?: ReadonlyArray<unknown> };
@@ -356,7 +323,7 @@ describe('peaks classify run (P2-B.6 misc e2e)', () => {
   test('returns a structured classify.run envelope with one of the 5 levels', () => {
     const result = runCli(['classify', 'run', '--project', REPO, '--json'], REPO);
     expect(result.code).toBe(0);
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(envelope.command).toBe('classify.run');
     expect(envelope.ok).toBe(true);
     const data = envelope.data as { level?: string; classification?: string; taskLevel?: string };
@@ -373,7 +340,7 @@ describe('peaks evolve top-level (P2-B.6 misc e2e)', () => {
   test('returns COMMAND_NOT_FOUND envelope (drift: actual top-level is `evolution`)', () => {
     const result = runCli(['evolve', '--json'], REPO);
     expect(result.code).not.toBe(0);
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(envelope.code).toBe('COMMAND_NOT_FOUND');
   });
 });
@@ -422,7 +389,7 @@ describe('peaks mut asserts (P2-B.6 misc e2e)', () => {
     const combined = result.stdout + result.stderr;
     const isJsonEnvelope = result.stdout.trim().length > 0 && combined.trim().startsWith('{');
     if (isJsonEnvelope) {
-      const envelope = parseEnvelope(result);
+      const envelope = parseCliEnvelope(result);
       expect(envelope.ok).toBe(false);
     } else {
       expect(combined).toContain('--input-sig');
@@ -444,7 +411,7 @@ describe('peaks mut scan (P2-B.6 misc e2e)', () => {
     // commander "unknown command 'scan'" error — both prove the subcommand is unregistered.
     const isJsonEnvelope = result.stdout.trim().length > 0 && combined.trim().startsWith('{');
     if (isJsonEnvelope) {
-      const envelope = parseEnvelope(result);
+      const envelope = parseCliEnvelope(result);
       expect(envelope.code).toBe('COMMAND_NOT_FOUND');
     } else {
       expect(combined).toMatch(/unknown command .*scan|scan.*not registered/i);
@@ -460,7 +427,7 @@ describe('peaks fork sync (P2-B.6 misc e2e)', () => {
   test('returns a structured MISSING_REQUIRED_OPTION envelope (--sync-id is required)', () => {
     const result = runCli(['fork', 'sync', '--json'], REPO);
     expect(result.code).not.toBe(0);
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(envelope.ok).toBe(false);
     expect(envelope.code).toBe('MISSING_REQUIRED_OPTION');
     const combined = result.stdout + result.stderr;
@@ -477,7 +444,7 @@ describe('peaks fork status (P2-B.6 misc e2e)', () => {
     const project = makeProject('peaks-p2b6-fork-status-');
     const result = runCli(['fork', 'status', '--project', project, '--json'], project);
     expect(result.code).toBe(0);
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(envelope.command).toBe('fork.status');
     const data = envelope.data as { projectRoot?: string; report?: unknown };
     expect(typeof data.projectRoot === 'string').toBe(true);
@@ -493,7 +460,7 @@ describe('peaks fixture capture-setup (P2-B.6 misc e2e)', () => {
   test('returns COMMAND_NOT_FOUND envelope (drift: actual subcommands are capture only)', () => {
     const result = runCli(['fixture', 'capture-setup', '--json'], REPO);
     expect(result.code).not.toBe(0);
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(envelope.code).toBe('COMMAND_NOT_FOUND');
   });
 });
@@ -518,7 +485,7 @@ describe('peaks fixture capture (P2-B.6 misc e2e)', () => {
       ],
       REPO
     );
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(envelope.command).toBe('fixture.capture');
     expect(envelope.ok).toBe(false);
     expect(envelope.code).toBe('CAPTURE_FAILED');
@@ -533,7 +500,7 @@ describe('peaks fixture replay (P2-B.6 misc e2e)', () => {
   test('returns COMMAND_NOT_FOUND envelope (drift: capture is the only subcommand)', () => {
     const result = runCli(['fixture', 'replay', '--json'], REPO);
     expect(result.code).not.toBe(0);
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(envelope.code).toBe('COMMAND_NOT_FOUND');
   });
 });
@@ -547,7 +514,7 @@ describe('peaks doctor check (P2-B.6 misc e2e)', () => {
     const result = runCli(['doctor', 'check', '--project', REPO, '--json'], REPO);
     // doctor.check exits 1 when any check fails (typical case on a real repo);
     // we only assert the structured envelope contract.
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(['doctor.check', 'doctor']).toContain(envelope.command);
     const data = envelope.data as {
       checks?: ReadonlyArray<{ id?: string; ok?: boolean; message?: string }>;
@@ -568,7 +535,7 @@ describe('peaks doctor check (P2-B.6 misc e2e)', () => {
 describe('peaks ecc status (P2-B.6 misc e2e)', () => {
   test('returns a structured ecc.status envelope describing the cache state (installed or NO_CACHE)', () => {
     const result = runCli(['ecc', 'status', '--json'], REPO);
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(envelope.command).toBe('ecc.status');
     // Either installed (ok:true) or NOT_INSTALLED (ok:false) — both are valid
     // first-run contracts. The payload changed with the acquisition layer: ECC
@@ -612,7 +579,7 @@ describe('peaks bee import (P2-B.6 misc e2e)', () => {
   test('returns a structured MISSING_REQUIRED_OPTION envelope (--in <path> is required)', () => {
     const result = runCli(['bee', 'import', '--json'], REPO);
     expect(result.code).not.toBe(0);
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     // Was `command: "cli"` — the envelope now names the command the caller
     // typed, which is the field that makes the error actionable.
     expect(envelope.command).toBe('bee import');
@@ -632,7 +599,7 @@ describe('peaks perf baseline (P2-B.6 misc e2e)', () => {
     const project = makeProject('peaks-p2b6-perf-baseline-');
     const result = runCli(['perf', 'baseline', '--project', project, '--json'], project);
     expect(result.code).toBe(0);
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(envelope.command).toBe('perf.baseline');
     expect(envelope.ok).toBe(true);
     // The dry-run envelope uses `apply: boolean`, not `dryRun`/`applied`.
@@ -655,7 +622,7 @@ describe('peaks perf baseline (P2-B.6 misc e2e)', () => {
 describe('peaks perf-audit detect (P2-B.6 misc e2e)', () => {
   test('returns a structured perf-audit.detect envelope pointing out the missing --sid', () => {
     const result = runCli(['perf-audit', 'detect', '--project', REPO, '--json'], REPO);
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(envelope.command).toBe('perf-audit.detect');
     expect(envelope.ok).toBe(false);
     expect(envelope.code).toBe('SID_REQUIRED');
@@ -682,7 +649,7 @@ describe('peaks perf-audit run (P2-B.6 misc e2e)', () => {
       ],
       REPO
     );
-    const envelope = parseEnvelope(result);
+    const envelope = parseCliEnvelope(result);
     expect(['perf-audit.run', 'cli']).toContain(envelope.command);
     // The contract is either ok:true with an artifactPath (when handoff is present)
     // or ok:false with a structured error code (when handoff is missing).

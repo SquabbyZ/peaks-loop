@@ -154,9 +154,14 @@ export interface StrykerOptionsInput {
   readonly testFiles?: ReadonlyArray<string>;
   /**
    * Session id, used to place the per-run generated vitest config under
-   * `.peaks/_runtime/<sessionId>/mut/`. Required whenever `testFiles` is given:
-   * the generated config's `include` is what makes `--test-files` mean anything
-   * (see `stryker-run-config.ts`).
+   * `.peaks/_runtime/<sessionId>/mut/`. When given, that config's `include` is
+   * what makes `--test-files` select anything (see `stryker-run-config.ts`).
+   *
+   * OPTIONAL here: this builder produces OPTIONS and does not own the run's
+   * preconditions. `peaks mut run` makes `--session-id` a required option, so
+   * the CLI cannot reach Stryker unscoped; a programmatic caller that omits it
+   * gets the project's own `include` and the loud "No tests were executed"
+   * abort instead of an error from a pure builder.
    */
   readonly sessionId?: string;
   /**
@@ -220,10 +225,16 @@ export function buildStrykerOptions(input: StrykerOptionsInput): BuiltStrykerOpt
 
   // Verbatim, like `mutate`: these are Stryker globs, not file paths.
   // `.stryker-tmp` is appended unconditionally (see STRYKER_DEFAULTS).
+  // Deduplicated: the always-ignored list is the caller's to repeat (a caller
+  // that already passes `.peaks` should not get it twice), and a duplicated
+  // glob is not harmless — it makes the resolved options harder to read and
+  // would double any future per-pattern warning.
   options.ignorePatterns = [
-    ...STRYKER_DEFAULTS.ignorePatterns,
-    ...(input.ignorePatterns ?? []),
-    ...STRYKER_DEFAULTS.alwaysIgnoredPatterns
+    ...new Set([
+      ...STRYKER_DEFAULTS.ignorePatterns,
+      ...(input.ignorePatterns ?? []),
+      ...STRYKER_DEFAULTS.alwaysIgnoredPatterns
+    ])
   ];
 
   if (pluginDescriptors.length > 0) {
