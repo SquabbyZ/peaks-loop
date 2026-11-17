@@ -147,7 +147,15 @@ describe('Scenario: integration - the generator reads the real registry and the 
     // then:  it holds the entries the proof admits and records BOTH measurements that changed it:
     //        the mandatory `--project` the PRD omitted, and the argv the proof excluded
     const surface = loadReadOnlySurface();
-    expect(surface.tools.flatMap((group) => group.entries)).toHaveLength(4);
+    // SIX since 2026-11-17: `peaks_context_compress` reuses the
+    // `skill presence` and `request show` argv, adding two entries that are
+    // each independently proven read-only. The count is asserted rather than
+    // derived so that an entry appearing WITHOUT a decision is visible here.
+    expect(surface.tools.flatMap((group) => group.entries)).toHaveLength(6);
+    // Every entry must belong to a declared tool; an orphan is a surface that
+    // the generator would silently drop.
+    const declaredTools = new Set(surface.tools.map((group) => group.tool));
+    expect(declaredTools.size).toBeGreaterThan(0);
     const note = surface.note.join('\n');
     expect(note).toContain('MISSING_REQUIRED_OPTION');
     expect(note).toContain('EXCLUDED AFTER MEASUREMENT');

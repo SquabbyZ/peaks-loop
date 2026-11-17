@@ -28,6 +28,7 @@ import { describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../../_setup/4dim-template.js';
 import { callContextCompressTool } from '~/src/services/mcp/context-tool';
+import type { CliExecutor } from '~/src/services/mcp/tool-core';
 import {
   loadToolDefinitions,
   validateSurface,
@@ -43,8 +44,6 @@ declareDimensions(
     { dim: 'render', reason: 'the reply is plain text with no layout to assert' }
   ]
 );
-
-const CONTEXT = { cwd: process.cwd() };
 
 function contextTool(): McpToolDefinition {
   const tool = loadToolDefinitions().find((t) => t.name === 'peaks_context_compress');
@@ -69,43 +68,97 @@ describe('(integration) the tool is part of a valid read-only surface', () => {
 });
 
 describe('(behavior) the resume summary', () => {
+  /**
+   * A stubbed CLI executor. The tool's own behaviour is what these cases
+   * assert, so the input is a fixed envelope rather than whatever this machine
+   * happens to have bound — the earlier version read the real session and
+   * therefore failed on any machine with no active presence, including CI.
+   *
+   * The shape is the REAL `CliExecution`: `runArgv` parses `stdout` as the CLI's
+   * JSON envelope and reads `argv` for its failure prose, so a stub that omits
+   * either crashes inside the layer under test rather than asserting on it.
+   */
+  function stubExecutor(envelopes: Readonly<Record<string, unknown>>): CliExecutor {
+    return async (argv) => {
+      const joined = argv.join(' ');
+      const needle = Object.keys(envelopes).find((key) => joined.includes(key));
+      const data = needle === undefined ? {} : envelopes[needle];
+      return {
+        argv,
+        exitCode: 0,
+        stdout: JSON.stringify({ ok: true, command: needle ?? 'unknown', data }),
+        stderr: '',
+        timedOut: false
+      };
+    };
+  }
+
+  const PRESENCE = {
+    active: true,
+    skill: 'peaks-code',
+    gate: 'qa-handoff',
+    context: { ratioPct: '42.5%', action: 'none', mode: 'standard' }
+  };
+  const REQUEST = {
+    requestId: 'rid-1',
+    state: 'qa-handoff',
+    path: '.peaks/_runtime/s/rd/requests/001-rid-1.md'
+  };
+
   it('when a request is given, should report the skill, gate, ratio and request state', async () => {
-    // given: a bound session with an active request
+    // given: stubbed envelopes for the two argv the tool runs
     // when: the tool runs with rid and role
     // then: every one of those facts appears — including the ratio, which the
     //       first implementation silently dropped by reading the wrong level
     const text = textOf(
       await callContextCompressTool(
         contextTool(),
-        { rid: 'project-scan-field-refresh', role: 'rd', project: process.cwd() },
-        CONTEXT
+        { rid: 'rid-1', role: 'rd', project: '/tmp/project' },
+        {
+          cwd: '/tmp/project',
+          execute: stubExecutor({ 'skill presence': PRESENCE, 'request show': REQUEST })
+        }
       )
     );
 
-    expect(text).toContain('active skill:');
-    expect(text).toContain('gate:');
-    expect(text).toContain('context used:');
-    expect(text).toContain('request state:');
+    expect(text).toContain('active skill: peaks-code');
+    expect(text).toContain('gate: qa-handoff');
+    expect(text).toContain('context used: 42.5%');
+    expect(text).toContain('request state: qa-handoff');
   });
 
   it('when no request is given, should still summarise the session and not invent a request', async () => {
-    // given: a call with no rid
-    // when: the tool runs
+    // given: only the presence envelope is available
+    // when: the tool runs with no rid
     // then: the session facts are present and no request line is fabricated
     const text = textOf(
-      await callContextCompressTool(contextTool(), { project: process.cwd() }, CONTEXT)
+      await callContextCompressTool(
+        contextTool(),
+        { project: '/tmp/project' },
+        {
+          cwd: '/tmp/project',
+          execute: stubExecutor({ 'skill presence': PRESENCE })
+        }
+      )
     );
 
-    expect(text).toContain('active skill:');
+    expect(text).toContain('active skill: peaks-code');
     expect(text).not.toContain('request state:');
   });
 
   it('when the summary is produced, should not conclude anything', async () => {
-    // given: any run
+    // given: a stubbed run, so the text is asserted rather than the environment
     // when: the text is read
     // then: it carries facts and an explicit warning that omission is not absence
     const text = textOf(
-      await callContextCompressTool(contextTool(), { project: process.cwd() }, CONTEXT)
+      await callContextCompressTool(
+        contextTool(),
+        { project: '/tmp/project' },
+        {
+          cwd: '/tmp/project',
+          execute: stubExecutor({ 'skill presence': PRESENCE })
+        }
+      )
     );
 
     expect(text).toContain('facts only; no judgement');

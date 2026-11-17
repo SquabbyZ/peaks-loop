@@ -41,13 +41,20 @@ describe('Scenario: render - the artifact is data with one entry per proven argv
       'skill-presence',
       'session-list',
       'request-show',
-      'memory-search'
+      'memory-search',
+      // `peaks_context_compress` runs argv that are each already proven
+      // read-only for `peaks_status`; the ids are prefixed because the
+      // generator requires ids unique across the whole surface.
+      'ctx-skill-presence',
+      'ctx-request-show'
     ]);
     expect(whitelist.entries.map((entry) => entry.tool)).toEqual([
       'peaks_status',
       'peaks_status',
       'peaks_status',
-      'peaks_memory_search'
+      'peaks_memory_search',
+      'peaks_context_compress',
+      'peaks_context_compress'
     ]);
     expect(whitelist.readOnlyDefinition).toContain('no network');
   });

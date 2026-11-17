@@ -62,7 +62,9 @@ describe('(integration) the project root does not depend on the caller cwd', () 
     //       when the hook runs there)
     // then: it answers with the repository root, not the nested directory
     const root = makeRoot('peaks-cwd-');
-    execFileSync('git', ['init', '--quiet'], { cwd: root });
+    // `windowsHide` is required by this repo's spawn-hygiene ratchet on EVERY
+    // child_process call site, tests included.
+    execFileSync('git', ['init', '--quiet'], { cwd: root, windowsHide: true });
     const nested = join(root, 'src', 'services');
     mkdirSync(nested, { recursive: true });
 

@@ -179,7 +179,10 @@ function readGitStatusQuietly(projectRoot: string): string {
   const result = spawnSync('git', ['status', '--porcelain', '-b'], {
     cwd: projectRoot,
     encoding: 'utf8',
-    timeout: 5_000
+    timeout: 5_000,
+    // Windows: without this the console window flashes on every probe. The
+    // repo's spawn-hygiene ratchet requires it on EVERY call site.
+    windowsHide: true
   });
   if (result.error !== undefined || result.status !== 0 || typeof result.stdout !== 'string') {
     return '';

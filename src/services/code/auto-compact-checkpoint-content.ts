@@ -21,7 +21,7 @@
  */
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative, sep } from 'node:path';
 
 import { getSessionDir } from '../session/getSessionDir.js';
 
@@ -97,7 +97,12 @@ function recentArtifactPaths(projectRoot: string, sessionId: string): string[] {
     }
     for (const name of names) {
       if (name.endsWith('.md')) {
-        found.push(join('.peaks', '_runtime', sessionId, role, 'requests', name));
+        // DERIVED FROM `sessionDir`, never re-composed. A second hand-rolled
+        // `.peaks/_runtime/<sid>` join is the bug class the canonical-path scan
+        // exists for: it re-implements the layout instead of going through the
+        // one function that validates the id, so a future layout change would
+        // silently diverge. `sessionDir` is already the canonical root.
+        found.push(relative(projectRoot, join(requestsDir, name)).split(sep).join('/'));
       }
     }
   }
