@@ -3,6 +3,12 @@
 // rid-t4-mut-runtime-dependency — guards WHERE the stryker toolchain is
 // declared, not which version it is.
 //
+// rid-mut-typescript-dep extends the guard to typescript. Stryker's own
+// ts-config preprocessor runs `await import('typescript')` while declaring no
+// typescript at all, so the only place that dependency can come from is the
+// package that ships core. The invariant is the same one: declared in
+// dependencies, not in devDependencies, major aligned with the root's copy.
+//
 // The failure this prevents (measured on the globally installed `peaks` 4.1.17):
 //
 //   "Stryker invocation failed: Cannot find package '@stryker-mutator/core'
@@ -57,8 +63,27 @@ const MUT_IMPORT_SITE = join(
   'production-stryker.ts'
 );
 
-/** The two packages that must travel with the published tarball. */
-const STRYKER_PACKAGES = ['@stryker-mutator/core', '@stryker-mutator/vitest-runner'] as const;
+/**
+ * The packages that must travel with the published tarball.
+ *
+ * `rootReason` is what a red run prints when the ROOT manifest stops declaring
+ * the package: the two stryker plugins are resolved by the repo's own
+ * stryker.conf.js, typescript by the repo's own tsc run.
+ */
+const RUNTIME_PACKAGES = [
+  {
+    name: '@stryker-mutator/core',
+    rootReason: "the repo's own stryker.conf.js resolves the plugin from the repository root"
+  },
+  {
+    name: '@stryker-mutator/vitest-runner',
+    rootReason: "the repo's own stryker.conf.js resolves the plugin from the repository root"
+  },
+  {
+    name: 'typescript',
+    rootReason: "the repo's own tsc run resolves the compiler from the repository root"
+  }
+] as const;
 
 /** The package whose manifest owns the runtime import. */
 const MUT_PACKAGE = 'peaks-loop-mut';
@@ -107,7 +132,7 @@ function majorOf(range: string | undefined): number | null {
 }
 
 /**
- * Every invariant violation of the stryker dependency placement.
+ * Every invariant violation of the runtime dependency placement.
  *
  * Returns human-readable sentences instead of booleans so that a red run in
  * CI names the file, the package and the reason — the a11y surface of this
@@ -120,7 +145,7 @@ function violationsFor(mut: Manifest, root: Manifest): string[] {
   const rootDevDeps = sectionOf(root, 'devDependencies');
   const rootDeps = sectionOf(root, 'dependencies');
 
-  for (const pkg of STRYKER_PACKAGES) {
+  for (const { name: pkg, rootReason } of RUNTIME_PACKAGES) {
     const mutRange = mutDeps[pkg];
     if (mutRange === undefined) {
       problems.push(
@@ -137,10 +162,7 @@ function violationsFor(mut: Manifest, root: Manifest): string[] {
     }
     const rootRange = rootDevDeps[pkg];
     if (rootRange === undefined) {
-      problems.push(
-        `${ROOT_MANIFEST_REL}: devDependencies is missing ${pkg} — ` +
-          "the repo's own stryker.conf.js resolves the plugin from the repository root"
-      );
+      problems.push(`${ROOT_MANIFEST_REL}: devDependencies is missing ${pkg} — ${rootReason}`);
       continue;
     }
     const mutMajor = majorOf(mutRange);
@@ -174,16 +196,22 @@ function violationsFor(mut: Manifest, root: Manifest): string[] {
 function healthyManifestPair(): { mut: Manifest; root: Manifest } {
   const core = '^1.2.3';
   const runner = '^4.5.6';
+  const ts = '^5.7.8';
   return {
     mut: {
-      dependencies: { '@stryker-mutator/core': core, '@stryker-mutator/vitest-runner': runner },
+      dependencies: {
+        '@stryker-mutator/core': core,
+        '@stryker-mutator/vitest-runner': runner,
+        typescript: ts
+      },
       devDependencies: {}
     },
     root: {
       dependencies: { [MUT_PACKAGE]: 'workspace:*' },
       devDependencies: {
         '@stryker-mutator/core': core,
-        '@stryker-mutator/vitest-runner': runner
+        '@stryker-mutator/vitest-runner': runner,
+        typescript: ts
       }
     }
   };
@@ -195,34 +223,34 @@ const realProblems = violationsFor(realMut, realRoot);
 
 // ---- render dimension -------------------------------------------------------
 
-describe('Scenario: (render) — the stryker packages sit in the manifest sections that ship', () => {
-  it('when read, should peaks-loop-mut dependencies list both stryker packages with a version range', () => {
+describe('Scenario: (render) — the runtime packages sit in the manifest sections that ship', () => {
+  it('when read, should peaks-loop-mut dependencies list every runtime package with a version range', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     const deps = sectionOf(realMut, 'dependencies');
-    for (const pkg of STRYKER_PACKAGES) {
+    for (const { name: pkg } of RUNTIME_PACKAGES) {
       expect(deps[pkg]).toBeTypeOf('string');
       expect(deps[pkg]).toMatch(/\d+\.\d+/);
     }
   });
 
-  it('when read, should peaks-loop-mut devDependencies list neither stryker package', () => {
+  it('when read, should peaks-loop-mut devDependencies list no runtime package', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     const devDeps = sectionOf(realMut, 'devDependencies');
-    for (const pkg of STRYKER_PACKAGES) {
+    for (const { name: pkg } of RUNTIME_PACKAGES) {
       expect(devDeps[pkg]).toBeUndefined();
     }
   });
 
-  it('when read, should the root manifest keeps both stryker packages in devDependencies', () => {
+  it('when read, should the root manifest keeps every runtime package in devDependencies', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     const devDeps = sectionOf(realRoot, 'devDependencies');
-    for (const pkg of STRYKER_PACKAGES) {
+    for (const { name: pkg } of RUNTIME_PACKAGES) {
       expect(devDeps[pkg]).toBeTypeOf('string');
     }
   });
@@ -244,7 +272,7 @@ describe('Scenario: (behavior) — the placement invariant holds and fails when 
     // then:  the result matches the expectation
     const mutDeps = sectionOf(realMut, 'dependencies');
     const rootDevDeps = sectionOf(realRoot, 'devDependencies');
-    for (const pkg of STRYKER_PACKAGES) {
+    for (const { name: pkg } of RUNTIME_PACKAGES) {
       expect(mutDeps[pkg]).toBeTypeOf('string');
       expect(rootDevDeps[pkg]).toBeTypeOf('string');
       expect(majorOf(mutDeps[pkg])).toBe(majorOf(rootDevDeps[pkg]));
@@ -292,6 +320,40 @@ describe('Scenario: (behavior) — the placement invariant holds and fails when 
     expect(problems.some((p) => p.includes('major mismatch'))).toBe(true);
   });
 
+  it('when typescript is moved to devDependencies, should report a violation', () => {
+    // given: a healthy manifest pair whose typescript sits in dependencies
+    // when:  typescript is removed from dependencies and declared in devDependencies
+    // then:  the guard reports a violation naming typescript
+    const pair = healthyManifestPair();
+    const moved: Manifest = {
+      ...pair.mut,
+      dependencies: { ...sectionOf(pair.mut, 'dependencies'), typescript: undefined },
+      devDependencies: {
+        ...sectionOf(pair.mut, 'devDependencies'),
+        typescript: '^5.7.8'
+      }
+    };
+    const problems = violationsFor(moved, pair.root);
+    expect(problems.some((p) => p.includes('typescript'))).toBe(true);
+  });
+
+  it('when typescript is dropped from dependencies, should report a violation', () => {
+    // given: a healthy manifest pair whose typescript sits in dependencies
+    // when:  typescript is removed from dependencies without being declared elsewhere
+    // then:  the guard reports that dependencies is missing typescript
+    const pair = healthyManifestPair();
+    const dropped: Manifest = {
+      ...pair.mut,
+      dependencies: { ...sectionOf(pair.mut, 'dependencies'), typescript: undefined }
+    };
+    const problems = violationsFor(dropped, pair.root);
+    expect(
+      problems.some(
+        (p) => p.includes(MUT_MANIFEST_REL) && p.includes('dependencies is missing typescript')
+      )
+    ).toBe(true);
+  });
+
   it('when the root drops the peaks-loop-mut dependency, should report the broken publish chain', () => {
     // given: the test setup
     // when:  the function under test is invoked
@@ -337,7 +399,7 @@ describe('Scenario: (a11y) — a red run tells the reader which file, which pack
     const empty: Manifest = { dependencies: {}, devDependencies: {} };
     const problems = violationsFor(empty, pair.root);
     expect(problems.length).toBeGreaterThan(0);
-    for (const pkg of STRYKER_PACKAGES) {
+    for (const { name: pkg } of RUNTIME_PACKAGES) {
       expect(problems.some((p) => p.includes(pkg))).toBe(true);
     }
     expect(problems.some((p) => p.includes(MUT_MANIFEST_REL))).toBe(true);

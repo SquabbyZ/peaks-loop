@@ -35,6 +35,7 @@
     "@stryker-mutator/core": "^9.6.1",
     "@stryker-mutator/vitest-runner": "^9.6.1",
     "ecc-universal": "^2.2.3",
+    "typescript": "^5.9.3",
     "zod": "^4.6.7"
   },
   "publishConfig": {
