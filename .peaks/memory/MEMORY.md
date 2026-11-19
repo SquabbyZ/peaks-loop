@@ -195,7 +195,7 @@
 - [src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior](src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior.md) — The  module is the single source of truth for IDE-aware behavior.
 - [src-services-session-canonical-workspace-resolver](src-services-session-canonical-workspace-resolver.md) — is the canonical home for the per-session workspace.
 
-## lesson (176)
+## lesson (177)
 
 - [2026-06-26-unknown-sid-root-cause](archived/2026-06-26-unknown-sid-root-cause.md) — Root cause + remediation log for the  and  orphan session dirs.
 - [2026-07-28-rid-034-handoff-no-sediment-block](2026-07-28-rid-034-handoff-no-sediment-block.md) — rid-034 收尾遇 sediment 反向 — no peaks-memory:start/end 闭合块 **Date:** 2026-07-28 **Rid:** 2026-07-28-rid-034-v2-13-0-clea...
@@ -259,6 +259,7 @@
 - [a-single-measurement-of-a-host-sensitive-command-is-not-a-fact-about-the-command](a-single-measurement-of-a-host-sensitive-command-is-not-a-fact-about-the-command.md) — Four measurements of one  on this repo spread **8.89 s – 14.2 s** (~60 %): , from three different agents.
 - [a-slice-that-contradicts-a-published-decision-must-put-that-diff-in-front-of-the-owner](a-slice-that-contradicts-a-published-decision-must-put-that-diff-in-front-of-the-owner.md) — Measured 2026-10-23 (rid ).
 - [a-slice-whose-core-behaviour-no-artifact-specifies-costs-multiples-of-its-peers](a-slice-whose-core-behaviour-no-artifact-specifies-costs-multiples-of-its-peers.md) — S1, S2 and S3 of  each needed **one** repair pass.
+- [a-soft-warning-invited-a-wrong-fix-and-cost-a-push-cycle](a-soft-warning-invited-a-wrong-fix-and-cost-a-push-cycle.md) — 锁文件里加一条 back-compat 接受记录来"消掉"警告，代价是一个完整的 push 周期，而且它 推翻的是一个刻意的退休决定。判定顺序应当反过来：先看  的  和退出码，再决定要不要动任何 tracked 文件。 警告文本是通...
 - [a-spent-flag-stops-protecting-what-it-named](a-spent-flag-stops-protecting-what-it-named.md) — was invented so that redrawing the lint scope had to be **stated**: the guard refuses a scope change, the operator pa...
 - [a-split-that-satisfies-a-lint-ceiling-must-be-proved-by-a-byte-identical-output](a-split-that-satisfies-a-lint-ceiling-must-be-proved-by-a-byte-identical-output.md) — Measured 2026-10-23 (T1 backlog campaign, ).
 - [a-success-value-can-be-the-never-did-anything-branch](a-success-value-can-be-the-never-did-anything-branch.md) — returned  when the batch was NOT in its in-memory set, and a fresh CLI process always had an empty set.

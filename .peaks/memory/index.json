@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-06T00:24:53.987Z",
+  "updatedAt": "2026-11-19T00:30:48.349Z",
   "hot": {
     "rule": [
       {
@@ -1900,6 +1900,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-slice-whose-core-behaviour-no-artifact-specifies-costs-multiples-of-its-peers.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff-s4.md",
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "a-soft-warning-invited-a-wrong-fix-and-cost-a-push-cycle",
+        "kind": "lesson",
+        "description": "锁文件里加一条 back-compat 接受记录来\"消掉\"警告，代价是一个完整的 push 周期，而且它 推翻的是一个刻意的退休决定。判定顺序应当反过来：先看  的  和退出码，再决定要不要动任何 tracked 文件。 警告文本是通...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-soft-warning-invited-a-wrong-fix-and-cost-a-push-cycle.md",
+        "sourceArtifact": ".peaks/_runtime/2026-11-19-session-dc4ec6/txt/handoff.md",
+        "updatedAt": "2026-11-19"
       },
       {
         "name": "a-spent-flag-stops-protecting-what-it-named",
