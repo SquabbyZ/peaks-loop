@@ -406,3 +406,83 @@ describe('Scenario: (behavior) — the qa reader accepts both filename forms the
     expect(data.verdict).toBe('pass');
   });
 });
+
+describe('Scenario: (render) — the success envelope names the command that produced it', () => {
+  it('when the aggregate succeeds, should stamp the exact command identifier', async () => {
+    // given: a fully-evidenced session
+    // when: the aggregate runs
+    // then: `command` is the literal 'verdict.aggregate'. The field is what downstream readers key on, and the mutation report showed the literal surviving as "" because only `verdict` and `sources` were ever asserted.
+    const projectRoot = makeProjectRoot();
+    writeAllRidScopedEvidence(projectRoot);
+    const stdout: string[] = [];
+    const io: ProgramIO = { stdout: (s: string) => stdout.push(s), stderr: () => undefined };
+    const program = new Command();
+    registerVerdictAggregateCommands(program, io);
+
+    await program.parseAsync(
+      [
+        'verdict',
+        'aggregate',
+        '--from-rid',
+        RID,
+        '--sid',
+        SESSION_ID,
+        '--project',
+        projectRoot,
+        '--json'
+      ],
+      { from: 'user' }
+    );
+
+    const envelope = JSON.parse(stdout.join('')) as { command: string; ok: boolean };
+    expect(envelope.command).toBe('verdict.aggregate');
+    expect(envelope.ok).toBe(true);
+  });
+});
+
+describe('Scenario: (a11y) — the refusals also work in TEXT mode', () => {
+  it('when the rid is absent and --json is NOT passed, should print the text refusal to stderr', async () => {
+    // given: an empty --from-rid with no --json flag
+    // when: the aggregate runs
+    // then: the refusal goes to STDERR as `code: message` + action lines. Every other guard arm passes --json, so `printResult`'s text branch was never exercised on this path — the mutation report showed the `asJson` argument surviving as `false`.
+    const projectRoot = makeProjectRoot();
+    const out: string[] = [];
+    const err: string[] = [];
+    const io: ProgramIO = { stdout: (s) => out.push(s), stderr: (s) => err.push(s) };
+    const program = new Command();
+    registerVerdictAggregateCommands(program, io);
+
+    await program.parseAsync(
+      ['verdict', 'aggregate', '--from-rid', '', '--sid', SESSION_ID, '--project', projectRoot],
+      { from: 'user' }
+    );
+
+    expect(out).toEqual([]);
+    expect(err).toEqual(['RID_REQUIRED: --from-rid is required', '- Re-run with --from-rid <rid>']);
+    process.exitCode = undefined;
+  });
+});
+
+describe('Scenario: (integration) — the karpathy envelope actually reaches the aggregator', () => {
+  it('when the karpathy review blocks, should carry its verdict into the aggregate result', async () => {
+    // given: the three required sources present, with karpathy saying BLOCK
+    // when:  the aggregate runs
+    // then:  the aggregate verdict is block BECAUSE of karpathy. The `sources.karpathy === 'present'` flag alone proves the file was READ, not that its envelope reached `aggregateVerdict`; the mutation report had the `sources.karpathy !== null ? … : null` ternary surviving as `false`, which drops the envelope while leaving the flag 'present'.
+    const projectRoot = makeProjectRoot();
+    writeSessionFile(projectRoot, `audit/security-${RID}.md`, PASS_AUDIT_JSON);
+    writeSessionFile(projectRoot, `audit/perf-${RID}.md`, PASS_AUDIT_JSON);
+    writeSessionFile(
+      projectRoot,
+      `rd/karpathy-review-${RID}.md`,
+      'gateAction: block\npassed: false\n'
+    );
+
+    const data = await runAggregate(projectRoot);
+
+    expect(data.sources.karpathy).toBe('present');
+    // A `block` verdict with all three required sources PRESENT can only come
+    // from the karpathy envelope reaching the aggregator: drop that ternary and
+    // it falls back to the envelopes' own leaf verdicts, which are all pass.
+    expect(data.verdict).toBe('block');
+  });
+});

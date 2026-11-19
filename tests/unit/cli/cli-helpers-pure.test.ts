@@ -273,8 +273,14 @@ describe('Scenario: (a11y) — the failure printers set a non-zero exit code and
     // then: the code names the problem, the message names the accepted values, and the exit code is set
     const { io, out, err } = makeIo();
     printInvalidConfigLayer(io, 'cmd', false);
-    expect(err[0]).toContain('INVALID_CONFIG_LAYER');
-    expect(err[0]).toContain('user or project');
+    // Pinned exactly. In TEXT mode `printResult` writes `code: message` to
+    // stderr, then one `- <action>` line per next action; `toContain` cannot see
+    // a substitution that leaves the substring intact, and the mutation report
+    // had the remediation string surviving as `""` on this line.
+    expect(err).toEqual([
+      'INVALID_CONFIG_LAYER: Config layer must be user or project',
+      '- Use --layer user or --layer project'
+    ]);
     expect(out).toEqual([]);
     expect(process.exitCode).toBe(1);
   });
