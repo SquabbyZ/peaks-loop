@@ -1,5 +1,67 @@
 # Changelog
 
+## 4.2.3 — 2026-11-19（变异基线从 19.1% 提到 80.5%，首次过阈值）
+
+**版本级别**：**patch**（只加测试，无源码行为变化；无门禁阈值放宽，无 schema 变更）。
+
+**一句话：`peaks mut` 的达标线第一次真的过了——而且过的方式是把「测试根本跑不进沙箱」这个根因修掉，不是堆断言。**
+
+### 1. 为什么基线只有 19.1%：不是断言弱，是测试根本没被执行
+
+`peaks mut run` 的默认 `mut:run` 只喂了 **1 个**测试文件，492 个变异体里 **265 个是 NoCoverage**——从未被执行过。
+
+但把更多测试接进去也解决不了：这四个被变异模块的现有测试**全部**调用 `withTmpWorkspacePerTest()`，它会 `process.chdir()`；而 Stryker 的 vitest-runner 在 `createVitest` 里**硬编码** `pool: 'threads'`，worker 里 chdir 直接抛异常，整轮变异在 dry run 阶段就中止：
+
+```
+DryRunExecutor One or more tests failed in the initial test run:
+  process.chdir() is not supported in workers
+```
+
+实测：`pipeline-verify-qa-phase.ts` 有 `type-tables-are-authoritative.test.ts` 提供的 **100% 语句覆盖**，变异击杀率仍是 **0%**。覆盖率与击杀率在这里是两件事。
+
+**解法是写不依赖 cwd 的测试**：六组新文件全部通过 `ProgramIO` 录制器和字面量参数驱动纯导出函数——无临时目录、无 chdir、无文件系统。
+
+### 2. 各文件战果
+
+| 文件 | 起点 | 终点 |
+|---|---|---|
+| `cli-helpers.ts` | 62.5% | **98.0%** |
+| `path-safety.ts` | 43.9% | **80.2%** |
+| `verdict-aggregate-command.ts` | 53.8% | **75.9%** |
+| `pipeline-verify-qa-phase.ts` | 0% | **52.2%** |
+| **合计** | **19.1%** (94/492) | **80.5%** (396/492) |
+
+### 3. 最后四个击杀都是真实的断言缺口
+
+不是为了过线凑数：
+
+- `printInvalidConfigLayer` 的补救文案原先只用 `toContain`——看不出「替换后子串仍在」的变异。改为精确断言。
+- `verdict.aggregate` 的 `command` 字段**从未被断言**——下游读取器靠它路由，字面量一直以 `""` 存活。
+- **karpathy envelope 的 ternary 从未被证明到达聚合器**——`sources.karpathy === 'present'` 只证明文件被*读到*。用 `gateAction: block` 的 fixture 现在强制出 `block` verdict，而三个必需源都在场时任何单个叶子判定都产生不了它。
+- `printResult` 的 **TEXT 分支**在守卫路径上从未执行——其他所有臂都传了 `--json`。
+
+### 4. 剩下 84 个存活体 + 12 个不可跑，逐个手工验证过
+
+**三个确实被测试杀掉，但报告记 Survived**（vitest-runner 的归因缺陷）：
+
+| 变异体 | 手工应用到工作树后 |
+|---|---|
+| `isControlCodePoint → () => undefined` | 3 个测试红 |
+| `isArtifactRepoSegment` 正则去掉 `^` 锚 | 1 个测试红 |
+| `QA_EVIDENCE_GATES[0] = {}` | 模块导入即抛 |
+
+**两个确认等价**：`if (!path || !artifactRoot)` 弱化为 `&&` 后整个测试文件仍全绿（`normalizeArtifactPath('')` 依然不产生前导斜杠）；`path-safety` 的 `://` 子句被段循环覆盖。
+
+**12 个 unaccounted** 是 CompileError / RuntimeError 一类，任何测试都杀不掉。
+
+**没有为等价变异体写断言。** 那样做是对测试的谎报，宁可停在 80.5% 并写清原因。
+
+### 5. 顺带修掉的三类自身债务
+
+新测试第一次 push 被闸口拦下，三类问题都是我们引入的：孤儿 import 与多余类型断言（12 条 lint）、27 处 BDD 三连注释不合规（必须是回调块**最前面的三条连续注释**）、以及 `gate-baseline.json` 缺文件行。全部在源头修复，未抑制。
+
+**验证**：153 文件 / 1484 测试绿；`tsc --noEmit` exit 0；prettier 与 eslint（项目自身配置）干净；baseline `shadow unchanged (773/261)` 零新增 lint 债务；`peaks mut run` exit 0。
+
 ## 4.2.2 — 2026-11-19（`peaks mut` 在全局安装下能启动了）
 
 **版本级别**：**patch**（一个缺陷修复；无门禁阈值放宽，无 schema 变更，无 API 变化）。
