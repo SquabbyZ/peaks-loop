@@ -1,5 +1,62 @@
 # Changelog
 
+## 4.2.2 — 2026-11-19（`peaks mut` 在全局安装下能启动了）
+
+**版本级别**：**patch**（一个缺陷修复；无门禁阈值放宽，无 schema 变更，无 API 变化）。
+
+**一句话：补上一个谁都没声明的依赖，让装好的 `peaks` 能跑变异测试。**
+
+### 1. `peaks mut` 在全局安装下必然失败
+
+全局安装的 `peaks`（4.2.1）对**任何带 `tsconfig.json` 的项目**都跑不了 `peaks mut`：
+
+```
+code: MUT_TOOLCHAIN_UNAVAILABLE
+message: Stryker invocation failed: Cannot find package 'typescript' imported from
+  .../node_modules/peaks-loop/node_modules/@stryker-mutator/core/dist/src/sandbox/ts-config-preprocessor.js
+```
+
+根因不是我们忘了装，而是**三层都没声明**：`@stryker-mutator/core@9.6.1` 在
+`dist/src/sandbox/ts-config-preprocessor.js` 第 45 行和第 85 行 `await import('typescript')`，
+而它自己的 `dependencies` / `peerDependencies`（`{}`）/ `optionalDependencies` **一处都没有**
+typescript。把 core、instrumenter、api、util 四个包的 dist 全扫一遍，**只有这一处**是「裸导入但未声明」。
+那个 preprocessor 在 `inPlace` 为假且目标项目有 tsconfig 时必定执行——也就是几乎所有真实的 TS 项目。
+
+而 4.1.25 那次只把 `@stryker-mutator/core` 和 `vitest-runner` 放进了
+`packages/peaks-loop-mut` 的 `dependencies`，**没带 typescript**。Node 从**导入文件**所在目录向上解析，
+于是项目内安装时「碰巧」找到消费者自己的 typescript；全局安装向上走到全局 prefix，**什么也没有**，
+与目标项目装没装无关。
+
+实测（全局 peaks-loop 4.2.1 安装）：
+
+| 探针 | 结果 |
+|---|---|
+| `<global>/node_modules/typescript/package.json` | 缺失 |
+| 从 core 的 sandbox 目录 `require.resolve('typescript')` | `MODULE_NOT_FOUND` |
+| 同一探针跑在本仓 | 解析到 5.9.3 |
+
+**修复**：`typescript` 成为 `packages/peaks-loop-mut` 的运行时依赖，`^5.9.3`——与根
+devDependency 同一个 major，两侧清单仍然一致，本仓自己的 `tsc` 不受影响。
+守卫测试从「两个 stryker 包」扩展成一组 `{ name, rootReason }` 条目，typescript 成为第三条，
+每条的红灯文案各自指向真正的解析方（stryker 插件由本仓的 `stryker.conf.js` 解析，typescript 由本仓的
+`tsc` 解析），并新增两条变异臂证明新条款**会**红。
+
+**代价，写在明面上：typescript 解包后 23 MB，现在跟着每一次安装走**，无论用不用变异测试。
+这是一个明确的取舍（2026-11-19 维护者决定），另外两条路都被否掉：声明为可选 peer 依赖只会让全局安装
+**仍然不可用**、只是报错更清楚；绕过 tsconfig 预处理能省体积，但会让沙箱内 `extends` 与
+project-reference 的路径不再被重写，反而破坏依赖它们的消费者。
+
+### 2. 更正 4.2.1 里对此的措辞
+
+4.2.1 的「已知未修」写的是「用项目本地命令可绕过，且全局安装本就不宜跑变异测试」。
+**前一句是假的**：本地安装能用，是因为消费者项目自己恰好有 typescript，不是因为本地安装是一种受支持的形态。
+这是一处**缺失的声明**，不是一种使用姿势的限制。原文保留在 4.2.1 段里，在此更正。
+
+**验证**：守卫 15/15 绿；把 typescript 挪回 `devDependencies` 后同一文件 **4/15 红**并点名清单、
+包名与原因，还原后复绿；`tsc --noEmit` exit 0；`tests/unit/release` 101 passed。
+**本切片不能宣称的事**：发布后的 tarball 能否在全局解析 typescript，在工作树里无法证明——
+那是 `npm pack` 产物的事。该验证放在发布环节，用装好的产物跑同一个解析探针。
+
 ## 4.2.1 — 2026-11-17（auto-compact 真正接上恢复；project-scan 不再冻结）
 
 **版本级别**：**patch**（三个缺陷修复 + 一个 MCP 工具；无门禁阈值放宽，无 schema 变更）。
