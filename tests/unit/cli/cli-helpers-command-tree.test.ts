@@ -18,9 +18,9 @@ import { Command } from 'commander';
 import {
   printCliEnvelope,
   printMissingRequiredOptionEnvelope,
-  resolveInvokedCommandPath
+  resolveInvokedCommandPath,
+  type ProgramIO
 } from '../../../src/cli/cli-helpers.js';
-import type { ProgramIO } from '../../../src/cli/cli-helpers.js';
 import { declareDimensions } from '../_setup/4dim-template.js';
 
 declareDimensions('tests/unit/cli/cli-helpers-command-tree.test.ts', [
@@ -41,7 +41,7 @@ function makeIo(): { io: ProgramIO; out: string[]; err: string[] } {
       stderr: (text: string) => {
         err.push(text);
       }
-    } as unknown as ProgramIO,
+    },
     out,
     err
   };
@@ -68,32 +68,30 @@ describe('Scenario: (render) — the invoked path is derived from the command tr
 
   it('when the argv names nested commands, should join their names in order', () => {
     // given: a two-level invocation
-    // when:  the path is resolved
-    // then:  it is the dotted-free space-joined path
+    // when: the path is resolved
+    // then: it is the dotted-free space-joined path
     expect(resolveInvokedCommandPath(tree(), ['repo', 'scan', '--json'])).toBe('repo scan');
   });
 
   it('when the argv stops at an option, should stop collecting there', () => {
     // given: options interleaved with the command names
-    // when:  the path is resolved
-    // then:  scanning stops at the first `-` token
+    // when: the path is resolved
+    // then: scanning stops at the first `-` token
     expect(resolveInvokedCommandPath(tree(), ['repo', '--json', 'scan'])).toBe('repo');
     expect(resolveInvokedCommandPath(tree(), ['--json', 'repo'])).toBe('peaks');
   });
 
   it('when the argv names an alias, should resolve it to the canonical name', () => {
     // given: `st` is an alias of `status`
-    // when:  the path is resolved
-    // then:  the CANONICAL name is reported — the record must match what got dispatched
+    // when: the path is resolved
+    // then: the CANONICAL name is reported — the record must match what got dispatched
     expect(resolveInvokedCommandPath(tree(), ['repo', 'st'])).toBe('repo status');
   });
 
   it('when the token matches only an ALIAS, should still resolve it', () => {
     // given: a command registered under one name with a second alias
-    // when:  the path is resolved
-    // then:  the alias branch of the find predicate is what answers — a
-    //        mutation that drops the `c.aliases().includes(token)` disjunct
-    //        leaves every other arm green, because they all match by NAME
+    // when: the path is resolved
+    // then: the alias branch of the find predicate is what answers — a mutation that drops the `c.aliases().includes(token)` disjunct leaves every other arm green, because they all match by NAME
     const program = new Command('peaks');
     program.command('alpha').alias('a1');
     expect(resolveInvokedCommandPath(program, ['a1'])).toBe('alpha');
@@ -103,16 +101,16 @@ describe('Scenario: (render) — the invoked path is derived from the command tr
 
   it('when nothing matches, should fall back to the program name', () => {
     // given: argv that names no registered command
-    // when:  the path is resolved
-    // then:  the program's own name is the answer, not an empty string
+    // when: the path is resolved
+    // then: the program's own name is the answer, not an empty string
     expect(resolveInvokedCommandPath(tree(), ['nope'])).toBe('peaks');
     expect(resolveInvokedCommandPath(tree(), [])).toBe('peaks');
   });
 
   it('when a name is valid but the deeper one is not, should keep the valid prefix', () => {
     // given: `repo` exists, `repo nope` does not
-    // when:  the path is resolved
-    // then:  the resolvable prefix is reported rather than nothing
+    // when: the path is resolved
+    // then: the resolvable prefix is reported rather than nothing
     expect(resolveInvokedCommandPath(tree(), ['repo', 'nope'])).toBe('repo');
   });
 });
@@ -120,23 +118,22 @@ describe('Scenario: (render) — the invoked path is derived from the command tr
 describe('Scenario: (render) — printCliEnvelope writes the legacy two-field shape', () => {
   it('when the envelope is ok, should print { ok: true, data } with null for absent data', () => {
     // given: a success with no data, and one with data
+    // when: both are printed
+    // then: the absent field becomes an explicit null, not an omitted key
     const a = makeIo();
     const b = makeIo();
-    // when:  both are printed
-    printCliEnvelope(a.io, { ok: true } as never);
-    printCliEnvelope(b.io, { ok: true, data: { x: 1 } } as never);
-    // then:  the absent field becomes an explicit null, not an omitted key
+    printCliEnvelope(a.io, { ok: true });
+    printCliEnvelope(b.io, { ok: true, data: { x: 1 } });
     expect(JSON.parse(a.out[0] ?? '')).toEqual({ ok: true, data: null });
     expect(JSON.parse(b.out[0] ?? '')).toEqual({ ok: true, data: { x: 1 } });
   });
 
   it('when the envelope failed, should print the error and set a non-zero exit code', () => {
     // given: a failure carrying an error message
+    // when: printed
+    // then: the error reaches STDOUT (this legacy shape puts it there) and the exit code is set — the two facts a caller branches on
     const { io, out, err } = makeIo();
-    // when:  printed
-    printCliEnvelope(io, { ok: false, error: 'boom' } as never);
-    // then:  the error reaches STDOUT (this legacy shape puts it there) and the
-    //        exit code is set — the two facts a caller branches on
+    printCliEnvelope(io, { ok: false, error: 'boom' });
     expect(JSON.parse(out[0] ?? '')).toEqual({ ok: false, error: 'boom' });
     expect(err).toEqual([]);
     expect(process.exitCode).toBe(1);
@@ -146,16 +143,14 @@ describe('Scenario: (render) — printCliEnvelope writes the legacy two-field sh
 describe('Scenario: (a11y) — a missing required option names the option it wants', () => {
   it('when the message names an option, should quote it and say it is required', () => {
     // given: Commander's own message text
+    // when: the envelope is built
+    // then: it goes to STDERR (it delegates to printErrorEnvelope), and the option is extracted verbatim into the message, the data AND the remediation — the caller must not parse the prose again
     const { io, err } = makeIo();
-    // when:  the envelope is built
     printMissingRequiredOptionEnvelope(
       io,
       'mut run',
       "error: required option '--test-files <files...>' not specified"
     );
-    // then:  it goes to STDERR (it delegates to printErrorEnvelope), and the
-    //        option is extracted verbatim into the message, the data AND the
-    //        remediation — the caller must not parse the prose again
     const parsed = JSON.parse(err[0] ?? '') as {
       code: string;
       message: string;
@@ -180,10 +175,10 @@ describe('Scenario: (a11y) — a missing required option names the option it wan
 
   it('when the message names no option, should fall back to the message and a help hint', () => {
     // given: a message with no `required option '...'` clause
+    // when: the envelope is built
+    // then: the raw message survives and the data field is an explicit null
     const { io, err } = makeIo();
-    // when:  the envelope is built
     printMissingRequiredOptionEnvelope(io, 'x', 'something else went wrong');
-    // then:  the raw message survives and the data field is an explicit null
     const parsed = JSON.parse(err[0] ?? '') as {
       code: string;
       message: string;

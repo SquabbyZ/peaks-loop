@@ -128,13 +128,12 @@ function writeAllRidScopedEvidence(projectRoot: string): void {
 describe('(render) the envelope carries exact values, not just shapes', () => {
   it('when every source is missing, should report all five flags as the literal string "missing"', async () => {
     // given: an empty session — every reader misses
+    // when: the aggregate runs
+    // then: each flag is EXACTLY 'missing' — an injected key or a sentinel value would still pass a "toContain" style check, so compare all five
     const projectRoot = makeProjectRoot();
 
-    // when: the aggregate runs
     const data = await runAggregate(projectRoot);
 
-    // then: each flag is EXACTLY 'missing' — an injected key or a sentinel
-    //       value would still pass a "toContain" style check, so compare all five
     expect(data.sources).toEqual({
       security: 'missing',
       perf: 'missing',
@@ -145,39 +144,30 @@ describe('(render) the envelope carries exact values, not just shapes', () => {
   });
 
   it('when the mut report is not valid JSON, should treat it as missing rather than crash', async () => {
-    // given: the three required sources present and a CORRUPT mut report —
-    //        the shape a half-written file or a truncated download leaves
+    // given: the three required sources present and a CORRUPT mut report
+    // when:  the aggregate runs
+    // then: the unparseable report reads as missing and the run still answers A half-written file or a truncated download is the shape this covers; an unreadable OPTIONAL source must not take the whole aggregation down.
     const projectRoot = makeProjectRoot();
     writeAllRidScopedEvidence(projectRoot);
     writeSessionFile(projectRoot, 'mut/mut-report.json', '{ not json at all');
 
-    // when: the aggregate runs
     const data = await runAggregate(projectRoot);
 
-    // then: the unparseable report is reported missing, the run still answers,
-    //       and the required sources keep it at their verdict — an unreadable
-    //       optional source must not take the whole aggregation down
     expect(data.sources.mut).toBe('missing');
     expect(data.sources.security).toBe('present');
     expect(data.verdict).toBe('pass');
   });
 
   it('when only some sources are present, should flag each one independently', async () => {
-    // given: a MIXED tree — security and qa present, everything else absent.
-    //        The all-missing and all-present arms above cannot distinguish the
-    //        per-source ternaries from each other: a mutation that made every
-    //        branch answer 'present' would fail all-missing, and one that made
-    //        every branch answer 'missing' would fail all-present, but a
-    //        mutation swapping TWO branches leaves both extremes unchanged.
-    //        This tree is the one that separates them.
+    // given: a MIXED tree — security and qa present, everything else absent
+    // when:  the aggregate runs
+    // then: exactly the two written sources are 'present' The all-missing and all-present arms above cannot distinguish the per-source ternaries from each other: a mutation making every branch answer 'present' fails all-missing, one making every branch answer 'missing' fails all-present, but a mutation swapping TWO branches leaves both extremes unchanged. This tree is the one that separates them.
     const projectRoot = makeProjectRoot();
     writeSessionFile(projectRoot, `audit/security-${RID}.md`, PASS_AUDIT_JSON);
     writeSessionFile(projectRoot, `qa/test-reports/${RID}.md`, 'verdict: pass\n');
 
-    // when: the aggregate runs
     const data = await runAggregate(projectRoot);
 
-    // then: exactly the two written sources are 'present'
     expect(data.sources).toEqual({
       security: 'present',
       perf: 'missing',
@@ -192,9 +182,9 @@ describe('(render) the envelope carries exact values, not just shapes', () => {
   });
 
   it('when every source is present, should report all five flags as the literal string "present"', async () => {
-    // given: every source written at its rid-scoped location, plus mut and qa
-    //        in the shapes `parseMutEnvelope` / `parseQaEnvelope` actually accept
-    //        (read from `services/verdict/envelopes.ts`, not guessed)
+    // given: every source written at its rid-scoped location, plus mut and qa in the shapes `parseMutEnvelope` / `parseQaEnvelope` actually accept (read from `services/verdict/envelopes.ts`, not guessed)
+    // when: the aggregate runs
+    // then: each flag is EXACTLY 'present'
     const projectRoot = makeProjectRoot();
     writeAllRidScopedEvidence(projectRoot);
     writeSessionFile(
@@ -204,10 +194,8 @@ describe('(render) the envelope carries exact values, not just shapes', () => {
     );
     writeSessionFile(projectRoot, `qa/test-reports/${RID}.md`, 'verdict: pass\n');
 
-    // when: the aggregate runs
     const data = await runAggregate(projectRoot);
 
-    // then: each flag is EXACTLY 'present'
     expect(data.sources).toEqual({
       security: 'present',
       perf: 'present',
@@ -219,27 +207,24 @@ describe('(render) the envelope carries exact values, not just shapes', () => {
 
   it('when no source is missing, should carry no missing-evidence reason at all', async () => {
     // given: a fully-evidenced session
+    // when:  the aggregate runs
+    // then: the reason array is EMPTY of missing-evidence entries An injected sentinel reason would survive `toHaveLength(0)` on the filtered list only if the filter itself is intact, so assert both.
     const projectRoot = makeProjectRoot();
     writeAllRidScopedEvidence(projectRoot);
 
-    // when: the aggregate runs
     const data = await runAggregate(projectRoot);
 
-    // then: the reason array is EMPTY of missing-evidence entries — an injected
-    //       sentinel reason would survive `toHaveLength(0)` on the filtered
-    //       list only if the filter itself is intact, so assert both
     expect(data.reasons.filter((r) => r.kind === 'missing-evidence')).toEqual([]);
   });
 
   it('when a required source is missing, should name both declared tiers in the hint', async () => {
     // given: nothing written, so every required source misses
+    // when:  the aggregate runs
+    // then: each hint joins the tiers with ' | ' and names the session dir A reader uses the hint to know where to write.
     const projectRoot = makeProjectRoot();
 
-    // when: the aggregate runs
     const data = await runAggregate(projectRoot);
 
-    // then: each hint joins the tiers with ' | ' and names the session dir it
-    //       looked under — the field a reader uses to know where to write
     const missing = data.reasons.filter((r) => r.kind === 'missing-evidence');
     expect(missing.length).toBeGreaterThan(0);
     for (const reason of missing) {
@@ -249,15 +234,15 @@ describe('(render) the envelope carries exact values, not just shapes', () => {
   });
 
   it('when the rid is absent from the flag, should refuse with the exact RID_REQUIRED code', async () => {
-    // given: `--from-rid` passed as an empty string, which is what an unset
-    //        shell variable produces
+    // given: `--from-rid` passed as an empty string (an unset shell variable)
+    // when:  the aggregate runs
+    // then: the refusal is the exact RID_REQUIRED envelope, not a generic failure
     const projectRoot = makeProjectRoot();
     const stdout: string[] = [];
     const io: ProgramIO = { stdout: (s: string) => stdout.push(s), stderr: () => undefined };
     const program = new Command();
     registerVerdictAggregateCommands(program, io);
 
-    // when: the aggregate runs
     await program.parseAsync(
       [
         'verdict',
@@ -291,6 +276,8 @@ describe('(render) the envelope carries exact values, not just shapes', () => {
 describe('Scenario: (render) — the success envelope carries empty meta arrays, not sentinels', () => {
   it('when the aggregate succeeds, should report empty warnings and nextActions', async () => {
     // given: a fully-evidenced session
+    // when: the aggregate runs
+    // then: both meta arrays are EMPTY. The command passes `[]` and `[]` positionally, and the mutation report showed the array-literal substitutions surviving because nothing compared them.
     const projectRoot = makeProjectRoot();
     writeAllRidScopedEvidence(projectRoot);
     const stdout: string[] = [];
@@ -298,7 +285,6 @@ describe('Scenario: (render) — the success envelope carries empty meta arrays,
     const program = new Command();
     registerVerdictAggregateCommands(program, io);
 
-    // when: the aggregate runs
     await program.parseAsync(
       [
         'verdict',
@@ -314,9 +300,6 @@ describe('Scenario: (render) — the success envelope carries empty meta arrays,
       { from: 'user' }
     );
 
-    // then: both meta arrays are EMPTY. The command passes `[]` and `[]`
-    //       positionally, and the mutation report showed the array-literal
-    //       substitutions surviving because nothing compared them.
     const envelope = JSON.parse(stdout.join('')) as {
       warnings: string[];
       nextActions: string[];
@@ -329,21 +312,19 @@ describe('Scenario: (render) — the success envelope carries empty meta arrays,
 describe('Scenario: (render) — the command advertises its own flags', () => {
   it('when the program is registered, should declare --from-rid as required and describe the two optional flags', () => {
     // given: a freshly built program
+    // when: the leaf command is located through the registered tree
+    // then: each flag's description is the exact string the help text prints. Nothing asserted these before, and the mutation report showed both description strings surviving as empty substitutions.
     const program = new Command();
     registerVerdictAggregateCommands(program, {
       stdout: () => undefined,
       stderr: () => undefined
-    } as unknown as ProgramIO);
+    });
 
-    // when: the leaf command is located through the registered tree
     const verdict = program.commands.find((c) => c.name() === 'verdict');
     expect(verdict).toBeDefined();
     const leaf = verdict?.commands.find((c) => c.name() === 'aggregate');
     expect(leaf).toBeDefined();
 
-    // then: each flag's description is the exact string the help text prints.
-    //       Nothing asserted these before, and the mutation report showed both
-    //       description strings surviving as empty substitutions.
     const byLong = (long: string) => leaf?.options.find((o) => o.long === long);
     expect(byLong('--from-rid')?.description).toBe('request id, e.g. 2026-06-27-...');
     expect(byLong('--from-rid')?.mandatory).toBe(true);
@@ -366,14 +347,12 @@ describe('Scenario: (render) — the command advertises its own flags', () => {
 describe('Scenario: (render) — each missing-evidence reason carries the full severity shape', () => {
   it('when a required source is absent, should emit signal=block, its own source twice, and the exact kind', async () => {
     // given: nothing written, so every required source misses
+    // when: the aggregate runs
+    // then: EVERY field of each reason is pinned. The mutation report showed `signal: 'block'` and `sources: [entry.source]` surviving as `""` and `[]` — shape assertions on `kind` alone cannot see them.
     const projectRoot = makeProjectRoot();
 
-    // when: the aggregate runs
     const data = await runAggregate(projectRoot);
 
-    // then: EVERY field of each reason is pinned. The mutation report showed
-    //       `signal: 'block'` and `sources: [entry.source]` surviving as `""`
-    //       and `[]` — shape assertions on `kind` alone cannot see them.
     const missing = data.reasons.filter((r) => r.kind === 'missing-evidence') as Array<{
       kind: string;
       source: string;
@@ -398,11 +377,9 @@ describe('Scenario: (render) — each missing-evidence reason carries the full s
 
 describe('Scenario: (behavior) — the qa reader accepts both filename forms the writers emit', () => {
   it('when only the numbered-slug form exists, should still read the qa verdict', async () => {
-    // given: a qa report written under the SECOND candidate the reader probes —
-    //        `001-<slug>.md`, the numbered form `buildNumberedFilename` emits.
-    //        Both candidate names are probed in order; the mutation report showed
-    //        the loop and its second literal surviving, because every existing
-    //        fixture writes only the bare `<rid>.md` form.
+    // given: a qa report written under the SECOND candidate the reader probes — `001-<slug>.md`, the numbered form `buildNumberedFilename` emits. Both candidate names are probed in order; the mutation report showed the loop and its second literal surviving, because every existing fixture writes only the bare `<rid>.md` form.
+    // when: the aggregate runs
+    // then: the numbered form is found, so qa is present rather than missing
     const projectRoot = makeProjectRoot();
     writeAllRidScopedEvidence(projectRoot);
     writeSessionFile(
@@ -411,22 +388,20 @@ describe('Scenario: (behavior) — the qa reader accepts both filename forms the
       'verdict: pass\n'
     );
 
-    // when: the aggregate runs
     const data = await runAggregate(projectRoot);
 
-    // then: the numbered form is found, so qa is present rather than missing
     expect(data.sources.qa).toBe('present');
   });
 
   it('when neither form exists, should report qa missing', async () => {
     // given: the required three, and no qa report at all
+    // when: the aggregate runs
+    // then: qa is missing, and it is not a required source so the verdict stands
     const projectRoot = makeProjectRoot();
     writeAllRidScopedEvidence(projectRoot);
 
-    // when: the aggregate runs
     const data = await runAggregate(projectRoot);
 
-    // then: qa is missing, and it is not a required source so the verdict stands
     expect(data.sources.qa).toBe('missing');
     expect(data.verdict).toBe('pass');
   });

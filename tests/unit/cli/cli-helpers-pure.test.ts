@@ -32,13 +32,10 @@ import {
   printInvalidConfigLayer,
   printResult,
   printSuperCommandCatalog,
-  printCliEnvelope,
-  printMissingRequiredOptionEnvelope,
-  resolveInvokedCommandPath,
   printableWarningText,
-  addJsonOption
+  addJsonOption,
+  type ProgramIO
 } from '../../../src/cli/cli-helpers.js';
-import type { ProgramIO } from '../../../src/cli/cli-helpers.js';
 import { Command } from 'commander';
 import { declareDimensions } from '../_setup/4dim-template.js';
 
@@ -61,7 +58,7 @@ function makeIo(): { io: ProgramIO; out: string[]; err: string[] } {
       stderr: (text: string) => {
         err.push(text);
       }
-    } as unknown as ProgramIO,
+    },
     out,
     err
   };
@@ -83,8 +80,8 @@ afterEach(() => {
 describe('Scenario: (behavior) — non-printable characters are replaced, not dropped', () => {
   it('when the value contains a control code point, should replace it with a question mark', () => {
     // given: a string carrying a newline, a tab and a NUL
-    // when:  the printable projection runs
-    // then:  each becomes `?` — length is preserved so column alignment survives
+    // when: the printable projection runs
+    // then: each becomes `?` — length is preserved so column alignment survives
     expect(printableWarningText('a\nb')).toBe('a?b');
     expect(printableWarningText('a\tb')).toBe('a?b');
     expect(printableWarningText('a\u0000b')).toBe('a?b');
@@ -92,22 +89,17 @@ describe('Scenario: (behavior) — non-printable characters are replaced, not dr
 
   it('when the value is already printable, should return it unchanged', () => {
     // given: ordinary text including non-ASCII
-    // when:  the printable projection runs
-    // then:  it is untouched — the guard is about control codes, not ASCII
+    // when: the printable projection runs
+    // then: it is untouched — the guard is about control codes, not ASCII
     expect(printableWarningText('hello world')).toBe('hello world');
     expect(printableWarningText('中文 ok')).toBe('中文 ok');
     expect(printableWarningText('')).toBe('');
   });
 
   it('when the value carries a code point on either side of a boundary, should replace only the control ones', () => {
-    // given: the three control ranges the guard names, each probed at BOTH ends
-    //        and just outside. The mutation report showed the boundary
-    //        comparisons (`<= LAST_C0`, `=== DEL`, `>= FIRST_C1`, `<= LAST_C1`)
-    //        surviving, because the arms above only ever passed an interior
-    //        control character — a boundary swap is invisible to them.
-    // when:  each is projected
-    // then:  boundaries are inclusive, neighbours are untouched
-    // C0: 0x00..0x1f inclusive
+    // given: the three control ranges the guard names, each probed at BOTH ends and just outside. The mutation report showed the boundary comparisons (`<= LAST_C0`, `=== DEL`, `>= FIRST_C1`, `<= LAST_C1`) surviving, because the arms above only ever passed an interior control character — a boundary swap is invisible to them.
+    // when: each is projected
+    // then: boundaries are inclusive, neighbours are untouched C0: 0x00..0x1f inclusive
     expect(printableWarningText('\u0000')).toBe('?');
     expect(printableWarningText('\u001f')).toBe('?');
     expect(printableWarningText(' ')).toBe(' '); // first printable after C0
@@ -122,8 +114,8 @@ describe('Scenario: (behavior) — non-printable characters are replaced, not dr
 
   it('when the value mixes printable and control characters, should keep the printable run intact', () => {
     // given: a realistic warning with an embedded newline
-    // when:  the printable projection runs
-    // then:  only the control character changes
+    // when: the printable projection runs
+    // then: only the control character changes
     expect(printableWarningText('line1\nline2')).toBe('line1?line2');
   });
 });
@@ -131,14 +123,14 @@ describe('Scenario: (behavior) — non-printable characters are replaced, not dr
 describe('Scenario: (render) — printResult picks the stream and the shape from the envelope', () => {
   it('when asJson is true, should print the whole envelope as pretty JSON to stdout', () => {
     // given: a successful envelope
+    // when: printed as JSON
+    // then: stdout holds the FULL envelope (not just data), pretty-printed
     const { io, out, err } = makeIo();
-    // when:  printed as JSON
     printResult(
       io,
       { ok: true, command: 'x', data: { a: 1 }, warnings: [], nextActions: [] },
       true
     );
-    // then:  stdout holds the FULL envelope (not just data), pretty-printed
     expect(out).toHaveLength(1);
     expect(JSON.parse(out[0] ?? '')).toMatchObject({ ok: true, command: 'x', data: { a: 1 } });
     expect(out[0]).toContain('\n');
@@ -147,8 +139,9 @@ describe('Scenario: (render) — printResult picks the stream and the shape from
 
   it('when a successful envelope is printed as text, should print data plus warnings and next actions', () => {
     // given: an envelope carrying both a warning and a next action
+    // when: printed as text
+    // then: data and next actions go to stdout, warnings to stderr
     const { io, out, err } = makeIo();
-    // when:  printed as text
     printResult(io, {
       ok: true,
       command: 'x',
@@ -156,7 +149,6 @@ describe('Scenario: (render) — printResult picks the stream and the shape from
       warnings: ['careful'],
       nextActions: ['do it']
     });
-    // then:  data and next actions go to stdout, warnings to stderr
     expect(JSON.parse(out[0] ?? '')).toEqual({ a: 1 });
     expect(out[1]).toBe('next: do it');
     expect(err).toEqual(['warning: careful']);
@@ -164,8 +156,9 @@ describe('Scenario: (render) — printResult picks the stream and the shape from
 
   it('when a failed envelope is printed as text, should print code and message to stderr', () => {
     // given: a failure envelope whose `fail()` left warnings empty
+    // when: printed as text
+    // then: nothing reaches stdout for a failure, and the code precedes the message
     const { io, out, err } = makeIo();
-    // when:  printed as text
     printResult(io, {
       ok: false,
       command: 'x',
@@ -175,7 +168,6 @@ describe('Scenario: (render) — printResult picks the stream and the shape from
       warnings: [],
       nextActions: ['try again']
     });
-    // then:  nothing reaches stdout for a failure, and the code precedes the message
     expect(out).toEqual([]);
     expect(err[0]).toBe('NOPE: it broke');
     expect(err[1]).toBe('- try again');
@@ -183,8 +175,9 @@ describe('Scenario: (render) — printResult picks the stream and the shape from
 
   it('when a failed envelope carries warnings, should print them between message and actions', () => {
     // given: the shape `peaks web login` produces — a failure whose only news is a warning
+    // when: printed as text
+    // then: the warning reaches stderr, in order
     const { io, out, err } = makeIo();
-    // when:  printed as text
     printResult(io, {
       ok: false,
       command: 'x',
@@ -194,7 +187,6 @@ describe('Scenario: (render) — printResult picks the stream and the shape from
       warnings: ['could not close the browser'],
       nextActions: ['a']
     });
-    // then:  the warning reaches stderr, in order
     expect(out).toEqual([]);
     expect(err).toEqual(['C: m', 'warning: could not close the browser', '- a']);
   });
@@ -203,8 +195,8 @@ describe('Scenario: (render) — printResult picks the stream and the shape from
 describe('Scenario: (integration) — the validation helpers answer only for their own domain', () => {
   it('when asked whether a value is a recommendation workflow, should accept only the three workflows', () => {
     // given: the recommendation-workflow union
-    // when:  asked about each member and about a near-miss
-    // then:  the three members answer true and nothing else does
+    // when: asked about each member and about a near-miss
+    // then: the three members answer true and nothing else does
     for (const workflow of ['code-refactor', 'product-refactor', 'frontend-design']) {
       expect(isRecommendationWorkflow(workflow)).toBe(true);
     }
@@ -215,8 +207,8 @@ describe('Scenario: (integration) — the validation helpers answer only for the
 
   it('when asked whether a value is an artifact provider, should accept exactly the two hosts', () => {
     // given: the provider union
-    // when:  asked about each member and a non-member
-    // then:  github and gitlab only
+    // when: asked about each member and a non-member
+    // then: github and gitlab only
     expect(isArtifactProvider('github')).toBe(true);
     expect(isArtifactProvider('gitlab')).toBe(true);
     expect(isArtifactProvider('bitbucket')).toBe(false);
@@ -225,8 +217,8 @@ describe('Scenario: (integration) — the validation helpers answer only for the
 
   it('when asked whether a value is an artifact setup step, should accept exactly the four steps', () => {
     // given: the setup-step union
-    // when:  asked about each member and a non-member
-    // then:  detect / configure / validate / complete only
+    // when: asked about each member and a non-member
+    // then: detect / configure / validate / complete only
     for (const step of ['detect', 'configure', 'validate', 'complete']) {
       expect(isArtifactSetupStep(step)).toBe(true);
     }
@@ -236,8 +228,8 @@ describe('Scenario: (integration) — the validation helpers answer only for the
 
   it('when asked whether a segment is repo-safe, should refuse traversal and trailing dots', () => {
     // given: the shapes a repo path segment can take
-    // when:  the segment predicate runs
-    // then:  it admits plain names and refuses the three escape shapes
+    // when: the segment predicate runs
+    // then: it admits plain names and refuses the three escape shapes
     expect(isArtifactRepoSegment('peaks-loop')).toBe(true);
     expect(isArtifactRepoSegment('a.b_c-d')).toBe(true);
     expect(isArtifactRepoSegment('a..b')).toBe(false);
@@ -255,8 +247,8 @@ describe('Scenario: (integration) — the validation helpers answer only for the
 
   it('when parsing a config layer, should distinguish absent from invalid', () => {
     // given: the three inputs a flag parser can receive
-    // when:  the layer is parsed
-    // then:  undefined means "not given", null means "given but wrong"
+    // when: the layer is parsed
+    // then: undefined means "not given", null means "given but wrong"
     expect(parseConfigLayer(undefined)).toBeUndefined();
     expect(parseConfigLayer('user')).toBe('user');
     expect(parseConfigLayer('project')).toBe('project');
@@ -266,8 +258,8 @@ describe('Scenario: (integration) — the validation helpers answer only for the
 
   it('when accumulating a repeatable option, should append and tolerate a missing previous value', () => {
     // given: commander passes `previous` as undefined on the first occurrence
-    // when:  the accumulator runs
-    // then:  the first value starts a fresh array and later ones append
+    // when: the accumulator runs
+    // then: the first value starts a fresh array and later ones append
     expect(multipleOption('a', [])).toEqual(['a']);
     expect(multipleOption('b', ['a'])).toEqual(['a', 'b']);
     expect(multipleOption('a', undefined as unknown as string[])).toEqual(['a']);
@@ -277,11 +269,10 @@ describe('Scenario: (integration) — the validation helpers answer only for the
 describe('Scenario: (a11y) — the failure printers set a non-zero exit code and name the fix', () => {
   it('when the config layer is invalid, should print INVALID_CONFIG_LAYER with the accepted values', () => {
     // given: a bad layer value
+    // when: the invalid-layer printer runs as text
+    // then: the code names the problem, the message names the accepted values, and the exit code is set
     const { io, out, err } = makeIo();
-    // when:  the invalid-layer printer runs as text
     printInvalidConfigLayer(io, 'cmd', false);
-    // then:  the code names the problem, the message names the accepted values,
-    //        and the exit code is set
     expect(err[0]).toContain('INVALID_CONFIG_LAYER');
     expect(err[0]).toContain('user or project');
     expect(out).toEqual([]);
@@ -290,23 +281,21 @@ describe('Scenario: (a11y) — the failure printers set a non-zero exit code and
 
   it('when the config layer is invalid and JSON was requested, should print the envelope instead', () => {
     // given: the same bad value with --json
+    // when: the printer runs as JSON
+    // then: the full envelope reaches stdout
     const { io, out } = makeIo();
-    // when:  the printer runs as JSON
     printInvalidConfigLayer(io, 'cmd', true);
-    // then:  the full envelope reaches stdout
-    const parsed = JSON.parse(out[0] ?? '');
+    const parsed = JSON.parse(out[0] ?? '') as { code: string; ok: boolean };
     expect(parsed.code).toBe('INVALID_CONFIG_LAYER');
     expect(parsed.ok).toBe(false);
   });
 
   it('when a command is refused for not being dry-run capable, should name the code and the fix', () => {
     // given: a non-dry-run-capable command
+    // when: the refusal printer runs as text
+    // then: the refusal names the CODE on stderr and the remediation, and sets the exit code. It deliberately does NOT echo the command name — checked against the real contract rather than assumed.
     const { io, out, err } = makeIo();
-    // when:  the refusal printer runs as text
     failUnsupportedNonDryRun(io, 'peaks things do', false);
-    // then:  the refusal names the CODE on stderr and the remediation, and sets
-    //        the exit code. It deliberately does NOT echo the command name —
-    //        checked against the real contract rather than assumed.
     expect(err[0]).toContain('UNSUPPORTED_NON_DRY_RUN');
     expect(err[0]).toContain('Only dry-run planning is supported');
     expect(err[1]).toContain('--dry-run');
@@ -318,13 +307,12 @@ describe('Scenario: (a11y) — the failure printers set a non-zero exit code and
 describe('Scenario: (render) — printErrorEnvelope writes a JSON failure to stderr', () => {
   it('when printing an error envelope, should write the code, the data and the next actions to STDERR', () => {
     // given: a named error with machine-readable detail
+    // when: the error printer runs
+    // then: every field survives into the envelope — and it goes to STDERR, not stdout, because stdout is reserved for the `--json` payload
     const { io, out, err } = makeIo();
-    // when:  the error printer runs
     printErrorEnvelope(io, 'cmd', 'SOME_CODE', 'it failed', { detail: 1 }, ['fix it']);
-    // then:  every field survives into the envelope — and it goes to STDERR, not
-    //        stdout, because stdout is reserved for the `--json` payload
     expect(out).toEqual([]);
-    const parsed = JSON.parse(err[0] ?? '');
+    const parsed = JSON.parse(err[0] ?? '') as Record<string, unknown>;
     expect(parsed).toMatchObject({
       ok: false,
       command: 'cmd',
@@ -340,10 +328,10 @@ describe('Scenario: (render) — printErrorEnvelope writes a JSON failure to std
 describe('Scenario: (render) — the catalog and the option helper are pure too', () => {
   it('when the super-command catalog is printed, should write every command on its own line', () => {
     // given: a captured io
+    // when: the catalog printer runs
+    // then: ONE stdout write, one line per command, and nothing on stderr
     const { io, out, err } = makeIo();
-    // when:  the catalog printer runs
     printSuperCommandCatalog(io);
-    // then:  ONE stdout write, one line per command, and nothing on stderr
     expect(out).toHaveLength(1);
     expect(err).toEqual([]);
     const lines = (out[0] ?? '').split('\n');
@@ -358,10 +346,10 @@ describe('Scenario: (render) — the catalog and the option helper are pure too'
 
   it('when the json option is added, should register --json and return the same command', () => {
     // given: a commander command with no --json yet
+    // when: the option helper runs
+    // then: the command gained --json and the helper is chainable
     const command = new Command('probe');
-    // when:  the option helper runs
     const returned = addJsonOption(command);
-    // then:  the command gained --json and the helper is chainable
     expect(returned).toBe(command);
     expect(command.options.some((option) => option.long === '--json')).toBe(true);
   });
