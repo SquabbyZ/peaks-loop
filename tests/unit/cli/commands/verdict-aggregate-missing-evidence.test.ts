@@ -272,9 +272,23 @@ describe('(integration) the reader follows the writers to the rid-scoped paths',
     );
 
     // then: refused, with the code that says why — and nothing was read
-    const envelope = JSON.parse(stdout.join('')) as { ok: boolean; code: string };
+    const envelope = JSON.parse(stdout.join('')) as {
+      ok: boolean;
+      code: string;
+      message: string;
+      nextActions: string[];
+    };
     expect(envelope.ok).toBe(false);
     expect(envelope.code).toBe('RID_INVALID');
+    // The message must NAME the offending value and the accepted alphabet.
+    // Asserted exactly, not by `toContain(envelope.code)`: the mutation report
+    // showed the empty-string substitution surviving on this line.
+    expect(envelope.message).toBe(
+      'Invalid request id: ../../../../../../ONLY-HERE (expected letters, digits, dots, underscores, or dashes)'
+    );
+    expect(envelope.nextActions).toEqual([
+      'Pass the rid of the slice whose evidence you want aggregated, e.g. 2026-09-14-some-slug'
+    ]);
     process.exitCode = undefined;
   });
 
@@ -300,9 +314,19 @@ describe('(integration) the reader follows the writers to the rid-scoped paths',
       { from: 'user' }
     );
 
-    const envelope = JSON.parse(stdout.join('')) as { ok: boolean; code: string };
+    const envelope = JSON.parse(stdout.join('')) as {
+      ok: boolean;
+      code: string;
+      message: string;
+      nextActions: string[];
+    };
     expect(envelope.ok).toBe(false);
     expect(envelope.code).toBe('SID_INVALID');
+    // Exactly, for the same reason as the rid arm above.
+    expect(envelope.message).toBe(
+      'Invalid session id: ../../../../OUTSIDE (must be a single path segment)'
+    );
+    expect(envelope.nextActions).toEqual(['Pass the session id, e.g. 2026-09-14-session-abc123']);
     process.exitCode = undefined;
   });
 
