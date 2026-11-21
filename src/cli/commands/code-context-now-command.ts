@@ -15,6 +15,7 @@ import {
   buildContextNowNextActions,
   buildContextNowWarnings,
   readContextNowHarness,
+  readContextNowThreshold,
   resolveContextNowDecision
 } from './code-context-now-envelope.js';
 
@@ -118,6 +119,10 @@ async function runCodeContextNow(opts: ContextNowOpts, io: ProgramIO): Promise<v
     const canonicalProjectRoot = resolveCanonicalProjectRoot(opts.project);
     const harness = readContextNowHarness(canonicalProjectRoot, sessionId, outerSessionId, probe);
     const decision = resolveContextNowDecision(canonicalProjectRoot, probe.ratio, flags.isJobMode);
+    // The threshold verdict re-reads the same file the sync above may just have
+    // written, so `configured` is what is on disk AFTER this probe — which is
+    // exactly what the next session will read.
+    const threshold = readContextNowThreshold(canonicalProjectRoot);
     printResult(
       io,
       ok(
@@ -128,10 +133,11 @@ async function runCodeContextNow(opts: ContextNowOpts, io: ProgramIO): Promise<v
           isJobMode: flags.isJobMode,
           promptSizeBytes: flags.promptSizeBytes,
           decision,
-          harness
+          harness,
+          threshold
         }),
         buildContextNowWarnings(harness),
-        buildContextNowNextActions(decision, harness)
+        buildContextNowNextActions(decision, harness, threshold)
       ),
       // `true`, which made the declared `--json` flag a no-op and left the
       // human with raw JSON and no `next:` lines — so a person running this

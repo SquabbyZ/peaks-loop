@@ -542,7 +542,7 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
       sessionId: 'peaks-sid',
       outerSessionId: outer,
       env: {},
-      harnessWindowTokens: '850000'
+      harnessWindowTokens: 850_000
     });
     // then: the window both sides actually use wins over the model-name guess
     expect(probe!.capacityTokens).toBe(850_000);
@@ -566,7 +566,7 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
       outerSessionId: outer,
       env: {},
       configWindowTokens: 500_000,
-      harnessWindowTokens: '850000'
+      harnessWindowTokens: 850_000
     });
     // then: the pin decides — and the probe's own denominator is what the
     //       caller then syncs into the harness, so the conflict closes on the
@@ -590,7 +590,7 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
       sessionId: 'peaks-sid',
       outerSessionId: outer,
       env: { PEAKS_CONTEXT_WINDOW_TOKENS: '300000' },
-      harnessWindowTokens: '850000'
+      harnessWindowTokens: 850_000
     });
     // then: the existing top-precedence contract is unchanged
     expect(probe!.capacityTokens).toBe(300_000);
@@ -627,7 +627,7 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
         sessionId: 'peaks-sid',
         outerSessionId: outer,
         env: {},
-        harnessWindowTokens: '200000',
+        harnessWindowTokens: 200_000,
         harnessWindowPeakWritten: true
       });
       // then: evidence overrules peaks-loop's own output — the caller then
@@ -652,7 +652,7 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
         sessionId: 'peaks-sid',
         outerSessionId: outer,
         env: {},
-        harnessWindowTokens: '200000',
+        harnessWindowTokens: 200_000,
         harnessWindowPeakWritten: false
       });
       // then: the pin stands — bumping (and persisting the bump) would replace
@@ -679,7 +679,7 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
         sessionId: 'peaks-sid',
         outerSessionId: outer,
         env: {},
-        harnessWindowTokens: '200000'
+        harnessWindowTokens: 200_000
       });
       // then: the safe direction — do not rewrite what you did not write
       expect(probe!.capacityTokens).toBe(200_000);
@@ -865,24 +865,17 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
     });
   });
 
-  it('when the harness window is garbage (a hand-edited `500k`), should warn and fall through, never crash', () => {
-    // given: the marker the harness itself refuses
-    writeTranscript(outer, [
-      usageLine('deepseek-v4-flash[1M]', {
-        input_tokens: 100_000,
-        cache_read_input_tokens: 0,
-        cache_creation_input_tokens: 0
-      })
-    ]);
-    // when: the fallback resolves the window with an invalid harness value
+  it('when the harness window is unparseable, should resolve no harness layer and fall through, never crash', () => {
+    // given: a hand-edited key the reader resolves to no harness layer (`null`)
+    // when: the fallback resolves the window without a harness layer
+    // then: it answers from the heuristic — no crash, no override
+    writeTranscript(outer, [usageLine('deepseek-v4-flash[1M]', { input_tokens: 100_000 })]);
     const probe = fallback()({
       projectRoot: '/tmp/x',
       sessionId: 'peaks-sid',
       outerSessionId: outer,
-      env: {},
-      harnessWindowTokens: '500k'
+      env: {}
     });
-    // then: the invalid layer is skipped and the heuristic still answers
     expect(probe!.capacityTokens).toBe(1_000_000);
     expect(probe!.capacitySource).toBe('model-heuristic');
   });
@@ -1184,20 +1177,22 @@ describe('Scenario: behavior — explicit context-window override precedence + s
     expect(warnings).toHaveLength(2);
   });
 
-  it('when the harness window is invalid, should warn once and fall through to the heuristic (keeping the no-crash contract)', () => {
-    // given: a garbage harness value with no human pin above it
+  it('when the harness window is out of band, should warn once and fall through to the heuristic (keeping the no-crash contract)', () => {
+    // given: a number at the harness seam that is not a window
     const warnings: string[] = [];
     // when: resolveContextWindow runs
     const out = resolveContextWindow('deepseek-v4-flash[1M]', {
       env: {},
-      harnessWindowTokens: '500k',
+      harnessWindowTokens: -1,
       onInvalidOverride: (m) => warnings.push(m)
     });
     // then: the bad layer is ignored with one warning naming it, and the
-    //       heuristic answers — a hand-edited `500k` must not crash the probe
+    //       heuristic answers — a bad harness number must not crash the probe,
+    //       and the warning never echoes settings-file text (MED-2)
     expect(out).toEqual({ tokens: 1_000_000, source: 'model-heuristic' });
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toContain('harness auto-compact window');
+    expect(warnings[0]).not.toContain('500k');
   });
 
   it('when the harness window is valid, should outrank the model heuristic but lose to BOTH human pins', () => {

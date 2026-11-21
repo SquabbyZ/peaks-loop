@@ -81,7 +81,12 @@ async function runWorkspaceInit(options: WorkspaceInitOptions, io: ProgramIO): P
       io,
       ok(
         'workspace.init',
-        buildInitEnvelopeData(ctx, parts.hooksOutcome, parts.codegraphAutoOutcome),
+        buildInitEnvelopeData(
+          ctx,
+          parts.hooksOutcome,
+          parts.codegraphAutoOutcome,
+          parts.harnessThresholdOutcome
+        ),
         parts.warnings,
         parts.nextActions
       ),

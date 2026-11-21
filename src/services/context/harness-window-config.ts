@@ -12,23 +12,31 @@
  * 190K while the harness waited for ~967K — a 5× early trigger, and (before
  * T3) a deadlock, because nothing could lower the ratio.
  *
- * This module owns the OTHER half of the fix: the harness itself accepts a
- * window override (`IdeCompactProfile.autoCompactWindowEnvVar`, declared per
- * adapter — no IDE names here), so peaks-loop writes the very number it
- * computes the ratio against into the harness's own machine-local settings
- * file. Reader and writer then reference one artifact instead of two
- * resolutions that must "remember" to agree.
+ * This module owns the OTHER half: the harness itself accepts a window override
+ * (`IdeCompactProfile.autoCompactWindowEnvVar`, declared per adapter — no IDE
+ * names here), so peaks-loop writes the very number it computes the ratio
+ * against into the harness's own machine-local settings file. Reader and writer
+ * reference one artifact, not two resolutions that must "remember" to agree.
  *
  * Vendor neutrality: this module knows about a JSON file with an `env` block
- * and nothing else. The settings path and the env-var name are BOTH passed
- * in by the caller, resolved from the IDE adapter's declarations. There is
- * no IDE id, no `.claude` literal, and no registry import in this file.
+ * and nothing else. The settings path and the env-var name are BOTH passed in
+ * by the caller, resolved from the IDE adapter's declarations: no IDE id, no
+ * `.claude` literal, no registry import.
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import { isUserHomeProjectRoot } from '../config/config-safety.js';
+// The link guard — the FILE and the DIRECTORY holding it — lives beside
+// `assertSafeSettingsFile`, the module this slice already trusts for settings
+// path safety. Imported for the write paths below and re-exported so every
+// existing specifier still resolves.
+import { isLinkedSettingsFile } from '../ide/shared/safe-path.js';
+// The bounded vocabulary below (MED-2); one-way import, no cycle.
+import { boundedRawNote } from './harness-percent-ownership.js';
+
+export { isLinkedSettingsFile };
 
 /**
  * Peaks-owned opt-out flag, read from the SAME machine-local `env` block the
@@ -73,48 +81,24 @@ export const HARNESS_WINDOW_SYNC_OPTOUT_VALUE = 'off';
 export const HARNESS_WINDOW_WRITTEN_KEY = 'PEAKS_HARNESS_WINDOW_WRITTEN';
 
 /**
- * The harness's OWN accepted band for its auto-compact window (E1, rid
- *
- * THE BAND IS A PROPERTY OF THE KEY, NOT OF peaks-loop. `autoCompactWindow` —
- * and the `CLAUDE_CODE_AUTO_COMPACT_WINDOW` env var that shadows it — is
- * documented as "how full the context window gets before Claude Code compacts
- * automatically, in tokens from 100000 to 1000000", and a value outside that
- * band is not the window the harness compacts on: below the minimum the value
- * is ignored, above the maximum it is reduced to the model's own context size
- * (`Math.min(native, override)`; no Claude model's window exceeds 1000000, so
- * above the maximum the reduction is certain).
- *
- * Either way the outcome is the failure this whole module exists to prevent:
- * peaks-loop divides its ratio by a number the harness is not using, so
- * "85%" names a point the harness will never fire at. A positive integer is
- * therefore NOT sufficient — the band is part of what the value means.
- *
- * Clamping instead was rejected. A clamped write would put a DIFFERENT number
- * in the file from the one the probe just divided by, restoring the
- * two-resolutions drift inside the single write that is supposed to delete it.
- * Refusing keeps the disagreement in one place, reportable, and reported.
+ * The harness's OWN accepted band for its auto-compact window (`autoCompactWindow`
+ * / its `CLAUDE_CODE_AUTO_COMPACT_WINDOW` shadow: "in tokens from 100000 to
+ * 1000000"). Outside it the value is not the window the harness compacts on —
+ * below the minimum it is ignored, above it the harness caps it to the model's
+ * own window — so peaks-loop would divide its ratio by a number the harness is
+ * not using. A positive integer is therefore NOT sufficient; the band is part of
+ * what the value means. Clamping was rejected: a clamped write would put a
+ * DIFFERENT number in the file from the one the probe divided by.
  */
 export const HARNESS_WINDOW_MIN_TOKENS = 100_000;
 /** See `HARNESS_WINDOW_MIN_TOKENS`. */
 export const HARNESS_WINDOW_MAX_TOKENS = 1_000_000;
 
-/**
- * True when `tokens` is a window the harness will actually compact on.
- * `null` (absent / unparseable) is NOT in band — there is no window at all.
- */
+/** True when `tokens` is a window the harness will actually compact on. */
 export function isHarnessWindowInRange(tokens: number | null): boolean {
   return (
     tokens !== null && tokens >= HARNESS_WINDOW_MIN_TOKENS && tokens <= HARNESS_WINDOW_MAX_TOKENS
   );
-}
-
-/**
- * The BAND SENTENCE, in one place: both the write refusal and the read
- * suppression have to say the same thing about the same numbers, and two
- * copies would eventually disagree about the band.
- */
-function harnessWindowBand(): string {
-  return `${HARNESS_WINDOW_MIN_TOKENS}..${HARNESS_WINDOW_MAX_TOKENS}`;
 }
 
 /** Where the harness key lives + which key it is. Both caller-supplied. */
@@ -149,8 +133,6 @@ export type HarnessWindowValueSource = 'process-env' | 'settings-file';
 export interface HarnessWindowReadResult {
   /** Parsed window in tokens, or null when absent / not a positive integer. */
   readonly tokens: number | null;
-  /** The raw on-disk / in-env value, for diagnostics. */
-  readonly raw: unknown;
   /** Where the value came from; null when neither side carries it. */
   readonly source: HarnessWindowValueSource | null;
   /**
@@ -166,15 +148,18 @@ export interface HarnessWindowReadResult {
    */
   readonly fileTokens: number | null;
   /**
-   * The settings file's raw value, `undefined` when the file carries no such
-   * key. Presence-detection only; use `fileTokens` for the number.
+   * A BOUNDED note about the source's value, present only when that source
+   * carried the key — never the raw string (MED-2).
    *
    * Needed because "the file says 150000" and "the file says something
    * unparseable" must both be distinguishable from "the file is silent": the
    * first two are values peaks-loop must not overwrite, the third is an empty
-   * slot it may fill.
+   * slot it may fill. `tokens` cannot express that (a typo parses to null,
+   * exactly like an absent key), so the note's PRESENCE is the missing bit.
    */
-  readonly fileRaw: unknown;
+  readonly rawNote?: string;
+  /** The SAME bounded note for the settings file's value. */
+  readonly fileRawNote?: string;
   /** True when `settings.local.json` opts out of peaks-loop managing it. */
   readonly optedOut: boolean;
   /**
@@ -220,6 +205,9 @@ export interface HarnessWindowSyncResult {
    *                             without it a stale process env (or any
    *                             re-resolution) silently reverts a human's
    *                             hand-edited window and re-claims ownership.
+   *   - `symlinked-settings`  — the file, or the `.claude` directory holding it,
+   *                             is a symlink or junction, so a write would
+   *                             follow it into whatever it points at.
    *   - `unsafe-project-root` — the resolved project root IS the user's home
    *                             directory, so this write would land in their
    *                             personal `~/.claude/settings.local.json`
@@ -254,16 +242,16 @@ export interface HarnessWindowSyncResult {
    */
   readonly requestedTokens: number | null;
   /**
-   * The file's RAW value for the key before the call; `undefined` when the
-   * file carried no such key.
+   * A BOUNDED description of the file's value before the call (MED-2), present
+   * only when the file carried the key — never the raw string, not a prefix.
    *
-   * The one case `previousTokens` cannot express: a hand-typed `500k` parses
-   * to `null`, exactly like an absent key, yet the two need opposite notices —
-   * an absent key is a slot peaks-loop may fill, a typo is a value it must not
-   * touch. Only the raw text can be quoted back to the user, so it travels
-   * with the result.
+   * The one case `previousTokens` cannot express: a hand-typed `500k` parses to
+   * `null`, exactly like an absent key, yet the two need opposite notices — an
+   * absent key is a slot peaks-loop may fill, a typo is a value it must not
+   * touch. The note's PRESENCE tells them apart; its text is what the notices
+   * print.
    */
-  readonly previousRawValue: unknown;
+  readonly previousRawNote?: string;
   /**
    * True when the window in the file after the call is peaks-loop's own write
    * (its value matches the provenance marker).
@@ -288,160 +276,6 @@ export type HarnessWindowResetResult = {
 };
 
 /**
- * The ONE wording of "what the harness-window sync just did", for both
- * commands that sync (`peaks code context-now`, `peaks code auto-compact`).
- *
- * Why it lives here rather than inline at each call site: peaks-loop rewrites
- * a file in the user's own harness settings on every probe, and the user
- * accepted that write on one condition — 要告知 (tell me). Two copies of the
- * sentence would mean a future edit tells half the users. This is the only
- * definition; the CLI renders whatever it returns.
- *
- * The `written` branch is the load-bearing one: it names the key, the value,
- * the file, what the value was before, and the exact rollback command, because
- * the harness itself reports an override only through `/autocompact` — if
- * peaks-loop does not say it here, nobody says it.
- *
- * The `skipped` branch is the one that is easy to get wrong, and did: it used
- * to end at the reason token (`Harness window not managed (not-peaks-owned).`),
- * which is true and tells the reader nothing. A refusal can be the exact
- * moment the two sides came apart — the ratio divided by one number while the
- * file pins another — so it is composed from the reason, the two numbers when
- * they disagree, and the raw value when the file's value is not a number at
- * all. See `harnessWindowConflictClause` / `unreadableWindowValueClause`.
- */
-export function describeHarnessWindowSync(result: HarnessWindowSyncResult | null): string {
-  if (result === null) {
-    return 'The active IDE adapter declares no auto-compact window key; this ratio cannot be tied to the harness trigger.';
-  }
-  if (result.action === 'written') {
-    return `WROTE ${result.key}=${String(result.tokens)} to ${result.settingsPath} (was ${result.previousTokens === null ? 'unset' : String(result.previousTokens)}) so the harness compacts at the same point this ratio measures. Rollback: \`peaks compact harness-window --reset\`.`;
-  }
-  if (result.action === 'skipped') {
-    // A refused write is NOT automatically a non-event. The two clauses below
-    // are the whole point of refusing to stop at the reason token: each names a
-    // concrete NUMBER the user can act on, because "not managed" alone left the
-    // reader unable to tell whether the two sides still agreed.
-    return `${skippedHarnessWindowClause(result)}${harnessWindowConflictClause(result)}${unreadableWindowValueClause(result)}`;
-  }
-  // `unchanged` — the file already holds exactly the window this probe divided
-  // by, so there is no disagreement to report. What can still be hidden is
-  // OWNERSHIP, and it decides what happens when the session outgrows the value.
-  // A user upgrading from a release that wrote the key before the provenance
-  // marker existed lands here (that is this repository's own state): the value
-  // is in force, peaks-loop computes against it, and nothing anywhere said it
-  // had become frozen — so "already in force" alone is not a full notice.
-  if (!result.peakWritten) {
-    return `Harness window ${result.key}=${String(result.tokens)} already in force, but it is NOT peaks-loop's own write: peaks-loop divides this ratio by it and will never raise it, so a session that outgrows ${String(result.tokens)} saturates the ratio at 1.0 instead of widening the window. To hand the key back to peaks-loop: \`peaks compact harness-window --reset\` (removes it), then \`peaks compact harness-window --reenable\` (the next probe fills it).`;
-  }
-  return `Harness window ${result.key} already in force; peaks-loop computes this ratio against it.`;
-}
-
-/**
- * The same disagreement as `harnessWindowConflictClause`, reduced to one line
- * for the `warnings` channel — the machine-readable half of 要告知, so a
- * consumer reading the JSON envelope (or a human reading stderr) sees it even
- * if it never renders `nextActions`. Returns `null` when there is nothing to
- * warn about, which is the ordinary case.
- */
-export function harnessWindowSyncWarning(result: HarnessWindowSyncResult | null): string | null {
-  if (result === null || result.action !== 'skipped') return null;
-  // E1: the resolved window is not one the harness accepts, so this ratio's
-  // denominator is un-anchored no matter what the file holds. Reported FIRST —
-  // it is the more fundamental disagreement, and the two clauses below would
-  // read as "a different number" rather than "a number the harness cannot use".
-  if (result.reason === 'out-of-harness-range') {
-    return `harness window out of range: this probe divided by ${String(result.requestedTokens)} tokens, outside the ${harnessWindowBand()} band the harness accepts — the ratio does not describe the harness's own trigger`;
-  }
-  if (
-    result.requestedTokens !== null &&
-    result.previousTokens !== null &&
-    result.requestedTokens !== result.previousTokens
-  ) {
-    return `harness window conflict: this probe divided by ${result.requestedTokens} tokens but ${result.settingsPath} pins ${result.previousTokens} — the ratio does not describe the harness's own trigger`;
-  }
-  if (result.previousTokens === null && result.previousRawValue !== undefined) {
-    return `harness window unreadable: ${result.settingsPath} carries ${JSON.stringify(result.previousRawValue)}, which is not a plain token count`;
-  }
-  return null;
-}
-
-/**
- * WHY nothing was written, in words — one clause per `reason`.
- *
- * Every reason has its own sentence rather than falling through to
- * `(${reason})`: the bare token was what the user actually saw for the two
- * most common refusals, and it names no value, no file, and no next step.
- * The trailing clause is unreachable for the reasons this module produces
- * today; it exists so a future reason cannot silently degrade to a token.
- */
-function skippedHarnessWindowClause(result: HarnessWindowSyncResult): string {
-  switch (result.reason) {
-    case 'opted-out':
-      return 'Harness window not managed (opted-out) — re-enable with `peaks compact harness-window --reenable`.';
-    case 'unsafe-project-root':
-      return `Harness window not managed: ${result.settingsPath} is the user's own home settings, not a project's, so peaks-loop left it alone. Re-run from inside a project (or point at one) and the window lands there instead.`;
-    case 'no-window-resolved':
-      return 'Harness window not managed: this probe measured a percentage and carried no token window, so there was no number to write — peaks-loop does not invent a window the adapter did not resolve.';
-    case 'out-of-harness-range':
-      return `Harness window not managed: the window this probe resolved (${String(result.requestedTokens)}) is outside the ${harnessWindowBand()} band the harness accepts, so writing it would put a number in ${result.settingsPath} that the harness does not compact on.`;
-    case 'unreadable-settings':
-      return `Harness window not managed: ${result.settingsPath} is not a JSON object peaks-loop can safely edit, so it was left exactly as found.`;
-    case 'not-peaks-owned':
-      return `Harness window not managed: ${result.settingsPath} already carries a window that peaks-loop did not write, and peaks-loop never overwrites (or claims) a value it did not write.`;
-    default:
-      return `Harness window not managed (${String(result.reason)}).`;
-  }
-}
-
-/**
- * THE DISAGREEMENT SENTENCE — the one the user cannot get anywhere else.
- *
- * peaks-loop divided this probe's ratio by `requestedTokens`, while the
- * harness's own settings file pins `previousTokens`. Neither side is wrong on
- * its own, which is exactly why it went unnoticed: the file wins for the ratio
- * (T1's single-source rule), the write that would have re-unified them was
- * refused (B1's provenance guard), and the result was a percentage computed
- * against a window the harness is not going to fire on. The harness reports an
- * override only through its own `/autocompact`, so if peaks-loop does not name
- * the two numbers here, nobody does.
- *
- * Both numbers and the file are named, and all three ways out are given,
- * because this notice is the whole remedy for a state peaks-loop deliberately
- * refuses to fix by writing.
- */
-function harnessWindowConflictClause(result: HarnessWindowSyncResult): string {
-  const requested = result.requestedTokens;
-  const pinned = result.previousTokens;
-  if (result.action !== 'skipped' || requested === null || pinned === null || requested === pinned)
-    return '';
-  return ` CONFLICT: peaks-loop divided this ratio by ${requested} tokens, but ${result.settingsPath} pins ${pinned} — and the harness compacts on ITS own number, so this ratio does not describe when it fires. Nothing was written. Choose one: (1) make peaks-loop's number match the file (unset PEAKS_CONTEXT_WINDOW_TOKENS, or change \`context.windowTokens\`), (2) keep the file as your own setting and read this ratio as a share of ${requested}, or (3) \`peaks compact harness-window --reset\` to remove the key and hand it back to peaks-loop.`;
-}
-
-/**
- * The OTHER way two numbers can fail to line up: the file's value is not a
- * number at all (`500k`, a hand-typed typo).
- *
- * `previousTokens` is `null` here — indistinguishable, in the parsed result,
- * from an absent key — so this clause is gated on the RAW value. The
- * disagreement is stated but never "aligned": peaks-loop will not overwrite a
- * value it did not write, and the value is unusable, so the only honest output
- * is to name it and hand the user the two ways out. Silent here would be the
- * worst option of all, because the caller has already fallen back to a
- * different window and the disk keeps claiming `500k` on every probe after it.
- */
-function unreadableWindowValueClause(result: HarnessWindowSyncResult): string {
-  if (
-    result.action !== 'skipped' ||
-    result.previousTokens !== null ||
-    result.previousRawValue === undefined
-  )
-    return '';
-  const raw = JSON.stringify(result.previousRawValue);
-  return ` The value in ${result.settingsPath} is ${raw}, which is not a plain token count: peaks-loop cannot read a window from it, so it resolved this ratio against its own fallback while the file keeps saying ${raw}. peaks-loop cannot align the two without overwriting a value it did not write — set the value to a plain token count, or run \`peaks compact harness-window --reset\` to remove the key and let the next probe write peaks-loop's number.`;
-}
-
-/**
  * Parse a candidate window value. Positive finite integers only — a number,
  * or a numeric string (the env block is JSON, so the value on disk is always
  * a string there). The harness's own documentation is explicit that the
@@ -456,7 +290,7 @@ export function parseHarnessWindowTokens(raw: unknown): number | null {
   return Number.isFinite(parsed) && Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
-interface SettingsFileShape {
+export interface SettingsFileShape {
   readonly env?: Record<string, unknown>;
 }
 
@@ -466,7 +300,7 @@ interface SettingsFileShape {
  * manage" rather than throwing, because a corrupt local settings file must
  * never break a context probe.
  */
-function readSettingsObject(settingsPath: string): SettingsFileShape | null {
+export function readSettingsObject(settingsPath: string): SettingsFileShape | null {
   if (!existsSync(settingsPath)) return null;
   try {
     const parsed: unknown = JSON.parse(readFileSync(settingsPath, 'utf8'));
@@ -537,39 +371,32 @@ export function readHarnessWindow(input: {
   const fileRaw = envString(settings, input.location.envVar);
   const fileTokens = parseHarnessWindowTokens(fileRaw);
   const peakWritten = fileTokens !== null && marker === fileTokens;
+  // Bounded at the source (MED-2): no result here can carry the plaintext, and
+  // the note's presence is what says the file's slot was not empty.
+  const fileRawNote = fileRaw === undefined ? undefined : boundedRawNote(fileRaw);
 
   const fromEnv = input.env?.[input.location.envVar];
-  if (fromEnv !== undefined) {
+  if (fromEnv !== undefined)
     return {
       tokens: parseHarnessWindowTokens(fromEnv),
-      raw: fromEnv,
       source: 'process-env',
       optedOut,
       peakWritten,
       fileTokens,
-      fileRaw
+      ...(fileRawNote === undefined ? {} : { fileRawNote }),
+      rawNote: boundedRawNote(fromEnv)
     };
-  }
-  if (fileRaw !== undefined) {
+  if (fileRaw !== undefined)
     return {
       tokens: fileTokens,
-      raw: fileRaw,
       source: 'settings-file',
       optedOut,
       peakWritten,
       fileTokens,
-      fileRaw
+      fileRawNote: boundedRawNote(fileRaw),
+      rawNote: boundedRawNote(fileRaw)
     };
-  }
-  return {
-    tokens: null,
-    raw: undefined,
-    source: null,
-    optedOut,
-    peakWritten: false,
-    fileTokens: null,
-    fileRaw: undefined
-  };
+  return { tokens: null, source: null, optedOut, peakWritten: false, fileTokens: null };
 }
 
 /**
@@ -593,13 +420,13 @@ export function syncHarnessWindow(input: {
   const fileSettings = readSettingsObject(settingsPath);
   const fileRaw = envString(fileSettings, input.location.envVar);
   const fileTokens = parseHarnessWindowTokens(fileRaw);
-  // Every branch spreads this, so `requestedTokens` and `previousRawValue`
-  // travel with the outcome rather than being re-derived by each consumer.
+  // Every branch spreads this, so `requestedTokens` and the bounded note about
+  // the file's previous value travel with the outcome. Bounded HERE (MED-2).
   const base = {
     settingsPath,
     key: input.location.envVar,
     previousTokens: fileTokens,
-    previousRawValue: fileRaw,
+    ...(fileRaw === undefined ? {} : { previousRawNote: boundedRawNote(fileRaw) }),
     requestedTokens: input.tokens,
     peakWritten: current.peakWritten
   };
@@ -628,6 +455,12 @@ export function syncHarnessWindow(input: {
   // the harness is not using. See `HARNESS_WINDOW_MIN_TOKENS`.
   if (!isHarnessWindowInRange(input.tokens)) {
     return { ...base, action: 'skipped', reason: 'out-of-harness-range', tokens: current.tokens };
+  }
+  // THE LINK GUARD, before the editability test: a symlinked file — or a linked
+  // `.claude` directory above an ordinary one — parses fine, so `isEditable`
+  // would pass and the write below would follow the link.
+  if (isLinkedSettingsFile(settingsPath)) {
+    return { ...base, action: 'skipped', reason: 'symlinked-settings', tokens: current.tokens };
   }
   if (!isEditable(settingsPath)) {
     return { ...base, action: 'skipped', reason: 'unreadable-settings', tokens: current.tokens };
@@ -703,6 +536,13 @@ export function resetHarnessWindow(input: {
   const previousTokens = parseHarnessWindowTokens(envString(settings, input.location.envVar));
   const markerPresent = envString(settings, HARNESS_WINDOW_WRITTEN_KEY) !== undefined;
 
+  // THE LINK GUARD, before the editability test: a symlinked file — or a linked
+  // `.claude` directory above an ordinary one — parses fine, so `isEditable`
+  // would pass and the reset below would follow the link.
+  if (isLinkedSettingsFile(settingsPath)) {
+    // `absent` rather than a throw: the caller renders the `wrote`-nothing case.
+    return { settingsPath, action: 'absent', previousTokens };
+  }
   if (settings === null || !isEditable(settingsPath)) {
     // Nothing to remove and nothing we can safely edit.
     return { settingsPath, action: 'absent', previousTokens };
@@ -743,101 +583,13 @@ export function resetHarnessWindow(input: {
 }
 
 /**
- * Record the opt-out WITHOUT removing anything: "stop managing this key",
- * expressible at any moment — including before peaks-loop has ever written it.
- *
- * WHY THIS IS A SEPARATE ENTRY POINT AND NOT A FALLBACK OF `resetHarnessWindow`
- *
- * "Remove what is there" and "never write it again" are two different
- * intentions. `--reset` on a file holding no peaks row is deliberately a no-op
- * (see the file-litter note in `resetHarnessWindow`), so a user whose project
- * peaks-loop has never touched had NO command for the second intention at all:
- * they had to wait for a probe to write the key and then remove it — the order
- * backwards. Folding the opt-out into `--reset` would fix that by making one
- * verb mean "delete" or "don't write", depending on whether the file happened
- * to hold a row, which is a verb whose effect the user cannot predict from its
- * name. Two verbs, two intentions, each predictable.
- *
- * WHAT IT DOES NOT DO
- *   - it does not touch the window key: a hand-set value stays exactly as it
- *     was (peaks-loop would not have overwritten it anyway — see the B1 guard);
- *   - it does not write a provenance marker, so it claims no ownership of a
- *     value it did not write.
- * The next probe reports `skipped / opted-out` and writes nothing.
- *
- *
- * This function used to exempt itself, on the argument that `--disable` is an
- * explicit instruction and "the location's own file is the only place the
- * opt-out can be recorded for it to mean anything". The first half is true and
- * was never the problem; the second half does not hold at `$HOME`:
- *
- *   - the location is NOT usually explicit. `--project` is optional, and a
- *     fresh terminal starts in `$HOME`, so the ordinary invocation resolves the
- *     root to the user's home directory without them naming it — the very
- *     trigger the H1 guard was written for;
- *   - the opt-out has NOTHING to mean there. `syncHarnessWindow` already
- *     refuses to write the window at that root (`unsafe-project-root`), so the
- *     only thing a recorded opt-out changes is which sentence the refusal uses.
- *     Nothing is made expressible; a visible refusal is traded for a quieter one;
- *   - what IS added is a durable peaks-loop row in `~/.claude/settings.local.json`
- *     — a file outside every repo. `--reset`'s exemption does not transfer to
- *     this verb: `--reset` REMOVES (and is a no-op when there is nothing of
- *     peaks-loop's to remove), while `--disable` only ever ADDS.
- *
- * So the guard fires here exactly as it does in `syncHarnessWindow`: the same
- * exact-home comparison, before any `mkdir` and before any read-modify-write.
- * `~/my-project` is unaffected, and a user who really does carry a stale
- * peaks-loop window key in `$HOME` still has `--reset`, which is allowed there
- * for the reason its own note gives.
- *
- * Idempotent: a second call reports `already-opted-out` and rewrites nothing.
+ * The OPT-OUT verbs live in `harness-window-opt-out.ts` — split out when this
+ * file's gated excess grew again. Re-exported so every import path stays put.
  */
-export function disableHarnessWindowSync(input: { readonly location: HarnessWindowLocation }): {
-  readonly settingsPath: string;
-  readonly action:
-    'disabled' | 'already-opted-out' | 'unreadable-settings' | 'refused-unsafe-project-root';
-} {
-  const settingsPath = input.location.settingsPath;
-  // Checked FIRST, before `isEditable` and before any directory is created:
-  // a refusal that has already mkdir'd `$HOME/.claude` is not a refusal.
-  if (input.location.projectRoot !== undefined && isUserHome(input.location.projectRoot)) {
-    return { settingsPath, action: 'refused-unsafe-project-root' };
-  }
-  const settings = readSettingsObject(settingsPath);
-  if (!isEditable(settingsPath)) {
-    return { settingsPath, action: 'unreadable-settings' };
-  }
-  const env =
-    typeof settings?.env === 'object' && settings.env !== null && !Array.isArray(settings.env)
-      ? { ...settings.env }
-      : {};
-  if (env[HARNESS_WINDOW_SYNC_OPTOUT_KEY] === HARNESS_WINDOW_SYNC_OPTOUT_VALUE) {
-    return { settingsPath, action: 'already-opted-out' };
-  }
-  env[HARNESS_WINDOW_SYNC_OPTOUT_KEY] = HARNESS_WINDOW_SYNC_OPTOUT_VALUE;
-  const dir = dirname(settingsPath);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  writeFileSync(settingsPath, `${JSON.stringify({ ...(settings ?? {}), env }, null, 2)}\n`, 'utf8');
-  return { settingsPath, action: 'disabled' };
-}
+export { disableHarnessWindowSync, reenableHarnessWindowSync } from './harness-window-opt-out.js';
 
 /**
- * Undo the opt-out (the companion of `resetHarnessWindow`) so peaks-loop
- * resumes owning the harness window.
+ * The WINDOW notices live in `harness-window-opt-out.ts` — the same file-size
+ * cause as the verbs there. Re-exported so every import path stays put.
  */
-export function reenableHarnessWindowSync(input: { readonly location: HarnessWindowLocation }): {
-  readonly settingsPath: string;
-  readonly action: 'reenabled' | 'absent';
-} {
-  const settingsPath = input.location.settingsPath;
-  const settings = readSettingsObject(settingsPath);
-  if (settings === null) return { settingsPath, action: 'absent' };
-  const env =
-    typeof settings.env === 'object' && settings.env !== null && !Array.isArray(settings.env)
-      ? { ...settings.env }
-      : {};
-  if (env[HARNESS_WINDOW_SYNC_OPTOUT_KEY] === undefined) return { settingsPath, action: 'absent' };
-  delete env[HARNESS_WINDOW_SYNC_OPTOUT_KEY];
-  writeFileSync(settingsPath, `${JSON.stringify({ ...settings, env }, null, 2)}\n`, 'utf8');
-  return { settingsPath, action: 'reenabled' };
-}
+export { describeHarnessWindowSync, harnessWindowSyncWarning } from './harness-window-opt-out.js';

@@ -77,17 +77,17 @@ export interface ContextWindowOverrides {
   /** Raw `context.windowTokens` value (unvalidated — validated here). */
   readonly configWindowTokens?: unknown;
   /**
-   * The window peaks-loop itself configured for the harness — raw value read
-   * from the harness's machine-local settings `env` block (or the process env
-   * the harness populated from it). Resolved by the caller
-   * (`auto-compact-reader.ts` via `harness-window-config.ts`), NOT here: the
-   * settings path and the key name are per-IDE declarations.
+   * The window peaks-loop configured for the harness, already PARSED to a
+   * positive token count by the caller (`auto-compact-reader.ts` via
+   * `harness-window-config.ts`). A NUMBER, never the settings file's text
+   * (MED-2): the value is user-writable and this layer's warnings reach
+   * stderr/logs. An unparseable value is `null` at the resolver.
    *
-   * the ratio peaks-loop computes and the window the harness compacts against
-   * THE SAME NUMBER. Without it they are two independent resolutions that can
-   * drift 5× apart on a 1M-window model the model-name heuristic misses.
+   * The ratio peaks-loop computes and the window the harness compacts against
+   * are then THE SAME NUMBER; without it they are two resolutions that drift
+   * 5× apart on a 1M-window model the model-name heuristic misses.
    */
-  readonly harnessWindowTokens?: unknown;
+  readonly harnessWindowTokens?: number | undefined;
   /**
    * Provenance of `harnessWindowTokens`: true when peaks-loop wrote that value
    * itself, false/omitted when a human set it. Only a peaks-written value may
@@ -256,7 +256,7 @@ export function resolveContextWindow(
     const parsed = parseContextWindowOverride(overrides.harnessWindowTokens);
     if (parsed !== null) return { tokens: parsed, source: 'harness-env' };
     warn(
-      `[peaks] harness auto-compact window ${JSON.stringify(overrides.harnessWindowTokens)} is not a positive integer — ignoring the override`
+      `[peaks] harness auto-compact window ${String(overrides.harnessWindowTokens)} is not a positive integer — ignoring the override`
     );
   }
   const heuristic = modelContextWindowTokens(model);
@@ -614,11 +614,11 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
     postCompactDetectCommand: 'peaks code auto-compact --json',
     // reads its auto-compact WINDOW from, in the machine-local `env` block.
     // Claude Code documents it as taking precedence "over the command, the
-    // flag, and the setting", and as accepting the plain token count only
-    // (no `500k` suffix). peaks-loop writes the window it computes the ratio
-    // against here so the two sides cannot drift; see
-    // `harness-window-config.ts`.
+    // flag, and the setting", and as accepting the plain token count only (no
+    // `500k` suffix). peaks-loop writes the window AND the percent knob so
+    // neither drifts (window × PCT%, measured 2026-11-20).
     autoCompactWindowEnvVar: 'CLAUDE_CODE_AUTO_COMPACT_WINDOW',
+    autoCompactPercentEnvVar: 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE',
     readContextPercentFallback,
     // layout knowledge (`~/.claude/projects/**/<outerSessionId>.jsonl`)
     // stays here; `peaks code context-audit` resolves it through the

@@ -9,8 +9,8 @@
     "pattern": "*.test.ts"
   },
   "totals": {
-    "violatingFiles": 599,
-    "violations": 4996
+    "violatingFiles": 597,
+    "violations": 4933
   },
   "files": [
     {
@@ -824,12 +824,6 @@
       "line": 202
     },
     {
-      "path": "tests/unit/cli/commands/compact-harness-window.test.ts",
-      "violations": 11,
-      "reason": "missing-given-when-then",
-      "line": 93
-    },
-    {
       "path": "tests/unit/cli/commands/container-docker-boundary.test.ts",
       "violations": 6,
       "reason": "missing-given-when-then",
@@ -1280,12 +1274,6 @@
       "line": 99
     },
     {
-      "path": "tests/unit/context/harness-window-config.test.ts",
-      "violations": 51,
-      "reason": "missing-given-when-then",
-      "line": 139
-    },
-    {
       "path": "tests/unit/doctor/codegraph-capability-fallback.test.ts",
       "violations": 4,
       "reason": "missing-given-when-then",
@@ -1575,7 +1563,7 @@
     },
     {
       "path": "tests/unit/ide/claude-code-adapter-compact.test.ts",
-      "violations": 38,
+      "violations": 37,
       "reason": "missing-given-when-then",
       "line": 160
     },

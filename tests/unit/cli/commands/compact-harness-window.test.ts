@@ -91,6 +91,8 @@ describe('peaks compact harness-window — show / rollback', () => {
 
   it('when no window is set, should report managed=true with a null value and name the probe that will set it (render)', async () => {
     // given: a Claude Code session and a project with no window key yet
+    // when: the command reports
+    // then: managed=true with a null value, and the probe that will set it is named
     withEnv('CLAUDE_CODE_ENTRYPOINT', 'cli');
     // The dev machine running these tests may itself have the key exported
     // (Claude Code injects the settings `env` block into tool subprocesses),
@@ -112,6 +114,8 @@ describe('peaks compact harness-window — show / rollback', () => {
 
   it('when the window is in force, should report the value and its source (render)', async () => {
     // given: a settings file peaks-loop has already written to
+    // when: the command reads it back
+    // then: value, source and the sibling key are all accounted for
     withEnv('CLAUDE_CODE_ENTRYPOINT', 'cli');
     withEnv(KEY, undefined);
     writeSettings({ GATEGUARD_EXEMPT_GLOBS: '.peaks/**', [KEY]: '1000000' });
@@ -125,13 +129,20 @@ describe('peaks compact harness-window — show / rollback', () => {
   });
 
   it('when --reset runs, should remove the key, preserve the sibling env key, and opt the project out (integration)', async () => {
-    // given: a written window beside a third-party env key and a hook
+    // given: a window PEAKS-LOOP WROTE (value + its provenance marker) beside a
+    //        third-party env key and a hook. The marker is what makes the value
+    //        removable: a marker-less window is the user's own pin and --reset
+    //        keeps it (asserted separately below).
+    // when: the rollback runs
+    // then: only the window row moved
     withEnv('CLAUDE_CODE_ENTRYPOINT', 'cli');
     withEnv(KEY, undefined);
-    writeSettings({ GATEGUARD_EXEMPT_GLOBS: '.peaks/**', [KEY]: '1000000' });
-    // when: the rollback runs
+    writeSettings({
+      GATEGUARD_EXEMPT_GLOBS: '.peaks/**',
+      [KEY]: '1000000',
+      PEAKS_HARNESS_WINDOW_WRITTEN: '1000000'
+    });
     const envelope = await run(['--project', ws().path, '--reset']);
-    // then: only the window row moved
     expect(envelope.ok).toBe(true);
     expect(envelope.data['action']).toBe('removed');
     expect(envelope.data['previousTokens']).toBe(1_000_000);
@@ -144,10 +155,31 @@ describe('peaks compact harness-window — show / rollback', () => {
     expect(envelope.nextActions.join('\n')).toContain('--reenable');
   });
 
-  it('when --reset runs twice, should report absent the second time (behavior)', async () => {
+  it('when --reset meets a HAND-SET window, should keep the value and report it (HIGH-1)', async () => {
+    // given: `700000` with NO provenance marker — a value the user set by hand,
+    //        which peaks-loop never wrote and so must never delete
+    // when: the documented rollback runs
+    // then: the window SURVIVES byte-for-byte, the per-knob action is
+    //       `kept-human`, and the sentence names it as the user's own value
     withEnv('CLAUDE_CODE_ENTRYPOINT', 'cli');
     withEnv(KEY, undefined);
-    writeSettings({ [KEY]: '1000000' });
+    writeSettings({ [KEY]: '700000' });
+    const envelope = await run(['--project', ws().path, '--reset']);
+    expect(envelope.data['action']).toBe('absent');
+    const window = envelope.data['window'] as { action: string; ownership: string };
+    expect(window.action).toBe('kept-human');
+    expect(window.ownership).toBe('human');
+    expect(envBlock()[KEY]).toBe('700000');
+    expect(envelope.nextActions.join('\n')).toContain('Kept');
+  });
+
+  it('when --reset runs twice, should report absent the second time (behavior)', async () => {
+    // given: a window peaks-loop wrote (value + marker), then rolled back
+    // when: the rollback runs a second time
+    // then: nothing is left to remove and the action is `absent`
+    withEnv('CLAUDE_CODE_ENTRYPOINT', 'cli');
+    withEnv(KEY, undefined);
+    writeSettings({ [KEY]: '1000000', PEAKS_HARNESS_WINDOW_WRITTEN: '1000000' });
     await run(['--project', ws().path, '--reset']);
     // when: the rollback runs again
     const second = await run(['--project', ws().path, '--reset']);
@@ -157,10 +189,9 @@ describe('peaks compact harness-window — show / rollback', () => {
   });
 
   it('when --reset runs on a file with no peaks rows, should write NOTHING and say so (behavior)', async () => {
-    // given: a settings file another tool owns — a window key is not there,
-    //        and neither is the provenance marker (round 4: `--reset` used to
-    //        write `PEAKS_HARNESS_WINDOW_SYNC: "off"` into exactly this shape
-    //        of file, which in `$HOME` is the user's own personal settings)
+    // given: a settings file another tool owns — no window key, no marker
+    // when: the rollback runs
+    // then: nothing is written and the operator is told so
     withEnv('CLAUDE_CODE_ENTRYPOINT', 'cli');
     withEnv(KEY, undefined);
     mkdirSync(join(ws().path, '.claude'), { recursive: true });
@@ -184,9 +215,9 @@ describe('peaks compact harness-window — show / rollback', () => {
   });
 
   it('when --disable runs on a project never written to, should record the opt-out and make the NEXT probe write nothing (integration)', async () => {
-    // given: a FRESH project — peaks-loop has never written a window here, so
-    //        `--reset` is a deliberate no-op and the user has no way to say
-    //        "do not manage this key" until AFTER a probe has written it
+    // given: a FRESH project with a third-party env key and no window
+    // when: --disable records the opt-out up front
+    // then: the opt-out is on disk and the next probe writes nothing
     withEnv('CLAUDE_CODE_ENTRYPOINT', 'cli');
     withEnv(KEY, undefined);
     writeSettings({ GATEGUARD_EXEMPT_GLOBS: '.peaks/**' });
@@ -214,9 +245,9 @@ describe('peaks compact harness-window — show / rollback', () => {
   });
 
   it('when --disable is NOT used, should be the control: the same probe writes the key (integration)', () => {
-    // given: the identical fresh project, without the opt-out. Control for the
-    //        case above — without it, a probe that failed for any unrelated
-    //        reason would look exactly like the opt-out working.
+    // given: the identical fresh project, WITHOUT the opt-out (the control)
+    // when: the same probe runs
+    // then: it writes the key, so the case above is the opt-out working
     withEnv('CLAUDE_CODE_ENTRYPOINT', 'cli');
     withEnv(KEY, undefined);
     writeSettings({ GATEGUARD_EXEMPT_GLOBS: '.peaks/**' });
@@ -232,7 +263,9 @@ describe('peaks compact harness-window — show / rollback', () => {
   // = $HOME) put a peaks-loop row in the user's PERSONAL settings. These two
   // cases run against an ISOLATED fake home — the real one is never touched.
   it('when --disable targets the home directory, should refuse and create nothing (E4)', async () => {
-    // given: the fresh-terminal case, reconstructed with a fake HOME
+    // given: a fake HOME with no .claude/ anywhere (the fresh-terminal case)
+    // when: --disable targets that root
+    // then: refused before any mkdir — nothing is created
     withEnv('CLAUDE_CODE_ENTRYPOINT', 'cli');
     withEnv(KEY, undefined);
     const fakeHome = join(ws().path, 'fake-home');
@@ -252,9 +285,9 @@ describe('peaks compact harness-window — show / rollback', () => {
   });
 
   it('when --disable targets a SUBDIRECTORY of home, should still record the opt-out (E4 control)', async () => {
-    // given: a home directory that CONTAINS the project — the ordinary layout.
-    //        Without this case, the refusal above would be indistinguishable
-    //        from a guard that rejected every path under home.
+    // given: a fake HOME that CONTAINS the project (the ordinary layout)
+    // when: --disable targets the project rather than home itself
+    // then: the opt-out is recorded there — the guard is exact-home
     withEnv('CLAUDE_CODE_ENTRYPOINT', 'cli');
     withEnv(KEY, undefined);
     const fakeHome = join(ws().path, 'fake-home-sub');
@@ -270,6 +303,9 @@ describe('peaks compact harness-window — show / rollback', () => {
   });
 
   it('when --disable runs twice, should report the second as already opted out (behavior)', async () => {
+    // given: a window 150000 recorded by a prior --disable run
+    // when: --disable runs a second time
+    // then: idempotent and honest — the pinned value still stands
     withEnv('CLAUDE_CODE_ENTRYPOINT', 'cli');
     withEnv(KEY, undefined);
     writeSettings({ [KEY]: '150000' });
@@ -283,13 +319,14 @@ describe('peaks compact harness-window — show / rollback', () => {
   });
 
   it('when --reenable runs, should clear the opt-out and report whether one existed (behavior)', async () => {
+    // given: a window peaks-loop wrote, rolled back so the opt-out is recorded
+    // when: management is restored
+    // then: the flag is gone and the state is reported
     withEnv('CLAUDE_CODE_ENTRYPOINT', 'cli');
     withEnv(KEY, undefined);
-    writeSettings({ [KEY]: '1000000' });
+    writeSettings({ [KEY]: '1000000', PEAKS_HARNESS_WINDOW_WRITTEN: '1000000' });
     await run(['--project', ws().path, '--reset']);
-    // when: management is restored
     const envelope = await run(['--project', ws().path, '--reenable']);
-    // then: the flag is gone and the state is reported
     expect(envelope.data['action']).toBe('reenabled');
     expect(envBlock()['PEAKS_HARNESS_WINDOW_SYNC']).toBeUndefined();
     expect(envBlock()[KEY]).toBeUndefined();

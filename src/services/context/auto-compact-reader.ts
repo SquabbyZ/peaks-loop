@@ -33,7 +33,6 @@ import type { IdeId } from '../ide/ide-types.js';
 import { readContextWindowTokensOverride } from '../config/config-service.js';
 import {
   isHarnessWindowInRange,
-  parseHarnessWindowTokens,
   readHarnessWindow,
   syncHarnessWindow,
   type HarnessWindowLocation,
@@ -94,7 +93,7 @@ export function readHarnessWindowState(input: {
 }
 
 /**
- * The RAW window peaks-loop's context ratio must divide by — T1's number.
+ * The window peaks-loop's context ratio must divide by — T1's number, PARSED.
  *
  * The SETTINGS FILE is the source of truth, so its value wins whenever it has
  * one; the env-first read is consulted only when the file is silent (no key
@@ -110,28 +109,24 @@ export function readHarnessWindowState(input: {
  * configured window one number BY CONSTRUCTION, with no write required. The
  * write is then free to be gated on provenance (see `syncHarnessWindow`).
  *
- * Falls back to `undefined` (no harness layer at all) when the adapter
- * declares no knob or neither side carries the key — the adapter then resolves
- * its own window exactly as it did before this slice.
+ * `null` (no harness layer) when the adapter declares no knob, neither side
+ * carries the key, or the value is not a plain in-band count. A PARSED number
+ * is what the adapter's `harness-env` layer consumes — never the raw text,
+ * which could be anything the user typed (MED-2).
  */
-export function resolveHarnessRatioWindow(state: HarnessWindowReadResult | null): unknown {
-  if (state === null) return undefined;
+export function resolveHarnessRatioWindow(state: HarnessWindowReadResult | null): number | null {
+  if (state === null) return null;
   // is not a window, however well-formed an integer it is — the harness ignores
   // or caps it, so handing it over here would make the ratio's denominator a
-  // number the harness is not compacting on. This is the read half of the same
-  // guard the writer applies before planting one; without it, a value already on
-  // disk (hand-planted, or written by a release that predates the band) would
-  // keep poisoning the ratio on every probe.
-  //
-  // The two NULLs are deliberate and different: an out-of-band value is refused
-  // here (the adapter falls through to its own resolution and the writer's
-  // notice names the skipped number), while an UNPARSEABLE one is still handed
-  // over — the adapter validates it and warns about a hand-edited `500k`, which
-  // is a closer reading of the user's intent than silently ignoring it.
-  const raw = state.fileRaw !== undefined ? state.fileRaw : state.raw;
-  const tokens = parseHarnessWindowTokens(raw);
-  if (tokens !== null && !isHarnessWindowInRange(tokens)) return undefined;
-  return raw;
+  // number the harness is not compacting on. The read half of the same guard the
+  // writer applies before planting one; without it, a value already on disk
+  // (hand-planted, or from a release predating the band) keeps poisoning the
+  // ratio. Handing over the PARSED number also keeps user-writable text off the
+  // probe (MED-2): an unparseable value is simply no harness layer.
+  const tokens = state.fileTokens ?? state.tokens;
+  if (tokens === null) return null;
+  if (!isHarnessWindowInRange(tokens)) return null;
+  return tokens;
 }
 
 /**
@@ -222,10 +217,9 @@ export function readContextPercent(input: ReadContextPercentInput): ContextPerce
     // path + key. `null` (no knob declared, or the key absent) leaves the
     // adapter's chain byte-identical to before this slice.
     //
-    // The RAW value is handed over, not the parsed one: the adapter validates
-    // it (`parseContextWindowOverride`) and warns on a bad hand-edited value,
-    // so parsing here too would be a second, silently-disagreeing parser —
-    // exactly the duplicated-resolution shape this slice exists to delete.
+    // PARSED, never the raw text (MED-2): a settings key can hold anything, and
+    // this probe's result reaches logs. An unparseable hand edit is `null` and
+    // leaves the adapter's chain unchanged; the writer's notice names the typo.
     const harnessWindowState = readHarnessWindowState({ projectRoot: input.projectRoot, env });
     const harnessWindowTokens = resolveHarnessRatioWindow(harnessWindowState);
     // Primary: read the adapter-declared env-var (no hard-coded IDE names).
@@ -246,7 +240,8 @@ export function readContextPercent(input: ReadContextPercentInput): ContextPerce
     //
     // hands the adapter the raw `context.windowTokens` config override, so
     // the adapter's window resolver can prefer an explicit user value over
-    // its model-name heuristics (the env override arrives via `env`).
+    // its model-name heuristics (the env override arrives via `env`). The
+    // harness window below travels PARSED — never the settings file's text.
     const fallback = adapter.compact.readContextPercentFallback?.({
       projectRoot: input.projectRoot,
       sessionId: input.sessionId,
@@ -257,7 +252,7 @@ export function readContextPercent(input: ReadContextPercentInput): ContextPerce
       // divides by the very number the harness compacts against — plus whether
       // peaks-loop is the one that wrote it, so the adapter may self-correct
       // its own earlier resolution without ever overruling a human's pin.
-      ...(harnessWindowTokens !== undefined
+      ...(harnessWindowTokens !== null
         ? {
             harnessWindowTokens,
             harnessWindowPeakWritten: harnessWindowState?.peakWritten === true

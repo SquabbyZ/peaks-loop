@@ -10,11 +10,47 @@ import {
   describeHarnessWindowSync,
   harnessWindowSyncWarning
 } from '../../services/context/harness-window-config.js';
+import { resolveHarnessCompactThresholdLocation } from '../../services/context/harness-compact-threshold-config.js';
+import {
+  buildHarnessThresholdVerdict,
+  describeHarnessThresholdRestart,
+  readHarnessCompactThreshold
+} from '../../services/context/harness-compact-threshold-verdict.js';
 import {
   describeHarnessWitness,
   readAndCompareHarnessWitness
 } from '../../services/context/harness-context-witness.js';
 import { contextNowActionFor, contextNowBandLabels } from './code-context-now-mapping.js';
+
+/**
+ * The HARNESS side of the threshold: what the project file configures vs what
+ * this running session is actually using.
+ *
+ * It reports, it never changes anything: the harness reads its env once at
+ * process start (measured 2026-11-20), so a mid-session write cannot move the
+ * trigger and a claim that it did would be the pretending this field removes.
+ * `restartNotice` is the actionable half — the `nextActions` line naming the
+ * restart — and the verdict itself is the machine-readable one, so a JSON
+ * consumer sees a threshold that is not in force without parsing prose.
+ *
+ * `harnessThreshold` is `null` when the active adapter declares no percent
+ * knob: the field is omitted rather than reported as a false `matches: true`
+ * for a mechanism this IDE does not have.
+ */
+export function readContextNowThreshold(canonicalProjectRoot: string) {
+  const location = resolveHarnessCompactThresholdLocation({
+    projectRoot: canonicalProjectRoot,
+    env: process.env
+  });
+  if (location === null) return { harnessThreshold: null, restartNotice: null };
+  const read = readHarnessCompactThreshold({ location, env: process.env });
+  return {
+    harnessThreshold: buildHarnessThresholdVerdict(read),
+    restartNotice: describeHarnessThresholdRestart(read)
+  };
+}
+
+type ContextNowThreshold = ReturnType<typeof readContextNowThreshold>;
 
 /**
  * The harness half of the probe: the window sync, its warning, the witness read
@@ -103,6 +139,7 @@ export function buildContextNowData(args: {
   promptSizeBytes: number | undefined;
   decision: ContextNowDecision;
   harness: ContextNowHarness;
+  threshold: ContextNowThreshold;
 }) {
   const { probe, decision, harness } = args;
   return {
@@ -126,7 +163,18 @@ export function buildContextNowData(args: {
     // window sync did on this probe. Reported rather than silent — the
     // harness tells a user who overrides the window only via
     // `/autocompact`, so peaks-loop must be the one that says it.
+    //
+    // The sync result AS IS: it holds a BOUNDED note where the file's value
+    // would be (MED-2, bounded at its source), so a secret mis-parked under the
+    // window key cannot reach this field's `--json` output or the logs.
     harnessWindow: harness.harnessWindow,
+    // The threshold the PROJECT configures vs the one this SESSION is using —
+    // reported, never assumed. `null` (field omitted) when the adapter has no
+    // percent knob; a `matches: false` here is the honest answer to "I changed
+    // the settings, why is it still compacting late?".
+    ...(args.threshold.harnessThreshold !== null
+      ? { harnessThreshold: args.threshold.harnessThreshold }
+      : {}),
     harnessWitness: harness.harnessWitness
   };
 }
@@ -145,7 +193,8 @@ export function buildContextNowWarnings(harness: ContextNowHarness): string[] {
 /** The envelope's `nextActions` array, lifted verbatim out of the action body. */
 export function buildContextNowNextActions(
   decision: ContextNowDecision,
-  harness: ContextNowHarness
+  harness: ContextNowHarness,
+  threshold: ContextNowThreshold
 ): string[] {
   const { action, next, bands, gateModeNotice } = decision;
   return [
@@ -167,6 +216,10 @@ export function buildContextNowNextActions(
     // the same split, and note this one never asks a question.
     ...(harness.witnessNotice === null
       ? []
-      : ['Re-probe with `peaks code context-now` to confirm; this is reported, not blocking.'])
+      : ['Re-probe with `peaks code context-now` to confirm; this is reported, not blocking.']),
+    // The restart line rides LAST and only when the file and this session
+    // actually differ: it is the one statement that turns "the settings are
+    // right" into "and they are not in force yet", which nothing else says.
+    ...(threshold.restartNotice === null ? [] : [threshold.restartNotice])
   ];
 }

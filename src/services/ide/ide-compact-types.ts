@@ -57,6 +57,22 @@ export interface IdeCompactProfile {
    */
   readonly autoCompactWindowEnvVar?: string;
   /**
+   * Optional settings key / env var the IDE reads its AUTO-COMPACT THRESHOLD
+   * PERCENT from — the fraction of the window at which the harness itself
+   * compacts, expressed as a whole percentage (1..100).
+   *
+   * Why it is a separate declaration from the window: the two knobs answer
+   * different questions and live under different names in the harness, and the
+   * engine must not know either name. `harness-compact-threshold-config.ts`
+   * writes and reads this key through the adapter's declaration only, exactly
+   * as `harness-window-config.ts` does for the window, so a second IDE is
+   * addable without editing the engine.
+   *
+   * `undefined` = this IDE exposes no percent knob. peaks-loop then configures
+   * and reports the window alone; nothing here invents a key.
+   */
+  readonly autoCompactPercentEnvVar?: string;
+  /**
    * Optional command the runner invokes post-compact to confirm
    * ratio dropped (e.g. `peaks code auto-compact --json`). When omitted,
    * the orchestrator polls `envVarForContextPercent` directly.
@@ -124,13 +140,16 @@ export interface ContextPercentFallbackInput {
    */
   readonly configWindowTokens?: unknown;
   /**
-   * Raw value of the adapter's `autoCompactWindowEnvVar`, resolved by the
-   * generic reader from the adapter's own declarations (settings path +
-   * key name) — the window peaks-loop configured for the harness. Feeds the
+   * The window peaks-loop configured for the harness, resolved by the generic
+   * reader from the adapter's own declarations (settings path + key name) and
+   * PARSED to a positive token count before it gets here. Feeds the
    * `harness-env` layer of `resolveContextWindow`.
    *
+   * A NUMBER, never the settings file's text (MED-2): the key is
+   * user-writable and this layer's diagnostics reach logs. An unparseable
+   * value is `null` at the resolver, so it arrives as "no harness layer".
    */
-  readonly harnessWindowTokens?: unknown;
+  readonly harnessWindowTokens?: number | undefined;
   /**
    * True when `harnessWindowTokens` is a value peaks-loop ITSELF wrote (the
    * harness settings carry the provenance marker matching it), false when a

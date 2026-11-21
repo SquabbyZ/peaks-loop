@@ -234,9 +234,9 @@ describe('Scenario: behavior — the ratio divides by the FILE, not the frozen e
         env: { FAKEIDE_AUTO_COMPACT_WINDOW: '200000' }
       });
       // then: the file's 150000 is what the ratio must divide by...
-      expect(resolveHarnessRatioWindow(state)).toBe('150000');
+      expect(resolveHarnessRatioWindow(state)).toBe(150_000);
       // ...even though the in-force read (status display) reports the env copy
-      expect(state!.raw).toBe('200000');
+      expect(state!.tokens).toBe(200_000);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -259,7 +259,7 @@ describe('Scenario: behavior — the ratio divides by the FILE, not the frozen e
         env: { FAKEIDE_AUTO_COMPACT_WINDOW: '200000' }
       });
       // then: the env is the only signal, so it is used
-      expect(resolveHarnessRatioWindow(state)).toBe('200000');
+      expect(resolveHarnessRatioWindow(state)).toBe(200_000);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -269,7 +269,7 @@ describe('Scenario: behavior — the ratio divides by the FILE, not the frozen e
     _setAdapterForTesting('claude-code', noFallbackAdapter());
     expect(
       resolveHarnessRatioWindow(readHarnessWindowState({ projectRoot: '/tmp/peaks-test', env: {} }))
-    ).toBeUndefined();
+    ).toBeNull();
   });
 
   // E1 (rid 2026-09-13-defects-e), read half. The write half refuses to PLANT an
@@ -298,7 +298,7 @@ describe('Scenario: behavior — the ratio divides by the FILE, not the frozen e
       // ...but it is NOT offered as the window to divide by, so the adapter
       //    falls through to its own resolution and the refusal notice (raised
       //    by the writer, E1) can name the value that was skipped
-      expect(resolveHarnessRatioWindow(state)).toBeUndefined();
+      expect(resolveHarnessRatioWindow(state)).toBeNull();
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -319,7 +319,7 @@ describe('Scenario: behavior — the ratio divides by the FILE, not the frozen e
       //             the band's doing, not a read that stopped resolving)
       expect(
         resolveHarnessRatioWindow(readHarnessWindowState({ projectRoot: root, env: {} }))
-      ).toBe('1000000');
+      ).toBe(1_000_000);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

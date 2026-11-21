@@ -11,6 +11,10 @@ import {
 } from '../../../services/standards/missing-standards-detector.js';
 import { getErrorMessage } from '../../cli-helpers.js';
 import { stakeCodegraphForInit } from './init-codegraph-stake.js';
+import {
+  ensureInitHarnessThreshold,
+  reportThresholdDespiteNoHooks
+} from './init-harness-threshold.js';
 import { resolveFirstTimeHooksInstall } from './init-hooks-decision.js';
 import type { WorkspaceInitContext } from './init-context.js';
 import type {
@@ -18,12 +22,14 @@ import type {
   FirstTimeHooksInstallOutcome,
   WorkspaceInitRotation
 } from './init-options.js';
+import type { HarnessCompactThresholdResult } from '../../../services/context/harness-compact-threshold-ensure.js';
 
 export type InitEnvelopeParts = {
   nextActions: string[];
   warnings: string[];
   hooksOutcome: FirstTimeHooksInstallOutcome;
   codegraphAutoOutcome: CodegraphAutoStakeOutcome | null;
+  harnessThresholdOutcome: HarnessCompactThresholdResult | null;
 };
 
 function pushBindingReplacedAction(nextActions: string[], report: WorkspaceInitReport): void {
@@ -267,6 +273,24 @@ export async function collectInitEnvelope(ctx: WorkspaceInitContext): Promise<In
   pushStandardsActions(nextActions, warnings, ctx);
   pushProjectScanActions(nextActions, warnings, ctx);
   markStandardsCheckedIfMissing(ctx);
+  // The harness threshold is reconciled AFTER the settings materializer above
+  // (that writer owns `hooks`, this one owns two `env` rows) and BEFORE the
+  // codegraph stake, so its notice lands next to the other settings news.
+  // `--no-claude-hooks` suppresses it: the rows live in the very file that flag
+  // tells init not to touch.
+  const harnessThresholdOutcome = ensureInitHarnessThreshold(
+    nextActions,
+    warnings,
+    ctx.projectRoot,
+    ctx.options
+  );
+  reportThresholdDespiteNoHooks(nextActions, ctx.options);
   const codegraphAutoOutcome = await stakeCodegraphForInit(nextActions, warnings, ctx.projectRoot);
-  return { nextActions, warnings, hooksOutcome, codegraphAutoOutcome };
+  return {
+    nextActions,
+    warnings,
+    hooksOutcome,
+    codegraphAutoOutcome,
+    harnessThresholdOutcome
+  };
 }
