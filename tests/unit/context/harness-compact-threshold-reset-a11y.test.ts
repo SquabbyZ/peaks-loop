@@ -239,7 +239,7 @@ describe('harness-compact-threshold — the reset sentence', () => {
         resetHarnessThreshold({ thresholdLocation: location })
       );
       expect(sentence).toContain(
-        `Removed ${WINDOW_KEY} (was 250000) and ${PERCENT_KEY} (was 80) from ${location.settingsPath}`
+        `Removed ${WINDOW_KEY} (was 1000000) and ${PERCENT_KEY} (was 80) from ${location.settingsPath}`
       );
       expect(sentence).not.toContain('Kept ');
       expect(sentence).not.toContain('your own setting');

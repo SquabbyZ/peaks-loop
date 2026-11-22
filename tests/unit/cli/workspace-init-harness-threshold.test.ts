@@ -90,7 +90,7 @@ describe('peaks workspace init — harness auto-compact threshold', () => {
     const envelope = await runInit();
     expect(envelope.ok).toBe(true);
     expect(existsSync(settingsPath())).toBe(true);
-    expect(envBlock()[WINDOW_KEY]).toBe('250000');
+    expect(envBlock()[WINDOW_KEY]).toBe('1000000');
     expect(envBlock()[PERCENT_KEY]).toBe('80');
     // and: the envelope carries the outcome structurally, not only as prose
     const threshold = envelope.data['harnessThreshold'] as {
@@ -117,7 +117,7 @@ describe('peaks workspace init — harness auto-compact threshold', () => {
     expect(threshold.window.action).toBe('unchanged');
     expect(threshold.percent.action).toBe('unchanged');
     expect(first).toContain('"CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "80"');
-    expect(envBlock()[WINDOW_KEY]).toBe('250000');
+    expect(envBlock()[WINDOW_KEY]).toBe('1000000');
     expect(envBlock()[PERCENT_KEY]).toBe('80');
   });
 
@@ -153,7 +153,7 @@ describe('peaks workspace init — harness auto-compact threshold', () => {
     const envelope = await runInit();
     expect(envelope.ok).toBe(true);
     expect(readFileSync(settingsPath(), 'utf8')).not.toBe('{ not json\n');
-    expect(envBlock()[WINDOW_KEY]).toBe('250000');
+    expect(envBlock()[WINDOW_KEY]).toBe('1000000');
     expect(envBlock()[PERCENT_KEY]).toBe('80');
   });
 
@@ -226,7 +226,7 @@ describe('peaks workspace init — harness auto-compact threshold', () => {
       'utf8'
     );
     const envelope = await runInit();
-    expect(envBlock()[WINDOW_KEY]).toBe('250000');
+    expect(envBlock()[WINDOW_KEY]).toBe('1000000');
     expect(envBlock()[PERCENT_KEY]).toBe('65');
     const notices = envelope.nextActions.filter((line) => line.includes(WINDOW_KEY));
     expect(notices).toHaveLength(1);
@@ -253,7 +253,7 @@ describe('peaks workspace init — harness auto-compact threshold', () => {
     );
     const envelope = await runInit();
     // the window half still landed, and it is announced as a write
-    expect(envBlock()[WINDOW_KEY]).toBe('250000');
+    expect(envBlock()[WINDOW_KEY]).toBe('1000000');
     const writeNotice = envelope.nextActions.find((line) => line.includes(WINDOW_KEY)) ?? '';
     expect(writeNotice).toContain('WROTE');
     // the refusal is on the warning channel, and reads as one

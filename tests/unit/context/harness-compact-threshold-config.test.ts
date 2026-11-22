@@ -153,7 +153,7 @@ describe('harness-compact-threshold', () => {
   });
 
   describe('(integration) ensure — the install path writes BOTH knobs', () => {
-    it('when a fresh project has no keys, should write the 250000 window and the 80 percent defaults', () => {
+    it('when a fresh project has no keys, should write the 1000000 window and the 80 percent defaults', () => {
       // given: a project whose settings file does not exist yet
       // when: init reconciles the threshold
       // then: both defaults landed, each with its own provenance marker
@@ -161,8 +161,8 @@ describe('harness-compact-threshold', () => {
       expect(result.window.action).toBe('written');
       expect(result.percent.action).toBe('written');
       expect(envBlock()).toEqual({
-        [WINDOW_KEY]: '250000',
-        PEAKS_HARNESS_WINDOW_WRITTEN: '250000',
+        [WINDOW_KEY]: '1000000',
+        PEAKS_HARNESS_WINDOW_WRITTEN: '1000000',
         [PERCENT_KEY]: '80',
         [HARNESS_PERCENT_WRITTEN_KEY]: '80'
       });
@@ -183,16 +183,17 @@ describe('harness-compact-threshold', () => {
       expect(readFileSync(location.settingsPath, 'utf8')).toBe(first);
     });
 
-    it('when the file already holds a peaks-written window, should NOT downgrade it to the default', () => {
-      // given: a 1M window an earlier probe wrote (this repository's own shape)
+    it('when the file already holds a peaks-written window, should NOT overwrite it with the default', () => {
+      // given: a 500K window an earlier probe wrote — deliberately NOT the
+      //        current default, so "unchanged" proves a default fills EMPTY slots
       // when: init reconciles with no explicit window
-      // then: the existing value stands — a default fills an EMPTY slot only
+      // then: the existing value stands
       writeSettings({
-        env: { [WINDOW_KEY]: '1000000', PEAKS_HARNESS_WINDOW_WRITTEN: '1000000' }
+        env: { [WINDOW_KEY]: '500000', PEAKS_HARNESS_WINDOW_WRITTEN: '500000' }
       });
       const result = ensureHarnessCompactThreshold({ location, env: {} });
       expect(result.window.action).toBe('unchanged');
-      expect(envBlock()[WINDOW_KEY]).toBe('1000000');
+      expect(envBlock()[WINDOW_KEY]).toBe('500000');
       // and: the percent slot, being empty, is still filled
       expect(result.percent.action).toBe('written');
       expect(envBlock()[PERCENT_KEY]).toBe('80');
@@ -331,17 +332,17 @@ describe('harness-compact-threshold', () => {
     it('N5: when the window is written beside an unusable percent, should announce BOTH facts', () => {
       // given: the EXACT fixture QA measured — the file holds `150` as the
       //        percent (out of band), and the window slot is empty
-      // when: init reconciles, writing a 250000 window and refusing the percent
+      // when: init reconciles, writing a 1000000 window and refusing the percent
       // then: the notice announces the window write AND the percent refusal. The
       //       window write used to be swallowed by the percent half's outcome,
-      //       so a 250000 window landed with the notice naming only `150`.
+      //       so a 1000000 window landed with the notice naming only `150`.
       writeSettings({ env: { [PERCENT_KEY]: '150' } });
       const result = ensureHarnessCompactThreshold({ location, env: {} });
       expect(result.window.action).toBe('written');
-      expect(envBlock()[WINDOW_KEY]).toBe('250000');
+      expect(envBlock()[WINDOW_KEY]).toBe('1000000');
       expect(result.percent.action).toBe('skipped');
       const sentence = describeHarnessCompactThreshold(result);
-      expect(sentence).toContain(`WROTE ${WINDOW_KEY}=250000`);
+      expect(sentence).toContain(`WROTE ${WINDOW_KEY}=1000000`);
       expect(sentence).toContain('150');
       // and: 150 IS a percentage — the notice must say it is out of band, not
       //      that it is unparseable, or the user is handed the wrong remedy
@@ -361,7 +362,7 @@ describe('harness-compact-threshold', () => {
       const sentence = describeHarnessCompactThreshold(
         ensureHarnessCompactThreshold({ location, env: {} })
       );
-      expect(sentence).toContain(`WROTE ${WINDOW_KEY}=250000`);
+      expect(sentence).toContain(`WROTE ${WINDOW_KEY}=1000000`);
       expect(sentence).not.toContain(`WROTE ${PERCENT_KEY}`);
       expect(envBlock()[PERCENT_KEY]).toBe('65');
     });

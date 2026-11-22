@@ -51,18 +51,19 @@ import {
 /**
  * The window peaks-loop configures when nobody has said otherwise.
  *
- * 250_000 is the value the user calibrated on 2026-11-20
- * (`CLAUDE_CODE_AUTO_COMPACT_WINDOW=250000` + 80% → a 200_000-token trigger),
- * and it is the one the harness accepts as a plain token count inside its
- * documented 100_000..1_000_000 band. A fresh downstream project gets THIS
- * rather than an unset slot, because an unset slot means "no early compaction
- * at all" — the state this slice exists to end.
+ * 1_000_000 is the harness's accepted MAXIMUM (band 100_000..1_000_000), and
+ * that is why it is the neutral default: the harness CLAMPS the window to the
+ * model's own context, so the maximum means "as much as this model holds".
+ * Measured 2026-11-22: a 1M model gets effectiveWindow 980_000 → threshold
+ * 800_000; a 200K model given the same window is clamped to 180_000 → 160_000.
+ * The old 250_000 default capped a 1M model at 25% and fired at 200_000. A
+ * fresh project gets THIS rather than an unset slot ("no early compaction").
  */
-export const DEFAULT_HARNESS_COMPACT_WINDOW_TOKENS = 250_000;
+export const DEFAULT_HARNESS_COMPACT_WINDOW_TOKENS = 1_000_000;
 
 /**
  * The percent peaks-loop configures when nobody has said otherwise — 80% of
- * the window above, i.e. a 200_000-token trigger on a 250_000 window.
+ * the window above, i.e. an 800_000-token trigger on the 1_000_000 default.
  *
  * The single named default, exported here and nowhere else.
  */

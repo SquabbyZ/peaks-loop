@@ -105,7 +105,7 @@ function isPlainWindowSpelling(raw: unknown): boolean {
  * as 1000000, and a value of `1e6` equals a marker of `1000000` only because the
  * parser is lenient. Neither is evidence of ownership, so the pair is `human`
  * and is KEPT. An UNPARSEABLE value beside a plain, valid marker still proves
- * corruption of peaks-loop's own write (`500k` beside `250000`) and stays
+ * corruption of peaks-loop's own write (`500k` beside `1000000`) and stays
  * removable — that recovery is the feature.
  */
 function isWindowRemovable(input: {

@@ -1,5 +1,45 @@
 # Changelog
 
+## 4.2.6 — 2026-11-22（默认压缩窗口 250K → 1M：交给 harness 按模型上下文钳制）
+
+**版本级别**：**patch**（只改一个默认常量及其文档注释；无新能力，无 schema 变更，无门禁阈值放宽）。
+
+**一句话：`workspace init` 的默认窗口从 `250000` 改成 `1000000`——这是 harness 接受的上限，会被 harness 钳制到模型的真实上下文，因此同一个默认对 1M 模型等于 800K 触发，对 200K 模型等于 160K。**
+
+### 1. 为什么改
+
+Claude Code 会把 `CLAUDE_CODE_AUTO_COMPACT_WINDOW` 钳制到模型自身的上下文。本机实测结果：
+
+| 模型 | 配置窗口 | `effectiveWindow` | 80% 触发阈值 |
+|---|---|---|---|
+| 1M（默认） | 1,000,000 | 980,000 | **800,000** |
+| 200K（`CLAUDE_CODE_DISABLE_1M_CONTEXT=1`） | 1,000,000 | 180,000 | **160,000** |
+
+也就是说 `window = 1,000,000` 对**任何**模型都表现为「真实容量的 80%」，而旧默认 `250,000` 把 1M 模型硬压在 25%、在 200,000 就触发压缩——远早于用户预期。1,000,000 正是 harness 文档波段（100,000..1,000,000）的上限，所以它才是最中性的默认值。
+
+### 2. 改了什么
+
+- `DEFAULT_HARNESS_COMPACT_WINDOW_TOKENS`：`250_000` → `1_000_000`（`src/services/context/harness-compact-threshold-config.ts`）。
+- `DEFAULT_HARNESS_COMPACT_PERCENT` 保持 `80`。
+- 常量文档注释写明钳制实测与上表数值。
+
+### 3. 影响面
+
+- 全新项目跑 `peaks workspace init`，`.claude/settings.local.json` 现在写入 `CLAUDE_CODE_AUTO_COMPACT_WINDOW=1000000` 与 `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=80`（各带 provenance 标记）。
+- 已有项目不会被改写：init 只在槽位为空时填默认值。本仓库自己的 `.claude/settings.local.json` 已是 `1000000`，实测 init 后文件字节不变。
+- 仍需固定窗口的项目照旧直接编辑该文件。
+
+### 4. 验证
+
+| 项 | 结果 |
+|---|---|
+| `tsc -p tsconfig.json --noEmit` | 0 |
+| `node .husky/peaks-gate.mjs repo` | 0 |
+| 单元测试（`tests/unit/` 全量） | 705 文件 / 7623 通过 / 0 失败 |
+| 变异（6 模块） | 90.57%，`passed: true`（最低单模块 85.66%） |
+| 全新 git 项目 `workspace init` | 写入 `CLAUDE_CODE_AUTO_COMPACT_WINDOW=1000000` 与 `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=80` |
+| 本仓库现有 settings 上重跑 init | 文件字节不变 |
+
 ## 4.2.5 — 2026-11-22（修 4.2.4 的严重缺陷：探针会把项目窗口覆盖回 1M）
 
 **版本级别**：**patch**（只修缺陷，无新能力，无 schema 变更，无门禁阈值放宽）。

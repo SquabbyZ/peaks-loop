@@ -71,9 +71,10 @@ function resolveEnsured(
  * resolves to the value already in the file when there is one and to the
  * default only when the slot is empty. Init carries no new MEASUREMENT, so
  * rewriting an existing value from it would be peaks-loop overruling its own
- * probe with a policy constant — this repository's own file holds a
- * peaks-written 1M window that a 250_000 default must not cut down on every
- * init. An explicit argument (`number`), or `null` for "do not manage this one
+ * probe with a policy constant — an existing peaks-written value stands even
+ * when the current default differs, and this repository's own file is the
+ * shape that rule protects. An explicit argument (`number`), or `null` for
+ * "do not manage this one
  * on this call", is passed through as given (the provenance and band gates
  * still apply).
  *
