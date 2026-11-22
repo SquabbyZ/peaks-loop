@@ -132,12 +132,15 @@ export function resolveHarnessRatioWindow(state: HarnessWindowReadResult | null)
 /**
  * Materialize a window into the harness's own settings, so the number
  * peaks-loop divides by and the number the harness compacts against are one
- * value rather than two resolutions (slice
+ * value rather than two resolutions.
  *
- * The caller passes the denominator it JUST USED (`probe.capacityTokens`), not
- * a re-derived one — that is what makes the two sides structurally identical.
- * `tokens: null` (a percent-only probe carries no token window) is a
- * deliberate no-op: peaks-loop never invents a window it did not measure.
+ * A PROBE MAY ONLY FILL AN EMPTY SLOT. The project's settings file is its
+ * configuration; the probe's window is an observation (it may be shaped by an
+ * ambient process env or by a transcript inherited from another session), so a
+ * value the file already carries is never replaced — see
+ * `syncHarnessWindow`'s `onlyFillEmptySlot` and the `file-configures-window`
+ * result. `tokens: null` (a percent-only probe carries no token window) is
+ * likewise a no-op: peaks-loop never invents a window it did not measure.
  *
  * Returns `null` when the active adapter declares no window knob at all.
  */
@@ -148,7 +151,12 @@ export function syncHarnessWindowForProject(input: {
 }): HarnessWindowSyncResult | null {
   const location = resolveHarnessWindowLocation(input);
   if (location === null) return null;
-  return syncHarnessWindow({ location, tokens: input.tokens, env: input.env ?? process.env });
+  return syncHarnessWindow({
+    location,
+    tokens: input.tokens,
+    env: input.env ?? process.env,
+    onlyFillEmptySlot: true
+  });
 }
 
 /**

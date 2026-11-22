@@ -195,13 +195,13 @@ export function parseContextWindowOverride(raw: unknown): number | null {
  *
  *   Why it sits BELOW the two explicit pins. Both are human declarations of
  *   intent, and a pin that loses to a value peaks-loop wrote earlier is a
- *   silently ignored setting: the user changes `context.windowTokens`, the
- *   stale harness key shadows it, and nothing appears to happen. Conflict is
- *   instead resolved by PROPAGATION — the probe that resolves the pin also
- *   syncs it into the harness (`syncHarnessWindowForProject`), so peaks-loop's
- *   ratio and the harness's window are back on one number before that command
- *   returns. The conflict is therefore transient and self-healing rather than
- *   either silent shadowing or permanent drift.
+ *   silently ignored setting. A probe cannot rewrite a non-empty file (the
+ *   probe sync fills an empty slot only), so the writer REPORTS the
+ *   disagreement instead of overwriting the project's own configuration. The
+ *   conflict is therefore visible rather than silent, and the remedy is a
+ *   deliberate one: edit the key in the file (or remove it and let the next
+ *   probe fill the slot), or change `context.windowTokens` so a new project
+ *   starts from a different value.
  *
  *   Why layer 3 is not simply authoritative (the ratchet). Reading back a value
  *   peaks-loop wrote makes peaks-loop trust its own earlier resolution, so a
@@ -387,12 +387,12 @@ function findLatestTranscriptUsage(
  *     Overruling it would not be self-correction, it would be peaks-loop
  *     silently rewriting a setting the user chose (and persisting the rewrite).
  *
- * Both branches keep the single-source rule: the resolution this function
- * returns becomes `probe.capacityTokens`, and the caller syncs exactly that
- * back into the harness key (`syncHarnessWindowForProject`). When the rescue
- * fires, the key is refreshed to the bumped number in the same command, so
- * peaks-loop's ratio and the harness window are one number again — the rescue
- * never leaves the two sides apart.
+ * The resolution this function returns becomes `probe.capacityTokens`, so the
+ * rescue keeps the RATIO honest. It does NOT persist the bump: a probe may
+ * only fill an empty harness slot (`syncHarnessWindowForProject`), so a file
+ * that already configures a window keeps it, and every later probe re-derives
+ * the same correction from the same evidence — the correction is a property
+ * of the observation, not a rewrite of the project's configuration.
  */
 function resolveContextWindowTokens(
   model: string,

@@ -175,13 +175,14 @@ describe('harness-window-config — a value peaks-loop did not write is never to
       expect(envBlock()[HARNESS_WINDOW_WRITTEN_KEY]).toBe('200000');
     });
 
-    it('when peaks-loop is still the writer, should keep updating its own value (the 1M rescue path)', () => {
+    it('when an EXPLICIT caller updates peaks-loop’s own value, should still write (the writer is not the probe)', () => {
       // given: peaks-loop's own 200000, stale env and all
-      // when: peaks-loop is still the writer
-      // then: keep updating its own value (the 1M rescue path)
+      // when: an explicit caller (not the probe entry, which may only fill an
+      //       empty slot) asks the low-level writer for a larger value
+      // then: it writes, so the explicit-caller contract is intact
       writeSettings({ env: { [KEY]: '200000', [HARNESS_WINDOW_WRITTEN_KEY]: '200000' } });
       const frozenEnv = { [KEY]: '200000' } as NodeJS.ProcessEnv;
-      // when: the rescue raises the window
+      // when: an explicit caller raises the window
       const result = syncHarnessWindow({ location, tokens: 1_000_000, env: frozenEnv });
       // then: written, and the marker moves WITH the value (never split)
       expect(result).toMatchObject({

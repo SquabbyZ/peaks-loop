@@ -179,7 +179,7 @@ function buildHarnessWindowStateActions(
       ? 'No window is set yet. The next `peaks code context-now` probe materializes the window it computes its ratio against.'
       : `peaks-loop computes its context ratio against ${state.tokens} tokens; the harness fires near the end of that window. ${
           state.peakWritten
-            ? 'peaks-loop wrote this value; it may raise it if a session outgrows it.'
+            ? 'peaks-loop wrote this value, and it is the project’s configuration: a context probe will not replace it (only an empty slot is filled), so a session that outgrows it is reported, not rewritten.'
             : "This value is not peaks-loop's own write, so peaks-loop will not raise it — it is treated as your setting."
         }`,
     describePercentHalf(percent),

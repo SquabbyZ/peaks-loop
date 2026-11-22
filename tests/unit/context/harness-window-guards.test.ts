@@ -1,6 +1,6 @@
 // tests/unit/context/harness-window-guards.test.ts
 //
-// The two WHERE/WHAT guards of the harness window sync, split out of
+// The WHERE/WHAT guards of the harness window sync, split out of
 // `harness-window-config.test.ts` when that file crossed the 500-line tests cap.
 //
 // E1 — the harness accepts a token count only inside 100000..1000000; outside it
@@ -9,6 +9,10 @@
 // H1 — never write into the user's home directory: `--project .` from a fresh
 // terminal resolves the root to $HOME, whose settings file is shared by every
 // project the user owns.
+// F2 — a context probe may only FILL an EMPTY slot. The project's settings file
+// is its configuration; the probe's window is an observation (it may come from
+// an ambient process env or another session's transcript), so a value the file
+// already carries is never replaced — even when peaks-loop wrote it.
 //
 // Dimensions covered:
 //   - behavior:    each refusal, its reason, and the byte-identical file
@@ -30,6 +34,9 @@ import {
   syncHarnessWindow,
   type HarnessWindowLocation
 } from '~/src/services/context/harness-window-config';
+import { syncHarnessWindowForProject } from '~/src/services/context/auto-compact-reader';
+import { resolveHarnessCompactThresholdLocation } from '~/src/services/context/harness-compact-threshold-config';
+import { readHarnessCompactThreshold } from '~/src/services/context/harness-compact-threshold-verdict';
 
 declareDimensions(
   'tests/unit/context/harness-window-guards.test.ts',
@@ -41,6 +48,9 @@ declareDimensions(
 );
 
 const KEY = 'CLAUDE_CODE_AUTO_COMPACT_WINDOW';
+const PERCENT_KEY = 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE';
+/** Selecting the claude-code adapter without touching the real IDE markers. */
+const IDE_ENV = { CLAUDE_CODE_ENTRYPOINT: 'cli' } as NodeJS.ProcessEnv;
 
 /** A settings file shaped like the real one: a third-party env key + hooks. */
 function existingSettings(): Record<string, unknown> {
@@ -213,5 +223,146 @@ describe('harness-window-config — the band and home guards', () => {
       // then: no guard fires — the optional field is opt-in
       expect(result.action).toBe('written');
     });
+  });
+});
+
+const PROBE_ENV: NodeJS.ProcessEnv = {
+  ...IDE_ENV,
+  [KEY]: '1000000',
+  [PERCENT_KEY]: '80'
+};
+
+describe('harness-window-config — a probe only FILLS an empty slot (F2)', () => {
+  let root = '';
+  let settingsPath = '';
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'peaks-harness-window-file-wins-'));
+    settingsPath = join(root, '.claude', 'settings.local.json');
+    mkdirSync(join(root, '.claude'), { recursive: true });
+  });
+
+  afterEach(() => {
+    try {
+      rmSync(root, { recursive: true, force: true });
+    } catch {
+      /* best effort */
+    }
+  });
+
+  function seed(env: Record<string, unknown>): void {
+    writeFileSync(settingsPath, `${JSON.stringify({ env }, null, 2)}\n`, 'utf8');
+  }
+
+  function parsedEnv(): Record<string, unknown> {
+    const parsed = JSON.parse(readFileSync(settingsPath, 'utf8')) as {
+      env?: Record<string, unknown>;
+    };
+    return parsed.env ?? {};
+  }
+
+  it('when the file pins 250000 (peaks-owned) and the probe resolves 1000000, should leave it and report the disagreement', () => {
+    // given: a project configured at 250000 by workspace init, and a probe whose
+    //        own capacity is 1000000 — an ambient env or an inherited transcript,
+    //        not the project's configuration
+    // when: the probe syncs the denominator it resolved
+    // then: the file is untouched and the two sides are REPORTED as disagreeing
+    seed({ [KEY]: '250000', [HARNESS_WINDOW_WRITTEN_KEY]: '250000', [PERCENT_KEY]: '80' });
+    const before = readFileSync(settingsPath, 'utf8');
+    const result = syncHarnessWindowForProject({
+      projectRoot: root,
+      env: PROBE_ENV,
+      tokens: 1_000_000
+    });
+    expect(result).toMatchObject({
+      action: 'skipped',
+      reason: 'file-configures-window',
+      previousTokens: 250_000,
+      requestedTokens: 1_000_000
+    });
+    expect(readFileSync(settingsPath, 'utf8')).toBe(before);
+    expect(parsedEnv()[KEY]).toBe('250000');
+    expect(parsedEnv()[HARNESS_WINDOW_WRITTEN_KEY]).toBe('250000');
+    const thresholdLocation = resolveHarnessCompactThresholdLocation({
+      projectRoot: root,
+      env: PROBE_ENV
+    });
+    const verdict = readHarnessCompactThreshold({ location: thresholdLocation!, env: PROBE_ENV });
+    expect(verdict.configured.windowTokens).toBe(250_000);
+    expect(verdict.inForce.windowTokens).toBe(1_000_000);
+    expect(verdict.matches).toBe(false);
+  });
+
+  it('when the file is EMPTY and the probe resolves 1000000, should still fill the slot', () => {
+    // given: a project whose settings file has no window row yet
+    // when: the first probe syncs its denominator
+    // then: the first-write path is unchanged — the slot is filled and marked
+    seed({ [PERCENT_KEY]: '80' });
+    const result = syncHarnessWindowForProject({
+      projectRoot: root,
+      env: PROBE_ENV,
+      tokens: 1_000_000
+    });
+    expect(result).toMatchObject({ action: 'written', tokens: 1_000_000, previousTokens: null });
+    expect(parsedEnv()[KEY]).toBe('1000000');
+    expect(parsedEnv()[HARNESS_WINDOW_WRITTEN_KEY]).toBe('1000000');
+  });
+
+  it('when the file already holds the probe’s value, should write nothing (idempotent)', () => {
+    // given: the file configured at exactly the window the probe resolved
+    // when: the probe syncs that same value
+    // then: no write, byte-identical file
+    seed({ [KEY]: '250000', [HARNESS_WINDOW_WRITTEN_KEY]: '250000' });
+    const before = readFileSync(settingsPath, 'utf8');
+    const result = syncHarnessWindowForProject({
+      projectRoot: root,
+      env: IDE_ENV,
+      tokens: 250_000
+    });
+    expect(result?.action).toBe('unchanged');
+    expect(readFileSync(settingsPath, 'utf8')).toBe(before);
+  });
+
+  it('when a human pinned the window (no marker), should leave it untouched even for a larger probe', () => {
+    // given: a hand-set 250000 with no provenance marker (B1's human pin)
+    // when: a probe resolving 1000000 tries to sync
+    // then: refused for the existing B1 reason, and no marker appears to claim it
+    seed({ [KEY]: '250000' });
+    const result = syncHarnessWindowForProject({
+      projectRoot: root,
+      env: PROBE_ENV,
+      tokens: 1_000_000
+    });
+    expect(result).toMatchObject({ action: 'skipped', reason: 'not-peaks-owned' });
+    expect(parsedEnv()).toEqual({ [KEY]: '250000' });
+  });
+
+  it('when an EXPLICIT caller (not the probe) updates a peaks-owned value, should still write', () => {
+    // given: a peaks-owned 250000 and a caller that is not the probe entry
+    // when: the low-level writer is asked for a different value without the probe flag
+    // then: it writes — the file-wins rule is the probe's contract, not the writer's
+    seed({ [KEY]: '250000', [HARNESS_WINDOW_WRITTEN_KEY]: '250000' });
+    const result = syncHarnessWindow({
+      location: { settingsPath, envVar: KEY, projectRoot: root },
+      tokens: 500_000,
+      env: {}
+    });
+    expect(result).toMatchObject({ action: 'written', previousTokens: 250_000 });
+    expect(parsedEnv()[KEY]).toBe('500000');
+  });
+
+  it('when the probe is refused, should preserve every sibling env row verbatim', () => {
+    // given: a project file with the threshold pair plus an unrelated env row
+    // when: a probe resolves 1000000 and attempts the sync
+    // then: the whole file is byte-identical — no row was rewritten or reordered
+    seed({
+      [KEY]: '250000',
+      [HARNESS_WINDOW_WRITTEN_KEY]: '250000',
+      [PERCENT_KEY]: '80',
+      GATEGUARD_EXEMPT_GLOBS: '.peaks/**'
+    });
+    const before = readFileSync(settingsPath, 'utf8');
+    syncHarnessWindowForProject({ projectRoot: root, env: PROBE_ENV, tokens: 1_000_000 });
+    expect(readFileSync(settingsPath, 'utf8')).toBe(before);
   });
 });

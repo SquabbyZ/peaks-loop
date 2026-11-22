@@ -690,8 +690,8 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
   // The acceptance table, reproduced end to end through the SAME composition
   // the CLI uses: `readContextPercent` (which resolves the harness window from
   // the adapter's own declarations) followed by `syncHarnessWindowForProject`
-  // (which writes the denominator it just used). A session starts small, grows
-  // 16×, and the window must follow it — not pin the ratio at 1.0 forever.
+  // (the probe sync). The RATIO follows the evidence; a window the file already
+  // configures stays put, because a probe may only fill an empty slot.
   describe('Scenario: acceptance — the self-lock, row by row', () => {
     const WINDOW_KEY = 'CLAUDE_CODE_AUTO_COMPACT_WINDOW';
 
@@ -739,7 +739,7 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
       expect(windowOnDisk(project)).toBe('200000');
     });
 
-    it('row 2 — the SAME session grows to 500K: must resolve 1M and refresh the harness key with it', () => {
+    it('row 2 — the SAME session grows to 500K: must resolve 1M without rewriting the configured file', () => {
       const project = makeProject();
       writeTranscript(outer, [
         usageLine('deepseek-v4-flash', {
@@ -762,11 +762,11 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
       // then: the late 1M rescue fires through the harness layer (no ratchet)...
       expect(probe.capacityTokens).toBe(1_000_000);
       expect(probe.ratio).toBeCloseTo(0.5, 5);
-      // ...and the T1 single-source rule still holds: the very same number is
-      // refreshed into the harness key, so the two sides never disagree
-      expect(sync!.action).toBe('written');
+      // ...and the probe STILL may not rewrite the configured file:
+      expect(sync!.action).toBe('skipped');
+      expect(sync!.reason).toBe('file-configures-window');
       expect(sync!.previousTokens).toBe(200_000);
-      expect(windowOnDisk(project)).toBe('1000000');
+      expect(windowOnDisk(project)).toBe('200000');
     });
 
     it('row 3 — control: with the key deleted, the resolution is unchanged (1M)', () => {
@@ -800,7 +800,7 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
       expect(probe.ratio).toBeCloseTo(0.5, 5);
     });
 
-    it('row 4 — a running session whose env is frozen at the OLD window must not flip back after the refresh', () => {
+    it('row 4 — a running session whose env is frozen at the OLD window must not flip back or ratchet', () => {
       const project = makeProject();
       writeTranscript(outer, [
         usageLine('deepseek-v4-flash', {
@@ -820,18 +820,18 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
           cache_creation_input_tokens: 0
         })
       ]);
-      // when: the session probes again and peaks-loop refreshes the file
+      // when: the session probes again with the stale env still in place
       const second = probeAndSync(project, frozen);
       expect(second.probe.capacityTokens).toBe(1_000_000);
-      expect(second.sync!.action).toBe('written');
-      // then: the NEXT probe of the same session repeats 1M instead of
-      //       decaying back to the pinned value — provenance is judged against
-      //       the file, not against the stale copy the env still hands us
+      expect(second.sync!.action).toBe('skipped');
+      expect(second.sync!.reason).toBe('file-configures-window');
+      // then: the NEXT probe re-derives the same 1M (no decay, no ratchet),
+      //       and the project file stays the configuration
       const third = probeAndSync(project, frozen);
       expect(third.probe.capacityTokens).toBe(1_000_000);
       expect(third.probe.ratio).toBeCloseTo(0.5, 5);
-      expect(third.sync!.action).toBe('unchanged');
-      expect(windowOnDisk(project)).toBe('1000000');
+      expect(third.sync!.action).toBe('skipped');
+      expect(windowOnDisk(project)).toBe('200000');
     });
 
     // Defect 2 of the round-2 dispatch: the write must REACH A HUMAN. The

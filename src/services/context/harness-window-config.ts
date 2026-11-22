@@ -1,27 +1,16 @@
 /**
  * Harness auto-compact window ownership
  *
- * The goal (user's words): *when* to trigger auto-compact must be
- * peaks-loop's decision; *how* to compact stays the harness's capability.
- *
- * That only holds if the two sides agree on ONE number. Before this slice
- * they each resolved a window independently: Claude Code used the window it
- * knows for the model, while peaks-loop divided by `resolveContextWindow()`
- * (env → config → model-name heuristic → 200_000 default). A 1M-window model
- * whose id the heuristic does not recognise made peaks-loop's "95%" land at
- * 190K while the harness waited for ~967K — a 5× early trigger, and (before
- * T3) a deadlock, because nothing could lower the ratio.
- *
- * This module owns the OTHER half: the harness itself accepts a window override
- * (`IdeCompactProfile.autoCompactWindowEnvVar`, declared per adapter — no IDE
- * names here), so peaks-loop writes the very number it computes the ratio
- * against into the harness's own machine-local settings file. Reader and writer
- * reference one artifact, not two resolutions that must "remember" to agree.
+ * The two sides must agree on ONE number. The harness accepts a window override
+ * (`IdeCompactProfile.autoCompactWindowEnvVar`, declared per adapter), so
+ * peaks-loop writes the very number it computes its ratio against into the
+ * harness's own machine-local settings file. Reader and writer reference one
+ * artifact, not two resolutions that must "remember" to agree.
  *
  * Vendor neutrality: this module knows about a JSON file with an `env` block
  * and nothing else. The settings path and the env-var name are BOTH passed in
- * by the caller, resolved from the IDE adapter's declarations: no IDE id, no
- * `.claude` literal, no registry import.
+ * by the caller, from the IDE adapter's declarations: no IDE id, no `.claude`
+ * literal, no registry import.
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -58,25 +47,13 @@ export const HARNESS_WINDOW_SYNC_OPTOUT_VALUE = 'off';
  * Provenance marker: the window value peaks-loop ITSELF last wrote, recorded
  * in the same `env` block as the window key.
  *
- * Why it must exist. The window key is a SHARED artifact — the harness reads
- * it, the user may set it by hand (it is a documented Claude Code variable),
- * and peaks-loop writes it. Two rules collide on it:
- *
- *   - the ratio peaks-loop reports must divide by the key (the single-source
- *     rule), so the key outranks the model heuristic; and
- *   - a first-time mis-resolution must not become PERMANENT.
- *
- * The second rule needs the late 1M rescue to be able to overrule the key when
- * the observed context proves the key too small. Applied to a value a HUMAN
- * pinned, that same rescue would silently destroy an explicit setting — the
- * user asks for an early compact, a long session outgrows the pin, and
- * peaks-loop rewrites the file to 1M, permanently. Applied to peaks-loop's own
- * earlier output it is simply self-correction.
- *
- * This marker is what tells the two apart: it records what peaks-loop wrote,
- * so a mismatch means the human has taken the key over and the rescue must
- * stand down. It travels in the same write as the value it describes, so the
- * two can never disagree about which write they belong to.
+ * The window key is shared — the harness reads it, the user may hand-edit it,
+ * and peaks-loop writes it. This marker records what peaks-loop wrote, so a
+ * mismatch means the human has taken the key over and the late 1M rescue must
+ * stand down. Applied to a human's pin that rescue would silently destroy an
+ * explicit setting; applied to peaks-loop's own earlier output it is
+ * self-correction. It travels in the same write as the value, so the two can
+ * never disagree about which write they belong to.
  */
 export const HARNESS_WINDOW_WRITTEN_KEY = 'PEAKS_HARNESS_WINDOW_WRITTEN';
 
@@ -205,6 +182,13 @@ export interface HarnessWindowSyncResult {
    *                             without it a stale process env (or any
    *                             re-resolution) silently reverts a human's
    *                             hand-edited window and re-claims ownership.
+   *   - `file-configures-window` — a PROBE-driven call (`onlyFillEmptySlot`)
+   *                             found the file already carrying a value it may
+   *                             not replace. The file is the project's
+   *                             configuration; a probe is an observation and
+   *                             may only FILL an empty slot. Nothing was
+   *                             written; `requestedTokens` vs `previousTokens`
+   *                             names the disagreement the caller must report.
    *   - `symlinked-settings`  — the file, or the `.claude` directory holding it,
    *                             is a symlink or junction, so a write would
    *                             follow it into whatever it points at.
@@ -258,10 +242,10 @@ export interface HarnessWindowSyncResult {
    *
    * Reported because "the file already holds the number we wanted" has two very
    * different meanings and only this flag tells them apart: peaks-loop's own
-   * earlier output, which it may raise when a session outgrows it, versus a
-   * value a human pinned, which it never will. Without it, `unchanged` reads as
-   * "all good" for a key peaks-loop has permanently stopped managing — the
-   * state a user upgrading from a pre-marker release is silently in.
+   * earlier output, which the ratio rescue may use to raise the DENOMINATOR,
+   * versus a value a human pinned, which it never will. Without it, `unchanged`
+   * reads as "all good" for a key peaks-loop has permanently stopped managing —
+   * the state a user upgrading from a pre-marker release is silently in.
    *
    * Always `true` for `action: 'written'`: the write that produced the result
    * is what sets the marker.
@@ -345,8 +329,9 @@ function envString(settings: SettingsFileShape | null, key: string): unknown {
  * Order: the process env FIRST (that is the value the RUNNING session
  * captured at start-up, so it is what the harness is actually compacting
  * against right now), then the settings file (what the next session will
- * read). When the two disagree, the file is what the sync updates — the
- * process env cannot be changed from inside a running session.
+ * read). When the two disagree, the FILE is the configured value; a probe
+ * reports the disagreement rather than replacing it, and the process env
+ * cannot be changed from inside a running session.
  */
 export function readHarnessWindow(input: {
   readonly location: HarnessWindowLocation;
@@ -414,6 +399,12 @@ export function syncHarnessWindow(input: {
   readonly location: HarnessWindowLocation;
   readonly tokens: number | null;
   readonly env?: NodeJS.ProcessEnv | undefined;
+  /**
+   * True for a PROBE-driven call: fill an empty slot, never replace a value the
+   * file already configures. The observed window is an observation, so it must
+   * not become the project's configuration. Omitted by explicit callers (init).
+   */
+  readonly onlyFillEmptySlot?: boolean;
 }): HarnessWindowSyncResult {
   const settingsPath = input.location.settingsPath;
   const current = readHarnessWindow({ location: input.location, env: input.env });
@@ -487,6 +478,15 @@ export function syncHarnessWindow(input: {
   const peakOwned = fileRaw === undefined || current.peakWritten;
   if (!peakOwned) {
     return { ...base, action: 'skipped', reason: 'not-peaks-owned', tokens: current.tokens };
+  }
+  // THE FILE WINS OVER A PROBE. `onlyFillEmptySlot` marks the calls a context
+  // probe makes: they may FILL an absent key (the write below) but never
+  // replace a value the file already configures — the file is the project's
+  // configuration and the probe is an observation. Placed AFTER the B1 guard
+  // so a human pin still reports `not-peaks-owned`; this reason is only for a
+  // peaks-owned value the probe would otherwise have replaced.
+  if (input.onlyFillEmptySlot === true && fileRaw !== undefined) {
+    return { ...base, action: 'skipped', reason: 'file-configures-window', tokens: current.tokens };
   }
 
   const settings = fileSettings ?? {};

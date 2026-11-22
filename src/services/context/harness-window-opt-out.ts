@@ -222,6 +222,8 @@ function skippedHarnessWindowClause(result: HarnessWindowSyncResult): string {
       return `Harness window not managed: ${result.settingsPath} is a symlink (or a Windows junction), or the directory holding it is, so writing would follow the link and overwrite the file it points at. Replace the link with a real file (or directory) and the window lands here.`;
     case 'not-peaks-owned':
       return `Harness window not managed: ${result.settingsPath} already carries a window that peaks-loop did not write, and peaks-loop never overwrites (or claims) a value it did not write.`;
+    case 'file-configures-window':
+      return `Harness window not managed: ${result.settingsPath} already configures a window, and the project file wins over a probe — peaks-loop only fills an empty slot. Change ${result.key} in that file (or remove it and let the next probe fill it) if you want a different window.`;
     default:
       return `Harness window not managed (${String(result.reason)}).`;
   }
