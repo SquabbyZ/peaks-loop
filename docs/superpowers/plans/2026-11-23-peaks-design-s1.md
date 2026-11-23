@@ -22,7 +22,8 @@
 - Reviewable artifacts go under `.peaks/_runtime/<sessionId>/design/...`; never create `.peaks/<YYYY-MM-DD-*>/`.
 - Commit messages must not contain any AI-assistant co-author trailer.
 - S1 must not write `DESIGN_CONFORMANCE` gate evidence; `--gate` is S3. A source-only pass requires an explicit `--allow-source-only --accept-note "<user words>"`.
-- Tests use `declareDimensions(...)` and the BDD triple as the first three consecutive comments.
+- Tests use `declareDimensions(...)` and the BDD triple as the first three consecutive comments. **No code may sit between `// given:`, `// when:` and `// then:`** — the ratchet scans for three consecutive comment lines at the start of each callback.
+- After adding a new file under `src/**` or `packages/*/src/**`, regenerate `.peaks/lint/gate-baseline.json` with `node .husky/peaks-gate-baseline.mjs` and commit the diff. New files need a row; the generator refuses to raise a ceiling, so read the diff before committing. (Discovered during S1 Task 2: three tree-tier tests fail until the baseline has the new rows.)
 
 ## Review Focus
 
