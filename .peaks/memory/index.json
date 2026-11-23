@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-23T12:15:07.123Z",
+  "updatedAt": "2026-11-23T19:26:43.554Z",
   "hot": {
     "rule": [
       {
@@ -4538,6 +4538,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\claude-code-has-no-llm-invocable-compact.md",
         "sourceArtifact": null,
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "designlang-integration-facts-the-s2-spike-pinned",
+        "kind": "reference",
+        "description": "is a hard dependency pinned in the lockfile at 13.4.1.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\designlang-integration-facts-the-s2-spike-pinned.md",
+        "sourceArtifact": ".peaks/_runtime/2026-11-23-session-320f58/txt/handoff-s2.md",
+        "updatedAt": "2026-11-23"
       },
       {
         "name": "fzf-for-js-api-semantics-used-by-peaks-loop-fuzzy-matching",
