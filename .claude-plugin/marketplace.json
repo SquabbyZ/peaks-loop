@@ -81,6 +81,11 @@
           "description": "Non-code orchestrator for content workflows (draft / edit / publish / archive). Use when a user wants to drive an end-to-end content-production loop (blog post, newsletter, marketing copy, social thread, doc page) where the LLM must coordinate draft / edit / tone / publish / archive stages with explicit gates between them, and where the user only wants to speak natural language and pick options. NOT for free-form chatting; NOT for code review. Reuses the peaks-loop Loop Engineering primitives (Loop Engineering Asset, Bee Asset, Workflow Trace, Evolution Evaluation) but does NOT import peaks-code internals. Triggers on `/peaks-content`, \"peaks content\", \"content workflow\", \"publish this to <channel>\", \"edit the draft\", \"archive the previous version\"."
         },
         {
+          "name": "peaks-design",
+          "path": "./skills/peaks-design",
+          "description": "Design-governance orchestrator for the Peaks-Loop skill family. Use when the user asks to establish a design system, audit page consistency, or bring a page back to the business style in a code repository (设计治理 / UI 治理 / 设计系统 / 页面风格不一致). Coordinates peaks-ui, peaks-rd and peaks-qa on top of the design/ contract while preserving user confirmation gates; never dispatched by peaks-code. Triggers on `/peaks-design`, \"设计治理\", \"UI 治理\", \"设计系统\", \"页面风格不一致\"."
+        },
+        {
           "name": "peaks-doctor",
           "path": "./skills/peaks-doctor",
           "description": "Orchestrate peaks-loop's L3 doctor (peaks audit + peaks doctor + peaks openspec from-doctor) for project health. Use when the user asks for a project health check, doctor report, audit, or wants to convert doctor findings into OpenSpec change records. Coordinates the L2 audit framework + the L3.2 doctor + the L3.3 from-doctor proposal generator. Triggers on `/peaks-doctor`, \"peaks doctor\", \"项目健康\", \"doctor report\", \"health check\", \"check the project\", \"audit my repo\".",

@@ -4,7 +4,7 @@ description: |
   Sediment and SkillHub author. Use when the user describes — in natural language — intent to (a) capture a workflow as a reusable skill, (b) refine or clone an existing bee, (c) export / import a skill bundle, (d) retain a release for the local SkillHub, or (e) dispose a previous release. Intent-based, never keyword-based: "调一下", "改改", "下次复用" all map to the same concrete `peaks skill sediment …` verb. User never types CLI; peaks-maker runs it on the user's behalf.
 ---
 
-<!-- peaks:loop-hygiene — HAND-MAINTAINED block, NOT generated; byte-identical in every SKILL.md, enforced by tests/unit/skills/loop-hygiene-block.test.ts. Edit one, edit all 25. -->
+<!-- peaks:loop-hygiene — HAND-MAINTAINED block, NOT generated; byte-identical in every SKILL.md, enforced by tests/unit/skills/loop-hygiene-block.test.ts. Edit one, edit all 26. -->
 
 ## Loop hygiene (every turn — MANDATORY)
 

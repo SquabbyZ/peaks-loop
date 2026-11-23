@@ -27,6 +27,9 @@ export type PresenceRoleTier = 'orchestrator' | 'bee';
 export const ORCHESTRATOR_ROLE_SKILLS: readonly string[] = [
   'peaks-code',
   'peaks-content',
+  // The design-governance sibling lane: a user-facing entry that is never
+  // dispatched by peaks-code.
+  'peaks-design',
   'peaks-doctor',
   'peaks-issue-fix-orchestrator',
   'peaks-solo',

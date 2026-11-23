@@ -146,11 +146,12 @@ describe('Scenario: behavior — the installer enumerates both distributed skill
     // then: it holds every SKILL.md under the tree — no document is invisible
     //       to the installer, and no candidate is a phantom
     const candidates = collectSkillCandidates(SKILLS_ROOT);
-    expect(candidates).toHaveLength(25);
+    expect(candidates).toHaveLength(26);
     expect(candidates.map((candidate) => candidate.skillName).sort()).toEqual([
       'peaks-audit',
       'peaks-code',
       'peaks-content',
+      'peaks-design',
       'peaks-doctor',
       'peaks-final-review',
       'peaks-ide',
