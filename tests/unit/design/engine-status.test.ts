@@ -1,4 +1,4 @@
-import { delimiter, dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
@@ -319,7 +319,7 @@ describe('Scenario: integration — the filesystem browser probes', () => {
     // when: the browser is detected
     // then: no candidate is built from an empty directory
     setPlatform('linux');
-    setEnv('PATH', ['', '', ''].join(delimiter));
+    setEnv('PATH', '::');
     const { detectBrowser } = await loadEngineStatus();
     expect(detectBrowser()).toBeNull();
     expect(mocks.existsSync.mock.calls.map(([path]) => path)).toEqual([

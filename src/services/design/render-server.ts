@@ -135,10 +135,14 @@ async function killTree(child: ChildProcess): Promise<void> {
     await waitForExit(child, EXIT_WAIT_MS);
     return;
   }
-  if (!signalGroup(pid, 'SIGTERM')) return;
-  if (await waitForExit(child, POSIX_TERM_WAIT_MS)) return;
-  if (!signalGroup(pid, 'SIGKILL')) return;
-  await waitForExit(child, POSIX_KILL_WAIT_MS);
+  if (signalGroup(pid, 'SIGTERM')) {
+    await waitForExit(child, POSIX_TERM_WAIT_MS);
+  }
+  // The shell exiting on SIGTERM does not prove a grandchild followed it, so the
+  // group is always SIGKILLed once the grace has passed; a missing group is gone.
+  if (signalGroup(pid, 'SIGKILL')) {
+    await waitForExit(child, POSIX_KILL_WAIT_MS);
+  }
 }
 
 /** Track the child's exit, including a spawn error that never emits `exit`. */

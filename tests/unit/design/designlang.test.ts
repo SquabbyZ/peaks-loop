@@ -20,6 +20,8 @@ import {
   runDesignlang
 } from '../../../src/services/design/designlang.js';
 
+import { isAlive } from './_fake-designlang.js';
+
 const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-designlang-'));
 const jsonScript = join(projectRoot, 'json.mjs');
 const exitScript = join(projectRoot, 'exit.mjs');
@@ -96,15 +98,6 @@ afterEach(() => {
 afterAll(() => {
   rmSync(projectRoot, { recursive: true, force: true });
 });
-
-function isAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((settle) => {

@@ -218,14 +218,46 @@ function waitForExit(child: ChildProcess): Promise<void> {
   });
 }
 
-/** True when a pid still exists. */
+/**
+ * True when a pid still names a running process.
+ *
+ * POSIX `kill(pid, 0)` also succeeds for a child that exited but was not reaped
+ * yet (state `Z` on Linux), so the signal probe alone calls a zombie "alive".
+ * Linux therefore reads `/proc/<pid>/stat` and treats `Z` as gone; Windows and
+ * macOS keep the signal-probe rule unchanged.
+ */
 export function isAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
+  } catch (error) {
+    // EPERM: the pid exists but belongs to another user, so it is alive.
+    return (error as NodeJS.ErrnoException).code === 'EPERM';
   }
+  return !isZombie(pid);
+}
+
+/**
+ * Linux keeps a dead-but-unwaited child in `/proc`; only its state field tells
+ * the truth. `pid (comm) state ...` puts `comm` in the one parenthesis pair, so
+ * the state is the first field after the LAST `)`.
+ */
+function isZombie(pid: number): boolean {
+  if (process.platform !== 'linux') return false;
+  let stat: string;
+  try {
+    stat = readFileSync(`/proc/${String(pid)}/stat`, 'utf8');
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    // The entry vanished between the signal probe and this read: the pid is gone.
+    // Any other read failure leaves the signal probe as the only evidence.
+    return code === 'ENOENT' || code === 'ENOTDIR';
+  }
+  const close = stat.lastIndexOf(')');
+  if (close < 0) return false;
+  return stat
+    .slice(close + 1)
+    .trim()
+    .startsWith('Z');
 }
 
 /** Poll a predicate until it holds, then resolve; reject at the deadline. */

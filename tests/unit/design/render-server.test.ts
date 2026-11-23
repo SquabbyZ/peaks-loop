@@ -21,10 +21,13 @@ import {
   type RenderServerHandle
 } from '../../../src/services/design/render-server.js';
 
+import { isAlive } from './_fake-designlang.js';
+
 const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-render-server-'));
 const serverScript = join(projectRoot, 'server.mjs');
 const idleScript = join(projectRoot, 'idle.mjs');
 const exitScript = join(projectRoot, 'exit.mjs');
+const ignoreTermScript = join(projectRoot, 'ignore-term.mjs');
 
 /** Every handle the tests started, so a failing test still reaps its child. */
 const handles: RenderServerHandle[] = [];
@@ -60,6 +63,16 @@ beforeAll(() => {
     ].join('\n')
   );
   writeFileSync(exitScript, 'process.exit(7);\n');
+  writeFileSync(
+    ignoreTermScript,
+    [
+      "import { writeFileSync } from 'node:fs';",
+      'const [pidFile] = process.argv.slice(2);',
+      'writeFileSync(pidFile, String(process.pid));',
+      "process.on('SIGTERM', () => {});",
+      'setInterval(() => {}, 1000);'
+    ].join('\n')
+  );
 });
 
 afterEach(async () => {
@@ -101,15 +114,6 @@ async function freePort(): Promise<number> {
     });
   });
   return port;
-}
-
-function isAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 async function killPid(pid: number): Promise<void> {
@@ -214,8 +218,35 @@ describe('Scenario: behavior — start failures are classified, not thrown', () 
       expect(result.message).not.toContain(SECRET_TOKEN);
       const pid = await readPid(pidFile);
       pids.push(pid);
+      // SIGTERM may land a few ms before the grandchild leaves the process table.
+      await waitUntil(() => !isAlive(pid));
       expect(isAlive(pid)).toBe(false);
       expect(await probeRenderUrl(url, 500)).toBe(false);
+    }
+  );
+
+  it.skipIf(process.platform === 'win32')(
+    'when the command ignores SIGTERM, should SIGKILL the whole group',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // given: a start command whose node process ignores SIGTERM
+      // when: the start budget elapses
+      // then: the group-wide SIGKILL still reaps it, not just the shell
+      const port = await freePort();
+      const url = `http://127.0.0.1:${port}/`;
+      const pidFile = join(projectRoot, 'ignore-term.pid');
+      const result = await startRenderServer({
+        projectRoot,
+        cwd: '.',
+        command: nodeCommand(ignoreTermScript, pidFile),
+        url,
+        timeoutMs: 800
+      });
+      expect(result.ok).toBe(false);
+      const pid = await readPid(pidFile);
+      pids.push(pid);
+      await waitUntil(() => !isAlive(pid));
+      expect(isAlive(pid)).toBe(false);
     }
   );
 

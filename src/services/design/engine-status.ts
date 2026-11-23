@@ -11,7 +11,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
-import { delimiter, dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 export type EngineUnavailableCode =
   'DESIGN_ENGINE_UNAVAILABLE' | 'DESIGN_ENGINE_VERSION_UNSUPPORTED' | 'DESIGN_BROWSER_UNAVAILABLE';
@@ -122,7 +122,9 @@ function knownChromePaths(): string[] {
 }
 
 function findOnPath(names: readonly string[]): string | null {
-  const dirs = (process.env.PATH ?? '').split(delimiter).filter((dir) => dir !== '');
+  // The separator belongs to the platform being inspected, not to the host.
+  const separator = process.platform === 'win32' ? ';' : ':';
+  const dirs = (process.env.PATH ?? '').split(separator).filter((dir) => dir !== '');
   const suffixes = process.platform === 'win32' ? ['', '.exe', '.cmd', '.bat'] : [''];
   for (const name of names) {
     for (const dir of dirs) {
