@@ -11,9 +11,10 @@
  * update` share this planner, so the two verbs cannot disagree.
  */
 import { existsSync, lstatSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
-import { isAbsolute, relative, resolve } from 'node:path';
+import { isAbsolute, join, relative, resolve } from 'node:path';
 
 import { isExpectedFsMiss } from '../../shared/fs-utils.js';
+import { DESIGN_GOVERNANCE_RELATIVE_PATH } from '../design/design-standard.js';
 import type { ProjectScripts } from './project-scripts.js';
 import {
   AGENTS_MD_FILENAME,
@@ -239,7 +240,9 @@ export function buildConstitutionUpdate(input: {
   const body = buildFileUpdate({
     projectRoot: input.projectRoot,
     relativePath: input.constitution.bodyFile,
-    body: renderAgentsMd(input.language, input.scripts, input.rulesRoot),
+    body: renderAgentsMd(input.language, input.scripts, input.rulesRoot, {
+      hasDesignGovernance: existsSync(join(input.projectRoot, DESIGN_GOVERNANCE_RELATIVE_PATH))
+    }),
     managedBlock,
     pointerLine: null
   });
@@ -273,7 +276,13 @@ export function scaffoldConstitutionFiles(input: {
   const written: string[] = [];
   const bodyPath = resolve(input.projectRoot, input.constitution.bodyFile);
   if (!existsSync(bodyPath)) {
-    writeFileSync(bodyPath, renderAgentsMd(input.language, input.scripts, input.rulesRoot), 'utf8');
+    writeFileSync(
+      bodyPath,
+      renderAgentsMd(input.language, input.scripts, input.rulesRoot, {
+        hasDesignGovernance: existsSync(join(input.projectRoot, DESIGN_GOVERNANCE_RELATIVE_PATH))
+      }),
+      'utf8'
+    );
     written.push(input.constitution.bodyFile);
   }
   const pointerFile = input.constitution.pointerFile;

@@ -73,17 +73,29 @@ function renderCommandSection(scripts: ProjectScripts): string[] {
  * `rulesRoot` is the directory the project's standards actually live in:
  * `.peaks/standards` for the 2.0 canonical layout, `.claude/rules` for a
  * project still carrying the 1.x tree.
+ *
+ * The design governance line appears only when the project actually carries
+ * the `design-governance.md` standard; a pointer to a file that is not there
+ * sends the agent to a read that fails.
  */
-function renderStandardsSection(language: StandardsLanguage, rulesRoot: string): string[] {
-  return [
+function renderStandardsSection(
+  language: StandardsLanguage,
+  rulesRoot: string,
+  hasDesignGovernance: boolean
+): string[] {
+  const lines = [
     '## Peaks standards to read',
     '',
     `- Read \`${rulesRoot}/common/coding-style.md\` before editing code.`,
     `- Read \`${rulesRoot}/common/code-review.md\` before reviewing changes.`,
     `- Read \`${rulesRoot}/common/security.md\` before touching filesystem, user input, external calls, auth, or secrets.`,
-    `- Read \`${rulesRoot}/${language}/coding-style.md\` for language-specific standards when applicable.`,
-    ''
+    `- Read \`${rulesRoot}/${language}/coding-style.md\` for language-specific standards when applicable.`
   ];
+  if (hasDesignGovernance) {
+    lines.push(`- Read \`${rulesRoot}/common/design-governance.md\` before changing UI code.`);
+  }
+  lines.push('');
+  return lines;
 }
 
 /** The per-role preflight contract the Peaks workflow roles rely on. */
@@ -115,6 +127,12 @@ function renderProvenanceSection(): string[] {
   return ['## Provenance', '', '> 🤖 AI 生成，请审阅', ''];
 }
 
+/** Options the constitution renderer accepts. */
+export type RenderAgentsMdOptions = {
+  /** Print the design governance read line — set only when the file exists. */
+  readonly hasDesignGovernance?: boolean;
+};
+
 /**
  * The AGENTS.md body.
  *
@@ -128,7 +146,8 @@ function renderProvenanceSection(): string[] {
 export function renderAgentsMd(
   language: StandardsLanguage,
   scripts: ProjectScripts,
-  rulesRoot: string
+  rulesRoot: string,
+  options: RenderAgentsMdOptions = {}
 ): string {
   const lines: string[] = [
     '# Project Instructions',
@@ -137,7 +156,7 @@ export function renderAgentsMd(
     ''
   ];
   lines.push(...renderCommandSection(scripts));
-  lines.push(...renderStandardsSection(language, rulesRoot));
+  lines.push(...renderStandardsSection(language, rulesRoot, options.hasDesignGovernance === true));
   lines.push(...renderWorkflowSection());
   lines.push(...renderPresenceSection());
   lines.push(...renderProvenanceSection());
