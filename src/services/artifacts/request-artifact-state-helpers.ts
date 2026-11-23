@@ -15,7 +15,6 @@ export type RequestArtifactState =
   | 'boundary-recorded'
   | 'handed-off'
   | 'blocked';
-
 export const ALLOWED_STATES_PER_ROLE: Record<
   RequestArtifactRole,
   ReadonlyArray<RequestArtifactState>
@@ -24,7 +23,8 @@ export const ALLOWED_STATES_PER_ROLE: Record<
   ui: ['draft', 'direction-locked', 'handed-off', 'blocked'],
   rd: ['draft', 'spec-locked', 'implemented', 'qa-handoff', 'handed-off', 'blocked'],
   qa: ['draft', 'running', 'verdict-issued', 'blocked'],
-  sc: ['draft', 'impact-recorded', 'boundary-recorded', 'handed-off', 'blocked']
+  sc: ['draft', 'impact-recorded', 'boundary-recorded', 'handed-off', 'blocked'],
+  design: ['draft', 'spec-locked', 'implemented', 'qa-handoff', 'handed-off', 'blocked']
 };
 
 export function allowedStatesForRole(

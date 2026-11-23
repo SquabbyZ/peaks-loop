@@ -1,5 +1,5 @@
 /**
- * Static template bodies for the five request-artifact templates in
+ * Static template bodies for the six request-artifact templates in
  * artifact-templates.ts, hoisted VERBATIM for the 300-line cap
  * (C-family wave 4, leaf c4w1-artifacts). Each constant is the byte-exact
  * middle chunk of the corresponding template markdown body; the render
@@ -179,5 +179,30 @@ export const SC_TEMPLATE_BODY = `## Change impact
 - code review evidence: ...
 
 ## Sync / authorization
+
+`;
+
+export const DESIGN_TEMPLATE_BODY = `## Scope
+
+- apps / routes / components / surfaces in scope
+- explicit out-of-scope surfaces (do not modify)
+
+## Contract status
+
+- design/ contract: adopted | not-adopted | not-applicable
+- contract version and last check envelope: ...
+
+## Conformance
+
+- verdict: pass | fail | blocked | not-applicable
+- findings per rule id, file, line, remediation
+
+## Changed paths
+
+changedPath: <path>
+
+## Acceptance
+
+- per-criterion: check method, result (pass | fail | blocked), evidence path
 
 `;

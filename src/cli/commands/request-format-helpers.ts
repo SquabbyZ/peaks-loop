@@ -89,7 +89,7 @@ export function inferArtifactName(envelope: unknown, role: string): string {
   return role;
 }
 
-export const VALID_ROLES: ReadonlyArray<RequestArtifactRole> = ['prd', 'ui', 'rd', 'qa', 'sc'];
+export const VALID_ROLES = ['prd', 'ui', 'rd', 'qa', 'sc', 'design'] as const;
 
 export function parseRole(value: string): RequestArtifactRole {
   if (!VALID_ROLES.includes(value as RequestArtifactRole)) {

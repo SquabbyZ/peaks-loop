@@ -113,7 +113,8 @@ function groupRequestsByRole(
     ui: [],
     rd: [],
     qa: [],
-    sc: []
+    sc: [],
+    design: []
   };
   for (const item of items) {
     byRole[item.role].push(item);

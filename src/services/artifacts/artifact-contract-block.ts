@@ -22,9 +22,9 @@ import { isUnsafePathInput } from '../../shared/path-safety.js';
 import type { RequestArtifactRole } from './artifact-templates.js';
 
 /** Roles whose request artifact may carry a `- type:` line, in search order. */
-const TYPE_SOURCE_ROLES: readonly RequestArtifactRole[] = ['rd', 'prd', 'qa', 'ui', 'sc'];
+const TYPE_SOURCE_ROLES: readonly RequestArtifactRole[] = ['rd', 'prd', 'qa', 'ui', 'sc', 'design'];
 
-/** True for the five roles the state table is keyed on. */
+/** True for the six roles the state table is keyed on. */
 function isRequestArtifactRole(role: string): role is RequestArtifactRole {
   return Object.prototype.hasOwnProperty.call(ALLOWED_STATES_PER_ROLE, role);
 }

@@ -6,17 +6,18 @@ import {
   PRD_TEMPLATE_BODY,
   UI_TEMPLATE_BODY,
   RD_TEMPLATE_BODY,
+  DESIGN_TEMPLATE_BODY,
   renderQaTemplateBody,
   SC_TEMPLATE_BODY
 } from './artifact-template-bodies.js';
 
 /**
- * Role discriminator for the five request-artifact templates. Lives here
+ * Role discriminator for the six request-artifact templates. Lives here
  * (rather than in `request-artifact-service.ts`) so this pure-function
  * module has no dependency on the service. The service re-exports it for
  * back-compat with external callers.
  */
-export type RequestArtifactRole = 'prd' | 'ui' | 'rd' | 'qa' | 'sc';
+export type RequestArtifactRole = 'prd' | 'ui' | 'rd' | 'qa' | 'sc' | 'design';
 
 /** What every role's render needs beyond the request's own identity. */
 export type RenderTemplateContext = {
@@ -236,6 +237,28 @@ ${renderTypeLine(requestType)}
   );
 }
 
+function renderDesignTemplate(
+  requestId: string,
+  sessionId: string,
+  timestamp: string,
+  requestType: RequestType | null
+): string {
+  return (
+    `# Design Request ${requestId}
+
+- session: ${sessionId}
+${renderTypeLine(requestType)}
+` +
+    DESIGN_TEMPLATE_BODY +
+    `## Status
+
+- created: ${timestamp}
+- last update: ${timestamp}
+- state: draft
+`
+  );
+}
+
 export function renderTemplate(
   role: RequestArtifactRole,
   requestId: string,
@@ -263,5 +286,7 @@ export function renderTemplate(
       );
     case 'sc':
       return renderScTemplate(requestId, sessionId, changeSlug, timestamp, requestType);
+    case 'design':
+      return renderDesignTemplate(requestId, changeSlug, timestamp, requestType);
   }
 }

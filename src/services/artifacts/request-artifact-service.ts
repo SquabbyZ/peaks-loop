@@ -102,7 +102,7 @@ export type CreateRequestArtifactResult = {
  * that can drift.
  */
 export const REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
-const VALID_ROLES: ReadonlySet<RequestArtifactRole> = new Set(['prd', 'ui', 'rd', 'qa', 'sc']);
+const VALID_ROLES = new Set<RequestArtifactRole>(['prd', 'ui', 'rd', 'qa', 'sc', 'design']);
 
 function defaultClock(): string {
   return new Date().toISOString();
@@ -152,7 +152,7 @@ export async function createRequestArtifact(
   options: CreateRequestArtifactOptions
 ): Promise<CreateRequestArtifactResult> {
   if (!VALID_ROLES.has(options.role)) {
-    throw new Error(`Invalid role: ${String(options.role)} (expected prd, ui, rd, qa, or sc)`);
+    throw new Error(`Invalid role: ${String(options.role)} (expected prd, ui, rd, qa, sc, design)`);
   }
   if (!REQUEST_ID_PATTERN.test(options.requestId)) {
     throw new Error(
@@ -424,7 +424,7 @@ export async function showRequestArtifact(
   options: ShowRequestArtifactOptions
 ): Promise<ShowRequestArtifactResult | null> {
   if (!VALID_ROLES.has(options.role)) {
-    throw new Error(`Invalid role: ${String(options.role)} (expected prd, ui, rd, qa, or sc)`);
+    throw new Error(`Invalid role: ${String(options.role)} (expected prd, ui, rd, qa, sc, design)`);
   }
   if (!REQUEST_ID_PATTERN.test(options.requestId)) {
     throw new Error(
@@ -550,7 +550,7 @@ export async function transitionRequestArtifact(
   options: TransitionRequestArtifactOptions
 ): Promise<TransitionRequestArtifactResult | null> {
   if (!VALID_ROLES.has(options.role)) {
-    throw new Error(`Invalid role: ${String(options.role)} (expected prd, ui, rd, qa, or sc)`);
+    throw new Error(`Invalid role: ${String(options.role)} (expected prd, ui, rd, qa, sc, design)`);
   }
   if (!REQUEST_ID_PATTERN.test(options.requestId)) {
     throw new Error(
