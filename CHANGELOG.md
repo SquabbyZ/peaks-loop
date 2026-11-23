@@ -1,5 +1,31 @@
 # Changelog
 
+## 4.3.0 — 2026-11-24（peaks design S2：渲染引擎、动态 URL 与 G2 真值矩阵）
+
+**版本级别**：**minor**（新增能力：把设计渲染引擎接入 `peaks design check`；无破坏性变更，`design init/status/uninit` 与 `--source-only` 语义不变）。
+
+**一句话：`peaks design check` 从"只扫源码"升级为"真渲染 + 正证据"——引擎、浏览器、URL、证据任一缺失都只能 `blocked`，绝不放行。**
+
+### 1. 加了什么
+
+- **引擎可用性**：解析 `designlang` 的包入口、探测浏览器（内置或系统 Chrome，只查文件系统，不跑 `designlang doctor`、不下载浏览器），并用适配器常量 `ADAPTER_SUPPORTED_MAJOR = 13` 卡主版本。`engine.json` 里记录的 `supportedMajor` 只是信息，不能放宽门禁。
+- **渲染 URL**：优先级 `--url` > `PEAKS_DESIGN_URL` > `engine.json` > 派生的 loopback；`--pages` 的每一页在解析后都重新过 `isTrustedDesignUrl`（防 SSRF）。可选 `--start` 负责启动与回收本地服务，成功、失败、超时三条路径都用进程树杀灭（Windows `taskkill /T /F`，POSIX 进程组）。
+- **designlang 包装**：`drift` / `verify-ui` / `slop` / `grade` 四个命令，退出 0 但没有可解析证据一律视为 no-evidence（`pages: []` 且无 `generatedAt` 不算证据）；`drift` / `verify-ui` 非零为 fail，`slop` / `grade` 仍是建议性。
+- **G2 矩阵**：`checkDesign` 与 CLI 新增 `--url`、`--pages`、`--start`；`--source-only` 仍是诊断通道，`--gate` 留给 S3。
+- **契约错误文案**：`DESIGN_CONTRACT_INVALID` 明确指向 `design/tokens.json` 与 `design/engine.json`。
+
+### 2. 验证
+
+- 全量单测：724 files / 7867 passed / 4 skipped。
+- `tsc --noEmit` 0；prettier clean；eslint 0（改动源文件）。
+- 作用域变异测试：killRate **0.8106**（1057/1304，阈值 0.8），弱断言 0/328。
+- QA 独立复核 pass；安全审计按最终 hash 重出（8/8 匹配，0 违规）；Karpathy 复核 pass；性能审计 pass。
+
+### 3. 兼容性
+
+- 不改变 S1 行为：`design init/status/uninit`、`--source-only`、`--allow-source-only --accept-note` 语义不变。
+- `designlang` 仍是硬依赖（13.4.1）；没有内置浏览器的机器上，渲染检查会返回 `blocked`，这是设计目标而不是缺陷。
+
 ## 4.2.6 — 2026-11-22（默认压缩窗口 250K → 1M：交给 harness 按模型上下文钳制）
 
 **版本级别**：**patch**（只改一个默认常量及其文档注释；无新能力，无 schema 变更，无门禁阈值放宽）。
