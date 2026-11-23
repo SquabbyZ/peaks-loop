@@ -175,7 +175,8 @@ export async function scanExistingSystem(
     }
     const cssVars = parseCssVars(content, rel);
     if (cssVars.length > 0) {
-      sources.push({ path: rel, kind: 'css-vars' });
+      const kind = /@theme\b/.test(content) ? 'theme-file' : 'css-vars';
+      sources.push({ path: rel, kind });
       rawTokens.push(...cssVars);
     }
   }
