@@ -178,6 +178,7 @@
     "@colbymchenry/codegraph": "1.6.2",
     "@upstash/context7-mcp": "^4.4.4",
     "commander": "^12.1.0",
+    "designlang": "^13.4.1",
     "fzf": "^0.5.2",
     "peaks-loop-internal-runtime": "workspace:*",
     "peaks-loop-mut": "workspace:*",
