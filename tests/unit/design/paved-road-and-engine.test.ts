@@ -44,7 +44,7 @@ describe('Scenario: behavior — the engine contract does not hardcode a URL', (
   it('when built with no explicit URL, should leave render.url null', () => {
     // given: a dev command and port
     // when: the engine file is read
-    // then: no fixed URL is stored
+    // then: no fixed URL is stored, and the recorded command implies on-request
     const engine = buildEngineContract({
       cwd: 'web',
       startCommand: 'bun run dev',
@@ -54,7 +54,7 @@ describe('Scenario: behavior — the engine contract does not hardcode a URL', (
     });
     expect(engine.render.url).toBeNull();
     expect(engine.render.cwd).toBe('web');
-    expect(engine.render.startPolicy).toBe('never');
+    expect(engine.render.startPolicy).toBe('on-request');
   });
 });
 

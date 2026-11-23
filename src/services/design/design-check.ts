@@ -1,5 +1,4 @@
-/** The source-only design check — S1's verdict matrix. A `pass` is only ever G1
- *  conformance plus an explicit, recorded acceptance; everything else is blocked. */
+/** The source-only design check: a `pass` is only G1 conformance plus a recorded acceptance. */
 import { existsSync } from 'node:fs';
 import { extname, join } from 'node:path';
 
@@ -7,7 +6,16 @@ import { normalizePath } from '../../shared/path-utils.js';
 import { readGitChangeSet } from '../scan/file-size-baseline.js';
 import { readRidChangeClaims } from '../scan/rid-change-claims.js';
 import { scanExistingSystem } from '../scan/existing-system-service.js';
+import {
+  CHANGE_SET_UNKNOWN_MESSAGE,
+  CONTRACT_INVALID_MESSAGE,
+  DEGRADED_MESSAGE,
+  DesignCheckUsageError,
+  NOT_ADOPTED_MESSAGE,
+  RENDER_REQUIRED_MESSAGE
+} from './acceptance.js';
 import { resolveContractRoot } from './contract-root.js';
+import { completeG2, type DesignEngineDeps, type G2RenderCheck } from './design-check-g2.js';
 import type { PavedRoadFile } from './paved-road.js';
 import { appFiles, readPavedRoad, readTokens } from './source-scan/inputs.js';
 import type { DesignFinding } from './source-scan/scan-file.js';
@@ -23,13 +31,13 @@ export type DesignCheckResult = {
   surface: { isUi: boolean | 'unknown'; reasons: string[] };
   checks: {
     g1_source: { status: 'pass' | 'fail' | 'not-applicable'; findings: DesignFinding[] };
-    g2_render: { status: 'skipped'; reason: 'explicitly-accepted' | 's2-not-implemented' };
+    g2_render: G2RenderCheck;
   };
   findings: DesignFinding[];
   coverage: TokenCoverage | null;
   errorCode?: string;
   message?: string;
-  /** The session that recorded the user's acceptance; null when none was supplied. */
+  warnings?: string[];
   acceptedBy?: string | null;
 };
 
@@ -46,28 +54,22 @@ export type CheckDesignSourceOnlyInput = {
   acceptNote?: string;
 };
 
+/** The S1 input plus the G2 render inputs (spec §7.1). */
+export type CheckDesignInput = CheckDesignSourceOnlyInput & {
+  url?: string;
+  pages?: readonly string[];
+  start?: boolean;
+  /** The diagnostic: report G1 only, skip G2, and never pass. */
+  sourceOnly?: boolean;
+};
+
 type CheckInput = CheckDesignSourceOnlyInput;
 
-export class DesignCheckUsageError extends Error {
-  readonly code = 'DESIGN_ACCEPT_NOTE_REQUIRED';
-  constructor() {
-    super("--allow-source-only requires --accept-note with the user's own words.");
-    this.name = 'DesignCheckUsageError';
-  }
-}
+/** Kept exported from here: the S1 surface threw this refuse, and still does. */
+export { DesignCheckUsageError };
 
 const CONTRACT_FILES = ['contract.md', 'tokens.json', 'paved-road.json', 'engine.json'] as const;
 const UI_EXTENSIONS = new Set('.tsx .jsx .vue .svelte .css .scss .sass .less .html'.split(' '));
-const NOT_ADOPTED_MESSAGE =
-  'No design contract is adopted for this app; run `peaks design init` first.';
-const CHANGE_SET_UNKNOWN_MESSAGE =
-  'The change set is empty, unreadable, or names no file in this app; an empty change set is blocked, not a pass.';
-const RENDER_NOT_IMPLEMENTED_MESSAGE =
-  'S1 has no render engine, so G2 cannot run; a source-only pass needs an explicit acceptance.';
-const DEGRADED_MESSAGE =
-  'The changed UI files could not be read by the source scanner (unsupported file family, deleted file, or outside pageRoots); a zero-file scan is blocked, never a pass.';
-const CONTRACT_INVALID_MESSAGE =
-  'design/tokens.json has no usable token groups; run `peaks design init` to rewrite it.';
 
 type ResultOverrides = Partial<Omit<DesignCheckResult, 'schemaVersion' | 'rid'>>;
 
@@ -198,8 +200,8 @@ function verdictFromScan(
   return makeResult(rid, {
     ...evidence,
     verdict: 'blocked',
-    errorCode: 'DESIGN_RENDER_NOT_IMPLEMENTED',
-    message: RENDER_NOT_IMPLEMENTED_MESSAGE
+    errorCode: 'DESIGN_RENDER_REQUIRED',
+    message: RENDER_REQUIRED_MESSAGE
   });
 }
 
@@ -210,14 +212,17 @@ function requireAcceptNote(input: CheckInput): void {
   }
 }
 
-export async function checkDesignSourceOnly(input: CheckInput): Promise<DesignCheckResult> {
+/** The contract-root resolution, so a caller that already resolved it can share it. */
+type RootResolution = Awaited<ReturnType<typeof resolveContractRoot>>;
+
+export async function checkDesignSourceOnly(
+  input: CheckInput,
+  preResolved?: RootResolution
+): Promise<DesignCheckResult> {
   const { rid = null } = input;
   requireAcceptNote(input);
 
-  const resolved = await resolveContractRoot({
-    projectRoot: input.projectRoot,
-    ...(input.appPath === undefined ? {} : { appPath: input.appPath })
-  });
+  const resolved = preResolved ?? (await resolveContractRoot(input));
   if (!resolved.ok) {
     return makeResult(rid, {
       verdict: 'blocked',
@@ -263,4 +268,22 @@ export async function checkDesignSourceOnly(input: CheckInput): Promise<DesignCh
     tokens
   });
   return verdictFromScan(input, rid, surface, scan);
+}
+
+/** S1 first, then G2 from the same resolved root; the acceptance path wins. */
+export async function checkDesign(
+  input: CheckDesignInput,
+  deps?: DesignEngineDeps
+): Promise<DesignCheckResult> {
+  const resolved = await resolveContractRoot(input);
+  const base = await checkDesignSourceOnly(input, resolved);
+  if (input.allowSourceOnly === true) return base;
+  if (input.sourceOnly === true) {
+    return {
+      ...base,
+      checks: { ...base.checks, g2_render: { status: 'skipped', reason: 'source-only' } }
+    };
+  }
+  if (base.checks.g1_source.status !== 'pass' || !resolved.ok) return base;
+  return completeG2(input, base, resolved.root, deps);
 }

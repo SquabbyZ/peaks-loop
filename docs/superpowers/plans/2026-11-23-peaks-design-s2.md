@@ -287,3 +287,15 @@ Do not commit. The orchestrator runs QA, then commits once with the full contrac
 - **Spec coverage:** engine availability, dynamic URL, positive evidence, G2 matrix, and the `--start` opt-in are each a task. `--gate` and G3 stay out of S2 by design.
 - **Known unknown:** the exact JSON schema of `drift` / `verify-ui` / `slop` is not captured by the spike (no browser). The parser treats it as opaque non-empty evidence; if the real shape differs, the adapter records the raw JSON and the QA can tighten it without changing the verdict logic.
 - **S1 boundary:** `checkDesignSourceOnly` stays; `checkDesign` adds G2. `--allow-source-only` keeps the S1 acceptance path.
+
+---
+
+## Final interfaces (recorded by Task 5)
+
+The implementation kept the Task 1–4 contracts and added the names below. Anything not listed matches its task block verbatim.
+
+- **Task 1 (`engine-status.ts`)** — the evaluator's input is the named `EngineEvaluationInput`; `BrowserKind` and `detectBrowser()` are exported for the availability tests.
+- **Task 2 (`render-url.ts`, `render-server.ts`)** — inputs are named `ResolveRenderUrlInput` / `StartRenderServerInput`; results are `RenderUrlResult` (with `RenderUrlSource`), `StartRenderServerResult` (with `StartRenderServerCode`), and `RenderServerHandle`; `DESIGN_URL_ENV_KEY` names the env var. `probeRenderUrl(url, timeoutMs = 2000)`.
+- **Task 3 (`designlang.ts`)** — inputs are named `DesignlangRunInput`, `BuildDesignlangArgsInput`, `ParseDesignlangEvidenceInput`; evidence is `DesignlangEvidence`; `DEFAULT_RUN_TIMEOUT_MS` is exported and `readGradeEvidence(outDir)` reads the newest `*.grade.json`.
+- **Task 4 (`design-check-g2.ts`, `design-check.ts`)** — `DesignEngineDeps.run(kind, input)` takes `DesignEngineRunInput = { args: readonly string[] }`, and the deps gain an optional `readGrade?: (outDir) => Promise<DesignlangEvidence>` so the advisory grade is injectable. The `g2_render` skipped union keeps the S1 early-result value: `'explicitly-accepted' | 'source-only' | 's2-not-implemented'` (the last is only the pre-G2 default and never a `checkDesign` outcome). `CheckDesignInput` also carries `sourceOnly?: boolean`. The G2 entry points are `evaluateG2` (the matrix) and `completeG2` (contract-root + deps wiring), with `G2Outcome` as the intermediate result.
+- **Task 5 fixtures** — `tests/unit/design/_fake-designlang.ts` exports `fakeEngine(overrides)`, `writeFakeScript(name, { stdout, stderr, exitCode, sleepMs })`, `fakeStartServer(url)`, `createAdoptedApp()`, `setStartCommand(root, command)`, `runResult`, `isAlive`, `waitUntil`, and `disposeFixtures()`.

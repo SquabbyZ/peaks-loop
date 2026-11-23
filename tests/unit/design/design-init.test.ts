@@ -156,6 +156,24 @@ describe('Scenario: behavior — init writes the contract once and preserves use
     expect(readFileSync(join(root, 'design', 'contract.md'), 'utf8')).toBe('# user prose\n');
   });
 
+  it('when a start command is recorded, should mark the policy on-request', async () => {
+    // given: one app initialized with a dev-server command and one without
+    // when: each engine.json is read
+    // then: only the recorded command records startPolicy on-request
+    const withStart = makeApp();
+    await initDesignContract({ projectRoot: withStart, startCommand: 'npm run dev' });
+    const started = readJsonFile<{ render: { startPolicy: string } }>(
+      join(withStart, 'design', 'engine.json')
+    );
+    expect(started.render.startPolicy).toBe('on-request');
+    const without = makeApp();
+    await initDesignContract({ projectRoot: without });
+    const idle = readJsonFile<{ render: { startPolicy: string } }>(
+      join(without, 'design', 'engine.json')
+    );
+    expect(idle.render.startPolicy).toBe('never');
+  });
+
   it('when --force reruns, should preserve the paved-road user overrides', async () => {
     // given: an initialized project whose paved road was customized by the user
     // when: init runs again with force

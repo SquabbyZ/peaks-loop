@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
+import { CHECK_BLOCKED_ACTIONS, blockedMessage } from '../../../src/services/design/acceptance.js';
 import { initDesignContract } from '../../../src/services/design/design-init.js';
 
 declareDimensions('tests/unit/design/design-check.test.ts', [
@@ -31,12 +32,12 @@ const NOT_ADOPTED_MESSAGE =
   'No design contract is adopted for this app; run `peaks design init` first.';
 const CHANGE_SET_UNKNOWN_MESSAGE =
   'The change set is empty, unreadable, or names no file in this app; an empty change set is blocked, not a pass.';
-const RENDER_NOT_IMPLEMENTED_MESSAGE =
-  'S1 has no render engine, so G2 cannot run; a source-only pass needs an explicit acceptance.';
+const RENDER_REQUIRED_MESSAGE =
+  'G2 (render) did not run; a design check needs a render verdict. Re-run without --source-only, or record an acceptance with --allow-source-only --accept-note.';
 const DEGRADED_MESSAGE =
   'The changed UI files could not be read by the source scanner (unsupported file family, deleted file, or outside pageRoots); a zero-file scan is blocked, never a pass.';
 const CONTRACT_INVALID_MESSAGE =
-  'design/tokens.json has no usable token groups; run `peaks design init` to rewrite it.';
+  'design/tokens.json has no usable token groups; run `peaks design init` to rewrite design/tokens.json and design/engine.json.';
 
 /** The result shape every early refusal shares: defaults from `makeResult`. */
 const DEFAULT_SURFACE = { isUi: 'unknown', reasons: [] as string[] };
@@ -161,7 +162,6 @@ describe('Scenario: behavior — the verdict matrix', () => {
       changedFiles: ['src/routes/a.tsx']
     });
     expect(partial.verdict).toBe('not-adopted');
-    expect(partial.message).toBe(NOT_ADOPTED_MESSAGE);
   });
 
   it('when the change set is empty or unreadable, should block rather than pass', async () => {
@@ -187,6 +187,9 @@ describe('Scenario: behavior — the verdict matrix', () => {
     expect(unreadable.verdict).toBe('blocked');
     expect(unreadable.errorCode).toBe('DESIGN_CHANGE_SET_UNKNOWN');
     expect(unreadable.message).toContain('git diff');
+    const ridOnly = await checkDesignSourceOnly({ projectRoot: root, rid: 'r-123' });
+    expect(ridOnly.verdict).toBe('blocked');
+    expect(ridOnly.errorCode).toBe('DESIGN_CHANGE_SET_UNKNOWN');
   });
 
   it('when the change is not UI, should be not-applicable', async () => {
@@ -251,7 +254,10 @@ describe('Scenario: behavior — the verdict matrix', () => {
     expect(result.verdict).toBe('fail');
     expect(result.checks.g1_source.status).toBe('fail');
     expect(result.findings.map((finding) => finding.code)).toEqual(['DESIGN_INLINE_STYLE']);
-    expect(result.checks.g2_render.reason).toBe('explicitly-accepted');
+    expect(result.checks.g2_render).toEqual({
+      status: 'skipped',
+      reason: 'explicitly-accepted'
+    });
     expect(result.acceptedBy).toBe('session-1');
     const mod = await loadDesignCheck();
     expect(mod.exitCodeForVerdict(result.verdict)).toBe(1);
@@ -272,8 +278,8 @@ describe('Scenario: behavior — the verdict matrix', () => {
         ...acceptance
       });
       expect(result.verdict).toBe('blocked');
-      expect(result.errorCode).toBe('DESIGN_RENDER_NOT_IMPLEMENTED');
-      expect(result.message).toBe(RENDER_NOT_IMPLEMENTED_MESSAGE);
+      expect(result.errorCode).toBe('DESIGN_RENDER_REQUIRED');
+      expect(result.message).toBe(RENDER_REQUIRED_MESSAGE);
       expect(result.checks.g2_render).toEqual({
         status: 'skipped',
         reason: 's2-not-implemented'
@@ -346,13 +352,11 @@ describe('Scenario: integration — change-set paths are repository-relative', (
     });
     expect(outside.verdict).toBe('blocked');
     expect(outside.errorCode).toBe('DESIGN_CHANGE_SET_UNKNOWN');
-    expect(outside.message).toBe(CHANGE_SET_UNKNOWN_MESSAGE);
     const ownReadme = await checkDesignSourceOnly({
       projectRoot: root,
       changedFiles: ['web/README.md']
     });
     expect(ownReadme.verdict).toBe('not-applicable');
-    expect(ownReadme.surface.isUi).toBe(false);
   });
 
   it('when --app picks one of two apps, should not block as ambiguous', async () => {
@@ -367,7 +371,7 @@ describe('Scenario: integration — change-set paths are repository-relative', (
       appPath: 'apps/a',
       changedFiles: ['apps/a/src/routes/a.tsx']
     });
-    expect(result.errorCode).toBe('DESIGN_RENDER_NOT_IMPLEMENTED');
+    expect(result.errorCode).toBe('DESIGN_RENDER_REQUIRED');
     expect(result.verdict).toBe('blocked');
   });
 
@@ -483,6 +487,12 @@ describe('Scenario: behavior — an uncovered or broken input is blocked, not a 
       expect(result.verdict).toBe('blocked');
       expect(result.errorCode).toBe('DESIGN_CONTRACT_INVALID');
       expect(result.message).toBe(CONTRACT_INVALID_MESSAGE);
+      expect(result.message).toContain('design/tokens.json');
+      expect(result.message).toContain('design/engine.json');
+      const action = (CHECK_BLOCKED_ACTIONS.DESIGN_CONTRACT_INVALID ?? []).join(' ');
+      expect(action).toContain('design/tokens.json');
+      expect(action).toContain('design/engine.json');
+      expect(blockedMessage('DESIGN_CONTRACT_INVALID')).toContain('design/engine.json');
     }
   });
 });

@@ -1,5 +1,6 @@
 /**
- * What `--allow-source-only` may record, and what it must refuse (spec §7.1 Q3).
+ * What `--allow-source-only` may record, what the check refuses, and the text
+ * every blocked code reports (spec §7.1 Q3).
  *
  * A source-only pass stands in for a render check the slice never ran, so it
  * is a human act: the note is the user's own words, the session names who
@@ -33,6 +34,57 @@ export const ACCEPT_NOTE_ACTIONS = [
 export const SOURCE_ONLY_DIAGNOSTIC =
   '--source-only reports the G1 layer only and never produces a pass; record an acceptance with --allow-source-only --accept-note "<the user\'s words>".';
 
+/** The S1/G2 refusal text: one sentence per blocked code, so the CLI never invents one. */
+export const NOT_ADOPTED_MESSAGE =
+  'No design contract is adopted for this app; run `peaks design init` first.';
+export const CHANGE_SET_UNKNOWN_MESSAGE =
+  'The change set is empty, unreadable, or names no file in this app; an empty change set is blocked, not a pass.';
+export const RENDER_REQUIRED_MESSAGE =
+  'G2 (render) did not run; a design check needs a render verdict. Re-run without --source-only, or record an acceptance with --allow-source-only --accept-note.';
+export const DEGRADED_MESSAGE =
+  'The changed UI files could not be read by the source scanner (unsupported file family, deleted file, or outside pageRoots); a zero-file scan is blocked, never a pass.';
+export const CONTRACT_INVALID_MESSAGE =
+  'design/tokens.json has no usable token groups; run `peaks design init` to rewrite design/tokens.json and design/engine.json.';
+
+/** An acceptance without the user's own words is a usage error, never a verdict. */
+export class DesignCheckUsageError extends Error {
+  readonly code = 'DESIGN_ACCEPT_NOTE_REQUIRED';
+  constructor() {
+    super("--allow-source-only requires --accept-note with the user's own words.");
+    this.name = 'DesignCheckUsageError';
+  }
+}
+
+/** The sentence each blocked check code reports; `blockedMessage` falls back to the code. */
+export const CHECK_BLOCKED_MESSAGES: Record<string, string> = {
+  DESIGN_ENGINE_UNAVAILABLE: 'designlang is not installed; it is a hard dependency of peaks-loop.',
+  DESIGN_ENGINE_VERSION_UNSUPPORTED:
+    'The installed designlang major is not the one this adapter was written against.',
+  DESIGN_BROWSER_UNAVAILABLE:
+    'No Chromium or system Chrome was found; install a browser (peaks never downloads one).',
+  DESIGN_RENDER_URL_MISSING:
+    'No render URL is configured: pass --url, set PEAKS_DESIGN_URL, or record render.url or render.port in design/engine.json.',
+  DESIGN_URL_UNTRUSTED:
+    'The render URL or page is outside the trust boundary: use a loopback URL, or record this exact URL as render.url in design/engine.json.',
+  DESIGN_RENDER_UNREACHABLE: 'The render URL did not answer; start the app or re-run with --start.',
+  DESIGN_RENDER_NO_EVIDENCE:
+    'A designlang check exited 0 without its JSON evidence; the render verdict cannot pass.',
+  DESIGN_START_COMMAND_MISSING:
+    'No render.startCommand is recorded in design/engine.json; record one or start the app yourself.',
+  DESIGN_START_COMMAND_EXITED:
+    'The start command exited before the render URL answered; fix the command or start the app yourself.',
+  DESIGN_START_NOT_ALLOWED:
+    'design/engine.json records startPolicy "never"; only a policy of "on-request" allows --start.',
+  DESIGN_SESSION_ID_INVALID:
+    'The session id used for the grade output must be a single path segment (no "..", "/", or "\\").',
+  DESIGN_CONTRACT_INVALID:
+    'design/tokens.json or design/engine.json is invalid; run `peaks design init` to rewrite both.'
+};
+
+export function blockedMessage(code: string): string {
+  return CHECK_BLOCKED_MESSAGES[code] ?? code;
+}
+
 const SOURCE_ONLY_ACTIONS = [
   'Ask the user to accept source-only interactively, then re-run with --session-id.'
 ];
@@ -52,8 +104,41 @@ export function activeSessionId(projectRoot: string): string | null {
 
 /** The next action each blocked check code offers; `pass` and `fail` carry their own. */
 export const CHECK_BLOCKED_ACTIONS: Record<string, string[]> = {
-  DESIGN_RENDER_NOT_IMPLEMENTED: [
-    'Ask the user whether to accept source-only; re-run with --allow-source-only and --accept-note "<their words>".'
+  DESIGN_RENDER_REQUIRED: [
+    'Re-run without --source-only to run G2, or record an acceptance with --allow-source-only and --accept-note "<their words>".'
+  ],
+  DESIGN_ENGINE_UNAVAILABLE: [
+    'Install peaks-loop dependencies so designlang resolves; it is a hard dependency.'
+  ],
+  DESIGN_ENGINE_VERSION_UNSUPPORTED: [
+    'Update peaks-loop or designlang so the installed major matches the adapter.'
+  ],
+  DESIGN_BROWSER_UNAVAILABLE: [
+    'Install Chrome or Chromium (peaks never downloads a browser), then re-run the check.'
+  ],
+  DESIGN_RENDER_URL_MISSING: [
+    'Pass --url, set PEAKS_DESIGN_URL, or record render.url or render.port in design/engine.json.'
+  ],
+  DESIGN_URL_UNTRUSTED: [
+    'Use a loopback URL, or record the exact URL as render.url in design/engine.json.'
+  ],
+  DESIGN_RENDER_UNREACHABLE: [
+    'Start the app, or record render.startCommand and re-run with --start.'
+  ],
+  DESIGN_RENDER_NO_EVIDENCE: [
+    'Run the designlang check by hand to see why it printed no JSON, then re-run the check.'
+  ],
+  DESIGN_START_COMMAND_MISSING: [
+    'Record render.startCommand with `peaks design init --start <command>`, or start the app yourself.'
+  ],
+  DESIGN_START_COMMAND_EXITED: [
+    'Fix the recorded start command so it keeps running, then re-run with --start.'
+  ],
+  DESIGN_START_NOT_ALLOWED: [
+    'Re-run `peaks design init --start <command>` so the policy is on-request, or start the app yourself.'
+  ],
+  DESIGN_SESSION_ID_INVALID: [
+    'Pass --session-id with a single path segment (no ".." or path separators).'
   ],
   DESIGN_CHANGE_SET_UNKNOWN: [
     'Supply --files, or --rid with --session-id, or a --base ref so the change set is known.'
@@ -61,7 +146,9 @@ export const CHECK_BLOCKED_ACTIONS: Record<string, string[]> = {
   DESIGN_SOURCE_CHECK_DEGRADED: [
     'Move the changed pages under design/paved-road.json pageRoots, or narrow --files to files the source scanner covers.'
   ],
-  DESIGN_CONTRACT_INVALID: ['Run `peaks design init` to rewrite design/tokens.json.']
+  DESIGN_CONTRACT_INVALID: [
+    'Run `peaks design init` to rewrite design/tokens.json and design/engine.json.'
+  ]
 };
 
 const ciIsSet = (value: string | undefined): boolean =>

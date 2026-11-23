@@ -13,7 +13,7 @@ import {
   type AcceptanceEnv
 } from '../../services/design/acceptance.js';
 import {
-  checkDesignSourceOnly,
+  checkDesign,
   type DesignCheckResult,
   exitCodeForVerdict
 } from '../../services/design/design-check.js';
@@ -47,6 +47,7 @@ export type DesignCheckCliOptions = {
   base?: string;
   url?: string;
   pages?: string;
+  start?: boolean;
   sourceOnly?: boolean;
   allowSourceOnly?: boolean;
   acceptNote?: string;
@@ -110,6 +111,10 @@ function checkInput(options: DesignCheckCliOptions, allowSourceOnly: boolean) {
     ...(options.sessionId === undefined ? {} : { sessionId: options.sessionId }),
     ...(options.files === undefined ? {} : { changedFiles: splitList(options.files) }),
     ...(options.base === undefined ? {} : { base: options.base }),
+    ...(options.url === undefined ? {} : { url: options.url }),
+    ...(options.pages === undefined ? {} : { pages: splitList(options.pages) }),
+    ...(options.start === true ? { start: true } : {}),
+    sourceOnly: options.sourceOnly === true,
     allowSourceOnly,
     ...(options.acceptNote === undefined ? {} : { acceptNote: options.acceptNote })
   };
@@ -123,16 +128,9 @@ function checkNextActions(result: DesignCheckResult): string[] {
   return result.errorCode === undefined ? [] : (CHECK_BLOCKED_ACTIONS[result.errorCode] ?? []);
 }
 
-/** `--url` and `--pages` scope G2, which S1 does not have; say so rather than drop them. */
+/** The check's own warning; G2 contributes advisory slop/grade warnings separately. */
 function checkWarnings(options: DesignCheckCliOptions): string[] {
-  const used: string[] = [];
-  if (options.url !== undefined) used.push('--url');
-  if (options.pages !== undefined) used.push('--pages');
-  const warnings = used.map(
-    (flag) => `${flag} is a G2 render input; S1 has no render engine, so it was not used.`
-  );
-  if (options.sourceOnly === true) warnings.push(SOURCE_ONLY_DIAGNOSTIC);
-  return warnings;
+  return options.sourceOnly === true ? [SOURCE_ONLY_DIAGNOSTIC] : [];
 }
 
 export async function runDesignInit(options: DesignInitCliOptions, io: ProgramIO): Promise<void> {
@@ -223,10 +221,15 @@ export async function runDesignCheck(
     }
   }
   try {
-    const result = await checkDesignSourceOnly(checkInput(checkOptions, accepted));
+    const result = await checkDesign(checkInput(checkOptions, accepted));
     printResult(
       io,
-      ok('design.check', result, checkWarnings(options), checkNextActions(result)),
+      ok(
+        'design.check',
+        result,
+        [...checkWarnings(options), ...(result.warnings ?? [])],
+        checkNextActions(result)
+      ),
       options.json
     );
     process.exitCode = exitCodeForVerdict(result.verdict);
@@ -237,9 +240,7 @@ export async function runDesignCheck(
 }
 
 export function registerDesignCommands(program: Command, io: ProgramIO): void {
-  const design = program
-    .command('design')
-    .description('Build and check the per-app design contract (source-only in S1)');
+  const design = program.command('design').description('Build and check the design contract');
 
   addJsonOption(
     design
@@ -274,15 +275,19 @@ export function registerDesignCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     design
       .command('check')
-      .description('Judge the change set against the design contract (G1 source-only in S1)')
+      .description('Judge the change set against the design contract (G1 source + G2 render)')
       .requiredOption('--project <path>', 'project root')
       .option('--app <path>', 'app root when several frontends exist')
       .option('--rid <rid>', 'request id whose ## Changed paths claims scope the change set')
       .option('--session-id <id>', 'session for rid claims (defaults to the active binding)')
       .option('--files <list>', 'comma-separated change set, repository-relative')
       .option('--base <ref>', 'git ref the change set is read against (default HEAD)')
-      .option('--url <url>', 'render URL (G2; not used in S1)')
-      .option('--pages <list>', 'render pages (G2; not used in S1)')
+      .option(
+        '--url <url>',
+        'render URL for G2 (defaults to engine.json or a derived loopback URL)'
+      )
+      .option('--pages <list>', 'comma-separated render pages for G2')
+      .option('--start', 'start the dev server recorded in engine.json for G2')
       .option('--source-only', 'report the G1 source layer only; never a pass')
       .option('--allow-source-only', 'accept a source-only result in place of a render check')
       .option('--accept-note <text>', "the user's own words accepting source-only")
