@@ -287,6 +287,6 @@ export function renderTemplate(
     case 'sc':
       return renderScTemplate(requestId, sessionId, changeSlug, timestamp, requestType);
     case 'design':
-      return renderDesignTemplate(requestId, changeSlug, timestamp, requestType);
+      return renderDesignTemplate(requestId, sessionId, timestamp, requestType);
   }
 }

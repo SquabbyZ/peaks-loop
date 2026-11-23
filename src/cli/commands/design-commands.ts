@@ -6,8 +6,14 @@ import { type Command, InvalidArgumentError } from 'commander';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import {
+  acceptanceRefusal,
+  activeSessionId,
+  CHECK_BLOCKED_ACTIONS,
+  SOURCE_ONLY_DIAGNOSTIC,
+  type AcceptanceEnv
+} from '../../services/design/acceptance.js';
+import {
   checkDesignSourceOnly,
-  DesignCheckUsageError,
   type DesignCheckResult,
   exitCodeForVerdict
 } from '../../services/design/design-check.js';
@@ -36,7 +42,7 @@ export type DesignCheckCliOptions = {
   project: string;
   app?: string;
   rid?: string;
-  sessionId?: string;
+  sessionId?: string | undefined;
   files?: string;
   base?: string;
   url?: string;
@@ -50,18 +56,6 @@ export type DesignCheckCliOptions = {
 const INIT_NEXT_ACTIONS = [
   'Ask the user to review the generated contract summary before implementation.'
 ];
-const ACCEPT_NOTE_MESSAGE = "--allow-source-only requires --accept-note with the user's own words.";
-const ACCEPT_NOTE_ACTIONS = [
-  'Ask the user to state the acceptance in their own words, then pass it verbatim.'
-];
-const BLOCKED_ACTIONS: Record<string, string[]> = {
-  DESIGN_RENDER_NOT_IMPLEMENTED: [
-    'Ask the user whether to accept source-only; re-run with --allow-source-only and --accept-note "<their words>".'
-  ],
-  DESIGN_CHANGE_SET_UNKNOWN: [
-    'Supply --files, or --rid with --session-id, or a --base ref so the change set is known.'
-  ]
-};
 /** The usage-error code from the check's exit contract (spec §7.1). */
 const USAGE_EXIT_CODE = 3;
 
@@ -126,17 +120,19 @@ function checkNextActions(result: DesignCheckResult): string[] {
   if (result.verdict === 'not-adopted') {
     return ['Initialize the design contract for this app before checking it.'];
   }
-  return result.errorCode === undefined ? [] : (BLOCKED_ACTIONS[result.errorCode] ?? []);
+  return result.errorCode === undefined ? [] : (CHECK_BLOCKED_ACTIONS[result.errorCode] ?? []);
 }
 
 /** `--url` and `--pages` scope G2, which S1 does not have; say so rather than drop them. */
-function renderInputWarnings(options: DesignCheckCliOptions): string[] {
+function checkWarnings(options: DesignCheckCliOptions): string[] {
   const used: string[] = [];
   if (options.url !== undefined) used.push('--url');
   if (options.pages !== undefined) used.push('--pages');
-  return used.map(
+  const warnings = used.map(
     (flag) => `${flag} is a G2 render input; S1 has no render engine, so it was not used.`
   );
+  if (options.sourceOnly === true) warnings.push(SOURCE_ONLY_DIAGNOSTIC);
+  return warnings;
 }
 
 export async function runDesignInit(options: DesignInitCliOptions, io: ProgramIO): Promise<void> {
@@ -208,37 +204,33 @@ export async function runDesignUninit(
   }
 }
 
-export async function runDesignCheck(options: DesignCheckCliOptions, io: ProgramIO): Promise<void> {
+export async function runDesignCheck(
+  options: DesignCheckCliOptions,
+  io: ProgramIO,
+  env: AcceptanceEnv = process.env
+): Promise<void> {
   const failCheck = failurePrinter(io, 'design.check', options.json);
   const failUsage = failurePrinter(io, 'design.check', options.json, USAGE_EXIT_CODE);
-  const allowSourceOnly = options.allowSourceOnly === true || options.sourceOnly === true;
-  if (allowSourceOnly && (options.acceptNote ?? '').trim() === '') {
-    failUsage(
-      'DESIGN_ACCEPT_NOTE_REQUIRED',
-      ACCEPT_NOTE_MESSAGE,
-      { projectRoot: options.project },
-      ACCEPT_NOTE_ACTIONS
-    );
-    return;
+  // One read: the flag wins, else the binding `peaks session info --active` reports.
+  const sessionId = options.sessionId ?? activeSessionId(options.project) ?? undefined;
+  const checkOptions = { ...options, sessionId };
+  const accepted = options.allowSourceOnly === true;
+  if (accepted) {
+    const refusal = acceptanceRefusal(checkOptions, env.CI);
+    if (refusal !== null) {
+      failUsage(refusal.code, refusal.message, { projectRoot: options.project }, refusal.actions);
+      return;
+    }
   }
   try {
-    const result = await checkDesignSourceOnly(checkInput(options, allowSourceOnly));
+    const result = await checkDesignSourceOnly(checkInput(checkOptions, accepted));
     printResult(
       io,
-      ok('design.check', result, renderInputWarnings(options), checkNextActions(result)),
+      ok('design.check', result, checkWarnings(options), checkNextActions(result)),
       options.json
     );
     process.exitCode = exitCodeForVerdict(result.verdict);
   } catch (error) {
-    if (error instanceof DesignCheckUsageError) {
-      failUsage(
-        'DESIGN_ACCEPT_NOTE_REQUIRED',
-        ACCEPT_NOTE_MESSAGE,
-        { projectRoot: options.project },
-        ACCEPT_NOTE_ACTIONS
-      );
-      return;
-    }
     failCheck('DESIGN_CHECK_FAILED', getErrorMessage(error), { projectRoot: options.project });
     process.exitCode = USAGE_EXIT_CODE;
   }
@@ -286,12 +278,12 @@ export function registerDesignCommands(program: Command, io: ProgramIO): void {
       .requiredOption('--project <path>', 'project root')
       .option('--app <path>', 'app root when several frontends exist')
       .option('--rid <rid>', 'request id whose ## Changed paths claims scope the change set')
-      .option('--session-id <id>', 'session id used to read the rid claims')
-      .option('--files <list>', 'comma-separated change set')
+      .option('--session-id <id>', 'session for rid claims (defaults to the active binding)')
+      .option('--files <list>', 'comma-separated change set, repository-relative')
       .option('--base <ref>', 'git ref the change set is read against (default HEAD)')
       .option('--url <url>', 'render URL (G2; not used in S1)')
       .option('--pages <list>', 'render pages (G2; not used in S1)')
-      .option('--source-only', 'judge only the source layer')
+      .option('--source-only', 'report the G1 source layer only; never a pass')
       .option('--allow-source-only', 'accept a source-only result in place of a render check')
       .option('--accept-note <text>', "the user's own words accepting source-only")
   ).action((options: DesignCheckCliOptions) => runDesignCheck(options, io));

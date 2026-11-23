@@ -15,6 +15,7 @@ export type RequestArtifactState =
   | 'boundary-recorded'
   | 'handed-off'
   | 'blocked';
+
 export const ALLOWED_STATES_PER_ROLE: Record<
   RequestArtifactRole,
   ReadonlyArray<RequestArtifactState>
@@ -121,7 +122,6 @@ export class FileSizeViolationError extends Error {
    *  the change CREATED it over the cap. Carried so the message can name the
    *  growth — a refusal that does not say how much worse the file got reads as
    *  an absolute cap breach, which is the reading this gate no longer makes.
-   *
    *  The `violations` array also drives the sentence naming the AGGREGATE
    *  ratchet row this gate is easily confused with. This gate is PER FILE; that
    *  row is a sum over the census. In a working tree the two can disagree with

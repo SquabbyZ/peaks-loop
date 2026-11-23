@@ -2,19 +2,19 @@
  * The design contract lifecycle — init, status, uninit, and refresh. Each file
  * has an owner: engine.json is machine-owned, tokens.json and contract.md keep
  * the user's content unless `force` says otherwise, paved-road.json keeps its
- * own `rules`, and the governance standard lives and dies with the contract.
+ * own keys, and the governance standard lives and dies with the contract.
  */
 import { existsSync, readFileSync, rmSync, statSync } from 'node:fs';
-import { mkdir, writeFile } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 
 import { normalizePath } from '../../shared/path-utils.js';
 import { MS_PER_DAY } from '../scan/archetype-detection.js';
 import { scanExistingSystem } from '../scan/existing-system-service.js';
 import { renderDesignContractMarkdown } from './contract-render.js';
-import { writeDesignContractFile } from './contract-writer.js';
+import { writeDesignContractFile, writeMachineDesignFile } from './contract-writer.js';
 import { resolveContractRoot } from './contract-root.js';
 import {
+  DESIGN_EXEMPLARS_README,
   DESIGN_GOVERNANCE_RELATIVE_PATH,
   removeDesignGovernanceStandard,
   writeDesignGovernanceStandard
@@ -103,12 +103,9 @@ function countTokens(file: DesignTokensFile): DesignTokenCounts {
   };
 }
 
-/** An existing `paved-road.json` keeps its own `rules`, even through `--force`. */
-function readExistingRules(filePath: string): PavedRoadFile['rules'] | null {
-  const rules = readJson(filePath).rules;
-  return rules !== null && typeof rules === 'object' && !Array.isArray(rules)
-    ? (rules as PavedRoadFile['rules'])
-    : null;
+/** An existing `paved-road.json` wins over the defaults, even through `--force`. */
+function mergePavedRoad(fresh: PavedRoadFile, existing: Record<string, unknown>): PavedRoadFile {
+  return { ...fresh, ...existing };
 }
 
 function readTokenCounts(filePath: string): DesignTokenCounts {
@@ -193,17 +190,23 @@ type WriteInitialInput = {
 async function writeInitialDesignFiles(input: WriteInitialInput): Promise<void> {
   const { options, prepared, rel, written, preserved } = input;
   const { root, paths, tokensFile, engineContent } = prepared;
-  const road = buildPavedRoad({
-    pageRoots: options.pageRoots ?? DEFAULT_PAGE_ROOTS,
-    componentEntrypoints: existsSync(join(root.appRoot, 'components.json'))
-      ? ['@/components/ui']
-      : []
-  });
-  const existingRules = readExistingRules(paths.paved);
-  if (existingRules !== null) road.rules = existingRules;
+  const road = mergePavedRoad(
+    buildPavedRoad({
+      pageRoots: options.pageRoots ?? DEFAULT_PAGE_ROOTS,
+      componentEntrypoints: existsSync(join(root.appRoot, 'components.json'))
+        ? ['@/components/ui']
+        : []
+    }),
+    readJson(paths.paved)
+  );
 
-  const write = async (filePath: string, content: string): Promise<void> => {
-    const result = await writeDesignContractFile({ filePath, content, force: options.force });
+  const write = async (filePath: string, content: string, force = options.force): Promise<void> => {
+    const result = await writeDesignContractFile({
+      filePath,
+      content,
+      force,
+      projectRoot: options.projectRoot
+    });
     (result.written ? written : preserved).push(rel(filePath));
   };
   await write(paths.tokens, toJson(tokensFile));
@@ -215,9 +218,10 @@ async function writeInitialDesignFiles(input: WriteInitialInput): Promise<void> 
       tokenCounts: countTokens(tokensFile)
     })
   );
+  const readmePath = join(root.designRoot, 'exemplars', 'README.md');
+  await write(readmePath, DESIGN_EXEMPLARS_README, false);
 
-  await mkdir(root.designRoot, { recursive: true });
-  await writeFile(paths.engine, engineContent, 'utf8');
+  await writeMachineDesignFile(paths.engine, engineContent, options.projectRoot);
   written.push(rel(paths.engine));
 
   const standard = await writeDesignGovernanceStandard({
@@ -236,8 +240,7 @@ export async function initDesignContract(options: DesignInitOptions): Promise<De
   const preserved: string[] = [];
 
   if (options.refresh === true) {
-    await mkdir(root.designRoot, { recursive: true });
-    await writeFile(paths.engine, engineContent, 'utf8');
+    await writeMachineDesignFile(paths.engine, engineContent, options.projectRoot);
     written.push(rel(paths.engine));
     for (const path of [paths.tokens, paths.paved, paths.contract]) {
       if (existsSync(path)) preserved.push(rel(path));

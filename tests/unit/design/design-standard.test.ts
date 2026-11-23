@@ -1,4 +1,12 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -64,6 +72,68 @@ describe('Scenario: behavior — the governance standard lifecycle', () => {
     const root = makeRoot();
     const result = await removeDesignGovernanceStandard(root);
     expect(result.removed).toBe(false);
+  });
+
+  it('when the standard is rendered, should name the S1 diagnostic and defer the gate', async () => {
+    // given: a written standard
+    // when: its body is read
+    // then: it names the S1 diagnostic, defers --gate to S3, and points at the exemplar rule
+    const root = makeRoot();
+    await writeDesignGovernanceStandard({ projectRoot: root, designRelPath: 'design' });
+    const body = readFileSync(join(root, DESIGN_GOVERNANCE_RELATIVE_PATH), 'utf8');
+    expect(body).toContain('--allow-source-only --accept-note');
+    expect(body).toContain('S3');
+    expect(body).not.toContain('check --gate');
+    expect(body).toContain('design/exemplars/README.md');
+    expect(body).toContain('design/exemplars/<archetype>/');
+    expect(body).toContain('<name>.tsx');
+  });
+
+  it('when the design path carries a backtick, should widen the code span', async () => {
+    // given: an app directory whose name contains a backtick
+    // when: the standard is written
+    // then: the path is fenced by a wider run so the span cannot break
+    const root = makeRoot();
+    await writeDesignGovernanceStandard({ projectRoot: root, designRelPath: 'web/des`ign' });
+    const body = readFileSync(join(root, DESIGN_GOVERNANCE_RELATIVE_PATH), 'utf8');
+    expect(body).toContain('``web/des`ign/contract.md``');
+  });
+});
+
+describe('Scenario: a11y — the standard write refuses symlinked and escaping targets', () => {
+  it('when the standards directory links outside the project, should refuse the write', async () => {
+    // given: a standards directory that resolves outside the project root
+    // when: the standard is written
+    // then: the write is refused and nothing lands outside
+    const root = makeRoot();
+    const outside = makeRoot();
+    mkdirSync(join(outside, 'common'), { recursive: true });
+    mkdirSync(join(root, '.peaks'), { recursive: true });
+    symlinkSync(
+      outside,
+      join(root, '.peaks', 'standards'),
+      process.platform === 'win32' ? 'junction' : 'dir'
+    );
+    await expect(
+      writeDesignGovernanceStandard({ projectRoot: root, designRelPath: 'design' })
+    ).rejects.toThrow(/outside the project root/i);
+    expect(existsSync(join(outside, 'common', 'design-governance.md'))).toBe(false);
+  });
+
+  it('when the standard file is itself a symlink, should refuse the write', async () => {
+    // given: a governance file that is a symlink to another file
+    // when: the standard is written
+    // then: the symlinked target is refused even though it resolves inside the root
+    const root = makeRoot();
+    const commonDir = dirname(join(root, DESIGN_GOVERNANCE_RELATIVE_PATH));
+    mkdirSync(commonDir, { recursive: true });
+    const real = join(commonDir, 'real.md');
+    writeFileSync(real, '# real\n', 'utf8');
+    symlinkSync(real, join(root, DESIGN_GOVERNANCE_RELATIVE_PATH), 'file');
+    await expect(
+      writeDesignGovernanceStandard({ projectRoot: root, designRelPath: 'design' })
+    ).rejects.toThrow(/symlink/i);
+    expect(readFileSync(real, 'utf8')).toBe('# real\n');
   });
 });
 

@@ -12,7 +12,7 @@ import { extname, isAbsolute, relative, resolve, sep } from 'node:path';
 
 import type { PavedRoadFile } from '../paved-road.js';
 import type { DesignTokensFile } from '../token-contract.js';
-import { DEFAULT_DESIGN_RULES } from './rules.js';
+import { DEFAULT_DESIGN_RULES } from '../design-rules.js';
 import { scanFile, type DesignFinding } from './scan-file.js';
 import type { TokenCoverage } from './token-coverage.js';
 

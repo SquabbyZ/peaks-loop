@@ -12,6 +12,6 @@
   {
     "id": "design-fix-page",
     "prompt": "把设置页改到符合我们的业务风格。",
-    "expectedOutcome": "Reads the contract and paved road, dispatches peaks sub-agent dispatch rd with the findings as hard constraints, dispatches peaks-qa for verification, and finishes with peaks design check --gate."
+    "expectedOutcome": "Reads the contract and paved road, dispatches peaks sub-agent dispatch rd with the findings as hard constraints, dispatches peaks-qa for verification, and finishes with the S1 diagnostic peaks design check --allow-source-only --accept-note \"<user words>\"."
   }
 ]

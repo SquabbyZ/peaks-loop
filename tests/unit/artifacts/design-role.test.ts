@@ -61,6 +61,18 @@ describe('Scenario: behavior — the design role is a first-class request role',
     }
   });
 
+  it('when the template is rendered, should bind the session id, not the change slug', () => {
+    // given: a design request with a distinct session id and change slug
+    // when: the template is rendered
+    // then: the session line carries the session id
+    const body = renderTemplate('design', 'rid-1', 'sid-real', 'slug', '2026-11-23T00:00:00.000Z', {
+      requestType: 'feature',
+      projectRoot: '/tmp/x'
+    });
+    expect(body).toContain('- session: sid-real');
+    expect(body).not.toContain('- session: slug');
+  });
+
   it('when a design artifact is created, should land under design/requests', async () => {
     // given: a bare project root
     // when: a design request is created

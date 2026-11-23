@@ -14,6 +14,7 @@ const ROUTES: Record<string, Route[]> = {
   make: [
     { skill: 'peaks-code', words: ['code', 'implement', 'refactor', 'cli', 'bug', 'feature'] },
     { skill: 'peaks-content', words: ['blog', 'article', 'post', 'newsletter', 'copy'] },
+    // No bare 'ui' token: it is a substring of "build", so it would route non-design requests here.
     { skill: 'peaks-design', words: ['design', '设计系统', 'ui governance'] },
     { skill: 'peaks-doctor', words: ['audit', 'health', 'doctor', 'project health'] },
     { skill: 'peaks-issue-fix-orchestrator', words: ['fix issues', 'open issues', 'issue sweep'] }

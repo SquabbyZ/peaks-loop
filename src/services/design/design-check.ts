@@ -1,19 +1,18 @@
 /** The source-only design check — S1's verdict matrix. A `pass` is only ever G1
  *  conformance plus an explicit, recorded acceptance; everything else is blocked. */
-import { existsSync, readFileSync } from 'node:fs';
-import { extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { existsSync } from 'node:fs';
+import { extname, join } from 'node:path';
 
 import { normalizePath } from '../../shared/path-utils.js';
 import { readGitChangeSet } from '../scan/file-size-baseline.js';
 import { readRidChangeClaims } from '../scan/rid-change-claims.js';
 import { scanExistingSystem } from '../scan/existing-system-service.js';
 import { resolveContractRoot } from './contract-root.js';
-import { DEFAULT_DESIGN_RULES, type DesignRuleCode } from './design-rules.js';
-import { buildPavedRoad, type PavedRoadFile } from './paved-road.js';
+import type { PavedRoadFile } from './paved-road.js';
+import { appFiles, readPavedRoad, readTokens } from './source-scan/inputs.js';
 import type { DesignFinding } from './source-scan/scan-file.js';
 import { scanDesignSources, type ScanDesignSourcesResult } from './source-scan/scan.js';
 import type { TokenCoverage } from './source-scan/token-coverage.js';
-import type { DesignTokensFile } from './token-contract.js';
 
 export type DesignCheckVerdict = 'pass' | 'fail' | 'blocked' | 'not-adopted' | 'not-applicable';
 
@@ -62,9 +61,13 @@ const UI_EXTENSIONS = new Set('.tsx .jsx .vue .svelte .css .scss .sass .less .ht
 const NOT_ADOPTED_MESSAGE =
   'No design contract is adopted for this app; run `peaks design init` first.';
 const CHANGE_SET_UNKNOWN_MESSAGE =
-  'The change set could not be resolved; an empty or unreadable change set is blocked, not a pass.';
+  'The change set is empty, unreadable, or names no file in this app; an empty change set is blocked, not a pass.';
 const RENDER_NOT_IMPLEMENTED_MESSAGE =
   'S1 has no render engine, so G2 cannot run; a source-only pass needs an explicit acceptance.';
+const DEGRADED_MESSAGE =
+  'The changed UI files could not be read by the source scanner (unsupported file family, deleted file, or outside pageRoots); a zero-file scan is blocked, never a pass.';
+const CONTRACT_INVALID_MESSAGE =
+  'design/tokens.json has no usable token groups; run `peaks design init` to rewrite it.';
 
 type ResultOverrides = Partial<Omit<DesignCheckResult, 'schemaVersion' | 'rid'>>;
 
@@ -114,55 +117,6 @@ async function readChangeSet(input: CheckInput, rid: string | null) {
   }
 }
 
-function readJson(filePath: string): Record<string, unknown> {
-  try {
-    const parsed: unknown = JSON.parse(readFileSync(filePath, 'utf8'));
-    return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>)
-      : {};
-  } catch {
-    return {};
-  }
-}
-
-function stringList(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value.filter((entry): entry is string => typeof entry === 'string')
-    : [];
-}
-
-function readRules(value: unknown): PavedRoadFile['rules'] {
-  const rules: PavedRoadFile['rules'] = { ...DEFAULT_DESIGN_RULES };
-  const record =
-    value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {};
-  for (const code of Object.keys(rules) as DesignRuleCode[]) {
-    const severity = record[code];
-    if (severity === 'warn' || severity === 'fail') rules[code] = severity;
-  }
-  return rules;
-}
-
-/** All three contract JSON files are read; the paved road keeps its defaults. */
-function readContract(designRoot: string): { tokens: DesignTokensFile; paved: PavedRoadFile } {
-  const raw = readJson(join(designRoot, 'paved-road.json'));
-  const paved = buildPavedRoad({
-    pageRoots: stringList(raw.pageRoots),
-    componentEntrypoints: stringList(raw.componentEntrypoints),
-    bannedImportSpecifiers: stringList(raw.bannedImportSpecifiers)
-  });
-  paved.rules = readRules(raw.rules);
-  readJson(join(designRoot, 'engine.json'));
-  const tokens = readJson(join(designRoot, 'tokens.json')) as unknown as DesignTokensFile;
-  return { tokens, paved };
-}
-
-function toAppPath(appRoot: string, file: string): string {
-  const absolute = isAbsolute(file) ? file : resolve(appRoot, file);
-  const rel = relative(resolve(appRoot), absolute);
-  if (rel === '' || rel.startsWith('..') || isAbsolute(rel)) return '';
-  return rel.split(sep).join('/');
-}
-
 function underDir(file: string, dir: string | null): boolean {
   const normalized = normalizePath(dir ?? '')
     .replace(/^\.\//, '')
@@ -174,28 +128,19 @@ function underAny(file: string, dirs: readonly string[]): boolean {
   return dirs.some((dir) => underDir(file, dir));
 }
 
-function isUiFile(
-  file: string,
-  appRoot: string,
-  paved: PavedRoadFile,
-  componentDir: string | null
-): boolean {
-  if (UI_EXTENSIONS.has(extname(file).toLowerCase())) return true;
-  const appFile = toAppPath(appRoot, file);
-  if (appFile === '') return false;
+function isUiFile(appFile: string, paved: PavedRoadFile, componentDir: string | null): boolean {
+  if (UI_EXTENSIONS.has(extname(appFile).toLowerCase())) return true;
   return underAny(appFile, paved.pageRoots) || underDir(appFile, componentDir);
 }
 
 function surfaceOf(
   files: readonly string[],
-  appRoot: string,
   paved: PavedRoadFile,
   componentDir: string | null
 ): DesignCheckResult['surface'] {
   const reasons: string[] = [];
   for (const file of files) {
-    if (isUiFile(file, appRoot, paved, componentDir))
-      reasons.push(`changed: ${normalizePath(file)}`);
+    if (isUiFile(file, paved, componentDir)) reasons.push(`changed: ${normalizePath(file)}`);
   }
   return { isUi: reasons.length > 0, reasons };
 }
@@ -207,9 +152,7 @@ async function detectComponentDir(
   paved: PavedRoadFile
 ): Promise<string | null> {
   const needsDetection = files.some(
-    (file) =>
-      !UI_EXTENSIONS.has(extname(file).toLowerCase()) &&
-      !underAny(toAppPath(appRoot, file), paved.pageRoots)
+    (file) => !UI_EXTENSIONS.has(extname(file).toLowerCase()) && !underAny(file, paved.pageRoots)
   );
   if (!needsDetection) return null;
   return (await scanExistingSystem({ projectRoot: appRoot })).conventions.componentDir;
@@ -221,6 +164,15 @@ function verdictFromScan(
   surface: DesignCheckResult['surface'],
   scan: ScanDesignSourcesResult
 ): DesignCheckResult {
+  if (scan.scannedFiles.length === 0) {
+    return makeResult(rid, {
+      verdict: 'blocked',
+      errorCode: 'DESIGN_SOURCE_CHECK_DEGRADED',
+      message: DEGRADED_MESSAGE,
+      surface,
+      coverage: scan.coverage
+    });
+  }
   const accepted = input.allowSourceOnly === true && input.acceptNote !== undefined;
   const acceptedBy = input.sessionId ?? null;
   const g2 = {
@@ -251,11 +203,16 @@ function verdictFromScan(
   });
 }
 
-export async function checkDesignSourceOnly(input: CheckInput): Promise<DesignCheckResult> {
-  const { rid = null } = input;
+/** An acceptance without the user's own words is a usage error, never a verdict. */
+function requireAcceptNote(input: CheckInput): void {
   if (input.allowSourceOnly === true && (input.acceptNote ?? '').trim() === '') {
     throw new DesignCheckUsageError();
   }
+}
+
+export async function checkDesignSourceOnly(input: CheckInput): Promise<DesignCheckResult> {
+  const { rid = null } = input;
+  requireAcceptNote(input);
 
   const resolved = await resolveContractRoot({
     projectRoot: input.projectRoot,
@@ -275,19 +232,29 @@ export async function checkDesignSourceOnly(input: CheckInput): Promise<DesignCh
   }
 
   const changeSet = await readChangeSet(input, rid);
-  if (changeSet.files.length === 0) {
+  const files = appFiles(input.projectRoot, root.appRelPath, changeSet.files);
+  if (files.length === 0) {
     return makeResult(rid, {
       verdict: 'blocked',
       errorCode: 'DESIGN_CHANGE_SET_UNKNOWN',
       message: changeSet.failure ?? CHANGE_SET_UNKNOWN_MESSAGE
     });
   }
-  const files = changeSet.files;
 
-  const { tokens, paved } = readContract(root.designRoot);
+  const paved = readPavedRoad(root.designRoot);
   const componentDir = await detectComponentDir(root.appRoot, files, paved);
-  const surface = surfaceOf(files, root.appRoot, paved, componentDir);
+  const surface = surfaceOf(files, paved, componentDir);
   if (surface.isUi !== true) return makeResult(rid, { verdict: 'not-applicable', surface });
+
+  const tokens = readTokens(root.designRoot);
+  if (tokens === null) {
+    return makeResult(rid, {
+      verdict: 'blocked',
+      errorCode: 'DESIGN_CONTRACT_INVALID',
+      message: CONTRACT_INVALID_MESSAGE,
+      surface
+    });
+  }
 
   const scan = await scanDesignSources({
     appRoot: root.appRoot,
