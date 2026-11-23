@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-19T00:30:48.349Z",
+  "updatedAt": "2026-11-23T12:15:07.123Z",
   "hot": {
     "rule": [
       {
@@ -4384,6 +4384,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-published-package-only-boots-with-nested-subpackages.md",
         "sourceArtifact": null,
         "updatedAt": "2026-10-21"
+      },
+      {
+        "name": "the-s1-mutation-gate-needs-a-real-scoped-stryker-run-not-a-ledger-waiver",
+        "kind": "project",
+        "description": "The artifact-contract commit gate requires , but  asserts the ledger contains only the third-party entry and explicit...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\the-s1-mutation-gate-needs-a-real-scoped-stryker-run-not-a-ledger-waiver.md",
+        "sourceArtifact": ".peaks/_runtime/2026-11-23-session-320f58/txt/handoff.md",
+        "updatedAt": "2026-11-23"
       },
       {
         "name": "token-encrypted-storage-decision",
