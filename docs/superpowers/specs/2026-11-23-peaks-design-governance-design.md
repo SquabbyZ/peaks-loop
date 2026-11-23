@@ -334,6 +334,7 @@ design/                       # 前端 app root：单 app 在根；monorepo/混�
 - 幂等：块级替换；重复运行不产生第二份。
 - 删除：`design uninit`（或 `init --remove`）删除该文件与契约，二者同生共死。
 - `renderAgentsMd` 增加**条件行**：该文件存在时才在 "Peaks standards to read" 里出现一行；`standards update` 不管理该文件本身。
+- **写入接缝（实现时发现）**：AGENTS.md 的实际写入走 `buildConstitutionUpdate`（`src/services/standards/standards-constitution.ts`）；`createTemplates` 里的 `renderAgentsMd` 模板会被它覆盖，是死链。条件行必须接在 `buildConstitutionUpdate` 与 `scaffoldConstitutionFiles`，**不要**改已超行数上限的 `project-standards-service.ts`。
 - 角色仍直接读 `design/contract.md`，即使 AGENTS 行滞后也不丢失真值。
 
 ### 6.6 用户参与（Human-NL-Choice-Only）

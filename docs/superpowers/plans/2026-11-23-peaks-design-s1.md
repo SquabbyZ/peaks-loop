@@ -478,8 +478,8 @@ git commit -m "feat(design): add paved-road, engine contract, and URL trust"
 **Files:**
 - Create: `src/services/design/design-standard.ts`
 - Modify: `src/services/standards/standards-render-agents.ts`
-- Modify: `src/services/standards/project-standards-service.ts`
-- Test: `tests/unit/design/design-standard.test.ts`
+- Modify: `src/services/standards/standards-constitution.ts` (**not** `project-standards-service.ts`: `buildWrite` prefers `buildConstitutionUpdate`'s plan, so the `createTemplates` renderAgentsMd call is a dead path; and that file is already over its 300-line cap, so any growth is refused by the file-size ratchet)
+- Test: `tests/unit/design/design-standard.test.ts` (must include the live-plan assertions on `buildConstitutionUpdate`, not only `renderAgentsMd`)
 
 **Interfaces:**
 - Produces: `DESIGN_GOVERNANCE_RELATIVE_PATH`, `renderDesignGovernanceStandard`, `writeDesignGovernanceStandard`, `removeDesignGovernanceStandard`; `renderAgentsMd(language, scripts, rulesRoot, options?: { hasDesignGovernance?: boolean })`.
@@ -559,7 +559,8 @@ Expected: FAIL with "Cannot find module".
 
 - `design-standard.ts` exports the relative path, the two markers, and the body from spec §6.5. Write is idempotent: create parent dirs, replace the marked block if present, append otherwise. `remove` deletes only when the file exists.
 - `standards-render-agents.ts`: add the options parameter and one line in `renderStandardsSection` when true: ``- Read `${rulesRoot}/common/design-governance.md` before changing UI code.``
-- `project-standards-service.ts`: pass `{ hasDesignGovernance: existsSync(join(projectRoot, DESIGN_GOVERNANCE_RELATIVE_PATH)) }` at the `renderAgentsMd` call site.
+- `standards-constitution.ts`: in `buildConstitutionUpdate`, pass `{ hasDesignGovernance: existsSync(join(input.projectRoot, DESIGN_GOVERNANCE_RELATIVE_PATH)) }` to `renderAgentsMd`; do the same in `scaffoldConstitutionFiles`. Do **not** edit `project-standards-service.ts` — its `createTemplates` path is overridden by the constitution plan, and the file is over its size cap.
+- The test must cover the live path: `buildConstitutionUpdate({ projectRoot: <tmp with the governance file>, ... }).body.content` contains the line; without the file it does not. A direct `renderAgentsMd` assertion alone is not enough.
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
