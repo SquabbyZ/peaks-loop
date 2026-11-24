@@ -5,10 +5,10 @@ import { extname, join } from 'node:path';
 import { normalizePath } from '../../shared/path-utils.js';
 import { scanExistingSystem } from '../scan/existing-system-service.js';
 import {
-  CHANGE_SET_UNKNOWN_MESSAGE,
   CONTRACT_INVALID_MESSAGE,
   DEGRADED_MESSAGE,
   DesignCheckUsageError,
+  emptyChangeSetOverrides,
   NOT_ADOPTED_MESSAGE,
   RENDER_REQUIRED_MESSAGE,
   requireAcceptNote
@@ -235,16 +235,13 @@ export async function checkDesignSourceOnly(
   }
 
   const changeSet = preChange ?? (await readChangeSet(input, rid));
-  const files = appFiles(input.projectRoot, root.appRelPath, changeSet.files);
-  if (files.length === 0) {
-    return makeResult(rid, {
-      verdict: 'blocked',
-      errorCode: 'DESIGN_CHANGE_SET_UNKNOWN',
-      message: changeSet.failure ?? CHANGE_SET_UNKNOWN_MESSAGE
-    });
-  }
-
   const paved = readPavedRoad(root.designRoot);
+  // An exclude entry is a source-scan instruction: the file yields no finding.
+  const changedAppFiles = appFiles(input.projectRoot, root.appRelPath, changeSet.files);
+  const files = appFiles(input.projectRoot, root.appRelPath, changeSet.files, paved.exclude);
+  if (files.length === 0) {
+    return makeResult(rid, emptyChangeSetOverrides(changeSet.failure, changedAppFiles.length > 0));
+  }
   const componentDir = await detectComponentDir(root.appRoot, files, paved);
   const surface = surfaceOf(files, paved, componentDir);
   if (surface.isUi !== true) return makeResult(rid, { verdict: 'not-applicable', surface });

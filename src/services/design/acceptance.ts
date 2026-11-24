@@ -50,6 +50,22 @@ export const DEGRADED_MESSAGE =
   'The changed UI files could not be read by the source scanner (unsupported file family, deleted file, or outside pageRoots); a zero-file scan is blocked, never a pass.';
 export const CONTRACT_INVALID_MESSAGE =
   'design/tokens.json has no usable token groups; run `peaks design init` to rewrite design/tokens.json and design/engine.json.';
+/** Every changed file is excluded, so the scan has nothing to judge (not a block). */
+export const EXCLUDED_MESSAGE =
+  'Every changed file is covered by an exclude entry in design/paved-road.json; there is nothing in this change set for the source scan to judge.';
+
+/** The result overrides an empty change set earns: excluded is not-applicable, else blocked. */
+export function emptyChangeSetOverrides(
+  failure: string | null,
+  allExcluded: boolean
+): { verdict: 'blocked' | 'not-applicable'; errorCode?: string; message: string } {
+  if (allExcluded) return { verdict: 'not-applicable', message: EXCLUDED_MESSAGE };
+  return {
+    verdict: 'blocked',
+    errorCode: 'DESIGN_CHANGE_SET_UNKNOWN',
+    message: failure ?? CHANGE_SET_UNKNOWN_MESSAGE
+  };
+}
 
 /** An acceptance without the user's own words is a usage error, never a verdict. */
 export class DesignCheckUsageError extends Error {
@@ -105,6 +121,10 @@ export const CHECK_BLOCKED_MESSAGES: Record<string, string> = {
   DESIGN_RENDER_UNREACHABLE: 'The render URL did not answer; start the app or re-run with --start.',
   DESIGN_RENDER_NO_EVIDENCE:
     'A designlang check exited 0 without its JSON evidence; the render verdict cannot pass.',
+  DESIGN_PAGE_UNUSABLE:
+    'The page cannot be judged: it is blank, redirected to a sign-in wall, or rendered no text. An unusable page is blocked, never a fail.',
+  DESIGN_RENDER_RETRYABLE:
+    'designlang could not navigate the page before its budget elapsed; this is retryable — start the app and re-run the check.',
   DESIGN_START_COMMAND_MISSING:
     'No render.startCommand is recorded in design/engine.json; record one or start the app yourself.',
   DESIGN_START_COMMAND_EXITED:
@@ -201,6 +221,12 @@ export const CHECK_BLOCKED_ACTIONS: Record<string, string[]> = {
   ],
   DESIGN_RENDER_NO_EVIDENCE: [
     'Run the designlang check by hand to see why it printed no JSON, then re-run the check.'
+  ],
+  DESIGN_PAGE_UNUSABLE: [
+    'Start the app, open the exact page URL yourself, and point --url at a route that renders its content.'
+  ],
+  DESIGN_RENDER_RETRYABLE: [
+    'Start the app so the page answers, then re-run the check; a navigation timeout is not a design verdict.'
   ],
   DESIGN_START_COMMAND_MISSING: [
     'Record render.startCommand with `peaks design init --start <command>`, or start the app yourself.'

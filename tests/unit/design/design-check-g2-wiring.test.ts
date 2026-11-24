@@ -8,14 +8,15 @@ import { checkDesign } from '../../../src/services/design/design-check.js';
 import { evaluateG2 } from '../../../src/services/design/design-check-g2.js';
 import { runDesignlang, readGradeEvidence } from '../../../src/services/design/designlang.js';
 import {
-  CLEAN_JSON,
   DEFAULT_URL,
   UNAVAILABLE,
+  cleanStdout,
   createAdoptedApp,
   disposeFixtures,
   fakeEngine,
   fakeStartServer,
   isAlive,
+  runOfKind,
   runResult,
   setStartCommand,
   waitUntil,
@@ -82,8 +83,10 @@ describe('Scenario: behavior — configured pages and start wiring', () => {
       evidence: [
         `drift ${DEFAULT_URL}`,
         `verify-ui ${DEFAULT_URL}`,
+        `probe ${DEFAULT_URL} elapsedMs 5000`,
         `drift ${DEFAULT_URL}about`,
-        `verify-ui ${DEFAULT_URL}about`
+        `verify-ui ${DEFAULT_URL}about`,
+        `probe ${DEFAULT_URL}about elapsedMs 5000`
       ]
     });
   });
@@ -101,8 +104,10 @@ describe('Scenario: behavior — configured pages and start wiring', () => {
       evidence: [
         `drift ${DEFAULT_URL}`,
         `verify-ui ${DEFAULT_URL}`,
+        `probe ${DEFAULT_URL} elapsedMs 5000`,
         `drift ${DEFAULT_URL}about`,
-        `verify-ui ${DEFAULT_URL}about`
+        `verify-ui ${DEFAULT_URL}about`,
+        `probe ${DEFAULT_URL}about elapsedMs 5000`
       ]
     });
   });
@@ -130,7 +135,7 @@ describe('Scenario: behavior — configured pages and start wiring', () => {
       fakeEngine({
         readGrade: readGradeEvidence,
         run: async (kind, request) => {
-          if (kind !== 'grade') return runResult();
+          if (kind !== 'grade') return runOfKind(kind, request.args);
           const outDir = request.args[request.args.indexOf('--out') + 1];
           if (outDir !== undefined) {
             writeFileSync(
@@ -156,7 +161,11 @@ describe('Scenario: behavior — configured pages and start wiring', () => {
     expect(result.checks.g2_render).toEqual({
       status: 'pass',
       pages: 1,
-      evidence: [`drift ${DEFAULT_URL}`, `verify-ui ${DEFAULT_URL}`]
+      evidence: [
+        `drift ${DEFAULT_URL}`,
+        `verify-ui ${DEFAULT_URL}`,
+        `probe ${DEFAULT_URL} elapsedMs 5000`
+      ]
     });
   });
 
@@ -213,7 +222,10 @@ describe('Scenario: behavior — configured pages and start wiring', () => {
             }
           }
         }),
-        run: async (kind) => (kind === 'drift' ? runResult({ exitCode: 1 }) : runResult())
+        run: async (kind, request) =>
+          kind === 'drift'
+            ? runOfKind('drift', request.args, { exitCode: 1, stdout: '' })
+            : runOfKind(kind, request.args)
       })
     );
     expect(result.verdict).toBe('fail');
@@ -261,8 +273,10 @@ describe('Scenario: behavior — the two-page matrix', () => {
       evidence: [
         `drift ${DEFAULT_URL}`,
         `verify-ui ${DEFAULT_URL}`,
+        `probe ${DEFAULT_URL} elapsedMs 5000`,
         `drift ${DEFAULT_URL}about`,
-        `verify-ui ${DEFAULT_URL}about`
+        `verify-ui ${DEFAULT_URL}about`,
+        `probe ${DEFAULT_URL}about elapsedMs 5000`
       ]
     });
   });
@@ -277,8 +291,8 @@ describe('Scenario: behavior — the two-page matrix', () => {
       fakeEngine({
         run: async (kind, request) =>
           kind === 'drift' && request.args.includes(`${DEFAULT_URL}broken`)
-            ? runResult({ exitCode: 1, stdout: '' })
-            : runResult()
+            ? runOfKind('drift', request.args, { exitCode: 1, stdout: '' })
+            : runOfKind(kind, request.args)
       })
     );
     expect(result.verdict).toBe('fail');
@@ -303,7 +317,11 @@ describe('Scenario: render — the direct G2 outcome document', () => {
       check: {
         status: 'pass',
         pages: 1,
-        evidence: [`drift ${DEFAULT_URL}`, `verify-ui ${DEFAULT_URL}`]
+        evidence: [
+          `drift ${DEFAULT_URL}`,
+          `verify-ui ${DEFAULT_URL}`,
+          `probe ${DEFAULT_URL} elapsedMs 5000`
+        ]
       },
       warnings: [],
       message: ''
@@ -316,24 +334,47 @@ describe('Scenario: integration — real entries through the wrapper', () => {
     'when a real entry prints JSON or exits nonzero, should classify each check',
     { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
     async () => {
-      // given: two temp entries, one printing evidence and one exiting 1
+      // given: temp entries, one per tool, printing their real evidence shape
       // when: the real designlang wrapper runs each check
-      // then: printed evidence passes and the nonzero drift fails
+      // then: printed evidence passes and a silent nonzero drift fails
       const root = await createAdoptedApp();
-      const clean = writeFakeScript('clean', { stdout: CLEAN_JSON });
-      const failing = writeFakeScript('failing', { exitCode: 1 });
+      const driftEntry = writeFakeScript('clean-drift', {
+        stdout: cleanStdout('drift', [
+          'drift',
+          DEFAULT_URL,
+          '--tokens',
+          join(root, 'design', 'tokens.json')
+        ])
+      });
+      const verifyEntry = writeFakeScript('clean-verify', {
+        stdout: cleanStdout('verify-ui')
+      });
+      const slopEntry = writeFakeScript('clean-slop', {
+        stdout: cleanStdout('slop', ['slop', DEFAULT_URL])
+      });
+      const gradeEntry = writeFakeScript('clean-grade', { stdout: cleanStdout('grade') });
+      const cleanEntry = (kind: string): string => {
+        if (kind === 'drift') return driftEntry;
+        if (kind === 'verify-ui') return verifyEntry;
+        if (kind === 'slop') return slopEntry;
+        return gradeEntry;
+      };
+      const failing = writeFakeScript('failing', { exitCode: 1, stdout: '' });
       const failed = await checkDesign(
         input(root),
         fakeEngine({
           run: (kind, request) =>
-            runDesignlang({ entryPath: kind === 'drift' ? failing : clean, args: request.args })
+            runDesignlang({
+              entryPath: kind === 'drift' ? failing : cleanEntry(kind),
+              args: request.args
+            })
         })
       );
       expect(failed.verdict).toBe('fail');
       const passed = await checkDesign(
         input(root),
         fakeEngine({
-          run: (_kind, request) => runDesignlang({ entryPath: clean, args: request.args })
+          run: (kind, request) => runDesignlang({ entryPath: cleanEntry(kind), args: request.args })
         })
       );
       expect(passed.verdict).toBe('pass');
@@ -388,7 +429,11 @@ describe('Scenario: render — the full result document', () => {
     expect(result.checks.g2_render).toEqual({
       status: 'pass',
       pages: 1,
-      evidence: [`drift ${DEFAULT_URL}`, `verify-ui ${DEFAULT_URL}`]
+      evidence: [
+        `drift ${DEFAULT_URL}`,
+        `verify-ui ${DEFAULT_URL}`,
+        `probe ${DEFAULT_URL} elapsedMs 5000`
+      ]
     });
     expect(result.findings).toEqual([]);
     expect(result.coverage).toEqual({ covered: 0, total: 0, ratio: 1 });

@@ -10,11 +10,9 @@ import {
   type AcceptanceEnv
 } from '../../services/design/acceptance.js';
 import { checkDesign, exitCodeForVerdict } from '../../services/design/design-check.js';
-import {
-  initDesignContract,
-  readDesignStatus,
-  removeDesignContract
-} from '../../services/design/design-init.js';
+import { initDesignContract } from '../../services/design/design-init.js';
+import { readDesignStatus, removeDesignContract } from '../../services/design/design-status.js';
+import { redactUrl } from '../../services/design/url-redact.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import {
   acceptanceFor,
@@ -33,6 +31,9 @@ export type DesignInitCliOptions = {
   port?: number;
   pages?: string;
   archetypes?: string;
+  pageRoots?: string;
+  exclude?: string;
+  url?: string;
   force?: boolean;
   refresh?: boolean;
   json?: boolean;
@@ -46,6 +47,7 @@ const INIT_NEXT_ACTIONS = [
 /** The usage-error code from the check's exit contract (spec §7.1). */
 const USAGE_EXIT_CODE = 3;
 const CHECK_URL_HELP = 'render URL for G2 (defaults to engine.json or a derived loopback URL)';
+const INIT_URL_ACTIONS = ['Pass an absolute http(s) URL, such as http://localhost:3000/.'];
 
 const projectRootOf = (options: { project?: string }): string => options.project ?? process.cwd();
 
@@ -70,6 +72,26 @@ function failurePrinter(io: ProgramIO, command: string, json: boolean | undefine
   };
 }
 
+/** A fixed `--url` must be an absolute http(s) address before any file is written. */
+function initUrlRefusal(value: string): { code: string; message: string } | null {
+  const code = 'DESIGN_URL_INVALID';
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return { code, message: `--url must be an absolute URL, got "${redactUrl(value)}"` };
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return { code, message: `--url must use http or https, got "${redactUrl(value)}"` };
+  }
+  // engine.json is git-tracked: a credential here would be stored forever and
+  // refused by the trust boundary anyway, so the write is refused instead.
+  if (parsed.username !== '' || parsed.password !== '') {
+    return { code, message: `--url must not carry credentials, got "${redactUrl(value)}"` };
+  }
+  return null;
+}
+
 function initInput(options: DesignInitCliOptions) {
   return {
     projectRoot: options.project,
@@ -78,6 +100,9 @@ function initInput(options: DesignInitCliOptions) {
     ...(options.port === undefined ? {} : { port: options.port }),
     ...(options.pages === undefined ? {} : { pages: splitList(options.pages) }),
     ...(options.archetypes === undefined ? {} : { archetypes: splitList(options.archetypes) }),
+    ...(options.pageRoots === undefined ? {} : { pageRoots: splitList(options.pageRoots) }),
+    ...(options.exclude === undefined ? {} : { exclude: splitList(options.exclude) }),
+    ...(options.url === undefined ? {} : { url: options.url }),
     force: options.force === true,
     refresh: options.refresh === true
   };
@@ -87,6 +112,17 @@ const GATE_DEPS: DesignCheckEcho = { checkInput, checkWarnings, checkNextActions
 
 export async function runDesignInit(options: DesignInitCliOptions, io: ProgramIO): Promise<void> {
   const failInit = failurePrinter(io, 'design.init', options.json);
+  const failInitUsage = failurePrinter(io, 'design.init', options.json, USAGE_EXIT_CODE);
+  const urlRefusal = options.url === undefined ? null : initUrlRefusal(options.url);
+  if (urlRefusal !== null) {
+    failInitUsage(
+      urlRefusal.code,
+      urlRefusal.message,
+      { projectRoot: options.project },
+      INIT_URL_ACTIONS
+    );
+    return;
+  }
   try {
     const result = await initDesignContract(initInput(options));
     if (!result.ok) {
@@ -105,7 +141,10 @@ export async function runDesignInit(options: DesignInitCliOptions, io: ProgramIO
       root: result.root,
       written: result.written,
       preserved: result.preserved,
-      tokensFound: result.tokensFound
+      tokensFound: result.tokensFound,
+      primaryColor: result.primary.color,
+      primarySource: result.primary.source,
+      gaps: result.primary.gaps
     };
     printResult(io, ok('design.init', data, [], INIT_NEXT_ACTIONS), options.json);
   } catch (error) {
@@ -194,9 +233,7 @@ export async function runDesignCheck(
   }
 }
 
-export function registerDesignCommands(program: Command, io: ProgramIO): void {
-  const design = program.command('design').description('Build and check the design contract');
-
+function registerInitCommand(design: Command, io: ProgramIO): void {
   addJsonOption(
     design
       .command('init')
@@ -206,10 +243,18 @@ export function registerDesignCommands(program: Command, io: ProgramIO): void {
       .option('--start <command>', 'dev-server command recorded in engine.json')
       .option('--port <n>', 'dev-server port recorded in engine.json', parsePort)
       .option('--pages <list>', 'comma-separated render pages recorded in engine.json')
+      .option('--page-roots <list>', 'comma-separated page roots recorded in paved-road.json')
+      .option('--exclude <list>', 'comma-separated paths excluded from the source scan')
+      .option('--url <url>', 'confirmed render URL recorded in engine.json')
       .option('--archetypes <list>', 'comma-separated exemplar archetypes')
       .option('--force', 'back up and rewrite user-owned files')
       .option('--refresh', 'rewrite only engine.json')
   ).action((options: DesignInitCliOptions) => runDesignInit(options, io));
+}
+
+export function registerDesignCommands(program: Command, io: ProgramIO): void {
+  const design = program.command('design').description('Build and check the design contract');
+  registerInitCommand(design, io);
 
   addJsonOption(
     design

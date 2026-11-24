@@ -15,28 +15,45 @@ import { dirname } from 'node:path';
 import {
   MutReportSchema,
   type AssertionsReport,
+  type EvaluatedAxes,
   type Followup,
   type MutationReport,
   type MutReportJson
 } from './types.js';
 import { DEFAULT_THRESHOLDS, evaluateThresholds, type Thresholds } from './thresholds.js';
 
+/**
+ * Which pipeline produced the report. `run` executes Stryker + the
+ * assertion scan; `asserts` scans assertions only and carries an empty
+ * mutation block, so the mutation threshold must not be judged.
+ */
+export type MutReportMode = 'run' | 'asserts';
+
 export interface BuildMutInput {
   readonly mutation: MutationReport;
   readonly assertions: AssertionsReport;
   readonly inputSig: string;
   readonly out: string;
+  readonly mode?: MutReportMode;
   readonly thresholds?: Thresholds;
   readonly now?: () => Date;
+}
+
+/** The axes a mode measures. Only `asserts` drops an axis. */
+function evaluatedAxesFor(mode: MutReportMode): EvaluatedAxes {
+  return mode === 'asserts'
+    ? { mutation: false, assertions: true }
+    : { mutation: true, assertions: true };
 }
 
 function deriveFollowups(
   m: MutationReport,
   a: AssertionsReport,
-  t: Thresholds
+  t: Thresholds,
+  evaluated: EvaluatedAxes
 ): ReadonlyArray<Followup> {
   const out: Followup[] = [];
-  if (m.killRate < t.mutationKillRateMin) {
+  if (evaluated.mutation && m.killRate < t.mutationKillRateMin) {
     for (const f of m.byFile) {
       if (f.killRate < t.mutationKillRateMin) {
         out.push({
@@ -48,7 +65,7 @@ function deriveFollowups(
       }
     }
   }
-  if (a.weakRate > t.weakAssertionRateMax) {
+  if (evaluated.assertions && a.weakRate > t.weakAssertionRateMax) {
     for (const p of a.weakPatterns) {
       if (p.count > 0) {
         const exampleFile = p.examples[0]?.file ?? '<unknown>';
@@ -102,12 +119,14 @@ function computeMutSig(report: Omit<MutReportJson, 'sha256'>): string {
 export async function buildMutReport(input: BuildMutInput): Promise<MutReportJson> {
   const thresholds = input.thresholds ?? DEFAULT_THRESHOLDS;
   const now = input.now ?? (() => new Date());
+  const evaluated = evaluatedAxesFor(input.mode ?? 'run');
   const evalResult = evaluateThresholds(
     thresholds,
     input.mutation.killRate,
-    input.assertions.weakRate
+    input.assertions.weakRate,
+    evaluated
   );
-  const followups = deriveFollowups(input.mutation, input.assertions, thresholds);
+  const followups = deriveFollowups(input.mutation, input.assertions, thresholds, evaluated);
 
   const partial: Omit<MutReportJson, 'sha256'> = {
     version: '1.0',
@@ -118,7 +137,8 @@ export async function buildMutReport(input: BuildMutInput): Promise<MutReportJso
     thresholds: {
       mutationKillRateMin: thresholds.mutationKillRateMin,
       weakAssertionRateMax: thresholds.weakAssertionRateMax,
-      passed: evalResult.passed
+      passed: evalResult.passed,
+      evaluated: evalResult.evaluated
     },
     followups
   };

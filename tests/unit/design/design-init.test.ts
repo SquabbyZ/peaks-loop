@@ -12,11 +12,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
+import { initDesignContract } from '../../../src/services/design/design-init.js';
 import {
-  initDesignContract,
   readDesignStatus,
   removeDesignContract
-} from '../../../src/services/design/design-init.js';
+} from '../../../src/services/design/design-status.js';
 import type { PavedRoadFile } from '../../../src/services/design/paved-road.js';
 import type { DesignTokensFile } from '../../../src/services/design/token-contract.js';
 
@@ -41,7 +41,7 @@ function readJsonFile<T>(filePath: string): T {
  * `scanArchetype` calls a one-file `src/` with a fresh lockfile greenfield,
  * and `scanExistingSystem` short-circuits before extracting any token.
  */
-function makeApp(): string {
+function makeApp(theme = '@theme { --color-primary: #0f62fe; --spacing-4: 1rem; }\n'): string {
   const root = mkdtempSync(join(tmpdir(), 'peaks-design-init-'));
   roots.push(root);
   mkdirSync(join(root, 'src', 'styles'), { recursive: true });
@@ -51,11 +51,7 @@ function makeApp(): string {
     'utf8'
   );
   writeFileSync(join(root, 'src', 'main.tsx'), 'export {}', 'utf8');
-  writeFileSync(
-    join(root, 'src', 'styles', 'theme.css'),
-    '@theme { --color-primary: #0f62fe; --spacing-4: 1rem; }\n',
-    'utf8'
-  );
+  writeFileSync(join(root, 'src', 'styles', 'theme.css'), theme, 'utf8');
   const lockfile = join(root, 'pnpm-lock.yaml');
   writeFileSync(lockfile, 'lockfileVersion: 9.0\n', 'utf8');
   const sixtyDaysAgo = (Date.now() - 60 * 24 * 60 * 60 * 1000) / 1000;
@@ -211,6 +207,74 @@ describe('Scenario: behavior — init writes the contract once and preserves use
     writeFileSync(readmePath, '# our exemplars\n', 'utf8');
     await initDesignContract({ projectRoot: root });
     expect(readFileSync(readmePath, 'utf8')).toBe('# our exemplars\n');
+  });
+});
+
+describe('Scenario: behavior — init reports the derived primary colour', () => {
+  it('when the app has a primary token, should report it and render it into the contract', async () => {
+    // given: an app whose theme carries a hex primary token
+    // when: init runs
+    // then: the envelope names the token and the contract opens with a readable front matter
+    const root = makeApp();
+    const result = await initDesignContract({ projectRoot: root });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.primary.color).toEqual({
+      value: '#0f62fe',
+      token: 'color-primary',
+      origin: 'primary-named'
+    });
+    expect(result.primary.source).toBe('token color-primary (primary-named)');
+    expect(result.primary.gaps).toEqual([]);
+    const contract = readFileSync(join(root, 'design', 'contract.md'), 'utf8');
+    expect(contract.startsWith('---\ncolors:\n  primary: "#0f62fe"\n---\n')).toBe(true);
+    expect(contract).toContain('token `color-primary`');
+  });
+
+  it('when the primary token is oklch, should render the hex designlang reads', async () => {
+    // given: a Tailwind v4 app whose primary is a functional notation
+    // when: init runs
+    // then: the literal stays in the envelope and the contract front matter is a hex
+    const root = makeApp('@theme { --primary: oklch(0.5315 0.0694 156.19); }\n');
+    const result = await initDesignContract({ projectRoot: root });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.primary.color?.value).toBe('oklch(0.5315 0.0694 156.19)');
+    expect(result.primary.gaps).toEqual([]);
+    const contract = readFileSync(join(root, 'design', 'contract.md'), 'utf8');
+    expect(contract.startsWith('---\ncolors:\n  primary: "#49785b"\n---\n')).toBe(true);
+  });
+
+  it('when the app has no colour token, should record the gap and invent nothing', async () => {
+    // given: an app whose theme carries only a spacing token
+    // when: init runs
+    // then: the envelope is null with a named gap and the contract says so
+    const root = makeApp('@theme { --spacing-4: 1rem; }\n');
+    const result = await initDesignContract({ projectRoot: root });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.primary.color).toBeNull();
+    expect(result.primary.source).toBeNull();
+    expect(result.primary.gaps.map((gap) => gap.code)).toEqual(['DESIGN_PRIMARY_COLOR_MISSING']);
+    const contract = readFileSync(join(root, 'design', 'contract.md'), 'utf8');
+    expect(contract.startsWith('---')).toBe(false);
+    expect(contract).toContain('No colour token was found');
+  });
+
+  it('when refresh runs, should report the primary the preserved token file carries', async () => {
+    // given: an initialized app whose token file is later edited by hand
+    // when: refresh runs
+    // then: the report follows the preserved file, not the fresh scan
+    const root = makeApp();
+    await initDesignContract({ projectRoot: root });
+    const tokensPath = join(root, 'design', 'tokens.json');
+    const tokens = readJsonFile<DesignTokensFile>(tokensPath);
+    tokens.color['color-primary'] = { $value: '#abcdef', $type: 'color' };
+    writeFileSync(tokensPath, JSON.stringify(tokens, null, 2), 'utf8');
+    const result = await initDesignContract({ projectRoot: root, refresh: true });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.primary.color?.value).toBe('#abcdef');
   });
 });
 

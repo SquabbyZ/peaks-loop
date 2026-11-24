@@ -38,6 +38,8 @@ export type EngineContractInput = {
   port: number;
   pages: readonly string[];
   archetypes: readonly string[];
+  /** A fixed address the user confirmed; absent or null keeps `render.url` null. */
+  url?: string | null;
 };
 
 const MAX_PORT = 65_535;
@@ -161,7 +163,7 @@ export function buildEngineContract(input: EngineContractInput): EngineContractF
       path: '/',
       pages: [...input.pages],
       startPolicy: hasCommand ? 'on-request' : 'never',
-      url: null
+      url: input.url ?? null
     },
     archetypes: [...input.archetypes]
   };

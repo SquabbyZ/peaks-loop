@@ -24,6 +24,7 @@ import {
   completeG3,
   type G3SuiteDeps
 } from '../../../src/services/design/design-check-g3-suite.js';
+import { cleanProbe } from './_fake-designlang.js';
 
 declareDimensions('tests/unit/design/design-evidence.test.ts', [
   'behavior',
@@ -134,6 +135,7 @@ function g3Deps(
       reportPath: '.peaks/_runtime/sid-1/design/fidelity/run/fidelity.json'
     }),
     candidateUrl: () => ({ ok: true, url: 'http://127.0.0.1:4312/' }),
+    probePage: async (url) => cleanProbe(url),
     rubricText: () => rubricText
   };
 }

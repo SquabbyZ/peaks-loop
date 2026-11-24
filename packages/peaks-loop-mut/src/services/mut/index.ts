@@ -8,7 +8,7 @@ export {
   type StrykerRawResult
 } from './mut-runner.js';
 export { createProductionStrykerInvoker } from './production-stryker.js';
-export { buildMutReport, type BuildMutInput } from './report-builder.js';
+export { buildMutReport, type BuildMutInput, type MutReportMode } from './report-builder.js';
 export { loadMutReport, mutReportPath, MUT_REPORT_RELATIVE_PATH } from './report-loader.js';
 export {
   DEFAULT_THRESHOLDS,
@@ -24,5 +24,6 @@ export type {
   AssertionsReport,
   WeakPattern,
   WeakPatternCount,
-  Followup
+  Followup,
+  EvaluatedAxes
 } from './types.js';

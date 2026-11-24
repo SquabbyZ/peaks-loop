@@ -18,6 +18,7 @@ import type { DesignEngineDeps } from './design-check-g2.js';
 import { type EngineContractFile, validateEngineContract } from './engine-contract.js';
 import { resolveEngine } from './engine-status.js';
 import { type DesignlangRunResult, readGradeEvidence, runDesignlang } from './designlang.js';
+import { buildPageProbe } from './page-probe-deps.js';
 import { probeRenderUrl, resolveRenderUrl } from './render-url.js';
 import { startRenderServer } from './render-server.js';
 
@@ -25,6 +26,8 @@ export type BuildEngineDepsInput = {
   projectRoot: string;
   engine: EngineContractFile;
   url?: string;
+  /** Routes the probe capture under this session's `design/probe`; defaults to `local`. */
+  sessionId?: string;
   env?: Readonly<Record<string, string | undefined>>;
 };
 
@@ -101,6 +104,11 @@ export function buildEngineDeps(input: BuildEngineDepsInput): DesignEngineDeps {
         engine: input.engine
       }),
     probe: probeRenderUrl,
+    probePage: buildPageProbe({
+      availability,
+      projectRoot: input.projectRoot,
+      ...(input.sessionId === undefined ? {} : { sessionId: input.sessionId })
+    }),
     run: (_kind, request) => {
       const entryPath = availability.entryPath;
       if (entryPath === null) return Promise.resolve({ ...UNRESOLVED_ENTRY_RESULT });

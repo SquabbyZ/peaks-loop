@@ -10,7 +10,9 @@ import {
   UNAVAILABLE,
   createAdoptedApp,
   disposeFixtures,
+  driftedStdout,
   fakeEngine,
+  runOfKind,
   runResult,
   setStartCommand,
   setStartPolicy
@@ -49,9 +51,9 @@ describe('Scenario: behavior — every render page URL is trusted', () => {
       const result = await checkDesign(
         input(root, { start: true, pages: [page] }),
         fakeEngine({
-          run: async () => {
+          run: async (kind, request) => {
             calls += 1;
-            return runResult();
+            return runOfKind(kind, request.args);
           },
           startServer: async () => {
             calls += 1;
@@ -189,34 +191,64 @@ describe('Scenario: behavior — the G2 unavailability matrix', () => {
 });
 
 describe('Scenario: behavior — the G2 verdict matrix', () => {
-  it('when drift exits nonzero, should fail', async () => {
-    // given: a reachable page whose drift check exits 1
+  it('when drift reports a drifted verdict, should fail', async () => {
+    // given: a reachable page whose drift check reports notable-drift and exits 1
     // when: check runs
-    // then: the nonzero drift is a fail
+    // then: the parsed payload is the verdict, not the exit code alone
     const root = await createAdoptedApp();
     const result = await checkDesign(
       input(root),
       fakeEngine({
-        run: async (kind) => (kind === 'drift' ? runResult({ exitCode: 1 }) : runResult())
+        run: async (kind, request) =>
+          kind === 'drift'
+            ? runOfKind('drift', request.args, {
+                exitCode: 1,
+                stdout: driftedStdout(request.args)
+              })
+            : runOfKind(kind, request.args)
       })
     );
     expect(result.verdict).toBe('fail');
     expect(result.checks.g2_render.status).toBe('fail');
   });
 
-  it('when verify-ui exits nonzero, should fail', async () => {
-    // given: a reachable page whose verify-ui check exits 2
+  it('when verify-ui exits 1 without a report, should fail', async () => {
+    // given: a reachable page whose verify-ui check exits 1 with no payload
     // when: check runs
-    // then: the nonzero verify-ui is a fail
+    // then: the scored fail is the G2 fail
     const root = await createAdoptedApp();
     const result = await checkDesign(
       input(root),
       fakeEngine({
-        run: async (kind) => (kind === 'verify-ui' ? runResult({ exitCode: 2 }) : runResult())
+        run: async (kind, request) =>
+          kind === 'verify-ui'
+            ? runOfKind('verify-ui', request.args, { exitCode: 1, stdout: '' })
+            : runOfKind(kind, request.args)
       })
     );
     expect(result.verdict).toBe('fail');
     expect(result.checks.g2_render.status).toBe('fail');
+  });
+
+  it('when verify-ui exits 2, should block as an unusable page instead of failing', async () => {
+    // given: a page designlang could not read (empty stdout, exit 2)
+    // when: check runs
+    // then: the page is blocked, never turned into a render fail
+    const root = await createAdoptedApp();
+    const result = await checkDesign(
+      input(root),
+      fakeEngine({
+        run: async (kind, request) =>
+          kind === 'verify-ui'
+            ? runOfKind('verify-ui', request.args, { exitCode: 2, stdout: '' })
+            : runOfKind(kind, request.args)
+      })
+    );
+    expect(result.verdict).toBe('blocked');
+    expect(result.checks.g2_render).toEqual({
+      status: 'blocked',
+      code: 'DESIGN_PAGE_UNUSABLE'
+    });
   });
 
   it('when slop exits nonzero, should stay a pass with a warning', async () => {
@@ -227,15 +259,21 @@ describe('Scenario: behavior — the G2 verdict matrix', () => {
     const result = await checkDesign(
       input(root),
       fakeEngine({
-        run: async (kind) =>
-          kind === 'slop' ? runResult({ exitCode: 1, stdout: '' }) : runResult()
+        run: async (kind, request) =>
+          kind === 'slop'
+            ? runOfKind('slop', request.args, { exitCode: 1, stdout: '' })
+            : runOfKind(kind, request.args)
       })
     );
     expect(result.verdict).toBe('pass');
     expect(result.checks.g2_render).toEqual({
       status: 'pass',
       pages: 1,
-      evidence: [`drift ${DEFAULT_URL}`, `verify-ui ${DEFAULT_URL}`]
+      evidence: [
+        `drift ${DEFAULT_URL}`,
+        `verify-ui ${DEFAULT_URL}`,
+        `probe ${DEFAULT_URL} elapsedMs 5000`
+      ]
     });
     expect(result.warnings?.join(' ')).toContain('slop');
   });
@@ -250,8 +288,10 @@ describe('Scenario: behavior — the G2 verdict matrix', () => {
     const silent = await checkDesign(
       input(root),
       fakeEngine({
-        run: async (kind) =>
-          kind === 'verify-ui' ? runResult({ stdout: 'not json' }) : runResult()
+        run: async (kind, request) =>
+          kind === 'verify-ui'
+            ? runOfKind('verify-ui', request.args, { stdout: 'not json' })
+            : runOfKind(kind, request.args)
       })
     );
     expect(silent.verdict).toBe('blocked');
@@ -262,15 +302,17 @@ describe('Scenario: behavior — the G2 verdict matrix', () => {
   });
 
   it('when drift prints an empty pages list, should block as no evidence', async () => {
-    // given: drift exiting 0 with a document whose only stamp is pages: []
+    // given: drift exiting 0 with a document that carries none of its real shape
     // when: check runs
-    // then: the empty stamp never becomes positive evidence
+    // then: the shapeless document never becomes positive evidence
     const root = await createAdoptedApp();
     const result = await checkDesign(
       input(root),
       fakeEngine({
-        run: async (kind) =>
-          kind === 'drift' ? runResult({ stdout: '{"pages":[]}' }) : runResult()
+        run: async (kind, request) =>
+          kind === 'drift'
+            ? runOfKind('drift', request.args, { stdout: '{"pages":[]}' })
+            : runOfKind(kind, request.args)
       })
     );
     expect(result.verdict).toBe('blocked');
@@ -292,7 +334,7 @@ describe('Scenario: integration — the advisory grade artifact', () => {
       fakeEngine({
         readGrade: readGradeEvidence,
         run: async (kind, request) => {
-          if (kind !== 'grade') return runResult();
+          if (kind !== 'grade') return runOfKind(kind, request.args);
           const outDir = request.args[request.args.indexOf('--out') + 1];
           if (outDir !== undefined) {
             writeFileSync(
@@ -317,7 +359,8 @@ describe('Scenario: integration — the advisory grade artifact', () => {
       input(root, { sessionId: 'session-silent' }),
       fakeEngine({
         readGrade: readGradeEvidence,
-        run: async (kind) => (kind === 'grade' ? runResult({ stdout: '' }) : runResult())
+        run: async (kind, request) =>
+          kind === 'grade' ? runResult({ stdout: '' }) : runOfKind(kind, request.args)
       })
     );
     expect(result.verdict).toBe('pass');
@@ -333,8 +376,8 @@ describe('Scenario: integration — the advisory grade artifact', () => {
       input(root, { sessionId: 'session-grade-failed' }),
       fakeEngine({
         readGrade: readGradeEvidence,
-        run: async (kind) =>
-          kind === 'grade' ? runResult({ exitCode: 3, stdout: '' }) : runResult()
+        run: async (kind, request) =>
+          kind === 'grade' ? runResult({ exitCode: 3, stdout: '' }) : runOfKind(kind, request.args)
       })
     );
     expect(result.verdict).toBe('pass');
@@ -352,7 +395,8 @@ describe('Scenario: integration — the advisory grade artifact', () => {
         readGrade: async () => {
           throw new Error('EACCES');
         },
-        run: async (kind) => (kind === 'grade' ? runResult({ stdout: '' }) : runResult())
+        run: async (kind, request) =>
+          kind === 'grade' ? runResult({ stdout: '' }) : runOfKind(kind, request.args)
       })
     );
     expect(result.verdict).toBe('pass');

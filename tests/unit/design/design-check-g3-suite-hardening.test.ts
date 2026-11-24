@@ -11,6 +11,7 @@ import {
   type G3CheckInput,
   type G3SuiteDeps
 } from '../../../src/services/design/design-check-g3-suite.js';
+import { cleanProbe } from './_fake-designlang.js';
 
 import type * as G3SuiteModuleTypes from '../../../src/services/design/design-check-g3-suite.js';
 
@@ -111,6 +112,7 @@ function suiteDeps(overrides: Partial<G3SuiteDeps> = {}, spies: Spies = emptySpi
       spies.candidateRoutes.push(route);
       return { ok: true, url: CANDIDATE };
     },
+    probePage: async (url) => cleanProbe(url),
     rubricText: (path) => {
       spies.rubricPaths.push(path);
       return null;
@@ -180,6 +182,39 @@ describe('Scenario: behavior — routes come from the changed files', () => {
     expect(result.checks.g3_exemplar.g3a).toEqual([
       { status: 'skipped', route: '/about', reason: 'no-baseline' }
     ]);
+  });
+});
+
+describe('Scenario: behavior — the usability probe gates G3a before fidelity', () => {
+  it('when the candidate page is unusable, should block without spawning fidelity', async () => {
+    // given: a recorded baseline whose candidate page the probe refuses
+    // when: G3 completes a passing result
+    // then: G3a blocks as unusable and no comparison runs on blank noise
+    const root = makeRoot();
+    writeBaseline(root, ENTRY);
+    let calls = 0;
+    const result = await completeG3(
+      inputFor(root),
+      baseResult(),
+      contractRootOf(root),
+      suiteDeps({
+        fidelity: async () => {
+          calls += 1;
+          throw new Error('fidelity must not run for an unusable page');
+        },
+        probePage: async () => ({
+          ok: false,
+          code: 'DESIGN_PAGE_UNUSABLE',
+          message: 'the candidate page rendered no text'
+        })
+      })
+    );
+
+    expect(calls).toBe(0);
+    expect(result.verdict).toBe('blocked');
+    expect(result.errorCode).toBe('DESIGN_PAGE_UNUSABLE');
+    const run = result.checks.g3_exemplar.g3a[0];
+    expect(run?.status).toBe('blocked');
   });
 });
 

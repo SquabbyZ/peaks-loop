@@ -1,6 +1,10 @@
-import { describe, expect, it, vi } from 'vitest';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { buildPavedRoad } from '../../../src/services/design/paved-road.js';
+import { readPavedRoad } from '../../../src/services/design/source-scan/inputs.js';
 import { buildEngineContract } from '../../../src/services/design/engine-contract.js';
 
 declareDimensions('tests/unit/design/paved-road-and-engine.test.ts', [
@@ -37,6 +41,43 @@ describe('Scenario: behavior — the paved road defaults', () => {
     expect(road.rules.DESIGN_ARBITRARY_VALUE).toBe('fail');
     expect(road.rules.DESIGN_RAW_PRIMITIVE).toBe('fail');
     expect(road.rules.DESIGN_TOKEN_COVERAGE).toBe('warn');
+  });
+});
+
+describe('Scenario: behavior — an older paved road still reads', () => {
+  const roots: string[] = [];
+  afterEach(() => {
+    while (roots.length) rmSync(roots.pop() as string, { recursive: true, force: true });
+  });
+
+  it('when the file predates exclude, should read it as an empty list', () => {
+    // given: a paved-road.json written before the exclude field existed
+    // when: the tolerant reader parses it
+    // then: the missing list defaults to empty and the roots survive
+    const root = mkdtempSync(join(tmpdir(), 'peaks-paved-road-'));
+    roots.push(root);
+    writeFileSync(
+      join(root, 'paved-road.json'),
+      JSON.stringify({ pageRoots: ['src/app'] }),
+      'utf8'
+    );
+    const road = readPavedRoad(root);
+    expect(road.exclude).toEqual([]);
+    expect(road.pageRoots).toEqual(['src/app']);
+  });
+
+  it('when the file records exclude, should keep every entry', () => {
+    // given: a paved-road.json carrying two excluded paths
+    // when: the tolerant reader parses it
+    // then: both paths are read back in order
+    const root = mkdtempSync(join(tmpdir(), 'peaks-paved-road-'));
+    roots.push(root);
+    writeFileSync(
+      join(root, 'paved-road.json'),
+      JSON.stringify({ pageRoots: ['src/app'], exclude: ['legacy', 'src/gen'] }),
+      'utf8'
+    );
+    expect(readPavedRoad(root).exclude).toEqual(['legacy', 'src/gen']);
   });
 });
 

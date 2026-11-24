@@ -21,8 +21,12 @@ import { join } from 'node:path';
 
 import type { DesignEngineDeps } from '../../../src/services/design/design-check-g2.js';
 import { initDesignContract } from '../../../src/services/design/design-init.js';
-import type { DesignlangRunResult } from '../../../src/services/design/designlang.js';
+import type {
+  DesignlangCheckKind,
+  DesignlangRunResult
+} from '../../../src/services/design/designlang.js';
 import type { EngineAvailability } from '../../../src/services/design/engine-status.js';
+import type { PageProbeResult } from '../../../src/services/design/page-probe.js';
 import type { StartRenderServerResult } from '../../../src/services/design/render-server.js';
 
 /** The loopback URL every fake check renders. */
@@ -48,11 +52,121 @@ export const UNAVAILABLE: EngineAvailability = {
   codes: ['DESIGN_ENGINE_UNAVAILABLE']
 };
 
-/** The non-empty JSON document a clean check prints. */
-export const CLEAN_JSON = JSON.stringify({
-  url: DEFAULT_URL,
-  generatedAt: '2026-11-23T00:00:00Z'
-});
+/** The value after `flag` in an argv vector, or undefined. */
+function argAfter(args: readonly string[], flag: string): string | undefined {
+  const index = args.indexOf(flag);
+  return index < 0 ? undefined : args[index + 1];
+}
+
+/**
+ * A clean stdout for one check kind. `drift` echoes the URL and tokens path it
+ * was given, exactly as designlang 13.4.1 does (the spike measured it); a fake
+ * that invents its own echo would defeat the provenance check under test.
+ */
+export function cleanStdout(kind: DesignlangCheckKind, args: readonly string[] = []): string {
+  const url = args[1] ?? DEFAULT_URL;
+  switch (kind) {
+    case 'drift': {
+      const tokensFile = argAfter(args, '--tokens') ?? join('design', 'tokens.json');
+      return JSON.stringify({
+        url,
+        tokensFile,
+        tolerance: 0,
+        verdict: 'in-sync',
+        driftRatio: 0,
+        drifted: [],
+        matched: [{ token: 'color.primary', local: '#2563eb', liveMatch: '#2563eb', distance: 0 }],
+        unknown: [],
+        summary: { total: 1, drifted: 0, matched: 1, unknown: 0 }
+      });
+    }
+    case 'verify-ui':
+      return JSON.stringify({
+        pass: true,
+        onBrand: 99,
+        generic: 18,
+        genericBand: 'distinct',
+        tells: [],
+        issues: []
+      });
+    case 'slop':
+      return JSON.stringify({
+        url,
+        readAt: '2026-11-24T00:00:00.000Z',
+        generic: { score: 18, band: 'distinct', flags: [] },
+        unreadable: null
+      });
+    case 'stats':
+      return JSON.stringify({ url, fontFamilyCount: 2, typeScale: 4, colors: 5 });
+    case 'grade':
+      return JSON.stringify({ url, generatedAt: '2026-11-24T00:00:00.000Z', overall: 'A' });
+  }
+}
+
+/** A drift payload with one drifted token — the real notable-drift shape. */
+export function driftedStdout(args: readonly string[]): string {
+  const clean = JSON.parse(cleanStdout('drift', args)) as Record<string, unknown>;
+  const matched = Array.isArray(clean.matched) ? clean.matched.slice(0, 1) : [];
+  return JSON.stringify({
+    ...clean,
+    verdict: 'notable-drift',
+    driftRatio: 0.5,
+    drifted: [{ token: 'color.surface', nearestLive: '#ffffff', distance: 9 }],
+    matched,
+    summary: { total: 2, drifted: 1, matched: 1, unknown: 0 }
+  });
+}
+
+/** A clean run result for one kind, with any stream or code overridden. */
+export function runOfKind(
+  kind: DesignlangCheckKind,
+  args: readonly string[] = [],
+  overrides: Partial<DesignlangRunResult> = {}
+): DesignlangRunResult {
+  return {
+    exitCode: 0,
+    stdout: cleanStdout(kind, args),
+    stderr: '',
+    timedOut: false,
+    ...overrides
+  };
+}
+
+/** A run result with empty stdout unless the caller supplies one. */
+export function runResult(overrides: Partial<DesignlangRunResult> = {}): DesignlangRunResult {
+  return { exitCode: 0, stdout: '', stderr: '', timedOut: false, ...overrides };
+}
+
+/** A usable-page observation any probe call may return. */
+export function cleanProbe(url: string): PageProbeResult {
+  return {
+    ok: true,
+    observation: {
+      status: 200,
+      finalUrl: url,
+      textChars: 695,
+      hasPasswordField: false,
+      fontFamilyCount: 2,
+      typeScale: 4,
+      paint: { nonModalPct: 5.5, quantisedColours: 1579, luminanceStd: 20.19 },
+      pageTitle: 'Ledgerly',
+      pageHeadings: ['Reconciliation'],
+      elapsedMs: 5_000
+    }
+  };
+}
+
+/** The injected engine dependencies, with every side effect replaced. */
+export function fakeEngine(overrides: Partial<DesignEngineDeps> = {}): DesignEngineDeps {
+  return {
+    availability: AVAILABLE,
+    resolveUrl: () => ({ ok: true, url: DEFAULT_URL, source: 'flag' }),
+    probe: async () => true,
+    probePage: async (url) => cleanProbe(url),
+    run: async (kind, request) => runOfKind(kind, request.args),
+    ...overrides
+  };
+}
 
 /** How long the fixture waits for a predicate, and for a child to exit. */
 const WAIT_TIMEOUT_MS = 5_000;
@@ -107,22 +221,6 @@ export function writeFakeScript(name: string, options: FakeScriptOptions = {}): 
     'utf8'
   );
   return path;
-}
-
-/** A `DesignlangRunResult` that exits 0 with clean JSON unless overridden. */
-export function runResult(overrides: Partial<DesignlangRunResult> = {}): DesignlangRunResult {
-  return { exitCode: 0, stdout: CLEAN_JSON, stderr: '', timedOut: false, ...overrides };
-}
-
-/** The injected engine dependencies, with every side effect replaced. */
-export function fakeEngine(overrides: Partial<DesignEngineDeps> = {}): DesignEngineDeps {
-  return {
-    availability: AVAILABLE,
-    resolveUrl: () => ({ ok: true, url: DEFAULT_URL, source: 'flag' }),
-    probe: async () => true,
-    run: async () => runResult(),
-    ...overrides
-  };
 }
 
 /** An adopted app whose G1 scan of one clean page passes. */

@@ -51,3 +51,13 @@ export function isTrustedDesignUrl(
   if (isPrivateHost(hostname)) return false;
   return engine.render.url !== null && url === engine.render.url;
 }
+
+/** True only for `http(s)://localhost|127.0.0.1|[::1]…`, whatever the port. */
+export function isLoopbackUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return LOOPBACK_HOSTS.has(unbracket(parsed.hostname));
+  } catch {
+    return false;
+  }
+}

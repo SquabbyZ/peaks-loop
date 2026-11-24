@@ -12,6 +12,7 @@ import {
   type G3CheckInput,
   type G3SuiteDeps
 } from '../../../src/services/design/design-check-g3-suite.js';
+import { cleanProbe } from './_fake-designlang.js';
 
 declareDimensions('tests/unit/design/design-check-g3-suite.test.ts', [
   'behavior',
@@ -100,6 +101,7 @@ function suiteDeps(overrides: Partial<G3SuiteDeps> = {}, calls: FidelityCall[] =
       };
     },
     candidateUrl: () => ({ ok: true, url: CANDIDATE }),
+    probePage: async (url) => cleanProbe(url),
     rubricText: () => null,
     ...overrides
   };
@@ -219,6 +221,7 @@ describe('Scenario: integration — the baseline and rubric sources', () => {
 
     expect(calls[0]?.baselineUrl).toBe(explicit);
     expect(result.checks.g3_exemplar.g3a[0]?.status).toBe('pass');
+    expect(result.checks.g3_exemplar.g3a[0]).toMatchObject({ probeMs: 5000 });
   });
 
   it('when a baseline is recorded, should use its URL and the candidate route', async () => {

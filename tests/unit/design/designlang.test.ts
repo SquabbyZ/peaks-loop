@@ -189,6 +189,14 @@ describe('Scenario: render — the designlang argument vectors', () => {
     ]);
   });
 
+  it('when stats is requested, should ask for the json variant of the page read', () => {
+    // given: a loopback URL
+    // when: the stats arguments are built
+    // then: the vector matches the `designlang stats --as-json` surface the spike ran
+    const args = buildDesignlangArgs({ kind: 'stats', url: 'http://127.0.0.1:4321/' });
+    expect(args).toEqual(['stats', 'http://127.0.0.1:4321/', '--as-json']);
+  });
+
   it('when any subcommand is built, should never force the system-chrome channel', () => {
     // given: every check kind the adapter wraps
     // when: each argument vector is built
@@ -197,7 +205,8 @@ describe('Scenario: render — the designlang argument vectors', () => {
       buildDesignlangArgs({ kind: 'drift', url: 'u', tokensPath: 't' }),
       buildDesignlangArgs({ kind: 'verify-ui', url: 'u', brandPath: 'b' }),
       buildDesignlangArgs({ kind: 'slop', url: 'u' }),
-      buildDesignlangArgs({ kind: 'grade', url: 'u', outDir: 'o' })
+      buildDesignlangArgs({ kind: 'grade', url: 'u', outDir: 'o' }),
+      buildDesignlangArgs({ kind: 'stats', url: 'u' })
     ];
     for (const vector of vectors) {
       expect(vector).not.toContain('--system-chrome');

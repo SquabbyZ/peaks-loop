@@ -204,12 +204,12 @@ function mutationGateStatus(input: RunQaSliceInput): QaGateStatus {
 function deriveMutationFailureReason(report: MutReportJson): string {
   const t = report.thresholds;
   const fragments: string[] = [];
-  if (report.mutation.killRate < t.mutationKillRateMin) {
+  if (t.evaluated.mutation && report.mutation.killRate < t.mutationKillRateMin) {
     fragments.push(
       `mutation kill rate ${report.mutation.killRate.toFixed(2)} < ${t.mutationKillRateMin.toFixed(2)}`
     );
   }
-  if (report.assertions.weakRate > t.weakAssertionRateMax) {
+  if (t.evaluated.assertions && report.assertions.weakRate > t.weakAssertionRateMax) {
     fragments.push(
       `weak assertion rate ${report.assertions.weakRate.toFixed(2)} > ${t.weakAssertionRateMax.toFixed(2)}`
     );

@@ -55,6 +55,8 @@ export type EvaluateG3aInput = {
   baselineUrl?: string;
   /** Defaults to `FIDELITY_MIN_DEFAULT`. */
   min?: number;
+  /** Wall time the usability probe spent on `candidateUrl`, when it ran. */
+  probeMs?: number;
   deps: G3ADeps;
 };
 
@@ -71,6 +73,8 @@ type G3AEvidence = {
   candidateUrl: string;
   /** The commit the recorded baseline was rendered from; null for an explicit URL. */
   baseCommit: string | null;
+  /** Wall time the usability probe spent on `candidateUrl`, when it ran. */
+  probeMs?: number;
 };
 
 export type G3AResult =
@@ -214,7 +218,8 @@ export async function evaluateG3a(input: EvaluateG3aInput): Promise<G3AResult> {
     reportPath: result.reportPath,
     baselineUrl: target.url,
     candidateUrl: input.candidateUrl,
-    baseCommit: target.baseCommit
+    baseCommit: target.baseCommit,
+    ...(input.probeMs === undefined ? {} : { probeMs: input.probeMs })
   };
   if (result.score < min) return { status: 'fail', reason: 'below-min', ...evidence };
   return { status: 'pass', ...evidence };

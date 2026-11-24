@@ -31,6 +31,8 @@ export type PavedRoadBanned = {
 export type PavedRoadFile = {
   schemaVersion: 1;
   pageRoots: string[];
+  /** Paths the source scan stays out of; absent in files written before S5. */
+  exclude: string[];
   componentEntrypoints: string[];
   allowDirectLibraryImports: string[];
   bannedImportSpecifiers: string[];
@@ -42,6 +44,7 @@ export type PavedRoadFile = {
 export type PavedRoadInput = {
   pageRoots: readonly string[];
   componentEntrypoints: readonly string[];
+  exclude?: readonly string[];
   allowDirectLibraryImports?: readonly string[];
   bannedImportSpecifiers?: readonly string[];
 };
@@ -53,10 +56,27 @@ const DEFAULT_TOKEN_SCALE: DesignTokenScale = {
   color: ['--color-*']
 };
 
+/**
+ * A list field read from disk. An older `paved-road.json` has no `exclude`, so
+ * absent (or malformed) becomes an empty list instead of a crash — this is the
+ * tolerance seam every reader of the file shares.
+ */
+export function stringList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === 'string')
+    : [];
+}
+
+/** First-seen order, repeats dropped, so a re-run cannot duplicate an entry. */
+export function uniqueList(values: readonly string[]): string[] {
+  return [...new Set(values)];
+}
+
 export function buildPavedRoad(input: PavedRoadInput): PavedRoadFile {
   return {
     schemaVersion: 1,
     pageRoots: [...input.pageRoots],
+    exclude: [...(input.exclude ?? [])],
     componentEntrypoints: [...input.componentEntrypoints],
     allowDirectLibraryImports: [...(input.allowDirectLibraryImports ?? [])],
     bannedImportSpecifiers: [...(input.bannedImportSpecifiers ?? [])],

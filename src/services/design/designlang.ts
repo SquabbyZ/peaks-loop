@@ -7,12 +7,19 @@
  *
  * `grade` writes `<prefix>.grade.json` into `--out` (it has no stdout JSON flag),
  * so the caller reads it back through `readGradeEvidence`; `drift`, `verify-ui`,
- * and `slop` emit JSON on stdout. `--system-chrome` is extract-only, never here.
+ * `slop`, and `stats` emit JSON on stdout. `--system-chrome` is extract-only,
+ * never here. The per-tool evidence shapes live in `designlang-evidence.ts`.
  */
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import type { Dirent } from 'node:fs';
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
+
+import {
+  evidenceRefusal,
+  parseJsonObject,
+  type EvidenceExpectation
+} from './designlang-evidence.js';
 
 /** Budget for one designlang run; a render may launch a browser and navigate. */
 export const DEFAULT_RUN_TIMEOUT_MS = 120_000;
@@ -39,22 +46,31 @@ export type DesignlangRunInput = {
   timeoutMs?: number;
 };
 
-export type DesignlangCheckKind = 'drift' | 'verify-ui' | 'slop' | 'grade';
+export type DesignlangCheckKind = 'drift' | 'verify-ui' | 'slop' | 'grade' | 'stats';
 
 export type BuildDesignlangArgsInput =
   | { kind: 'drift'; url: string; tokensPath: string }
   | { kind: 'verify-ui'; url: string; brandPath: string }
   | { kind: 'slop'; url: string; brandPath?: string }
-  | { kind: 'grade'; url: string; outDir: string };
+  | { kind: 'grade'; url: string; outDir: string }
+  | { kind: 'stats'; url: string }
+  /**
+   * The page-probe capture, probed 2026-11-24: it writes
+   * `<outDir>/screenshots/full-page.png` and echoes that path as
+   * `componentScreenshots.fullPage.path` in its JSON.
+   */
+  | { kind: 'extract'; url: string; outDir: string };
 
 /** Positive evidence, or the exact code the caller must treat as blocked. */
 export type DesignlangEvidence =
-  | { ok: true; pages: number; raw: unknown }
+  | { ok: true; pages: number; raw: Record<string, unknown> }
   | { ok: false; code: 'DESIGN_RENDER_NO_EVIDENCE'; message: string };
 
 export type ParseDesignlangEvidenceInput = {
   kind: DesignlangCheckKind;
   stdout: string;
+  /** The values the spawn was given; drift must echo them back. */
+  expect?: EvidenceExpectation;
 };
 
 /** The exact CLI vector for each check; the page URL is the first positional. */
@@ -70,6 +86,10 @@ export function buildDesignlangArgs(input: BuildDesignlangArgsInput): string[] {
         : ['slop', input.url, '--brand', input.brandPath, '--json'];
     case 'grade':
       return ['grade', input.url, '--format', 'json', '--out', input.outDir];
+    case 'stats':
+      return ['stats', input.url, '--as-json'];
+    case 'extract':
+      return [input.url, '--json', '--screenshots', '--no-history', '-o', input.outDir, '--quiet'];
   }
 }
 
@@ -153,101 +173,21 @@ function noEvidence(kind: DesignlangCheckKind, detail: string): DesignlangEviden
   };
 }
 
-/** A non-empty, non-array object — the only shape that counts as evidence. */
-function isEvidenceObject(value: unknown): value is Record<string, unknown> {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    !Array.isArray(value) &&
-    Object.keys(value).length > 0
-  );
-}
-
-/** Spec §7.3 Q5: evidence carries a timestamp or a NON-EMPTY rendered page list. */
-function hasRunStamp(value: Record<string, unknown>): boolean {
-  const generatedAt = value.generatedAt;
-  if (typeof generatedAt === 'string' && generatedAt.trim() !== '') return true;
-  return Array.isArray(value.pages) && value.pages.length > 0;
-}
-
-function parseObject(text: string): Record<string, unknown> | null {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    // A line that is not JSON at all is not evidence; the caller tries the
-    // balanced-block recovery before refusing it.
-    parsed = null;
-  }
-  return isEvidenceObject(parsed) ? parsed : null;
-}
-
-/** Advance past a JSON string starting at `index` (a `"`); return its end. */
-function skipString(text: string, index: number): number {
-  let escaped = false;
-  for (let cursor = index + 1; cursor < text.length; cursor += 1) {
-    const char = text[cursor];
-    if (escaped) escaped = false;
-    else if (char === '\\') escaped = true;
-    else if (char === '"') return cursor;
-  }
-  return text.length;
-}
-
-/** Every top-level balanced `{...}` block, in stream order. */
-function balancedBlocks(text: string): string[] {
-  const blocks: string[] = [];
-  let start = -1;
-  let depth = 0;
-  let index = 0;
-  while (index < text.length) {
-    const char = text[index];
-    if (char === '"') {
-      index = skipString(text, index) + 1;
-      continue;
-    }
-    if (char === '{') {
-      if (depth === 0) start = index;
-      depth += 1;
-    } else if (char === '}' && depth > 0) {
-      depth -= 1;
-      if (depth === 0 && start >= 0) {
-        blocks.push(text.slice(start, index + 1));
-        start = -1;
-      }
-    }
-    index += 1;
-  }
-  return blocks;
-}
-
-/** The last balanced top-level `{...}` block that parses to a non-empty object. */
-function lastBalancedObject(text: string): Record<string, unknown> | null {
-  const blocks = balancedBlocks(text);
-  for (let index = blocks.length - 1; index >= 0; index -= 1) {
-    const block = blocks[index];
-    if (block === undefined) continue;
-    const parsed = parseObject(block);
-    if (parsed !== null) return parsed;
-  }
-  return null;
-}
-
 /**
  * Parse one check's stdout into evidence: `JSON.parse` of the whole stream, then
- * the last balanced block when log lines surround it. Empty, non-JSON, or an
- * object with neither a `generatedAt` timestamp nor a `pages` list is refused.
+ * the last balanced block when log lines surround it. Empty, non-JSON, or a
+ * payload that does not carry its own tool's shape (see `designlang-evidence`)
+ * is refused; a timestamp is never invented.
  */
 export function parseDesignlangEvidence(input: ParseDesignlangEvidenceInput): DesignlangEvidence {
   const trimmed = input.stdout.trim();
   if (trimmed === '') return noEvidence(input.kind, 'stdout was empty.');
-  const parsed = parseObject(trimmed) ?? lastBalancedObject(trimmed);
+  const parsed = parseJsonObject(trimmed);
   if (parsed === null) {
     return noEvidence(input.kind, 'stdout did not contain a non-empty JSON object.');
   }
-  if (!hasRunStamp(parsed)) {
-    return noEvidence(input.kind, 'stdout carried no generatedAt timestamp or pages list.');
-  }
+  const refusal = evidenceRefusal(input.kind, parsed, input.expect);
+  if (refusal !== null) return noEvidence(input.kind, refusal);
   return { ok: true, pages: Array.isArray(parsed.pages) ? parsed.pages.length : 1, raw: parsed };
 }
 

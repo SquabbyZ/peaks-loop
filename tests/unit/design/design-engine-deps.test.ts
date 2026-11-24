@@ -27,6 +27,7 @@ declareDimensions('tests/unit/design/design-engine-deps.test.ts', [
 const mocks = vi.hoisted(() => ({
   resolveEngine: vi.fn(),
   runDesignlang: vi.fn(),
+  buildDesignlangArgs: vi.fn(),
   startRenderServer: vi.fn(),
   readGradeEvidence: vi.fn()
 }));
@@ -36,7 +37,8 @@ vi.mock('../../../src/services/design/engine-status.js', () => ({
 }));
 vi.mock('../../../src/services/design/designlang.js', () => ({
   runDesignlang: mocks.runDesignlang,
-  readGradeEvidence: mocks.readGradeEvidence
+  readGradeEvidence: mocks.readGradeEvidence,
+  buildDesignlangArgs: mocks.buildDesignlangArgs
 }));
 vi.mock('../../../src/services/design/render-server.js', () => ({
   startRenderServer: mocks.startRenderServer

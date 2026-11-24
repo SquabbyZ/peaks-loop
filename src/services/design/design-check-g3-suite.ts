@@ -14,9 +14,8 @@
  * (an unusable baseline, an untrusted URL, no engine) turns it into `blocked`.
  * G3b is advisory: pass, warn, blocked and skipped never touch the top verdict.
  *
- * `--skip-exemplar` records the user's acceptance as `explicitly-accepted` on
- * G3b and stamps the accepting session and note on a passing result. It skips
- * only the advisory rubric; the hard G3a regression still runs.
+ * `--skip-exemplar` records the acceptance as `explicitly-accepted` on G3b and
+ * skips only the advisory rubric; the hard G3a regression still runs.
  *
  * `--baseline-url` names one route's baseline, so a change that touches any
  * other number of routes is a usage error (exit 3, nothing written).
@@ -37,6 +36,7 @@ import {
 } from './design-check-g3.js';
 import type { ContractRoot } from './design-types.js';
 import { readEngineContract } from './design-engine-deps.js';
+import { resolveEngine } from './engine-status.js';
 import {
   archetypeForRoute,
   readExemplars,
@@ -44,6 +44,8 @@ import {
   type ExemplarRegistry
 } from './exemplars.js';
 import { runFidelity } from './fidelity.js';
+import { buildGatedPageProbe } from './page-probe-deps.js';
+import type { PageProbeResult } from './page-probe.js';
 import { resolveRenderUrl } from './render-url.js';
 import { deriveChangedRoutes, type ChangedRoutes } from './design-routes.js';
 import { readPavedRoad } from './source-scan/inputs.js';
@@ -72,6 +74,8 @@ export type G3CandidateUrl =
 export type G3SuiteDeps = {
   fidelity: G3ADeps['fidelity'];
   candidateUrl: (route: string) => G3CandidateUrl;
+  /** The shared usability gate, run before the fidelity comparison spawns. */
+  probePage: (url: string) => Promise<PageProbeResult>;
   rubricText: (path: string) => string | null;
 };
 
@@ -98,6 +102,7 @@ function readTextOrNull(path: string): string | null {
 function buildSuiteDeps(input: G3CheckInput, contractRoot: ContractRoot): G3SuiteDeps {
   const sessionId = input.sessionId ?? LOCAL_SESSION;
   const engineRead = readEngineContract(contractRoot.designRoot);
+  const availability = resolveEngine();
   return {
     fidelity: (run) =>
       runFidelity({
@@ -124,6 +129,7 @@ function buildSuiteDeps(input: G3CheckInput, contractRoot: ContractRoot): G3Suit
         };
       }
     },
+    probePage: buildGatedPageProbe({ availability, projectRoot: input.projectRoot, sessionId }),
     rubricText: readTextOrNull
   };
 }
@@ -161,6 +167,7 @@ async function runG3a(
       continue;
     }
     let candidateUrl = '';
+    let probeMs: number | undefined;
     if (recorded.issue === null) {
       const candidate = deps.candidateUrl(route);
       if (!candidate.ok) {
@@ -173,12 +180,21 @@ async function runG3a(
         continue;
       }
       candidateUrl = candidate.url;
+      // The shared usability gate runs BEFORE the fidelity comparison: two
+      // blank shells score a plausible number, so comparing them is noise.
+      const usable = await deps.probePage(candidateUrl);
+      if (!usable.ok) {
+        results.push({ status: 'blocked', route, code: usable.code, message: usable.message });
+        continue;
+      }
+      probeMs = usable.observation.elapsedMs;
     }
     results.push(
       await evaluateG3a({
         storeDir,
         route,
         candidateUrl,
+        ...(probeMs === undefined ? {} : { probeMs }),
         ...(input.baselineUrl === undefined ? {} : { baselineUrl: input.baselineUrl }),
         deps: { fidelity: deps.fidelity }
       })

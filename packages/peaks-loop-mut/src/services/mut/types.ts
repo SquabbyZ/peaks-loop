@@ -54,10 +54,24 @@ export interface AssertionsReport {
   readonly weakPatterns: ReadonlyArray<WeakPatternCount>;
 }
 
+/**
+ * Which threshold axes the CLI actually judged for this report.
+ *
+ * `peaks mut asserts` scans assertions only and writes an empty mutation
+ * block, so the mutation axis must not decide `passed` there. Older
+ * reports (written before this field existed) evaluated both axes, and
+ * the schema default says exactly that on read.
+ */
+export interface EvaluatedAxes {
+  readonly mutation: boolean;
+  readonly assertions: boolean;
+}
+
 export interface ThresholdsConfig {
   readonly mutationKillRateMin: number;
   readonly weakAssertionRateMax: number;
   readonly passed: boolean;
+  readonly evaluated: EvaluatedAxes;
 }
 
 export type FollowupSeverity = 'soft' | 'hard';
@@ -136,7 +150,12 @@ export const MutReportSchema = z.object({
   thresholds: z.object({
     mutationKillRateMin: z.number().min(0).max(1),
     weakAssertionRateMax: z.number().min(0).max(1),
-    passed: z.boolean()
+    passed: z.boolean(),
+    // Optional on read for back-compat: a report written before the axis
+    // was recorded evaluated both thresholds, so that is the default.
+    evaluated: z
+      .object({ mutation: z.boolean(), assertions: z.boolean() })
+      .default({ mutation: true, assertions: true })
   }),
   followups: z.array(
     z.object({

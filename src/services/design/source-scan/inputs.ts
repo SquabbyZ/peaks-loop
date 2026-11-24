@@ -10,8 +10,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 
+import { normalizePath } from '../../../shared/path-utils.js';
 import { DEFAULT_DESIGN_RULES, type DesignRuleCode } from '../design-rules.js';
-import { buildPavedRoad, type PavedRoadFile } from '../paved-road.js';
+import { buildPavedRoad, stringList, type PavedRoadFile } from '../paved-road.js';
 import type { DesignTokensFile } from '../token-contract.js';
 
 function readJson(filePath: string): Record<string, unknown> {
@@ -23,12 +24,6 @@ function readJson(filePath: string): Record<string, unknown> {
   } catch {
     return {};
   }
-}
-
-function stringList(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value.filter((entry): entry is string => typeof entry === 'string')
-    : [];
 }
 
 function readRules(value: unknown): PavedRoadFile['rules'] {
@@ -48,6 +43,7 @@ export function readPavedRoad(designRoot: string): PavedRoadFile {
   const paved = buildPavedRoad({
     pageRoots: stringList(raw.pageRoots),
     componentEntrypoints: stringList(raw.componentEntrypoints),
+    exclude: stringList(raw.exclude),
     bannedImportSpecifiers: stringList(raw.bannedImportSpecifiers)
   });
   paved.rules = readRules(raw.rules);
@@ -97,16 +93,54 @@ function toAppRelative(projectRoot: string, appRelPath: string, file: string): s
   return existsSync(resolve(projectRoot, appRelPath, file)) ? repoPath : null;
 }
 
-/** The change set as app-relative paths; a change outside the app root is dropped. */
+/**
+ * One comparison form for an exclude entry or a file path: the platform's
+ * separators folded to `/` by the locked `normalizePath` rule, any leading
+ * `./` (or `.\`) run removed, and no trailing slash. A Windows-style entry
+ * (`src\gen`) and a `./src/gen` entry must match the same subtree.
+ */
+function normalizeEntry(value: string): string {
+  return normalizePath(value.trim())
+    .replace(/^(?:\.\/)+/, '')
+    .replace(/\/+$/, '');
+}
+
+/** True when `file` is `dir` or sits under it, both already normalized. */
+function underDir(file: string, dir: string): boolean {
+  return file === dir || file.startsWith(`${dir}/`);
+}
+
+/**
+ * True when an app-relative path is an exclude entry, or sits under one. An
+ * entry may be written repo-relative (`web/src/gen`) for an app under `web/`,
+ * so the repo-relative spelling of the file is compared as well.
+ */
+export function isExcluded(appFile: string, exclude: readonly string[], appRelPath = ''): boolean {
+  const file = normalizeEntry(appFile);
+  const repoFile = appRelPath === '' ? file : `${normalizeEntry(appRelPath)}/${file}`;
+  return exclude.some((entry) => {
+    const dir = normalizeEntry(entry);
+    return dir !== '' && (underDir(file, dir) || underDir(repoFile, dir));
+  });
+}
+
+/**
+ * The change set as app-relative paths. A change outside the app root is
+ * dropped, and so is one under a `paved-road.json` exclude entry (the
+ * `--exclude` help promises the source scan skips it).
+ */
 export function appFiles(
   projectRoot: string,
   appRelPath: string,
-  changed: readonly string[]
+  changed: readonly string[],
+  exclude: readonly string[] = []
 ): string[] {
   const files: string[] = [];
   for (const file of changed) {
     const appFile = toAppRelative(projectRoot, appRelPath, file);
-    if (appFile !== null && appFile !== '') files.push(appFile);
+    if (appFile !== null && appFile !== '' && !isExcluded(appFile, exclude, appRelPath)) {
+      files.push(appFile);
+    }
   }
   return files;
 }

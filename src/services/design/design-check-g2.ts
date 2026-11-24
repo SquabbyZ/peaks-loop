@@ -2,9 +2,12 @@
  * The G2 render matrix for `peaks design check`.
  *
  * G2 runs only after G1 passed, and a page URL is re-checked against the trust
- * boundary even when the base URL was — `engine.json` is a tracked file. A
- * nonzero `drift` / `verify-ui` fails; a missing artifact blocks; `slop` and
- * `grade` are advisory. Nothing here may turn an unrun check into a pass.
+ * boundary even when the base URL was — `engine.json` is a tracked file. Each
+ * URL first passes the shared page-usability probe (blank/shell/login pages
+ * block, never fail); then `drift` and `verify-ui` are judged from their own
+ * evidence, `design-render-verdict.ts` maps exit codes only when no report
+ * parsed, and `slop` / `grade` stay advisory. Nothing here may turn an unrun
+ * check into a pass.
  */
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -21,9 +24,10 @@ import {
   buildDesignlangArgs,
   type DesignlangCheckKind,
   type DesignlangEvidence,
-  type DesignlangRunResult,
-  parseDesignlangEvidence
+  type DesignlangRunResult
 } from './designlang.js';
+import { driftVerdict, verifyUiVerdict, type RenderVerdict } from './design-render-verdict.js';
+import type { PageProbeResult } from './page-probe.js';
 import type { RenderUrlResult } from './render-url.js';
 import type { StartRenderServerResult } from './render-server.js';
 
@@ -33,6 +37,8 @@ export type DesignEngineDeps = {
   availability: EngineAvailability;
   resolveUrl: () => RenderUrlResult;
   probe: (url: string) => Promise<boolean>;
+  /** The shared usability gate: runs before any check spawns for this URL. */
+  probePage: (url: string) => Promise<PageProbeResult>;
   startServer?: (url: string) => Promise<StartRenderServerResult>;
   run: (kind: DesignlangCheckKind, input: DesignEngineRunInput) => Promise<DesignlangRunResult>;
   readGrade?: (outDir: string) => Promise<DesignlangEvidence>;
@@ -97,14 +103,13 @@ async function ensureReachable(
   return { ok: true, stop: () => started.server.stop() };
 }
 
-function failOutcome(
-  kind: DesignlangCheckKind,
-  result: DesignlangRunResult,
-  url: string,
-  warnings: string[]
-): G2Outcome {
-  const reason = `designlang ${kind} exited ${result.exitCode} for ${url}`;
-  return { check: { status: 'fail', reason }, warnings, message: reason };
+/** Map a classified check run onto the G2 outcome; null keeps the matrix going. */
+function verdictOutcome(verdict: RenderVerdict, warnings: string[]): G2Outcome | null {
+  if (verdict.status === 'pass') return null;
+  if (verdict.status === 'fail') {
+    return { check: { status: 'fail', reason: verdict.reason }, warnings, message: verdict.reason };
+  }
+  return blockedOutcome(verdict.code, verdict.message, warnings);
 }
 
 /** Advisory only: a grade failure or an absent report never changes the verdict. */
@@ -139,37 +144,44 @@ async function runChecks(
 ): Promise<G2Outcome> {
   const evidence: string[] = [];
   const warnings: string[] = [];
+  const tokensPath = join(input.designRoot, 'tokens.json');
+  const brandPath = join(input.designRoot, 'contract.md');
   for (const url of urls) {
+    // The shared usability gate runs BEFORE any check spawns for this URL: a
+    // blank shell or a login wall is `blocked`, never a noise-driven fail.
+    const usable = await deps.probePage(url);
+    if (!usable.ok) return blockedOutcome(usable.code, usable.message, warnings);
+
     const drift = await deps.run('drift', {
-      args: buildDesignlangArgs({
-        kind: 'drift',
-        url,
-        tokensPath: join(input.designRoot, 'tokens.json')
-      })
+      args: buildDesignlangArgs({ kind: 'drift', url, tokensPath })
     });
-    if (drift.exitCode !== 0) return failOutcome('drift', drift, url, warnings);
-    const driftEvidence = parseDesignlangEvidence({ kind: 'drift', stdout: drift.stdout });
-    if (!driftEvidence.ok)
-      return blockedOutcome(driftEvidence.code, driftEvidence.message, warnings);
+    const driftOutcome = verdictOutcome(driftVerdict(drift, url, tokensPath), warnings);
+    if (driftOutcome !== null) return driftOutcome;
     evidence.push(`drift ${url}`);
 
     const verify = await deps.run('verify-ui', {
-      args: buildDesignlangArgs({
-        kind: 'verify-ui',
-        url,
-        brandPath: join(input.designRoot, 'contract.md')
-      })
+      args: buildDesignlangArgs({ kind: 'verify-ui', url, brandPath })
     });
-    if (verify.exitCode !== 0) return failOutcome('verify-ui', verify, url, warnings);
-    const verifyEvidence = parseDesignlangEvidence({ kind: 'verify-ui', stdout: verify.stdout });
-    if (!verifyEvidence.ok) {
-      return blockedOutcome(verifyEvidence.code, verifyEvidence.message, warnings);
-    }
+    const verifyOutcome = verdictOutcome(verifyUiVerdict(verify, url), warnings);
+    if (verifyOutcome !== null) return verifyOutcome;
     evidence.push(`verify-ui ${url}`);
+    // The probe's own wall time is evidence too: a slow-but-passing probe is
+    // ~5 s per URL and was previously invisible once the page passed.
+    evidence.push(`probe ${url} elapsedMs ${String(usable.observation.elapsedMs)}`);
+    // Disk hygiene the probe performed is evidence too; a failure is advisory
+    // because stale captures never change whether the page is usable.
+    if (usable.pruned !== undefined && usable.pruned.removed.length > 0) {
+      evidence.push(`probe ${url} pruned ${String(usable.pruned.removed.length)} stale capture(s)`);
+    }
+    if (usable.pruned !== undefined && usable.pruned.failed > 0) {
+      warnings.push(
+        `the probe could not remove ${String(usable.pruned.failed)} stale capture(s) for ${url} (advisory)`
+      );
+    }
 
     const slop = await deps.run('slop', { args: buildDesignlangArgs({ kind: 'slop', url }) });
     if (slop.exitCode !== 0) {
-      warnings.push(`designlang slop exited ${slop.exitCode} for ${url} (advisory)`);
+      warnings.push(`designlang slop exited ${String(slop.exitCode)} for ${url} (advisory)`);
     }
     await runGrade(input, deps, url, warnings);
   }
@@ -251,6 +263,7 @@ export async function completeG2(
       projectRoot: input.projectRoot,
       engine,
       ...(input.url === undefined ? {} : { url: input.url }),
+      ...(input.sessionId === undefined ? {} : { sessionId: input.sessionId }),
       env: process.env
     });
   const outcome = await evaluateG2(

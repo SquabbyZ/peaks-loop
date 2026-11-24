@@ -253,6 +253,7 @@ export function buildMutAssertsCommand(io: ProgramIO): Command {
           testFiles: a.testFiles
         });
         const report = await buildMutReport({
+          mode: 'asserts',
           inputSig: a.inputSig,
           out: a.out,
           mutation: emptyMutation(),

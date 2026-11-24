@@ -42,9 +42,15 @@ function Invoke-Gate([string[]]$argList) {
   $psi.StandardErrorEncoding = $enc
   $proc = [System.Diagnostics.Process]::Start($psi)
   $bytes = $enc.GetBytes($payload)
-  $proc.StandardInput.BaseStream.Write($bytes, 0, $bytes.Length)
-  $proc.StandardInput.BaseStream.Flush()
-  $proc.StandardInput.Close()
+  # A gate that exits before reading stdin closes the pipe; that is a normal
+  # outcome (its exit code and output still decide), not a hook failure.
+  try {
+    $proc.StandardInput.BaseStream.Write($bytes, 0, $bytes.Length)
+    $proc.StandardInput.BaseStream.Flush()
+    $proc.StandardInput.Close()
+  } catch {
+    try { $proc.StandardInput.Close() } catch { }
+  }
   $out = $proc.StandardOutput.ReadToEnd()
   $err = $proc.StandardError.ReadToEnd()
   $proc.WaitForExit()

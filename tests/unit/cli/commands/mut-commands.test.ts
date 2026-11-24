@@ -321,7 +321,46 @@ describe('peaks mut CLI', () => {
 
     // then: no diagnostic file appears and stdout is clean
     expect(existsSync(join(project, 'stryker-failure.log'))).toBe(false);
-    expect(JSON.parse(stdout).ok).toBe(true);
+    expect((JSON.parse(stdout) as { ok: boolean }).ok).toBe(true);
+  });
+
+  it('when `mut asserts` scans a clean file, should pass on the assertion axis alone', async () => {
+    // given: a test file whose only assertion is a concrete equality (0 weak)
+    // when: the CLI runs `mut asserts` and writes the report
+    // then: passed is true, the mutation axis is not evaluated, and no followups fire
+    const invokeStryker = vi.fn(async () => stubResult());
+
+    const { stdout } = await runMut(
+      [
+        'mut',
+        'asserts',
+        '--project',
+        project,
+        '--test-files',
+        'src/add.test.ts',
+        '--input-sig',
+        HEX_SIG,
+        '--session-id',
+        '2026-10-24-session-5e40e0',
+        '--out',
+        out,
+        '--json'
+      ],
+      invokeStryker
+    );
+
+    const envelope = JSON.parse(stdout) as { ok: boolean; passed: boolean };
+    expect(envelope.ok).toBe(true);
+    expect(envelope.passed).toBe(true);
+    const report = JSON.parse(readFileSync(out, 'utf8')) as {
+      thresholds: { passed: boolean; evaluated: { mutation: boolean; assertions: boolean } };
+      followups: unknown[];
+    };
+    expect(report.thresholds.passed).toBe(true);
+    expect(report.thresholds.evaluated).toEqual({ mutation: false, assertions: true });
+    expect(report.followups).toEqual([]);
+    expect(invokeStryker).not.toHaveBeenCalled();
+    expect(process.exitCode).toBeUndefined();
   });
 
   it('when the toolchain fails, should print a NAMED error code and exit non-zero', async () => {

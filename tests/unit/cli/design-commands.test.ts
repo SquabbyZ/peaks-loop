@@ -82,11 +82,19 @@ describe('Scenario: render — JSON envelopes', () => {
     const parsed = JSON.parse(captured.text()) as {
       ok: boolean;
       command: string;
-      data: { written: string[] };
+      data: {
+        written: string[];
+        primaryColor: unknown;
+        primarySource: unknown;
+        gaps: Array<{ code: string }>;
+      };
     };
     expect(parsed.ok).toBe(true);
     expect(parsed.command).toBe('design.init');
     expect(parsed.data.written).toContain(join('design', 'contract.md'));
+    expect(parsed.data.primaryColor).toBeNull();
+    expect(parsed.data.primarySource).toBeNull();
+    expect(parsed.data.gaps.map((gap) => gap.code)).toEqual(['DESIGN_PRIMARY_COLOR_MISSING']);
   });
 
   it('when status runs on a missing contract, should report adopted false', async () => {

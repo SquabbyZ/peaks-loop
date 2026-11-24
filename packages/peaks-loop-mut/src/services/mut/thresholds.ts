@@ -3,6 +3,8 @@
  *
  * Override via `peaks-mut.config.json` at project root.
  */
+import type { EvaluatedAxes } from './types.js';
+
 export interface Thresholds {
   readonly mutationKillRateMin: number;
   readonly weakAssertionRateMax: number;
@@ -24,27 +26,37 @@ export interface ThresholdViolation {
 export interface ThresholdEvaluation {
   readonly passed: boolean;
   readonly violations: ReadonlyArray<ThresholdViolation>;
+  readonly evaluated: EvaluatedAxes;
 }
 
+/** The default: both axes are judged, which is what `peaks mut run` does. */
+export const ALL_AXES: EvaluatedAxes = Object.freeze({ mutation: true, assertions: true });
+
+/**
+ * Judge the axes named in `evaluated`. An axis that was not measured (the
+ * mutation axis during `peaks mut asserts`) produces no violation, so the
+ * verdict rests on the axes the report actually carries.
+ */
 export function evaluateThresholds(
   t: Thresholds,
   actualKillRate: number,
-  actualWeakRate: number
+  actualWeakRate: number,
+  evaluated: EvaluatedAxes = ALL_AXES
 ): ThresholdEvaluation {
   const violations: ThresholdViolation[] = [];
-  if (actualKillRate < t.mutationKillRateMin) {
+  if (evaluated.mutation && actualKillRate < t.mutationKillRateMin) {
     violations.push({
       kind: 'mutationKillRateMin',
       actual: actualKillRate,
       threshold: t.mutationKillRateMin
     });
   }
-  if (actualWeakRate > t.weakAssertionRateMax) {
+  if (evaluated.assertions && actualWeakRate > t.weakAssertionRateMax) {
     violations.push({
       kind: 'weakAssertionRateMax',
       actual: actualWeakRate,
       threshold: t.weakAssertionRateMax
     });
   }
-  return { passed: violations.length === 0, violations };
+  return { passed: violations.length === 0, violations, evaluated };
 }
