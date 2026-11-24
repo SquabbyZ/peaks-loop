@@ -1,5 +1,27 @@
 # Changelog
 
+## 4.3.2 — 2026-11-24（peaks design S3：把设计检查接进请求门禁）
+
+**版本级别**：**patch**（按维护者指定版本号发布；新增门禁默认处于 back-compat 窗口内，不破坏既有会话）。
+
+**一句话：`peaks design check --gate` 现在会写出 conformance 证据，feature / bugfix 请求在 `rd:qa-handoff` 处必须满足它——缺证据在窗口内只是警告，窗口在 v4.4.0 关闭。**
+
+### 1. 加了什么
+
+- **`--gate` 写证据**：`design/check-<rid>.md`（门禁读取）+ `check-<rid>.json`（机器读取），含 `schemaVersion: 1`、`sha256`、`## Design conformance` 段与一个 verdict 标记。没有 `--rid` 或会话时 exit 3 且不落盘。
+- **accepted 只升级 pass**：fail / blocked 即使带 `acceptedBy` 也保持原标记，验收不能洗掉失败结论；md 渲染前中和调用方可控的标记字符串；JSON 先写、md 后写，失败回滚。
+- **新前置门禁 `DESIGN_CONFORMANCE`**：只加在 feature 与 bugfix 的 `rd:qa-handoff`（refactor 经别名继承；docs/config/chore 不加）；窗口 `backCompatUntil: v4.4.0`。
+- **`verify-pipeline` 覆盖并遵守窗口**：同一份证据经 `RD_EVIDENCE_GATES` 一行读取；窗口内缺失是可见警告而非违规，过期或非 backCompat 的缺失仍然失败。
+- **非前端仓库判 `not-applicable`**（不是 `blocked`），避免没有 UI 表面的项目在窗口关闭后被永久卡死。
+- 五份角色技能（peaks-rd / peaks-ui / peaks-qa / peaks-txt / peaks-design）写明同一份真值与同一道门禁。
+
+### 2. 验证
+
+- 全量单测 729 files / 7917 passed；`tsc` 0。
+- 作用域变异 **0.9598**（167/174，阈值 0.8）。
+- 代码评审 APPROVED；安全审计 pass（8/8 judged hash，修复了 accepted 越权与标记注入）；性能审计 pass；Karpathy pass；QA verdict pass。
+- 自举：本仓库以 `--gate` 产出 `design-conformance: not-applicable` 证据后，`verify-pipeline` complete。
+
 ## 4.3.1 — 2026-11-24（跨平台进程回收与测试可移植性）
 
 **版本级别**：**patch**（修复 4.3.0 在 Linux / macOS 上的测试环境假设，并补齐 POSIX 进程树回收；无新能力、无 schema 变更、无门禁阈值改动）。

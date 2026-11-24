@@ -1,13 +1,13 @@
 {
   "metadata": {
     "pluginRoot": ".",
-    "version": "4.3.1"
+    "version": "4.3.2"
   },
   "plugins": [
     {
       "name": "peaks-loop",
       "description": "Loop Engineering CLI — workflow primitive / loop guards / evaluators / slice orchestration",
-      "version": "4.3.1",
+      "version": "4.3.2",
       "author": {
         "name": "SquabbyZ"
       },
