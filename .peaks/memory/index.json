@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-23T19:26:43.554Z",
+  "updatedAt": "2026-11-24T06:57:18.974Z",
   "hot": {
     "rule": [
       {
@@ -3608,6 +3608,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-lone-ts6053-is-an-abort-not-a-clean-tree.md",
         "sourceArtifact": null,
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "a-new-prerequisite-gates-completed-rids-retroactively",
+        "kind": "project",
+        "description": "Adding a prerequisite with  is not enough: the transitions honor the window, but  — and the pre-commit artifact-contr...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-new-prerequisite-gates-completed-rids-retroactively.md",
+        "sourceArtifact": ".peaks/_runtime/2026-11-23-session-320f58/txt/handoff-s3.md",
+        "updatedAt": "2026-11-24"
       },
       {
         "name": "a-probe-that-samples-one-point-reports-green-for-the-whole-space",
