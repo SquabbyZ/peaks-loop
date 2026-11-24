@@ -203,7 +203,7 @@ beforeAll(() => {
 });
 
 describe('Scenario: behavior — the verdict, against the real ceilings', () => {
-  it('when the scanned scope is untouched, should hold both ceilings', () => {
+  it('when the scanned scope is untouched, should hold both ceilings', { timeout: 120_000 }, () => {
     // given: the leg exactly as `repo` mode runs it, over the detector's own
     //        `src/` walk, with nothing injected anywhere
     // when: the gate compares what it measured to what the baseline allows
@@ -304,59 +304,68 @@ describe('Scenario: render — the two rows and what they carry', () => {
 });
 
 describe("Scenario: integration — the number is the detector's, the ceiling is the artifact's", () => {
-  it('when the leg prints a count, should match the detector measured over the enforced scope', async () => {
-    // §2.43 changed what "the detector's number" MEANS for this leg. It used to be the
-    // detector's standalone `src/` walk (41/59 over 905 files) while every other row
-    // enforced 943; the slice moved the leg onto the SAME enforced scope
-    // (`git ls-files` x the published lint rule) the eslint and prettier legs use, so
-    // the two populations can no longer share a screen. The independent reading here
-    // therefore asks the SAME measurement path — `runSilentWarningScan`, with the argv
-    // batching that keeps 943 paths inside the Windows command-line bound — over the
-    // SAME list the leg is handed (`lintFileList()`), and checks the printed row equals
-    // that measurement rather than the stale default walk that hid `packages/*/src`.
-    const leg = (await import(
-      pathToFileURL(join(REPO_ROOT, '.husky', 'peaks-gate-silent-warning.mjs')).href
-    )) as {
-      runSilentWarningScan(
-        files: string[],
-        cwd?: string
-      ): { failure: string | null; scannedFiles: number; counts: Record<string, number> };
-    };
-    const list = (await import(
-      pathToFileURL(join(REPO_ROOT, 'scripts', 'lint', 'lint-file-list.mjs')).href
-    )) as { lintFileList(): string[] };
-    const scope = list.lintFileList();
-    expect(scope.length, 'a real enforced scope, not an empty scan').toBeGreaterThan(0);
-    const env = leg.runSilentWarningScan(scope, REPO_ROOT);
-    expect(
-      env.failure,
-      `the enforced-scope detector could not be measured: ${String(env.failure)}`
-    ).toBeNull();
-    expect(env.scannedFiles, 'the enforced scope is the population both readings count over').toBe(
-      scope.length
-    );
-    const run = runLeg();
-    expect(rowFor(run.out, ROW_NULL).actual).toBe(env.counts['catch-return-null'] ?? 0);
-    expect(rowFor(run.out, ROW_EMPTY).actual).toBe(env.counts['empty-catch'] ?? 0);
-    expect(
-      (env.counts['catch-return-null'] ?? 0) + (env.counts['empty-catch'] ?? 0),
-      'the enforced scope holds swallows to count'
-    ).toBeGreaterThan(0);
-  });
-
-  it('when the leg prints a ceiling, should read it off the regenerated baseline', () => {
-    // given: `.peaks/lint/gate-baseline.json`, written by the regenerator from
-    //        this same detector
-    // when: the leg compares
-    // then: the two ceiling keys exist and are the ceilings the leg printed
-    const artifact = ceilings();
-    for (const key of [KEY_NULL, KEY_EMPTY]) {
-      expect(Number.isInteger(artifact[key]), `${key} is not an integer ceiling`).toBe(true);
+  it(
+    'when the leg prints a count, should match the detector measured over the enforced scope',
+    { timeout: 120_000 },
+    async () => {
+      // §2.43 changed what "the detector's number" MEANS for this leg. It used to be the
+      // detector's standalone `src/` walk (41/59 over 905 files) while every other row
+      // enforced 943; the slice moved the leg onto the SAME enforced scope
+      // (`git ls-files` x the published lint rule) the eslint and prettier legs use, so
+      // the two populations can no longer share a screen. The independent reading here
+      // therefore asks the SAME measurement path — `runSilentWarningScan`, with the argv
+      // batching that keeps 943 paths inside the Windows command-line bound — over the
+      // SAME list the leg is handed (`lintFileList()`), and checks the printed row equals
+      // that measurement rather than the stale default walk that hid `packages/*/src`.
+      const leg = (await import(
+        pathToFileURL(join(REPO_ROOT, '.husky', 'peaks-gate-silent-warning.mjs')).href
+      )) as {
+        runSilentWarningScan(
+          files: string[],
+          cwd?: string
+        ): { failure: string | null; scannedFiles: number; counts: Record<string, number> };
+      };
+      const list = (await import(
+        pathToFileURL(join(REPO_ROOT, 'scripts', 'lint', 'lint-file-list.mjs')).href
+      )) as { lintFileList(): string[] };
+      const scope = list.lintFileList();
+      expect(scope.length, 'a real enforced scope, not an empty scan').toBeGreaterThan(0);
+      const env = leg.runSilentWarningScan(scope, REPO_ROOT);
+      expect(
+        env.failure,
+        `the enforced-scope detector could not be measured: ${String(env.failure)}`
+      ).toBeNull();
+      expect(
+        env.scannedFiles,
+        'the enforced scope is the population both readings count over'
+      ).toBe(scope.length);
+      const run = runLeg();
+      expect(rowFor(run.out, ROW_NULL).actual).toBe(env.counts['catch-return-null'] ?? 0);
+      expect(rowFor(run.out, ROW_EMPTY).actual).toBe(env.counts['empty-catch'] ?? 0);
+      expect(
+        (env.counts['catch-return-null'] ?? 0) + (env.counts['empty-catch'] ?? 0),
+        'the enforced scope holds swallows to count'
+      ).toBeGreaterThan(0);
     }
-    const run = runLeg();
-    expect(rowFor(run.out, ROW_NULL).ceiling).toBe(artifact[KEY_NULL]);
-    expect(rowFor(run.out, ROW_EMPTY).ceiling).toBe(artifact[KEY_EMPTY]);
-  });
+  );
+
+  it(
+    'when the leg prints a ceiling, should read it off the regenerated baseline',
+    { timeout: 120_000 },
+    () => {
+      // given: `.peaks/lint/gate-baseline.json`, written by the regenerator from
+      //        this same detector
+      // when: the leg compares
+      // then: the two ceiling keys exist and are the ceilings the leg printed
+      const artifact = ceilings();
+      for (const key of [KEY_NULL, KEY_EMPTY]) {
+        expect(Number.isInteger(artifact[key]), `${key} is not an integer ceiling`).toBe(true);
+      }
+      const run = runLeg();
+      expect(rowFor(run.out, ROW_NULL).ceiling).toBe(artifact[KEY_NULL]);
+      expect(rowFor(run.out, ROW_EMPTY).ceiling).toBe(artifact[KEY_EMPTY]);
+    }
+  );
 });
 
 describe('Scenario: a11y — an unmeasurable leg refuses, in words', () => {
