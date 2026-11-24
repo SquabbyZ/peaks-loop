@@ -1,5 +1,26 @@
 # Changelog
 
+## 4.3.3 — 2026-11-24（peaks design S4：范例保真 G3）
+
+**版本级别**：**patch**（按维护者指定版本号发布；G3a 只对"已记录 baseline 的变更路由"生效，G3b 仍为 advisory）。
+
+**一句话：`peaks design check` 现在能对"改动的路由"做同路由视觉回归（fidelity ≥ 90 硬门禁），并用六维 rubric 对黄金范例做 advisory 评分。**
+
+### 1. 加了什么
+
+- **范例注册表**：读取 `design/exemplars/<archetype>/` 的 `meta.json` + 源文件 + 截图，路由只做精确匹配；畸形条目记为 issue，不静默跳过。
+- **G3a 同路由回归（硬）**：用 `designlang fidelity --min 90` 比较变更路由与其 baseline。判决只取 `fidelity.json`（退出码 1 同时表示"低于阈值"与"URL 不可达/超时"）；两侧 URL 必须可信且返回 HTTP 200 才允许 spawn；两侧不得是同一地址；信任从**解析后的 app root** 读取；无 baseline → `skipped(no-baseline)`。
+- **G3b 范例 rubric（advisory）**：LLM 产出六维（layout/type/color/states/responsive/a11y，各 1–5）JSON，由 CLI 校验并归一到 40 分制；低于阈值只 `warn`，永不 fail。
+- **只判变更路由**：路由从 `paved-road.json.pageRoots` 下的变更文件推导，配置里的未改页面不再影响判决。
+- **`--skip-exemplar`**：必须有会话 + 用户原话，记录 acceptance，且**不会**跳过硬的 G3a。
+- **脱敏**：所有拒绝消息（fidelity / render-url / G2 页面）在写入证据前剥离 URL userinfo，包括不透明与不可解析形态。
+
+### 2. 验证
+
+- 全量单测 742 files / 8101 passed；`tsc` 0。
+- 作用域变异 **0.9123**（967/1060，阈值 0.8）。
+- 代码评审 APPROVED；安全审计 PASS（14 judged hash，8 种 URL 形态零泄漏）；性能 pass；Karpathy pass；QA verdict pass。
+
 ## 4.3.2 — 2026-11-24（peaks design S3：把设计检查接进请求门禁）
 
 **版本级别**：**patch**（按维护者指定版本号发布；新增门禁默认处于 back-compat 窗口内，不破坏既有会话）。
