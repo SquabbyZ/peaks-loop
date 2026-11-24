@@ -53,11 +53,10 @@ describe('Scenario: behavior — an in-window missing artifact does not fail the
 describe('Scenario: integration — the arm runs on the same tree the other tests seed', () => {
   it('when the design file is removed, should resolve the rest of the canonical evidence', async () => {
     // given: the seeded session tree with only the design artifact deleted
-    await seedSlice(ws(), CURRENT_CONTRACT_EVIDENCE);
-    rmSync(join(ws().path, '.peaks', '_runtime', SESSION_ID, 'design', `check-${RID}.md`));
-
     // when: the on-disk tree is inspected
     // then: the design artifact is gone while the rest of the contract is present
+    await seedSlice(ws(), CURRENT_CONTRACT_EVIDENCE);
+    rmSync(join(ws().path, '.peaks', '_runtime', SESSION_ID, 'design', `check-${RID}.md`));
     const sessionDir = join(ws().path, '.peaks', '_runtime', SESSION_ID);
     expect(existsSync(join(sessionDir, 'design', `check-${RID}.md`))).toBe(false);
     expect(existsSync(join(sessionDir, 'rd', 'code-review.md'))).toBe(true);
