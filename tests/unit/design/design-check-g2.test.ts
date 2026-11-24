@@ -66,6 +66,22 @@ describe('Scenario: behavior — every render page URL is trusted', () => {
     }
     expect(calls).toBe(0);
   });
+
+  it('when a page carries credentials, should keep them out of the blocked message', async () => {
+    // given: an untrusted page value carrying a username and password
+    // when: the render check refuses it
+    // then: the persisted message names the page without either credential
+    const root = await createAdoptedApp();
+    const result = await checkDesign(
+      input(root, { pages: ['http://alice:s3cret@192.168.1.5:3000/'] }),
+      fakeEngine()
+    );
+
+    expect(result.errorCode).toBe('DESIGN_URL_UNTRUSTED');
+    expect(result.message).toContain('Offending page: http://192.168.1.5:3000/.');
+    expect(result.message).not.toContain('s3cret');
+    expect(result.message).not.toContain('alice');
+  });
 });
 
 describe('Scenario: behavior — the recorded start policy gates --start', () => {

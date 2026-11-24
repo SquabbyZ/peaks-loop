@@ -14,6 +14,7 @@
  */
 import type { EngineContractFile } from './engine-contract.js';
 import { isTrustedDesignUrl } from './url-trust.js';
+import { redactUrl } from './url-redact.js';
 
 /** The environment variable a project can set to pin the render URL. */
 export const DESIGN_URL_ENV_KEY = 'PEAKS_DESIGN_URL';
@@ -61,7 +62,7 @@ function refuseUntrusted(url: string, source: RenderUrlSource): RenderUrlResult 
     ok: false,
     code: 'DESIGN_URL_UNTRUSTED',
     message:
-      `Refusing untrusted render URL ${url} (from ${source}): use a loopback host ` +
+      `Refusing untrusted render URL ${redactUrl(url)} (from ${source}): use a loopback host ` +
       'or record this exact URL as render.url in design/engine.json.'
   };
 }

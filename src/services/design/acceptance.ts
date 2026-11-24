@@ -26,8 +26,13 @@ export type AcceptanceEnv = { readonly CI?: string | undefined };
 
 export const ACCEPT_NOTE_REQUIRED = 'DESIGN_ACCEPT_NOTE_REQUIRED';
 export const SOURCE_ONLY_NOT_INTERACTIVE = 'DESIGN_SOURCE_ONLY_NOT_INTERACTIVE';
+export const EXEMPLAR_NOT_INTERACTIVE = 'DESIGN_EXEMPLAR_NOT_INTERACTIVE';
+/** Which acceptance the refusal is about; both follow the same interactive-only rule. */
+export type AcceptanceKind = 'source-only' | 'exemplar';
 export const ACCEPT_NOTE_MESSAGE =
   "--allow-source-only requires --accept-note with the user's own words.";
+export const EXEMPLAR_NOTE_MESSAGE =
+  "--skip-exemplar requires --accept-note with the user's own words.";
 export const ACCEPT_NOTE_ACTIONS = [
   'Ask the user to state the acceptance in their own words, then pass it verbatim.'
 ];
@@ -52,6 +57,37 @@ export class DesignCheckUsageError extends Error {
   constructor() {
     super("--allow-source-only requires --accept-note with the user's own words.");
     this.name = 'DesignCheckUsageError';
+  }
+}
+
+/** Throw the usage error when a source-only acceptance has no note. */
+export function requireAcceptNote(input: {
+  readonly allowSourceOnly?: boolean | undefined;
+  readonly acceptNote?: string | undefined;
+}): void {
+  if (input.allowSourceOnly === true && (input.acceptNote ?? '').trim() === '') {
+    throw new DesignCheckUsageError();
+  }
+}
+
+/**
+ * `--baseline-url` names ONE route's baseline, so it is a usage error when the
+ * change touches more routes than that: the alternative is comparing every
+ * route against one page. The CLI maps this to the usage exit code and writes
+ * nothing.
+ */
+export class DesignBaselineUrlScopeError extends Error {
+  readonly code = 'DESIGN_BASELINE_URL_SCOPE';
+  readonly actions = ["Run the check once per changed route, passing that route's baseline URL."];
+
+  constructor(routes: readonly string[]) {
+    const touched =
+      routes.length === 0 ? 'no changed route' : `${String(routes.length)} (${routes.join(', ')})`;
+    super(
+      `--baseline-url applies only when exactly one changed route is in scope; this change has ` +
+        `${touched}. Record each baseline in the baseline store instead, or check one route at a time.`
+    );
+    this.name = 'DesignBaselineUrlScopeError';
   }
 }
 
@@ -88,10 +124,48 @@ export function blockedMessage(code: string): string {
 const SOURCE_ONLY_ACTIONS = [
   'Ask the user to accept source-only interactively, then re-run with --session-id.'
 ];
+const EXEMPLAR_ACTIONS = [
+  'Ask the user to accept skipping the exemplar check, then re-run with --session-id.'
+];
 const SOURCE_ONLY_CI_MESSAGE =
   '--allow-source-only is interactive-only: an unattended run cannot record an acceptance.';
 const SOURCE_ONLY_SESSION_MESSAGE =
   '--allow-source-only needs a session: pass --session-id, or run from a project with an active session binding.';
+const EXEMPLAR_CI_MESSAGE =
+  '--skip-exemplar is interactive-only: an unattended run cannot record an acceptance.';
+const EXEMPLAR_SESSION_MESSAGE =
+  '--skip-exemplar needs a session: pass --session-id, or run from a project with an active session binding.';
+
+type AcceptanceText = {
+  readonly code: string;
+  readonly ciMessage: string;
+  readonly sessionMessage: string;
+  readonly noteMessage: string;
+  readonly actions: string[];
+  readonly noteActions: string[];
+};
+
+/** The refusal text for one acceptance flag; the rule itself is shared. */
+function acceptanceText(kind: AcceptanceKind): AcceptanceText {
+  if (kind === 'exemplar') {
+    return {
+      code: EXEMPLAR_NOT_INTERACTIVE,
+      ciMessage: EXEMPLAR_CI_MESSAGE,
+      sessionMessage: EXEMPLAR_SESSION_MESSAGE,
+      noteMessage: EXEMPLAR_NOTE_MESSAGE,
+      actions: EXEMPLAR_ACTIONS,
+      noteActions: EXEMPLAR_ACTIONS
+    };
+  }
+  return {
+    code: SOURCE_ONLY_NOT_INTERACTIVE,
+    ciMessage: SOURCE_ONLY_CI_MESSAGE,
+    sessionMessage: SOURCE_ONLY_SESSION_MESSAGE,
+    noteMessage: ACCEPT_NOTE_MESSAGE,
+    actions: SOURCE_ONLY_ACTIONS,
+    noteActions: ACCEPT_NOTE_ACTIONS
+  };
+}
 
 /**
  * The session `peaks session info --active` reports, or null when the project
@@ -148,6 +222,27 @@ export const CHECK_BLOCKED_ACTIONS: Record<string, string[]> = {
   ],
   DESIGN_CONTRACT_INVALID: [
     'Run `peaks design init` to rewrite design/tokens.json and design/engine.json.'
+  ],
+  DESIGN_BASELINE_INVALID: [
+    'Re-record the route baseline on a green run: schemaVersion 1 plus route, baseCommit and baselineUrl.'
+  ],
+  DESIGN_FIDELITY_MIN_INVALID: [
+    'Pass --min as an integer 0..100 (the G3a default is 90), then re-run the check.'
+  ],
+  DESIGN_FIDELITY_URL_UNREACHABLE: [
+    'Start the baseline and candidate renders; both must answer HTTP 200 before the comparison runs.'
+  ],
+  DESIGN_FIDELITY_NO_EVIDENCE: [
+    'Run `designlang fidelity` by hand to see why it wrote no fidelity.json, then re-run the check.'
+  ],
+  DESIGN_FIDELITY_SELF_COMPARE: [
+    'Point the baseline at a render of the base revision, not at the candidate URL.'
+  ],
+  DESIGN_RUBRIC_MISSING: [
+    'Ask peaks-ui to write the archetype rubric under the session design directory, then re-run.'
+  ],
+  DESIGN_RUBRIC_INVALID: [
+    'Ask peaks-ui to fix the rubric envelope (schemaVersion 1, matching rid/archetype, six 1-5 scores).'
   ]
 };
 
@@ -157,28 +252,18 @@ const ciIsSet = (value: string | undefined): boolean =>
 /** Null when the acceptance may be recorded; otherwise the usage refusal. */
 export function acceptanceRefusal(
   input: AcceptanceInput,
-  ci: string | undefined
+  ci: string | undefined,
+  kind: AcceptanceKind = 'source-only'
 ): AcceptanceRefusal | null {
+  const text = acceptanceText(kind);
   if (ciIsSet(ci)) {
-    return {
-      code: SOURCE_ONLY_NOT_INTERACTIVE,
-      message: SOURCE_ONLY_CI_MESSAGE,
-      actions: SOURCE_ONLY_ACTIONS
-    };
+    return { code: text.code, message: text.ciMessage, actions: text.actions };
   }
   if ((input.sessionId ?? '').trim() === '') {
-    return {
-      code: SOURCE_ONLY_NOT_INTERACTIVE,
-      message: SOURCE_ONLY_SESSION_MESSAGE,
-      actions: SOURCE_ONLY_ACTIONS
-    };
+    return { code: text.code, message: text.sessionMessage, actions: text.actions };
   }
   if ((input.acceptNote ?? '').trim() === '') {
-    return {
-      code: ACCEPT_NOTE_REQUIRED,
-      message: ACCEPT_NOTE_MESSAGE,
-      actions: ACCEPT_NOTE_ACTIONS
-    };
+    return { code: ACCEPT_NOTE_REQUIRED, message: text.noteMessage, actions: text.noteActions };
   }
   return null;
 }

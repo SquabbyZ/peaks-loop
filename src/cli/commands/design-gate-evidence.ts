@@ -5,8 +5,8 @@ import { fail, ok } from 'peaks-loop-shared/result';
 
 import { repoRelativeKey } from '../../shared/path-utils.js';
 import {
-  acceptanceRefusal,
   activeSessionId,
+  DesignBaselineUrlScopeError,
   type AcceptanceEnv,
   type AcceptanceRefusal
 } from '../../services/design/acceptance.js';
@@ -18,7 +18,7 @@ import {
 } from '../../services/design/design-check.js';
 import { writeConformanceEvidence } from '../../services/design/design-evidence.js';
 import { getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
-import type { DesignCheckCliOptions } from './design-commands.js';
+import { acceptanceFor, type DesignCheckCliOptions } from './design-check-input.js';
 
 const USAGE_EXIT_CODE = 3;
 
@@ -99,7 +99,7 @@ export async function runGatedDesignCheck(
     return;
   }
   const accepted = options.allowSourceOnly === true;
-  const refusal = accepted ? acceptanceRefusal({ ...options, sessionId }, env.CI) : null;
+  const refusal = acceptanceFor(options, sessionId, env.CI);
   if (refusal !== null) {
     refuse(io, options, refusal);
     return;
@@ -108,10 +108,12 @@ export async function runGatedDesignCheck(
     const result = await checkDesign(echo.checkInput({ ...options, sessionId }, accepted));
     await writeAndPrint(options, io, echo, { sessionId, rid, result });
   } catch (error) {
-    refuse(io, options, {
-      code: 'DESIGN_CHECK_FAILED',
-      message: getErrorMessage(error),
-      actions: []
-    });
+    refuse(
+      io,
+      options,
+      error instanceof DesignBaselineUrlScopeError
+        ? { code: error.code, message: error.message, actions: error.actions }
+        : { code: 'DESIGN_CHECK_FAILED', message: getErrorMessage(error), actions: [] }
+    );
   }
 }

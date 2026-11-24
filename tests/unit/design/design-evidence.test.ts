@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -12,6 +20,10 @@ import {
   writeConformanceEvidence
 } from '../../../src/services/design/design-evidence.js';
 import type { DesignCheckResult } from '../../../src/services/design/design-check.js';
+import {
+  completeG3,
+  type G3SuiteDeps
+} from '../../../src/services/design/design-check-g3-suite.js';
 
 declareDimensions('tests/unit/design/design-evidence.test.ts', [
   'behavior',
@@ -23,7 +35,7 @@ declareDimensions('tests/unit/design/design-evidence.test.ts', [
 const GENERATED_AT = '2026-11-24T00:00:00.000Z';
 
 /** The digest of `passResult()` as the check returns it — pinned, not recomputed. */
-const PASS_RESULT_SHA256 = '43bb2864a94a65f1c3116ff8469788729a1a9db5840c068234e9a4a0bb245123';
+const PASS_RESULT_SHA256 = 'e65db06c888a4e380e07e23351053a225593d45fe7e0b9206a9f8381d695a744';
 
 function metaFor(sha256: string) {
   return { rid: 'r1', sessionId: 'sid-1', generatedAt: GENERATED_AT, sha256 };
@@ -37,7 +49,8 @@ function passResult(overrides: Partial<DesignCheckResult> = {}): DesignCheckResu
     surface: { isUi: true, reasons: ['changed: app/src/a.tsx'] },
     checks: {
       g1_source: { status: 'pass', findings: [] },
-      g2_render: { status: 'pass', pages: 1, evidence: ['ok'] }
+      g2_render: { status: 'pass', pages: 1, evidence: ['ok'] },
+      g3_exemplar: { g3a: [], g3b: [] }
     },
     findings: [],
     coverage: null,
@@ -57,7 +70,8 @@ function failingResult(): DesignCheckResult {
     verdict: 'fail',
     checks: {
       g1_source: { status: 'fail', findings: [finding] },
-      g2_render: { status: 'skipped', reason: 'source-only' }
+      g2_render: { status: 'skipped', reason: 'source-only' },
+      g3_exemplar: { g3a: [], g3b: [] }
     },
     findings: [finding]
   });
@@ -71,7 +85,57 @@ afterEach(() => {
 function makeRoot(): string {
   const root = mkdtempSync(join(tmpdir(), 'peaks-design-evidence-'));
   roots.push(root);
+  mkdirSync(join(root, 'design'), { recursive: true });
+  writeFileSync(
+    join(root, 'design', 'paved-road.json'),
+    JSON.stringify({ pageRoots: ['src/routes'] }),
+    'utf8'
+  );
   return root;
+}
+
+function contractRootOf(root: string) {
+  return { appRoot: root, designRoot: join(root, 'design'), appRelPath: '' };
+}
+
+/** A recorded baseline for the root route, under the session G3 reads. */
+function writeBaseline(root: string): void {
+  const dir = join(root, '.peaks', '_runtime', 'sid-1', 'design', 'baseline');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, 'root.json'),
+    JSON.stringify({
+      schemaVersion: 1,
+      route: '/',
+      baseCommit: 'abc1234',
+      baselineUrl: 'http://127.0.0.1:4311/'
+    }),
+    'utf8'
+  );
+}
+
+/** A `list` exemplar registered for the root route. */
+function writeExemplar(root: string): void {
+  const dir = join(root, 'design', 'exemplars', 'list');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, 'meta.json'), JSON.stringify({ route: '/', sourceFile: 'list.tsx' }));
+  writeFileSync(join(dir, 'list.tsx'), 'export {};', 'utf8');
+}
+
+function g3Deps(
+  report: { score: number; visual: number; motion: number; grade: string },
+  rubricText: string | null = null
+): G3SuiteDeps {
+  return {
+    fidelity: async () => ({
+      ok: true,
+      ...report,
+      generatedAt: '2026-11-24T00:00:00.000Z',
+      reportPath: '.peaks/_runtime/sid-1/design/fidelity/run/fidelity.json'
+    }),
+    candidateUrl: () => ({ ok: true, url: 'http://127.0.0.1:4312/' }),
+    rubricText: () => rubricText
+  };
 }
 
 function writeInput(root: string, result: DesignCheckResult) {
@@ -188,6 +252,7 @@ describe('Scenario: render — the markdown carries the markers the gate reads',
         '## Checks',
         '- g1_source: pass (0 findings)',
         '- g2_render: pass',
+        '- g3_exemplar: g3a not-run; g3b not-run',
         '',
         '## Findings',
         '- (none)',
@@ -347,6 +412,56 @@ describe('Scenario: integration — the evidence pair is written under the sessi
       ).rejects.toMatchObject({ field: entry.field });
     }
     expect(existsSync(join(root, '.peaks'))).toBe(false);
+  });
+});
+
+describe('Scenario: integration — G3 evidence reaches the conformance marker', () => {
+  it('when G3a fails, should mark the conformance fail', async () => {
+    // given: a passing G1/G2 result, a recorded baseline and a fidelity score below the minimum
+    // when: G3 completes the result and the evidence is rendered
+    // then: the verdict and the marker both say fail, and the score split is named
+    const root = makeRoot();
+    writeBaseline(root);
+    const result = await completeG3(
+      { projectRoot: root, changedFiles: ['src/routes/index.tsx'], sessionId: 'sid-1', rid: 'r1' },
+      passResult(),
+      contractRootOf(root),
+      g3Deps({ score: 89, visual: 88, motion: 91, grade: 'B' })
+    );
+    const markdown = renderConformanceMarkdown(result, metaFor(sha256OfResult(result)));
+
+    expect(result.verdict).toBe('fail');
+    expect(markerOf(result)).toBe('fail');
+    expect(markdown).toContain('design-conformance: fail');
+    expect(markdown).toContain(
+      '- g3_exemplar: g3a / fail (score 89/90, visual 88, motion 91, grade B)'
+    );
+  });
+
+  it('when G3b warns, should keep the pass marker', async () => {
+    // given: a passing result, a registered exemplar and an all-3 advisory rubric
+    // when: G3 completes the result
+    // then: the verdict stays pass while the evidence records the rubric warn
+    const root = makeRoot();
+    writeExemplar(root);
+    const rubric = JSON.stringify({
+      schemaVersion: 1,
+      rid: 'r1',
+      archetype: 'list',
+      dimensions: { layout: 3, type: 3, color: 3, states: 3, responsive: 3, a11y: 3 }
+    });
+    const result = await completeG3(
+      { projectRoot: root, changedFiles: ['src/routes/index.tsx'], sessionId: 'sid-1', rid: 'r1' },
+      passResult(),
+      contractRootOf(root),
+      g3Deps({ score: 92, visual: 91, motion: 94, grade: 'A' }, rubric)
+    );
+    const markdown = renderConformanceMarkdown(result, metaFor(sha256OfResult(result)));
+
+    expect(result.verdict).toBe('pass');
+    expect(markerOf(result)).toBe('pass');
+    expect(markdown).toContain('design-conformance: pass');
+    expect(markdown).toContain('g3b / warn (rubric 24/40, below-threshold)');
   });
 });
 

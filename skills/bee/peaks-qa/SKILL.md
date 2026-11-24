@@ -137,6 +137,7 @@ When this skill is running in the main Claude session (not as a sub-agent), befo
 - Read `.peaks/_runtime/<session-id>/design/check-<rid>.json`; the verdict and findings come from it, never from a re-interpretation.
 - Test cases must include the design regression seed (screenshot or exemplar) for UI surfaces.
 - A missing `design-conformance` marker on a feature/bugfix handoff is a finding, not a skip.
+- When a route has a fidelity baseline, seed or refresh it only from a green run: the store is `.peaks/_runtime/<sessionId>/design/baseline/<route>.json`, and every entry must carry `schemaVersion: 1` plus `{route, baseCommit, baselineUrl}` — the reader refuses anything else. A baseline is never silently updated; a change to it is reviewed. An unstable route is skipped by the caller; the fidelity adapter cannot detect jitter itself.
 
 ## Mandatory per-request artifact
 

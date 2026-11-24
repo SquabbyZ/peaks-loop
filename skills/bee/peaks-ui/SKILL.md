@@ -141,6 +141,12 @@ Then display: `Peaks-Loop Skill: peaks-ui | Peaks-Loop Role: <role> | Peaks-Loop
 - A design draft cites the contract sections it follows; a prototype uses `componentEntrypoints` only.
 - The delivery judgement is `peaks design check --gate`, not a screenshot review by itself.
 
+## Exemplars and the rubric (G3)
+
+- Exemplars are a file convention: `design/exemplars/<archetype>/` holds `meta.json`, `<name>.tsx` and `<name>.png`. Only redacted or synthetic screenshots may be committed.
+- When a changed route matches an exemplar archetype, write the rubric envelope the gate reads: `.peaks/_runtime/<sessionId>/design/rubric-<rid>.json` with six dimensions (layout, type, color, states, responsive, a11y), each an integer 1–5. The CLI validates it; it never scores aesthetics itself.
+- The rubric is advisory in S4: below threshold is a warning, never a failure. Do not tune a score to reach the threshold.
+
 ## Mandatory per-request artifact
 
 Every UI invocation that touches user-visible behavior — including bug fixes that change visible flow — must write **two artifacts**:

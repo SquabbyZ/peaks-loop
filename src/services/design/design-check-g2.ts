@@ -13,6 +13,7 @@ import { getSessionDir, isSinglePathSegment } from '../session/getSessionDir.js'
 import { blockedMessage } from './acceptance.js';
 import type { DesignCheckResult } from './design-check.js';
 import { buildEngineDeps, readEngineContract } from './design-engine-deps.js';
+import { resolvePageUrls } from './design-page-urls.js';
 import type { ContractRoot } from './design-types.js';
 import type { EngineContractFile } from './engine-contract.js';
 import type { EngineAvailability } from './engine-status.js';
@@ -25,7 +26,6 @@ import {
 } from './designlang.js';
 import type { RenderUrlResult } from './render-url.js';
 import type { StartRenderServerResult } from './render-server.js';
-import { isTrustedDesignUrl } from './url-trust.js';
 
 export type DesignEngineRunInput = { args: readonly string[] };
 
@@ -60,41 +60,10 @@ function blockedOutcome(code: string, message: string, warnings: string[] = []):
   return { check: { status: 'blocked', code }, warnings, message };
 }
 
-function configuredPages(input: EvaluateG2Input): string[] {
+export function configuredPages(input: Pick<EvaluateG2Input, 'pages' | 'engine'>): string[] {
   if (input.pages !== undefined && input.pages.length > 0) return [...input.pages];
   if (input.engine.render.pages.length > 0) return [...input.engine.render.pages];
   return [input.engine.render.path === '' ? '/' : input.engine.render.path];
-}
-
-type PageUrlResult =
-  { ok: true; urls: string[] } | { ok: false; code: 'DESIGN_URL_UNTRUSTED'; message: string };
-
-function untrustedPage(page: string): PageUrlResult {
-  return {
-    ok: false,
-    code: 'DESIGN_URL_UNTRUSTED',
-    message: `${blockedMessage('DESIGN_URL_UNTRUSTED')} Offending page: ${page}.`
-  };
-}
-
-/** Resolve every page against the base, then re-apply the trust boundary to each. */
-function resolvePageUrls(
-  baseUrl: string,
-  pages: readonly string[],
-  engine: EngineContractFile
-): PageUrlResult {
-  const urls: string[] = [];
-  for (const page of pages) {
-    let url: string;
-    try {
-      url = new URL(page, baseUrl).toString();
-    } catch {
-      return untrustedPage(page);
-    }
-    if (!isTrustedDesignUrl(url, engine)) return untrustedPage(page);
-    urls.push(url);
-  }
-  return { ok: true, urls };
 }
 
 type ReachResult =

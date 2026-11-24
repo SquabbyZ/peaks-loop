@@ -17,13 +17,11 @@ declareDimensions('tests/unit/design/design-check.test.ts', [
  * Imported per test after a module reset so the module-level constants
  * (`UI_EXTENSIONS`, the five message strings) are initialised INSIDE a test.
  * Under Stryker's per-test coverage a module-scope initialiser runs before any
- * test, so a mutant in it is never scheduled and reads as survived although no
- * test ever ran.
+ * test, so a mutant in it is never scheduled and reads as survived although no test ever ran.
  */
 import type * as DesignCheckModuleTypes from '../../../src/services/design/design-check.js';
-type DesignCheckModule = typeof DesignCheckModuleTypes;
 
-async function loadDesignCheck(): Promise<DesignCheckModule> {
+async function loadDesignCheck(): Promise<typeof DesignCheckModuleTypes> {
   vi.resetModules();
   return import('../../../src/services/design/design-check.js');
 }
@@ -43,7 +41,8 @@ const CONTRACT_INVALID_MESSAGE =
 const DEFAULT_SURFACE = { isUi: 'unknown', reasons: [] as string[] };
 const DEFAULT_CHECKS = {
   g1_source: { status: 'not-applicable', findings: [] },
-  g2_render: { status: 'skipped', reason: 's2-not-implemented' }
+  g2_render: { status: 'skipped', reason: 's2-not-implemented' },
+  g3_exemplar: { g3a: [], g3b: [] }
 };
 
 const roots: string[] = [];
@@ -124,8 +123,7 @@ function makeAppWithComponents(): string {
     'export const Button = () => <button />;\n',
     'utf8'
   );
-  // `scanExistingSystem` skips extraction for a greenfield tree, so the fixture
-  // carries enough sources to read as a legacy project.
+  // `scanExistingSystem` skips extraction for a greenfield tree, so the fixture carries enough sources to read as a legacy project.
   mkdirSync(join(root, 'src', 'lib'), { recursive: true });
   for (let index = 0; index < 24; index += 1) {
     writeFileSync(join(root, 'src', 'lib', `mod-${index}.ts`), 'export {};\n', 'utf8');
@@ -224,11 +222,13 @@ describe('Scenario: behavior — the verdict matrix', () => {
       surface: { isUi: true, reasons: ['changed: src/routes/a.tsx'] },
       checks: {
         g1_source: { status: 'pass', findings: [] },
-        g2_render: { status: 'skipped', reason: 'explicitly-accepted' }
+        g2_render: { status: 'skipped', reason: 'explicitly-accepted' },
+        g3_exemplar: { g3a: [], g3b: [] }
       },
       findings: [],
       coverage: { covered: 0, total: 0, ratio: 1 },
-      acceptedBy: null
+      acceptedBy: null,
+      acceptedNote: 'I accept source-only for this pilot'
     });
   });
 
@@ -259,8 +259,7 @@ describe('Scenario: behavior — the verdict matrix', () => {
       reason: 'explicitly-accepted'
     });
     expect(result.acceptedBy).toBe('session-1');
-    const mod = await loadDesignCheck();
-    expect(mod.exitCodeForVerdict(result.verdict)).toBe(1);
+    expect((await loadDesignCheck()).exitCodeForVerdict(result.verdict)).toBe(1);
   });
 
   it('when source-only is not accepted, should block instead of claiming a render pass', async () => {
@@ -346,10 +345,7 @@ describe('Scenario: integration — change-set paths are repository-relative', (
     const { checkDesignSourceOnly } = await loadDesignCheck();
     const root = makeMonorepo();
     await initDesignContract({ projectRoot: root, appPath: 'web' });
-    const outside = await checkDesignSourceOnly({
-      projectRoot: root,
-      changedFiles: ['README.md']
-    });
+    const outside = await checkDesignSourceOnly({ projectRoot: root, changedFiles: ['README.md'] });
     expect(outside.verdict).toBe('blocked');
     expect(outside.errorCode).toBe('DESIGN_CHANGE_SET_UNKNOWN');
     const ownReadme = await checkDesignSourceOnly({

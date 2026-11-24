@@ -277,6 +277,21 @@ describe('Scenario: a11y — the refusal text names the fix', () => {
     expect(result.message).toContain('engine.json');
   });
 
+  it('when a credentialed URL is refused, should not echo its userinfo', () => {
+    // given: a private-network URL that also carries a username and password
+    // when: the resolver refuses it
+    // then: the message names the host without either credential
+    const result = resolveRenderUrl({
+      explicitUrl: 'http://alice:s3cret@10.0.0.5:3000/',
+      engine: renderContract()
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('expected an untrusted refusal');
+    expect(result.message).toContain('http://10.0.0.5:3000/');
+    expect(result.message).not.toContain('s3cret');
+    expect(result.message).not.toContain('alice');
+  });
+
   it('when nothing is configured, should name the env key and the derived-port remedy', () => {
     // given: no flag, no env, no recorded URL, and no usable port
     // when: the resolver reports a missing URL

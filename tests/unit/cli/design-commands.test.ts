@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Command } from 'commander';
@@ -11,6 +11,7 @@ import {
   runDesignInit,
   runDesignStatus
 } from '../../../src/cli/commands/design-commands.js';
+import { checkInput } from '../../../src/cli/commands/design-check-input.js';
 import {
   CHECK_BLOCKED_ACTIONS,
   SOURCE_ONLY_DIAGNOSTIC
@@ -250,11 +251,180 @@ describe('Scenario: a11y — every blocked check code names a next action', () =
       'DESIGN_START_NOT_ALLOWED',
       'DESIGN_SESSION_ID_INVALID',
       'DESIGN_CONTRACT_INVALID',
-      'DESIGN_RENDER_REQUIRED'
+      'DESIGN_RENDER_REQUIRED',
+      'DESIGN_BASELINE_INVALID',
+      'DESIGN_FIDELITY_MIN_INVALID',
+      'DESIGN_FIDELITY_URL_UNREACHABLE',
+      'DESIGN_FIDELITY_NO_EVIDENCE',
+      'DESIGN_FIDELITY_SELF_COMPARE',
+      'DESIGN_RUBRIC_MISSING',
+      'DESIGN_RUBRIC_INVALID'
     ];
     for (const code of codes) {
       expect(CHECK_BLOCKED_ACTIONS[code]?.length, code).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('Scenario: behavior — S4 flags and the exemplified acceptance', () => {
+  it('when design check --help renders, should list --skip-exemplar and --baseline-url', () => {
+    // given: the registered design check command
+    // when: its help is rendered
+    // then: both S4 flags appear
+    const help = checkCommand().helpInformation();
+    expect(help).toContain('--skip-exemplar');
+    expect(help).toContain('--baseline-url <url>');
+  });
+
+  it('when --skip-exemplar has no session, should refuse with exit 3 and judge nothing', async () => {
+    // given: an adopted app, no session and the skip flag
+    // when: check runs
+    // then: it refuses before the design check and writes nothing
+    const root = makeApp();
+    await initDesignContract({ projectRoot: root });
+    const { io, captured } = makeCapturedIo();
+    await runDesignCheck(
+      {
+        project: root,
+        files: 'src/routes/a.tsx',
+        skipExemplar: true,
+        acceptNote: 'my words',
+        json: true
+      },
+      io,
+      {}
+    );
+    const parsed = JSON.parse(captured.text()) as { ok: boolean; code: string };
+    expect(parsed.ok).toBe(false);
+    expect(parsed.code).toBe('DESIGN_EXEMPLAR_NOT_INTERACTIVE');
+    expect(process.exitCode).toBe(3);
+  });
+
+  it('when --skip-exemplar has a session but no note, should refuse with exit 3', async () => {
+    // given: an adopted app and a session, but no acceptance note
+    // when: check runs with the skip flag
+    // then: it refuses for the missing note before judging
+    const root = makeApp();
+    await initDesignContract({ projectRoot: root });
+    const { io, captured } = makeCapturedIo();
+    await runDesignCheck(
+      {
+        project: root,
+        files: 'src/routes/a.tsx',
+        skipExemplar: true,
+        sessionId: 'session-1',
+        json: true
+      },
+      io,
+      {}
+    );
+    const parsed = JSON.parse(captured.text()) as { ok: boolean; code: string };
+    expect(parsed.ok).toBe(false);
+    expect(parsed.code).toBe('DESIGN_ACCEPT_NOTE_REQUIRED');
+    expect(process.exitCode).toBe(3);
+  });
+
+  it('when --skip-exemplar runs in CI, should refuse with exit 3', async () => {
+    // given: an adopted app, a session, a note and a CI environment
+    // when: check runs with the skip flag
+    // then: the interactive-only rule refuses it
+    const root = makeApp();
+    await initDesignContract({ projectRoot: root });
+    const { io, captured } = makeCapturedIo();
+    await runDesignCheck(
+      {
+        project: root,
+        files: 'src/routes/a.tsx',
+        skipExemplar: true,
+        sessionId: 'session-1',
+        acceptNote: 'my words',
+        json: true
+      },
+      io,
+      { CI: 'true' }
+    );
+    const parsed = JSON.parse(captured.text()) as { ok: boolean; code: string };
+    expect(parsed.ok).toBe(false);
+    expect(parsed.code).toBe('DESIGN_EXEMPLAR_NOT_INTERACTIVE');
+    expect(process.exitCode).toBe(3);
+  });
+
+  it('when both acceptances are recorded, should pass and name the session', async () => {
+    // given: an adopted app, a session, a note and both acceptance flags
+    // when: check runs with source-only and the exemplar skip
+    // then: the accepted pass records the session and never runs G3
+    const root = makeApp();
+    await initDesignContract({ projectRoot: root });
+    const { io, captured } = makeCapturedIo();
+    await runDesignCheck(
+      {
+        project: root,
+        files: 'src/routes/a.tsx',
+        allowSourceOnly: true,
+        skipExemplar: true,
+        sessionId: 'session-1',
+        acceptNote: 'I accept both for this pilot',
+        json: true
+      },
+      io,
+      {}
+    );
+    const parsed = JSON.parse(captured.text()) as {
+      data: { verdict: string; acceptedBy: string; checks: { g3_exemplar: unknown } };
+    };
+    expect(parsed.data.verdict).toBe('pass');
+    expect(parsed.data.acceptedBy).toBe('session-1');
+    expect(parsed.data.checks.g3_exemplar).toEqual({ g3a: [], g3b: [] });
+    expect(process.exitCode).toBe(0);
+  });
+
+  it('when --baseline-url is given for two changed routes, should refuse and write nothing', async () => {
+    // given: an adopted app whose change touches two pages and one explicit baseline URL
+    // when: the gated check runs
+    // then: the scope refusal exits 3 and no evidence pair is written
+    const root = makeApp();
+    writeFileSync(
+      join(root, 'src', 'routes', 'b.tsx'),
+      'export const B = () => <div />;\n',
+      'utf8'
+    );
+    await initDesignContract({ projectRoot: root });
+    const { io, captured } = makeCapturedIo();
+    await runDesignCheck(
+      {
+        project: root,
+        files: 'src/routes/a.tsx,src/routes/b.tsx',
+        baselineUrl: 'http://127.0.0.1:4311/',
+        rid: 'r1',
+        sessionId: 'session-1',
+        gate: true,
+        json: true
+      },
+      io,
+      {}
+    );
+    const parsed = JSON.parse(captured.text()) as { ok: boolean; code: string };
+    expect(parsed.ok).toBe(false);
+    expect(parsed.code).toBe('DESIGN_BASELINE_URL_SCOPE');
+    expect(process.exitCode).toBe(3);
+    expect(existsSync(join(root, '.peaks', '_runtime', 'session-1', 'design', 'check-r1.md'))).toBe(
+      false
+    );
+    expect(
+      existsSync(join(root, '.peaks', '_runtime', 'session-1', 'design', 'check-r1.json'))
+    ).toBe(false);
+  });
+
+  it('when the input builder runs, should carry the S4 flags through', () => {
+    // given: the CLI option record with both S4 flags
+    // when: the check input is built
+    // then: the skip flag and the explicit baseline URL reach the check
+    const input = checkInput(
+      { project: 'repo', skipExemplar: true, baselineUrl: 'http://127.0.0.1:4311/' },
+      false
+    );
+    expect(input.skipExemplar).toBe(true);
+    expect(input.baselineUrl).toBe('http://127.0.0.1:4311/');
   });
 });
 

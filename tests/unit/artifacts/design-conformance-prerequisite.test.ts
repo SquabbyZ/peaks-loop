@@ -234,7 +234,8 @@ describe('behavior — the body contract decides pass or fail', () => {
       },
       checks: {
         g1_source: { status: 'fail', findings: [] },
-        g2_render: { status: 'skipped', reason: 'source-only' }
+        g2_render: { status: 'skipped', reason: 'source-only' },
+        g3_exemplar: { g3a: [], g3b: [] }
       },
       findings: [],
       coverage: null

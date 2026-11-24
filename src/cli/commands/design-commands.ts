@@ -5,23 +5,25 @@ import { type Command, InvalidArgumentError } from 'commander';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import {
-  acceptanceRefusal,
   activeSessionId,
-  CHECK_BLOCKED_ACTIONS,
-  SOURCE_ONLY_DIAGNOSTIC,
+  DesignBaselineUrlScopeError,
   type AcceptanceEnv
 } from '../../services/design/acceptance.js';
-import {
-  checkDesign,
-  type DesignCheckResult,
-  exitCodeForVerdict
-} from '../../services/design/design-check.js';
+import { checkDesign, exitCodeForVerdict } from '../../services/design/design-check.js';
 import {
   initDesignContract,
   readDesignStatus,
   removeDesignContract
 } from '../../services/design/design-init.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
+import {
+  acceptanceFor,
+  checkInput,
+  checkNextActions,
+  checkWarnings,
+  splitList,
+  type DesignCheckCliOptions
+} from './design-check-input.js';
 import { runGatedDesignCheck, type DesignCheckEcho } from './design-gate-evidence.js';
 
 export type DesignInitCliOptions = {
@@ -38,36 +40,12 @@ export type DesignInitCliOptions = {
 
 export type DesignScopedCliOptions = { project?: string; app?: string; json?: boolean };
 
-export type DesignCheckCliOptions = {
-  project: string;
-  app?: string;
-  rid?: string;
-  sessionId?: string | undefined;
-  files?: string;
-  base?: string;
-  url?: string;
-  pages?: string;
-  start?: boolean;
-  sourceOnly?: boolean;
-  allowSourceOnly?: boolean;
-  acceptNote?: string;
-  json?: boolean;
-  gate?: boolean;
-};
-
 const INIT_NEXT_ACTIONS = [
   'Ask the user to review the generated contract summary before implementation.'
 ];
 /** The usage-error code from the check's exit contract (spec §7.1). */
 const USAGE_EXIT_CODE = 3;
 const CHECK_URL_HELP = 'render URL for G2 (defaults to engine.json or a derived loopback URL)';
-
-/** A `--flag a,b,c` value as a list; an empty string is an empty list, not absent. */
-const splitList = (value: string | undefined): string[] =>
-  (value ?? '')
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0);
 
 const projectRootOf = (options: { project?: string }): string => options.project ?? process.cwd();
 
@@ -105,35 +83,6 @@ function initInput(options: DesignInitCliOptions) {
   };
 }
 
-export function checkInput(options: DesignCheckCliOptions, allowSourceOnly: boolean) {
-  return {
-    projectRoot: options.project,
-    ...(options.app === undefined ? {} : { appPath: options.app }),
-    ...(options.rid === undefined ? {} : { rid: options.rid }),
-    ...(options.sessionId === undefined ? {} : { sessionId: options.sessionId }),
-    ...(options.files === undefined ? {} : { changedFiles: splitList(options.files) }),
-    ...(options.base === undefined ? {} : { base: options.base }),
-    ...(options.url === undefined ? {} : { url: options.url }),
-    ...(options.pages === undefined ? {} : { pages: splitList(options.pages) }),
-    ...(options.start === true ? { start: true } : {}),
-    sourceOnly: options.sourceOnly === true,
-    allowSourceOnly,
-    ...(options.acceptNote === undefined ? {} : { acceptNote: options.acceptNote })
-  };
-}
-
-export function checkNextActions(result: DesignCheckResult): string[] {
-  if (result.verdict === 'fail') return ['Fix the listed findings, then re-run the design check.'];
-  if (result.verdict === 'not-adopted') {
-    return ['Initialize the design contract for this app before checking it.'];
-  }
-  return result.errorCode === undefined ? [] : (CHECK_BLOCKED_ACTIONS[result.errorCode] ?? []);
-}
-
-/** The check's own warning; G2 contributes advisory slop/grade warnings separately. */
-export function checkWarnings(options: DesignCheckCliOptions): string[] {
-  return options.sourceOnly === true ? [SOURCE_ONLY_DIAGNOSTIC] : [];
-}
 const GATE_DEPS: DesignCheckEcho = { checkInput, checkWarnings, checkNextActions };
 
 export async function runDesignInit(options: DesignInitCliOptions, io: ProgramIO): Promise<void> {
@@ -217,12 +166,10 @@ export async function runDesignCheck(
   const sessionId = options.sessionId ?? activeSessionId(options.project) ?? undefined;
   const checkOptions = { ...options, sessionId };
   const accepted = options.allowSourceOnly === true;
-  if (accepted) {
-    const refusal = acceptanceRefusal(checkOptions, env.CI);
-    if (refusal !== null) {
-      failUsage(refusal.code, refusal.message, { projectRoot: options.project }, refusal.actions);
-      return;
-    }
+  const refusal = acceptanceFor(checkOptions, sessionId, env.CI);
+  if (refusal !== null) {
+    failUsage(refusal.code, refusal.message, { projectRoot: options.project }, refusal.actions);
+    return;
   }
   try {
     const result = await checkDesign(checkInput(checkOptions, accepted));
@@ -238,6 +185,10 @@ export async function runDesignCheck(
     );
     process.exitCode = exitCodeForVerdict(result.verdict);
   } catch (error) {
+    if (error instanceof DesignBaselineUrlScopeError) {
+      failUsage(error.code, error.message, { projectRoot: options.project }, error.actions);
+      return;
+    }
     failCheck('DESIGN_CHECK_FAILED', getErrorMessage(error), { projectRoot: options.project });
     process.exitCode = USAGE_EXIT_CODE;
   }
@@ -291,7 +242,9 @@ export function registerDesignCommands(program: Command, io: ProgramIO): void {
       .option('--start', 'start the dev server recorded in engine.json for G2')
       .option('--source-only', 'report the G1 source layer only; never a pass')
       .option('--allow-source-only', 'accept a source-only result in place of a render check')
-      .option('--accept-note <text>', "the user's own words accepting source-only")
+      .option('--accept-note <text>', "the user's own words recorded with the acceptance")
+      .option('--skip-exemplar', 'accept skipping the advisory archetype rubric (G3b)')
+      .option('--baseline-url <url>', 'explicit G3a baseline URL instead of the recorded entry')
       .option('--gate', 'write design/check-<rid>.md and .json evidence for this verdict')
   ).action((options: DesignCheckCliOptions) => runDesignCheck(options, io));
 }

@@ -3,8 +3,6 @@ import { existsSync } from 'node:fs';
 import { extname, join } from 'node:path';
 
 import { normalizePath } from '../../shared/path-utils.js';
-import { readGitChangeSet } from '../scan/file-size-baseline.js';
-import { readRidChangeClaims } from '../scan/rid-change-claims.js';
 import { scanExistingSystem } from '../scan/existing-system-service.js';
 import {
   CHANGE_SET_UNKNOWN_MESSAGE,
@@ -12,10 +10,18 @@ import {
   DEGRADED_MESSAGE,
   DesignCheckUsageError,
   NOT_ADOPTED_MESSAGE,
-  RENDER_REQUIRED_MESSAGE
+  RENDER_REQUIRED_MESSAGE,
+  requireAcceptNote
 } from './acceptance.js';
 import { resolveContractRoot } from './contract-root.js';
+import { type ChangeSetRead, readChangeSet } from './design-changeset.js';
 import { completeG2, type DesignEngineDeps, type G2RenderCheck } from './design-check-g2.js';
+import {
+  completeG3,
+  EMPTY_G3_EXEMPLAR,
+  type G3ExemplarCheck,
+  type G3SuiteDeps
+} from './design-check-g3-suite.js';
 import type { PavedRoadFile } from './paved-road.js';
 import { appFiles, readPavedRoad, readTokens } from './source-scan/inputs.js';
 import type { DesignFinding } from './source-scan/scan-file.js';
@@ -32,6 +38,7 @@ export type DesignCheckResult = {
   checks: {
     g1_source: { status: 'pass' | 'fail' | 'not-applicable'; findings: DesignFinding[] };
     g2_render: G2RenderCheck;
+    g3_exemplar: G3ExemplarCheck;
   };
   findings: DesignFinding[];
   coverage: TokenCoverage | null;
@@ -39,6 +46,8 @@ export type DesignCheckResult = {
   message?: string;
   warnings?: string[];
   acceptedBy?: string | null;
+  /** The user's own words recorded with `acceptedBy`; never rendered raw. */
+  acceptedNote?: string;
 };
 
 export type CheckDesignSourceOnlyInput = {
@@ -61,6 +70,10 @@ export type CheckDesignInput = CheckDesignSourceOnlyInput & {
   start?: boolean;
   /** The diagnostic: report G1 only, skip G2, and never pass. */
   sourceOnly?: boolean;
+  /** Accept skipping the advisory archetype rubric (G3b); the hard G3a still runs. */
+  skipExemplar?: boolean;
+  /** An explicit G3a baseline URL, instead of the recorded baseline entry. */
+  baselineUrl?: string;
 };
 
 type CheckInput = CheckDesignSourceOnlyInput;
@@ -81,7 +94,8 @@ function makeResult(rid: string | null, overrides: ResultOverrides): DesignCheck
     surface: { isUi: 'unknown', reasons: [] },
     checks: {
       g1_source: { status: 'not-applicable', findings: [] },
-      g2_render: { status: 'skipped', reason: 's2-not-implemented' }
+      g2_render: { status: 'skipped', reason: 's2-not-implemented' },
+      g3_exemplar: EMPTY_G3_EXEMPLAR
     },
     findings: [],
     coverage: null,
@@ -98,25 +112,6 @@ export function exitCodeForVerdict(verdict: DesignCheckVerdict): DesignCheckExit
   if (verdict === 'fail') return 1;
   if (verdict === 'blocked') return 2;
   return 0;
-}
-
-async function resolveChangeSet(input: CheckInput, rid: string | null): Promise<string[] | null> {
-  if (input.changedFiles !== undefined) return [...input.changedFiles];
-  if (rid !== null) {
-    if (input.sessionId === undefined) return null;
-    return [...(readRidChangeClaims(input.projectRoot, input.sessionId).get(rid) ?? [])];
-  }
-  return readGitChangeSet(input.projectRoot, input.base ?? 'HEAD').changedPaths;
-}
-
-/** The change set, plus why it is empty when it could not be read. */
-async function readChangeSet(input: CheckInput, rid: string | null) {
-  try {
-    return { files: (await resolveChangeSet(input, rid)) ?? [], failure: null };
-  } catch (error) {
-    const failure = error instanceof Error ? error.message : null;
-    return { files: [], failure };
-  }
 }
 
 function underDir(file: string, dir: string | null): boolean {
@@ -160,6 +155,15 @@ async function detectComponentDir(
   return (await scanExistingSystem({ projectRoot: appRoot })).conventions.componentDir;
 }
 
+/** The session and the user's words a source-only acceptance records. */
+function acceptanceOf(input: CheckInput, accepted: boolean): Partial<DesignCheckResult> {
+  if (!accepted) return {};
+  return {
+    acceptedBy: input.sessionId ?? null,
+    ...(input.acceptNote === undefined ? {} : { acceptedNote: input.acceptNote })
+  };
+}
+
 function verdictFromScan(
   input: CheckInput,
   rid: string | null,
@@ -176,7 +180,7 @@ function verdictFromScan(
     });
   }
   const accepted = input.allowSourceOnly === true && input.acceptNote !== undefined;
-  const acceptedBy = input.sessionId ?? null;
+  const acceptance = acceptanceOf(input, accepted);
   const g2 = {
     status: 'skipped',
     reason: accepted ? 'explicitly-accepted' : 's2-not-implemented'
@@ -188,15 +192,16 @@ function verdictFromScan(
     surface,
     checks: {
       g1_source: { status, findings: scan.findings },
-      g2_render: g2
+      g2_render: g2,
+      g3_exemplar: EMPTY_G3_EXEMPLAR
     },
     findings: scan.findings,
     coverage: scan.coverage
   };
   if (evidence.checks.g1_source.status === 'fail') {
-    return makeResult(rid, { ...evidence, verdict: 'fail', ...(accepted ? { acceptedBy } : {}) });
+    return makeResult(rid, { ...evidence, verdict: 'fail', ...(accepted ? acceptance : {}) });
   }
-  if (accepted) return makeResult(rid, { ...evidence, verdict: 'pass', acceptedBy });
+  if (accepted) return makeResult(rid, { ...evidence, verdict: 'pass', ...acceptance });
   return makeResult(rid, {
     ...evidence,
     verdict: 'blocked',
@@ -205,19 +210,13 @@ function verdictFromScan(
   });
 }
 
-/** An acceptance without the user's own words is a usage error, never a verdict. */
-function requireAcceptNote(input: CheckInput): void {
-  if (input.allowSourceOnly === true && (input.acceptNote ?? '').trim() === '') {
-    throw new DesignCheckUsageError();
-  }
-}
-
 /** The contract-root resolution, so a caller that already resolved it can share it. */
 type RootResolution = Awaited<ReturnType<typeof resolveContractRoot>>;
 
 export async function checkDesignSourceOnly(
   input: CheckInput,
-  preResolved?: RootResolution
+  preResolved?: RootResolution,
+  preChange?: ChangeSetRead
 ): Promise<DesignCheckResult> {
   const { rid = null } = input;
   requireAcceptNote(input);
@@ -235,7 +234,7 @@ export async function checkDesignSourceOnly(
     return makeResult(rid, { verdict: 'not-adopted', message: NOT_ADOPTED_MESSAGE });
   }
 
-  const changeSet = await readChangeSet(input, rid);
+  const changeSet = preChange ?? (await readChangeSet(input, rid));
   const files = appFiles(input.projectRoot, root.appRelPath, changeSet.files);
   if (files.length === 0) {
     return makeResult(rid, {
@@ -269,13 +268,17 @@ export async function checkDesignSourceOnly(
   return verdictFromScan(input, rid, surface, scan);
 }
 
-/** S1 first, then G2 from the same resolved root; the acceptance path wins. */
+/** S1 first, then G2, then G3 from the same resolved root; the acceptance path wins. */
 export async function checkDesign(
   input: CheckDesignInput,
-  deps?: DesignEngineDeps
+  deps?: DesignEngineDeps,
+  g3Deps?: G3SuiteDeps
 ): Promise<DesignCheckResult> {
   const resolved = await resolveContractRoot(input);
-  const base = await checkDesignSourceOnly(input, resolved);
+  const changeSet = resolved.ok
+    ? await readChangeSet(input, input.rid ?? null)
+    : { files: [], failure: null };
+  const base = await checkDesignSourceOnly(input, resolved, changeSet);
   if (input.allowSourceOnly === true) return base;
   if (input.sourceOnly === true) {
     return {
@@ -284,5 +287,8 @@ export async function checkDesign(
     };
   }
   if (base.checks.g1_source.status !== 'pass' || !resolved.ok) return base;
-  return completeG2(input, base, resolved.root, deps);
+  // G3 derives its routes from the same app-relative change set G1 scanned.
+  const changedFiles = appFiles(input.projectRoot, resolved.root.appRelPath, changeSet.files);
+  const rendered = await completeG2(input, base, resolved.root, deps);
+  return completeG3({ ...input, changedFiles }, rendered, resolved.root, g3Deps);
 }

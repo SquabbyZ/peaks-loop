@@ -123,6 +123,12 @@ Delegated, and never done here:
   `design/exemplars/README.md`.
 - Never deliver a feature/bugfix handoff without `design/check-<rid>.md`: the
   `DESIGN_CONFORMANCE` prerequisite refuses `rd:qa-handoff` once its back-compat window closes.
+- G3a is hard only where a baseline exists: fidelity below 90 fails, an unreachable or
+  trusting-side block is `blocked`, and a route without a baseline is `skipped('no-baseline')`
+  — never a pass and never an invented baseline.
+- G3b is advisory: the rubric's six dimensions (each 1–5) are normalised to the 40-point scale
+  the spec names, a below-threshold total warns, and the threshold only becomes a failure after
+  a recorded calibration run. `--skip-exemplar` needs the user's own words and never skips G3a.
 - Never let general taste rules from `peaks-ui` override a project contract.
 - Never let the `peaks-code` core flow depend on an optional MCP.
 - Never become a second `peaks-code`: this skill does not edit source and does not take over
