@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-24T06:57:18.974Z",
+  "updatedAt": "2026-11-24T12:33:31.289Z",
   "hot": {
     "rule": [
       {
@@ -4546,6 +4546,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\claude-code-has-no-llm-invocable-compact.md",
         "sourceArtifact": null,
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "designlang-fidelity-is-only-usable-behind-four-checks",
+        "kind": "reference",
+        "description": "Measured on designlang 13.4.1: exit 1 means both \"below --min\" and \"unreachable/timeout/missing --clone\" — only the b...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\designlang-fidelity-is-only-usable-behind-four-checks.md",
+        "sourceArtifact": ".peaks/_runtime/2026-11-23-session-320f58/txt/handoff-s4.md",
+        "updatedAt": "2026-11-24"
       },
       {
         "name": "designlang-integration-facts-the-s2-spike-pinned",
