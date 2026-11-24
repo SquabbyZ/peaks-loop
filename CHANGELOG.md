@@ -1,5 +1,23 @@
 # Changelog
 
+## 4.3.1 — 2026-11-24（跨平台进程回收与测试可移植性）
+
+**版本级别**：**patch**（修复 4.3.0 在 Linux / macOS 上的测试环境假设，并补齐 POSIX 进程树回收；无新能力、无 schema 变更、无门禁阈值改动）。
+
+**一句话：`--start` 在 POSIX 上即使子进程忽略 SIGTERM 也会被整组 SIGKILL 回收；S2 的测试不再假设 Windows 语义。**
+
+### 1. 修复
+
+- **POSIX 进程树回收**：`killTree` 原先在 SIGTERM 宽限期内等到 shell 退出就返回，若孙进程忽略 SIGTERM 会存活。现在宽限期结束后无条件向进程组发 SIGKILL（`ESRCH` 视为进程组已消失）；Windows 仍走 `taskkill /T /F`。
+- **测试可移植性（Linux）**：进程存活判断把僵尸进程视为已死 —— 读取 `/proc/<pid>/stat` 的状态字段，`Z`、`ENOENT`、`ENOTDIR` 判死，`EPERM` 仍判活。此前 `kill(pid, 0)` 对未回收的僵尸返回成功，导致超时回收断言在 Linux 上误报。
+- **测试可移植性（macOS）**：`findOnPath` 的 PATH 分隔符改为按有效平台选择（win32 `;`，其余 `:`），不再使用宿主 `path.delimiter`；真实宿主上行为不变。
+- 新增 POSIX-only 用例：启动命令忽略 SIGTERM 时，超时后整组仍被回收。
+
+### 2. 验证
+
+- 全量单测与 `tests/integration`；`tsc --noEmit` 0；三平台 CI（ubuntu / macos / windows）、coverage floor、duration ceiling 全绿。
+- 发布后按 `npm pack peaks-loop@4.3.1` 解包冒烟 `bin/peaks.js --version`。
+
 ## 4.3.0 — 2026-11-24（peaks design S2：渲染引擎、动态 URL 与 G2 真值矩阵）
 
 **版本级别**：**minor**（新增能力：把设计渲染引擎接入 `peaks design check`；无破坏性变更，`design init/status/uninit` 与 `--source-only` 语义不变）。
