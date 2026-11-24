@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-24T12:33:31.289Z",
+  "updatedAt": "2026-11-24T19:04:58.534Z",
   "hot": {
     "rule": [
       {
@@ -3615,6 +3615,14 @@
         "description": "Adding a prerequisite with  is not enough: the transitions honor the window, but  — and the pre-commit artifact-contr...",
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-new-prerequisite-gates-completed-rids-retroactively.md",
         "sourceArtifact": ".peaks/_runtime/2026-11-23-session-320f58/txt/handoff-s3.md",
+        "updatedAt": "2026-11-24"
+      },
+      {
+        "name": "a-positive-evidence-rule-must-match-what-the-tools-actually-emit",
+        "kind": "project",
+        "description": "S2 required every designlang payload to carry /.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\a-positive-evidence-rule-must-match-what-the-tools-actually-emit.md",
+        "sourceArtifact": ".peaks/_runtime/2026-11-23-session-320f58/txt/handoff-s5.md",
         "updatedAt": "2026-11-24"
       },
       {
