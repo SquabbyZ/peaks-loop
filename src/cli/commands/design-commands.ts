@@ -1,5 +1,4 @@
-// `peaks design init|status|uninit|check` — the CLI surface for the per-app design
-// contract. Runners are exported and never call process.exit(); the exit code is here.
+// `peaks design init|status|uninit|check` — the design CLI; runners never exit, the code is here.
 
 import { type Command, InvalidArgumentError } from 'commander';
 
@@ -23,6 +22,7 @@ import {
   removeDesignContract
 } from '../../services/design/design-init.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
+import { runGatedDesignCheck, type DesignCheckEcho } from './design-gate-evidence.js';
 
 export type DesignInitCliOptions = {
   project: string;
@@ -52,6 +52,7 @@ export type DesignCheckCliOptions = {
   allowSourceOnly?: boolean;
   acceptNote?: string;
   json?: boolean;
+  gate?: boolean;
 };
 
 const INIT_NEXT_ACTIONS = [
@@ -59,6 +60,7 @@ const INIT_NEXT_ACTIONS = [
 ];
 /** The usage-error code from the check's exit contract (spec §7.1). */
 const USAGE_EXIT_CODE = 3;
+const CHECK_URL_HELP = 'render URL for G2 (defaults to engine.json or a derived loopback URL)';
 
 /** A `--flag a,b,c` value as a list; an empty string is an empty list, not absent. */
 const splitList = (value: string | undefined): string[] =>
@@ -103,7 +105,7 @@ function initInput(options: DesignInitCliOptions) {
   };
 }
 
-function checkInput(options: DesignCheckCliOptions, allowSourceOnly: boolean) {
+export function checkInput(options: DesignCheckCliOptions, allowSourceOnly: boolean) {
   return {
     projectRoot: options.project,
     ...(options.app === undefined ? {} : { appPath: options.app }),
@@ -120,7 +122,7 @@ function checkInput(options: DesignCheckCliOptions, allowSourceOnly: boolean) {
   };
 }
 
-function checkNextActions(result: DesignCheckResult): string[] {
+export function checkNextActions(result: DesignCheckResult): string[] {
   if (result.verdict === 'fail') return ['Fix the listed findings, then re-run the design check.'];
   if (result.verdict === 'not-adopted') {
     return ['Initialize the design contract for this app before checking it.'];
@@ -129,9 +131,10 @@ function checkNextActions(result: DesignCheckResult): string[] {
 }
 
 /** The check's own warning; G2 contributes advisory slop/grade warnings separately. */
-function checkWarnings(options: DesignCheckCliOptions): string[] {
+export function checkWarnings(options: DesignCheckCliOptions): string[] {
   return options.sourceOnly === true ? [SOURCE_ONLY_DIAGNOSTIC] : [];
 }
+const GATE_DEPS: DesignCheckEcho = { checkInput, checkWarnings, checkNextActions };
 
 export async function runDesignInit(options: DesignInitCliOptions, io: ProgramIO): Promise<void> {
   const failInit = failurePrinter(io, 'design.init', options.json);
@@ -207,6 +210,7 @@ export async function runDesignCheck(
   io: ProgramIO,
   env: AcceptanceEnv = process.env
 ): Promise<void> {
+  if (options.gate === true) return runGatedDesignCheck(options, io, env, GATE_DEPS);
   const failCheck = failurePrinter(io, 'design.check', options.json);
   const failUsage = failurePrinter(io, 'design.check', options.json, USAGE_EXIT_CODE);
   // One read: the flag wins, else the binding `peaks session info --active` reports.
@@ -282,14 +286,12 @@ export function registerDesignCommands(program: Command, io: ProgramIO): void {
       .option('--session-id <id>', 'session for rid claims (defaults to the active binding)')
       .option('--files <list>', 'comma-separated change set, repository-relative')
       .option('--base <ref>', 'git ref the change set is read against (default HEAD)')
-      .option(
-        '--url <url>',
-        'render URL for G2 (defaults to engine.json or a derived loopback URL)'
-      )
+      .option('--url <url>', CHECK_URL_HELP)
       .option('--pages <list>', 'comma-separated render pages for G2')
       .option('--start', 'start the dev server recorded in engine.json for G2')
       .option('--source-only', 'report the G1 source layer only; never a pass')
       .option('--allow-source-only', 'accept a source-only result in place of a render check')
       .option('--accept-note <text>', "the user's own words accepting source-only")
+      .option('--gate', 'write design/check-<rid>.md and .json evidence for this verdict')
   ).action((options: DesignCheckCliOptions) => runDesignCheck(options, io));
 }

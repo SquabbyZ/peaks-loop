@@ -96,6 +96,11 @@ Peaks-Loop TXT is intentionally not a `peaks request <role>` role. The other fiv
 
 This boundary keeps TXT a meta layer that consumes other roles' artifacts and CLI reports, not a workflow stage. Cross-link from a TXT capsule body to the relevant request artifacts instead of duplicating their content. Do not invoke `peaks request init --role txt`; the CLI rejects it.
 
+## Design context (when `design/` exists)
+
+- The context capsule records the contract version and the latest `design check` verdict for the request.
+- `design/` is tracked product truth; runtime evidence under `.peaks/_runtime/` is not committed.
+
 ## Compaction-safe outputs
 
 When used alone or when a workflow needs portable artifacts that must survive session compaction, end with a short structured capsule. Prefer links or paths over long narrative. Do not duplicate the full workflow log when a compact capsule is enough.

@@ -95,6 +95,10 @@ function pipelineEvidence(rid: string): ReadonlyArray<[string, string]> {
     ['audit/security.md', '# Security audit\n\n## Verdict\n\nPASS\n' + judgedDeclarationSection()],
     ['audit/perf.md', '# Perf audit\n\n## Baseline\n\nn/a\n'],
     ['rd/karpathy-review.md', KARPATHY_REVIEW_BODY],
+    [
+      `design/check-${rid}.md`,
+      'schemaVersion: 1\nsha256: 0000\n## Design conformance\ndesign-conformance: pass\n'
+    ],
     ['qa/.initiated', ''],
     [`qa/test-cases/${rid}.md`, '# Test cases\n\n## Test cases\n\ntest(x)\n'],
     [`qa/test-reports/${rid}.md`, '# Test report\n\n## Test execution\n\nall green\n']

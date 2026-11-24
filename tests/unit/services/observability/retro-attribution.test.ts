@@ -138,7 +138,8 @@ const EXPECTED_OWNER_BY_PREFIX: ReadonlyArray<readonly [string, string]> = [
   ['audit/security', 'peaks-security-audit'],
   ['audit/perf', 'peaks-perf-audit'],
   ['rd/security-review-', 'peaks-security-audit'],
-  ['rd/third-party-review-', 'peaks-reviewer']
+  ['rd/third-party-review-', 'peaks-reviewer'],
+  ['design/check-', 'peaks-rd']
 ];
 
 /**

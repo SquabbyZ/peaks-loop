@@ -96,7 +96,7 @@ describe('Scenario: behavior — which table a type selects', () => {
     // The provenance label is not decoration: the type it reports is the one
     // the refusal below is built from.
     const effective: RequestType = extractMetadata(typelessCarrier()).requestType;
-    expect(getPrerequisitesFor('rd', 'qa-handoff', effective).length).toBe(9);
+    expect(getPrerequisitesFor('rd', 'qa-handoff', effective).length).toBe(10);
     expect(getPrerequisitesFor('rd', 'qa-handoff', 'chore').length).toBe(0);
   });
 
@@ -309,10 +309,10 @@ describe('Scenario: integration — a real artifact, read, retagged, re-read', (
     });
     const before = await check('feature');
     expect(before.ok).toBe(false);
-    // Nine entries are demanded at this row and two of them are inside a
-    // back-compat window, so they warn rather than fail: 7 hard, 2 soft.
-    expect(before.missing.length + before.warnings.length).toBe(9);
-    expect(before.warnings).toHaveLength(2);
+    // Ten entries are demanded at this row and three of them are inside a
+    // back-compat window, so they warn rather than fail: 7 hard, 3 soft.
+    expect(before.missing.length + before.warnings.length).toBe(10);
+    expect(before.warnings).toHaveLength(3);
 
     const retagged = await retagRequestArtifact({
       projectRoot: ws().path,

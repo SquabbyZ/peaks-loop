@@ -17,7 +17,10 @@ import {
 } from '../artifacts/artifact-prerequisites.js';
 import * as qaPhase from './pipeline-verify-qa-phase.js';
 import { rdEvidenceProbe, rdGatesForType } from './pipeline-verify-rd-phase.js';
-import { prerequisiteBodyViolations } from '../artifacts/prerequisite-checks.js';
+import {
+  missingPrerequisiteWarning,
+  prerequisiteBodyViolations
+} from '../artifacts/prerequisite-checks.js';
 import {
   showRequestArtifact,
   type RequestArtifactRole,
@@ -60,28 +63,6 @@ export async function findRequestFile(
   return { path: artifact.path, content: artifact.content, sessionId: artifact.sessionId };
 }
 
-/**
- * Where the CURRENT contract puts one gate's evidence.
- *
- * The contract is the `artifact-prerequisites.ts` table — the table
- * `peaks request transition` enforces and the one the peaks-qa prose
- * contract mirrors (`skills/bee/peaks-qa/references/qa-transition-gates.md`).
- * `probeName` is the location this checker probes today. The contract's
- * `relativePath` is returned first, then its accepted historical locations in
- * the table's own declared order — `legacyRelativePath`, then
- * `legacyRelativePaths` (the same composition `artifact-prerequisites.ts`' own
- * resolver performs, so a hit here and a hit there land on the same file).
- *
- * Returns `null` when the contract carries no prerequisite for that name at
- * all — the artifact was retired and no gate may fail on it.
- *
- * This lookup exists because hard-coding the paths here is what let
- * `verify-pipeline` fall a minor release behind the gate: it kept demanding
- * `rd/security-review.md` as mandatory after the table had demoted that file
- * to a `legacyRelativePath` fallback of `audit/security.md`, and it kept
- * demanding `qa/security-findings-<rid>.md` / `qa/performance-findings-<rid>.md`
- * after the v2.11.0 D1/D4 trim dropped them from `qa:verdict-issued`
- */
 /**
  * The prerequisite the contract carries for `probeName`, or null when it
  * carries none. `contractEvidencePaths` is this object's path projection; the
@@ -274,9 +255,22 @@ export function resolveRdEvidencePaths(
         );
       }
     } else {
-      gate.detail = `missing: ${canonicalPath}`;
-      violations.push(`RD evidence missing: ${gate.description} (${primaryRelativePath})`);
-      nextActions.push(`Create .peaks/_runtime/${rdEvidenceDir}/${primaryRelativePath}`);
+      const prerequisite = contractPrerequisite('rd', 'qa-handoff', requestType, probeName);
+      const soft =
+        prerequisite === null
+          ? null
+          : missingPrerequisiteWarning(prerequisite, primaryRelativePath);
+      if (soft !== null && soft.expiredWindow === undefined) {
+        gate.passed = true;
+        gate.detail = `missing (back-compat until ${prerequisite?.backCompatUntil ?? 'a-future-release'})`;
+        nextActions.push(
+          `${soft.code}: .peaks/_runtime/${rdEvidenceDir}/${primaryRelativePath} is still owed — ${soft.message}`
+        );
+      } else {
+        gate.detail = `missing: ${canonicalPath}`;
+        violations.push(`RD evidence missing: ${gate.description} (${primaryRelativePath})`);
+        nextActions.push(`Create .peaks/_runtime/${rdEvidenceDir}/${primaryRelativePath}`);
+      }
     }
   }
   return { anyEvidenceResolved, allResolvedPathsCanonical };

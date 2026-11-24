@@ -106,6 +106,12 @@ When this skill is running in the main Claude session (not as a sub-agent — i.
 - generate refactor options, risk matrix, rollback plan, and task graph preview;
 - implement only after strict specs and confirmations exist.
 
+## Design contract (when `design/` exists)
+
+- Read `design/contract.md` and `design/paved-road.json` before touching a page; components come only from `componentEntrypoints`.
+- Deliver with `peaks design check --gate`. A `fail` returns to RD inside the existing 3-round repair budget; a `blocked` does not consume a round — fix the environment (engine, browser, URL, change set) and re-run.
+- Never hand-write `design/check-<rid>.md`: `--gate` is its only writer, and QA samples for hand-authored evidence.
+
 ## Mandatory per-request artifact
 
 Every RD invocation — feature, bug, refactor, clarification — must write a durable artifact at `.peaks/_runtime/<session-id>/rd/requests/<request-id>.md` (the canonical placeholder form: `<session-id>` is the active session id at runtime, `<request-id>` follows `YYYY-MM-DD-<kebab-slug>`; the runtime path is `.peaks/_runtime/<session-id>/rd/requests/<request-id>.md`). This is the canonical engineering record for that request; handoff to QA/SC is blocked while the artifact is missing or its state is `draft` / `spec-locked` without implementation evidence.

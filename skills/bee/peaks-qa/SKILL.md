@@ -132,6 +132,12 @@ When this skill is running in the main Claude session (not as a sub-agent), befo
 
 **Out of scope (v2.11.0 D1/D4):** peaks-qa does **not** own security review or performance review. Those are owned by peaks-rd's audit fan-out (sub-agents `security-review` and `perf-baseline`) and the rd-side evidence files. peaks-qa reads `audit/security-<rid>.md` and `audit/perf-<rid>.md` by reference; it does NOT produce `qa/security-findings.md` or `qa/performance-findings.md` of its own.
 
+## Design evidence (when `design/` exists)
+
+- Read `.peaks/_runtime/<session-id>/design/check-<rid>.json`; the verdict and findings come from it, never from a re-interpretation.
+- Test cases must include the design regression seed (screenshot or exemplar) for UI surfaces.
+- A missing `design-conformance` marker on a feature/bugfix handoff is a finding, not a skip.
+
 ## Mandatory per-request artifact
 
 Every QA invocation — feature, bug, refactor, clarification — must write **three separate files** (test cases + test report + request artifact) under `.peaks/_runtime/<session-id>/qa/` (canonical placeholder: `.peaks/_runtime/<session-id>/qa/requests/<request-id>.md`; runtime path is `.peaks/_runtime/<session-id>/qa/...`). Do not merge them into one. Each serves a different reader.

@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 
+import { DESIGN_CONFORMANCE } from './design-conformance-prerequisite.js';
 import { emitPrereqTransitionEvent } from './prerequisite-transition-event.js';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
 import { bodyViolationsIfDeclared, missingPrerequisiteWarning } from './prerequisite-checks.js';
@@ -80,10 +81,8 @@ export type ArtifactPrerequisite = {
   legacyRelativePath?: string;
   /**
    * Further, older locations, tried **in declared order** after
-   * added this because the two audit artifacts have a two-release
-   * `audit/security.md` (v2.12.0) and, behind it, the v2.11.x
-   * `rd/security-review.md`. Three sessions on disk
-   * the last of those, so the oldest tier still has to resolve.
+   * `legacyRelativePath`. The two audit artifacts have a two-release
+   * history, and the oldest tier still has to resolve on disk.
    */
   legacyRelativePaths?: ReadonlyArray<string>;
   /** Back-compat window — a missing file warns instead of failing; see `prerequisite-checks.ts`. */
@@ -221,11 +220,10 @@ const MUT_REPORT: ArtifactPrerequisite = {
 };
 
 // v2.12.0 Group B Tier 5 — gate that the peaks-prd handoff (the
-// immutable, per-slice handoff capsule at `prd/handoff-<rid>.md`
-// audit skill is allowed to consume it. The peaks-security-audit
-// and peaks-perf-audit CLI commands read frontmatter from the
-// audit skill aborts — and so should the prereq gate when those
-// audits are required at rd:qa-handoff.
+// immutable, per-slice handoff capsule at `prd/handoff-<rid>.md`)
+// exists before the audit skills consume it: the peaks-security-audit
+// / peaks-perf-audit commands read its frontmatter, so the prereq gate
+// holds it at rd:qa-handoff.
 //
 // This gate is co-listed with AUDIT_SECURITY / AUDIT_PERF at
 // `rd:qa-handoff` for FEATURE / BUGFIX / REFACTOR. CONFIG retains
@@ -388,7 +386,8 @@ const FEATURE_TABLE: PrerequisiteTable = {
     THIRD_PARTY_REVIEW,
     MUT_REPORT,
     UNIT_TESTS,
-    QA_INITIATED
+    QA_INITIATED,
+    DESIGN_CONFORMANCE
   ],
   'qa:running': [TEST_CASES],
   'qa:verdict-issued': [TEST_CASES, TEST_REPORT]
@@ -416,7 +415,8 @@ const BUGFIX_TABLE: PrerequisiteTable = {
     THIRD_PARTY_REVIEW,
     MUT_REPORT,
     UNIT_TESTS,
-    QA_INITIATED
+    QA_INITIATED,
+    DESIGN_CONFORMANCE
   ],
   'qa:running': [TEST_CASES],
   'qa:verdict-issued': [TEST_CASES, TEST_REPORT]

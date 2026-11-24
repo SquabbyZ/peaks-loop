@@ -441,11 +441,13 @@ describe('Scenario: integration — the seed, verifyPipeline, and the soft trans
         confirmed: true
       });
 
-      // then: it succeeds, and both closed windows are still reported softly
+      // then: it succeeds, and the closed windows plus the still-open one are
+      //       all reported softly
       expect(result?.state).toBe('qa-handoff');
       expect(result?.prerequisiteWarnings?.map((warning) => warning.code)).toEqual([
         'third-party-review-<rid>-missing-deprecated-in-v2.15.0',
-        'mut-report-missing-deprecated-in-v2.14.0'
+        'mut-report-missing-deprecated-in-v2.14.0',
+        'check-<rid>-missing-deprecated-in-v4.4.0'
       ]);
     } finally {
       rmSync(root, { recursive: true, force: true });

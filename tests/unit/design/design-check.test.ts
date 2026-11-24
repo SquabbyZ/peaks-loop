@@ -374,19 +374,6 @@ describe('Scenario: integration — change-set paths are repository-relative', (
     expect(result.errorCode).toBe('DESIGN_RENDER_REQUIRED');
     expect(result.verdict).toBe('blocked');
   });
-
-  it('when the resolver refuses, should block with its named code', async () => {
-    // given: a repository with no frontend evidence
-    // when: check runs
-    // then: the refusal is a blocked result carrying the resolver code, not a crash
-    const { checkDesignSourceOnly } = await loadDesignCheck();
-    const root = mkdtempSync(join(tmpdir(), 'peaks-design-nofe-'));
-    roots.push(root);
-    writeFileSync(join(root, 'go.mod'), 'module example.com/app\n', 'utf8');
-    const result = await checkDesignSourceOnly({ projectRoot: root, changedFiles: ['main.go'] });
-    expect(result.verdict).toBe('blocked');
-    expect(result.errorCode).toBe('DESIGN_NOT_FRONTEND');
-  });
 });
 
 describe('Scenario: behavior — a UI path is matched against page roots exactly', () => {

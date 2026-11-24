@@ -15,7 +15,9 @@
 // accessor's refusal for a gate name the table never declared — so the refusal
 // is an observed guard rather than a claim.
 
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 import {
@@ -28,7 +30,10 @@ import {
   rdEvidenceProbe,
   rdGatesForType
 } from '../../../../src/services/workflow/pipeline-verify-rd-phase.js';
-import { contractEvidencePaths } from '../../../../src/services/workflow/pipeline-verify-gate-support.js';
+import {
+  contractEvidencePaths,
+  resolveRdEvidencePaths
+} from '../../../../src/services/workflow/pipeline-verify-gate-support.js';
 
 declareDimensions('tests/unit/services/workflow/pipeline-verify-rd-gates.test.ts', [
   'render',
@@ -37,11 +42,19 @@ declareDimensions('tests/unit/services/workflow/pipeline-verify-rd-gates.test.ts
   'a11y'
 ]);
 
-/** The pre-refactor gate list per type, measured on HEAD `f02c6be6`. */
+/** The pre-refactor gate list per type, measured on HEAD `f02c6be6`, plus the
+ *  `design-conformance` row S3 appended to the three tables that carry it. */
 const PRE_REFACTOR_GATES: ReadonlyArray<readonly [RequestType, readonly string[]]> = [
   [
     'feature',
-    ['rd-request-exists', 'prd-handoff', 'code-review', 'security-review', 'perf-baseline']
+    [
+      'rd-request-exists',
+      'prd-handoff',
+      'code-review',
+      'security-review',
+      'perf-baseline',
+      'design-conformance'
+    ]
   ],
   [
     'bugfix',
@@ -51,12 +64,20 @@ const PRE_REFACTOR_GATES: ReadonlyArray<readonly [RequestType, readonly string[]
       'bug-analysis',
       'code-review',
       'security-review',
-      'perf-baseline'
+      'perf-baseline',
+      'design-conformance'
     ]
   ],
   [
     'refactor',
-    ['rd-request-exists', 'prd-handoff', 'code-review', 'security-review', 'perf-baseline']
+    [
+      'rd-request-exists',
+      'prd-handoff',
+      'code-review',
+      'security-review',
+      'perf-baseline',
+      'design-conformance'
+    ]
   ],
   ['docs', ['rd-request-exists']],
   ['config', ['rd-request-exists', 'security-review']],
@@ -104,6 +125,12 @@ describe('Scenario: render — the gate list each type now evaluates', () => {
         description: 'Performance audit evidence',
         passed: false,
         detail: ''
+      },
+      {
+        name: 'design-conformance',
+        description: 'Design conformance evidence (peaks design check --gate)',
+        passed: false,
+        detail: ''
       }
     ]);
   });
@@ -121,7 +148,8 @@ describe('Scenario: behavior — the lookup, not a restated list, decides', () =
       'prd-handoff',
       'bug-analysis',
       'security-review',
-      'perf-baseline'
+      'perf-baseline',
+      'design-conformance'
     ]);
   });
 
@@ -154,7 +182,8 @@ describe('Scenario: behavior — the lookup, not a restated list, decides', () =
       'prd-handoff',
       'bug-analysis',
       'security-review',
-      'perf-baseline'
+      'perf-baseline',
+      'design-conformance'
     ]);
   });
 
@@ -188,6 +217,115 @@ describe('Scenario: integration — the derivation follows the real contract tab
           (requestType) => contractEvidencePaths('rd', 'qa-handoff', requestType, probe) !== null
         )
       ).toBe(true);
+    }
+  });
+
+  it('when the production binding is asked for a feature slice, should build the design-conformance gate', () => {
+    // given: a feature slice and the PRODUCTION binding — no injected lookup,
+    //        because a synthetic one carries every row by construction
+    // when:  the gate list is built
+    // then:  the design-conformance row is present
+    expect(rdGatesForType('feature').map((gate) => gate.name)).toContain('design-conformance');
+  });
+
+  it('when the production binding is asked for a docs slice, should not build the design-conformance gate', () => {
+    // given: a docs slice, whose table carries no design row
+    // when:  the gate list is built
+    // then:  the gate is absent — the table lookup is the only condition
+    expect(rdGatesForType('docs').map((gate) => gate.name)).not.toContain('design-conformance');
+  });
+
+  it('when a feature slice is missing in-window design evidence, should soft-pass and name the window', () => {
+    // given: the production gate list and a project root holding no evidence at all
+    // when:  the resolver walks the gates it was handed
+    // then:  the design gate soft-passes under the back-compat window, and the
+    //        next action still says the artifact is owed before it closes
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-design-gate-'));
+    try {
+      const gates = rdGatesForType('feature');
+      const violations: string[] = [];
+      const nextActions: string[] = [];
+      resolveRdEvidencePaths(
+        gates,
+        'session-design-gate',
+        projectRoot,
+        'rid-design-gate',
+        'feature',
+        violations,
+        nextActions,
+        { anyEvidenceResolved: false, allResolvedPathsCanonical: true }
+      );
+      const gate = gates.find((entry) => entry.name === 'design-conformance');
+      expect(gate?.passed).toBe(true);
+      expect(gate?.detail).toBe('missing (back-compat until v4.4.0)');
+      expect(violations).not.toContain(
+        'RD evidence missing: Design conformance evidence (peaks design check --gate) (design/check-rid-design-gate.md)'
+      );
+      expect(nextActions.some((action) => action.includes('v4.4.0'))).toBe(true);
+      expect(nextActions.some((action) => action.includes('design/check-rid-design-gate.md'))).toBe(
+        true
+      );
+    } finally {
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('when a non-back-compat evidence file is missing, should still violate', () => {
+    // given: the same empty project root
+    // when:  the resolver walks the gates
+    // then:  code-review has no window and stays a hard violation
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-design-gate-'));
+    try {
+      const gates = rdGatesForType('feature');
+      const violations: string[] = [];
+      resolveRdEvidencePaths(
+        gates,
+        'session-design-gate',
+        projectRoot,
+        'rid-design-gate',
+        'feature',
+        violations,
+        [],
+        { anyEvidenceResolved: false, allResolvedPathsCanonical: true }
+      );
+      expect(gates.find((entry) => entry.name === 'code-review')?.passed).toBe(false);
+      expect(
+        violations.some((entry) => entry.startsWith('RD evidence missing: Code review evidence'))
+      ).toBe(true);
+    } finally {
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('when design evidence exists but violates its body contract, should still fail', () => {
+    // given: a canonical design evidence file carrying none of the pinned markers
+    // when:  the resolver walks the gates and reads that file's body
+    // then:  the window softens a MISSING file only — a bad body is still a violation
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-design-gate-'));
+    try {
+      const sessionDir = join(projectRoot, '.peaks', '_runtime', 'session-design-gate');
+      mkdirSync(join(sessionDir, 'design'), { recursive: true });
+      writeFileSync(join(sessionDir, 'design', 'check-rid-design-gate.md'), 'schemaVersion: 1\n');
+      const gates = rdGatesForType('feature');
+      const violations: string[] = [];
+      resolveRdEvidencePaths(
+        gates,
+        'session-design-gate',
+        projectRoot,
+        'rid-design-gate',
+        'feature',
+        violations,
+        [],
+        { anyEvidenceResolved: false, allResolvedPathsCanonical: true }
+      );
+      const gate = gates.find((entry) => entry.name === 'design-conformance');
+      expect(gate?.passed).toBe(false);
+      expect(gate?.detail).toContain('missing section(s)');
+      expect(violations.some((entry) => entry.includes('does not satisfy the contract'))).toBe(
+        true
+      );
+    } finally {
+      rmSync(projectRoot, { recursive: true, force: true });
     }
   });
 });

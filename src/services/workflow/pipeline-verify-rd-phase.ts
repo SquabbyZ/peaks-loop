@@ -72,6 +72,11 @@ export const RD_EVIDENCE_GATES: ReadonlyArray<{
     name: 'perf-baseline',
     description: 'Performance audit evidence',
     relativePath: 'rd/perf-baseline.md'
+  },
+  {
+    name: 'design-conformance',
+    description: 'Design conformance evidence (peaks design check --gate)',
+    relativePath: 'design/check-<rid>.md'
   }
 ];
 

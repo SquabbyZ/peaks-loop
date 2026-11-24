@@ -18,8 +18,8 @@
 //       matched both artifacts.
 //
 // So the assertions below are deliberately not "a warning exists". They are:
-//   - each code names its OWN artifact, and the two live prerequisites that
-//     carry `backCompat` get two DIFFERENT codes
+//   - each code names its OWN artifact, and the live prerequisites that
+//     carry `backCompat` get distinct codes
 //   - the code is derived, so a `backCompat` prerequisite added later gets its
 //     own code with no second edit — asserted on a synthetic requirement
 //   - the MUT code is byte-identical to the one CHANGELOG v2.13.3 documents
@@ -55,6 +55,7 @@ import {
 } from '../../../../src/services/artifacts/artifact-prerequisites.js';
 import {
   backCompatWarningCode,
+  compareReleaseVersions,
   missingPrerequisiteWarning
 } from '../../../../src/services/artifacts/prerequisite-checks.js';
 import { transitionRequestArtifact } from '../../../../src/services/artifacts/request-artifact-service.js';
@@ -88,6 +89,8 @@ const THIRD_PARTY_REVIEW_WARNING_PATH = `rd/third-party-review-${RID_A}.md`;
  *  fail a test and be reconciled with the docs rather than drift silently. */
 const DOCUMENTED_MUT_CODE = 'mut-report-missing-deprecated-in-v2.14.0';
 const THIRD_PARTY_REVIEW_CODE = 'third-party-review-<rid>-missing-deprecated-in-v2.15.0';
+const DESIGN_CONFORMANCE_WARNING_PATH = `design/check-${RID_A}.md`;
+const DESIGN_CONFORMANCE_CODE = 'check-<rid>-missing-deprecated-in-v4.4.0';
 
 /** The `rd:qa-handoff` FEATURE row, read from the shipped table rather than
  *  reconstructed — a copy would keep passing after the real table changed. */
@@ -153,8 +156,8 @@ describe('Scenario: render — each back-compat warning names its own artifact',
 });
 
 describe('Scenario: behavior — soft is reported, hard still fails, and empty stays empty', () => {
-  it('when both soft prerequisites are missing on a real tree, should warn without failing', async () => {
-    // given: a session tree seeded with every HARD prereq and neither soft one
+  it('when every soft prerequisite is missing on a real tree, should warn without failing', async () => {
+    // given: a session tree seeded with every HARD prereq and no soft one
     // when: the gate runs for rd:qa-handoff
     // then: each soft pass is reported with its own code and ok stays true
     const projectRoot = makeProjectRoot();
@@ -170,11 +173,13 @@ describe('Scenario: behavior — soft is reported, hard still fails, and empty s
     expect(result.ok).toBe(true);
     expect(result.warnings.map((warning) => warning.path)).toEqual([
       THIRD_PARTY_REVIEW_WARNING_PATH,
-      MUT_REPORT_BARE
+      MUT_REPORT_BARE,
+      DESIGN_CONFORMANCE_WARNING_PATH
     ]);
     expect(result.warnings.map((warning) => warning.code)).toEqual([
       THIRD_PARTY_REVIEW_CODE,
-      DOCUMENTED_MUT_CODE
+      DOCUMENTED_MUT_CODE,
+      DESIGN_CONFORMANCE_CODE
     ]);
   });
 
@@ -201,7 +206,8 @@ describe('Scenario: behavior — soft is reported, hard still fails, and empty s
     );
     expect(result.warnings.map((warning) => warning.path)).toEqual([
       THIRD_PARTY_REVIEW_WARNING_PATH,
-      MUT_REPORT_BARE
+      MUT_REPORT_BARE,
+      DESIGN_CONFORMANCE_WARNING_PATH
     ]);
   });
 
@@ -227,18 +233,19 @@ describe('Scenario: behavior — soft is reported, hard still fails, and empty s
 
 // 9.2's remaining half. `backCompatUntil` is a DECLARED field on the row, and
 // `backCompatWarningCode` already interpolates it into the warning code — so the
-// release reached the warning but was never COMPARED to anything. Two windows
-// (v2.14.0, v2.15.0) closed roughly twenty minors before this build, and no
-// output told them apart from a window that is on schedule. These cases pin the
-// comparison, and they read their expectations OUT OF THE TABLE: a test holding
-// its own copy of 'v2.14.0' would be a second place for the value to live.
+// release reached the warning but was never COMPARED to anything. The oldest two
+// windows closed roughly twenty minors before this build, and the newest is still
+// open, so the arms below pin the comparison in BOTH directions: a closed window
+// reports its release, an open one reports no expiry. These cases read their
+// expectations OUT OF THE TABLE: a test holding its own copy of a release would be
+// a second place for the value to live.
 describe('Scenario: behavior — a declared window is compared, not merely printed', () => {
-  it('when this build is past every declared window, should name each release and the build compared', () => {
+  it('when each window is compared, should report expiry exactly where the window has closed', () => {
     // given: every prerequisite the shipped table marks backCompat
     // when: each one's soft-pass warning is derived
-    // then: each names its OWN declared release and the version it was compared
-    //       against — so a window reported as current, or only one reported,
-    //       fails here
+    // then: a row whose window is behind this build names its declared release
+    //       and the build compared; a row whose window is still ahead reports no
+    //       expiry — so a hardcoded verdict fails in one direction or the other
     const softRows = qaHandoffRequirements().filter(
       (prerequisite) => prerequisite.backCompat === true
     );
@@ -246,14 +253,21 @@ describe('Scenario: behavior — a declared window is compared, not merely print
     expect(softRows.length).toBeGreaterThanOrEqual(2);
     expect(new Set(declared).size).toBe(declared.length);
     for (const prerequisite of softRows) {
+      const until = prerequisite.backCompatUntil;
+      expect(until, 'row declares no window').toBeDefined();
+      const closed = compareReleaseVersions(CLI_VERSION, String(until)) >= 0;
       const expired = missingPrerequisiteWarning(
         prerequisite,
         prerequisite.relativePath
       )?.expiredWindow;
-      expect(prerequisite.backCompatUntil, 'row declares no window').toBeDefined();
-      expect(expired, `${prerequisite.relativePath} reported no closed window`).toBeDefined();
-      expect(expired).toContain(String(prerequisite.backCompatUntil));
-      expect(expired).toContain(CLI_VERSION);
+      expect(
+        expired !== undefined,
+        `${prerequisite.relativePath}: window ${String(until)} vs build ${CLI_VERSION}`
+      ).toBe(closed);
+      if (closed) {
+        expect(expired).toContain(String(until));
+        expect(expired).toContain(CLI_VERSION);
+      }
     }
   });
 
@@ -314,7 +328,7 @@ describe('Scenario: behavior — a declared window is compared, not merely print
 describe('Scenario: integration — a successful transition reports its soft passes', () => {
   const ws = withTmpWorkspacePerTest('peaks-backcompat-code-');
 
-  it('when rd:qa-handoff succeeds with both soft artifacts absent, should carry both warnings on the result', async () => {
+  it('when rd:qa-handoff succeeds with every soft artifact absent, should carry all warnings on the result', async () => {
     // given: a real rd artifact past draft plus every HARD prerequisite
     // when: the transition runs for real
     // then: it succeeded and the soft passes reached its result
@@ -337,11 +351,13 @@ describe('Scenario: integration — a successful transition reports its soft pas
     expect(result?.state).toBe('qa-handoff');
     expect(result?.prerequisiteWarnings?.map((warning) => warning.path)).toEqual([
       THIRD_PARTY_REVIEW_WARNING_PATH,
-      MUT_REPORT_BARE
+      MUT_REPORT_BARE,
+      DESIGN_CONFORMANCE_WARNING_PATH
     ]);
     expect(result?.prerequisiteWarnings?.map((warning) => warning.code)).toEqual([
       THIRD_PARTY_REVIEW_CODE,
-      DOCUMENTED_MUT_CODE
+      DOCUMENTED_MUT_CODE,
+      DESIGN_CONFORMANCE_CODE
     ]);
   });
 });

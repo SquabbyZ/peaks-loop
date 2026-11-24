@@ -259,15 +259,15 @@ describe('Scenario: a11y — every blocked check code names a next action', () =
 });
 
 describe('Scenario: behavior — the check exposes the G2 inputs', () => {
-  it('when design check --help renders, should list --url, --pages, --start and no --gate', () => {
+  it('when design check --help renders, should list --url, --pages, --start and --gate', () => {
     // given: the registered design check command
     // when: its help is rendered
-    // then: the G2 inputs appear and the S3 gate does not
+    // then: the G2 inputs and the S3 gate all appear
     const help = checkCommand().helpInformation();
     expect(help).toContain('--url');
     expect(help).toContain('--pages');
     expect(help).toContain('--start');
-    expect(help).not.toContain('--gate');
+    expect(help).toContain('--gate');
   });
 
   it('when a check runs without an acceptance, should not warn that S1 has no engine', async () => {

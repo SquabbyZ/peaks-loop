@@ -135,6 +135,12 @@ Then display: `Peaks-Loop Skill: peaks-ui | Peaks-Loop Role: <role> | Peaks-Loop
 - review user-facing behavior preservation;
 - detect and warn about CSS framework conflicts (e.g. TailwindCSS + component library).
 
+## Design contract (when `design/` exists)
+
+- The truth is `design/contract.md` + `design/tokens.json`; the paved road is `design/paved-road.json`.
+- A design draft cites the contract sections it follows; a prototype uses `componentEntrypoints` only.
+- The delivery judgement is `peaks design check --gate`, not a screenshot review by itself.
+
 ## Mandatory per-request artifact
 
 Every UI invocation that touches user-visible behavior — including bug fixes that change visible flow — must write **two artifacts**:

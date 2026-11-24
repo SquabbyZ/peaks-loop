@@ -98,9 +98,10 @@ Delegated, and never done here:
    is handled by its reason — never skipped, never turned into a pass.
 5. Code change needed: dispatch `peaks sub-agent dispatch rd` with the contract, the paved
    road and the findings as hard constraints, then dispatch `peaks-qa` for verification.
-6. Delivery: the S1 diagnostic is `peaks design check --allow-source-only --accept-note
-   "<user words>"`; the `--gate` delivery gate arrives in S3. A `fail` returns to RD inside the
-   3-round cap; a `blocked` fixes the environment first and does not consume a round.
+6. Delivery: `peaks design check --gate` writes the conformance evidence. Use
+   `--allow-source-only --accept-note "<user words>"` only as the explicit source-only
+   acceptance. A `fail` returns to RD inside the 3-round cap; a `blocked` fixes the
+   environment first and does not consume a round.
 7. Wrap up: update the exemplars after user confirmation — registration is the file
    convention `design/exemplars/<archetype>/` holding `meta.json`, `<name>.tsx` and
    `<name>.png` (screenshots redacted or synthetic, per the README beside them) — then
@@ -120,6 +121,8 @@ Delegated, and never done here:
 - Never commit session artifacts or runtime screenshots; only redacted or synthetic
   screenshots may be committed, and only after user confirmation — see
   `design/exemplars/README.md`.
+- Never deliver a feature/bugfix handoff without `design/check-<rid>.md`: the
+  `DESIGN_CONFORMANCE` prerequisite refuses `rd:qa-handoff` once its back-compat window closes.
 - Never let general taste rules from `peaks-ui` override a project contract.
 - Never let the `peaks-code` core flow depend on an optional MCP.
 - Never become a second `peaks-code`: this skill does not edit source and does not take over

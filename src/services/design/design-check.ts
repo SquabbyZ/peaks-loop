@@ -224,11 +224,10 @@ export async function checkDesignSourceOnly(
 
   const resolved = preResolved ?? (await resolveContractRoot(input));
   if (!resolved.ok) {
-    return makeResult(rid, {
-      verdict: 'blocked',
-      errorCode: resolved.code,
-      message: resolved.message
-    });
+    // No frontend app root is `not-applicable`; an ambiguous or nonexistent
+    // --app is a configuration error and stays `blocked`.
+    const verdict = resolved.code === 'DESIGN_NOT_FRONTEND' ? 'not-applicable' : 'blocked';
+    return makeResult(rid, { verdict, errorCode: resolved.code, message: resolved.message });
   }
   const root = resolved.root;
 

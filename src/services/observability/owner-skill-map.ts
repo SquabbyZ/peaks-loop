@@ -90,6 +90,10 @@ export const OWNER_SKILL_ENTRIES: readonly OwnerSkillEntry[] = [
   // and the same story: the resolver probes it as a legacy tier.
   { prefix: 'audit/perf.md', skill: 'peaks-perf-audit', exact: true },
   { prefix: 'prd/', skill: 'peaks-prd' },
+  // The design conformance evidence is written by `peaks design check --gate`,
+  // which the RD role runs before handoff — so the artifact is RD's, and it is
+  // not claimed by the generic `rd/` row because it lives under `design/`.
+  { prefix: 'design/check-', skill: 'peaks-rd' },
   { prefix: 'ui/', skill: 'peaks-ui' },
   { prefix: 'rd/', skill: 'peaks-rd' },
   // The third-party review is the REVIEWER's artifact, not RD's: the prereq
