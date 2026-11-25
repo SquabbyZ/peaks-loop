@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-25T06:57:40.362Z",
+  "updatedAt": "2026-11-25T15:42:24.769Z",
   "hot": {
     "rule": [
       {
@@ -3768,6 +3768,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\custom-sop-domain-agnostic-positioning.md",
         "sourceArtifact": null,
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "design-audit-must-say-not-judged",
+        "kind": "project",
+        "description": "判不了 ≠ 通过 S7 把\"看着不舒服\"做成可计算诊断时，试点逼出了三条规则，每一条都是先写错、再被测出来才修对的。 1.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\design-audit-must-say-not-judged.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-11-25"
       },
       {
         "name": "design-route-identity-is-page-identity",
