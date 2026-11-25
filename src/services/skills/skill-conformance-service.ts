@@ -53,6 +53,7 @@ const SKILL_NAMES = [
   'peaks-code',
   'peaks-design',
   'peaks-race-code',
+  'peaks-race-design',
   'peaks-resume',
   'peaks-status',
   'peaks-test',

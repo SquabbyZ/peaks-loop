@@ -40,6 +40,8 @@ export const ORCHESTRATOR_ROLE_SKILLS: readonly string[] = [
   'peaks-audit',
   // The fast lane — a user-facing entry the user picks instead of the full workflow.
   'peaks-race-code',
+  // The design fast lane: user-facing, never dispatched by peaks-code.
+  'peaks-race-design',
   // The always-loaded entry that writes the skill pool and the local SkillHub:
   // the user reaches it by describing what they want, and it is never
   // dispatched by another skill.

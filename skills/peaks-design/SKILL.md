@@ -3,7 +3,7 @@ name: peaks-design
 description: Design-governance orchestrator for the Peaks-Loop skill family. Use when the user asks to establish a design system, audit page consistency, or bring a page back to the business style in a code repository (设计治理 / UI 治理 / 设计系统 / 页面风格不一致). Coordinates peaks-ui, peaks-rd and peaks-qa on top of the design/ contract while preserving user confirmation gates; never dispatched by peaks-code. Triggers on `/peaks-design`, "设计治理", "UI 治理", "设计系统", "页面风格不一致".
 ---
 
-<!-- peaks:loop-hygiene — HAND-MAINTAINED block, NOT generated; byte-identical in every SKILL.md, enforced by tests/unit/skills/loop-hygiene-block.test.ts. Edit one, edit all 26. -->
+<!-- peaks:loop-hygiene — HAND-MAINTAINED block, NOT generated; byte-identical in every SKILL.md, enforced by tests/unit/skills/loop-hygiene-block.test.ts. Edit one, edit all 27. -->
 
 ## Loop hygiene (every turn — MANDATORY)
 
@@ -110,6 +110,57 @@ Delegated, and never done here:
    `status` shows the contract age and the latest observed drift; an observed outlier is never
    adopted into the contract automatically.
 
+## From usable to good-looking (the five moves)
+
+"The features are there, but it still looks wrong" is not fixed by "make it more premium".
+Replace adjectives with these five moves, in order; the fast lane `peaks-race-design` uses the
+same method for a single page.
+
+1. **Reference by the kind of page.** Tool UI: Linear (hierarchy), Raycast (search/shortcuts);
+   marketing site: Stripe (narrative), Notion (content organisation); flows: Mobbin; brand and
+   motion: Awwwards.
+2. **Screenshot plus the reason.** Circle what you like — title size, whitespace, nav, image-to-
+   text ratio — and name it. One primary reference per round; others fill local gaps only.
+3. **Rules before pages.** Write the numbers first: background, accent, type scale, spacing,
+   radius ("body 16px, card gap 24px"), then adjust per content and device.
+4. **First screen first.** Real title, image and button; decide the direction there, then
+   extend to the rest and to the interaction states.
+5. **Look at the actual screenshot every round**, desktop and phone. Name the three most
+   obvious problems (what is cramped, what steals attention, what is misaligned), fix those
+   three, screenshot again.
+
+## Slop audit (before any direction)
+
+Aim the gate at AI tells, not at taste adjectives. Method adapted from two external
+references (read them; do not install or execute them without the user's approval):
+`github.com/felipebasurto/unslop-ui` (a rule catalog for tells) and `github.com/heydamir/unslop`
+(an audit-first procedure). The catalog below is the subset the design gate can check.
+
+- **Audit first, name the tell, then propose a direction.** List each problem with where it
+  lives; derive the direction from the product (its character, the one or two moments that carry
+  the colour, a signature detail), never from a generic "premium" aesthetic. Do not redesign a
+  screen that is already good — say so.
+- **Ordered passes** (each pass touches only its axis): spacing → colour → icons → copy → type →
+  layout → details → visuals and motion. This is a redline review, not a rewrite.
+- **Copy tells** (remove, do not restyle): eyebrows above headings; decorative `01 /` numbering;
+  subtitles that repeat the title; botsplaining ("click the button above"); leaked design notes
+  ("(updates in real time)"); status strings not tied to real state; label + placeholder + helper
+  all saying the same word; staccato slogans; badges and status dots with no state; decorative
+  emoji or tinted icon squares; arrows after links; generic names ("Learn more", "Submit").
+  Rewrite the retained string as a plain statement; no em dashes, no AI vocabulary ("seamless",
+  "robust", "empower", "effortlessly"), no forced rule of three.
+- **Surface tells (opt-in, only when the user asks for the visual surface):** hue-to-hue gradients,
+  gradient text, coloured glows; off-scale spacing (use 4, 8, 12, 16, 20, 24, 32, 40, 48, 64);
+  `font-extrabold`/`font-black` (use 500 or 600); `transition-all`, `hover:scale-*`, fade-up on
+  scroll, count-up numbers (named properties at 150 ms; show content in place); thick coloured
+  edge stripes unless they encode state.
+- **Charts:** title the measure, not the chart type; no reading instructions; direct labels instead
+  of a legend box; hairline gridlines; one line of KPI context.
+- **Guardrails:** delete first, write little; never invent numbers, speeds, features or
+  testimonials; preserve `aria-label`, `alt`, visible labels, links and anything tied to real
+  state; a screen with nothing to cut stays untouched; unverifiable claims become follow-up tasks,
+  not silent edits.
+
 ## Hard rules (spec §10)
 
 - Never return `pass` when the engine, the browser, URL trust or the change set is missing.
@@ -126,6 +177,18 @@ Delegated, and never done here:
 - G3a is hard only where a baseline exists: fidelity below 90 fails, an unreachable or
   trusting-side block is `blocked`, and a route without a baseline is `skipped('no-baseline')`
   — never a pass and never an invented baseline.
+- Route identity is evidence-bound, in BOTH directions. A negative marker counts only when it
+  opens the page's own title or a heading, and a declared marker is observed only there too — a
+  shared header button (`Sign in` on every page) or a sidebar link is chrome, so it can neither
+  prove a wrong route nor satisfy a declaration.
+  A route whose `paved-road.json` declares no `routeMarkers` entry cannot be told apart after a
+  client-side redirect, so the stage is inert. G2 and G3a record that judgment as an evidence line:
+  `route <path>: inert (no routeMarkers entry)` for an inert route, or
+  `route <path>: declared marker observed` for one whose marker was observed. Declare a marker for
+  every route the gate must identify, and never read the inert line as a pass. The marker must be
+  text the page's own title or a collected heading carries; designlang collects headings inside
+  semantic sections only, so a marker whose only home is a non-semantic `<h1>` reads as unobserved
+  and blocks the route.
 - G3b is advisory: the rubric's six dimensions (each 1–5) are normalised to the 40-point scale
   the spec names, a below-threshold total warns, and the threshold only becomes a failure after
   a recorded calibration run. `--skip-exemplar` needs the user's own words and never skips G3a.
