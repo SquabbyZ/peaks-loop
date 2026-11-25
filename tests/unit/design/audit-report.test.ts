@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -433,8 +433,10 @@ describe('Scenario: integration — not-a-UI and missing-contract verdicts', () 
       rid: 'r7',
       now: () => new Date('2026-11-25T00:00:00.000Z')
     });
-    expect(written.markdownPath).toBe(join(root, 'design', 'audit-r7.md'));
-    expect(written.jsonPath).toBe(join(root, 'design', 'audit-r7.json'));
+    // the writer returns the realpath of each file: on macOS the temp root is a
+    // `/var/...` symlink whose realpath is `/private/var/...`.
+    expect(written.markdownPath).toBe(realpathSync(join(root, 'design', 'audit-r7.md')));
+    expect(written.jsonPath).toBe(realpathSync(join(root, 'design', 'audit-r7.json')));
     const markdown = readFileSync(written.markdownPath, 'utf8');
     expect(markdown).toContain('rid: r7');
     expect(markdown).toContain('audit-verdict: findings');
