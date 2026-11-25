@@ -1,6 +1,6 @@
 {
   "name": "peaks-loop-workspace-runtime",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "description": "Worktree and session runtime primitives shared by peaks-loop and peaks-harness: state roots, worktree leases, and injectable git/fs/clock/random effects.",
   "keywords": [
     "peaks-loop",

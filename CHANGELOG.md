@@ -1,5 +1,28 @@
 # Changelog
 
+## 4.3.4 — 2026-11-25（peaks design S5：试点缺口修复）
+
+**版本级别**：**patch**（S3/S4 的修复轮；无门禁语义放宽，`backCompatUntil` 仍为 v4.4.0）。
+
+**一句话：把 ModelMatrix 试点暴露的四个缺口修掉——包括一个"G2 永远不可能 pass"的死门禁。**
+
+### 1. 修复
+
+- **按工具真实输出接受证据**：`drift`（verdict / driftRatio / summary 总量 / 回显 url 与 tokensFile）、`verify-ui`（boolean pass + onBrand）、`slop`（score + readAt）。S2 要求的 `generatedAt`/`pages` 三个工具都不产出，导致 **G2 无法通过**（测试因为 fake 注入了时间戳而一直是绿的）。校验从不伪造时间戳。
+- **退出码语义**：`verify-ui` 1 → fail、2 → `blocked(DESIGN_PAGE_UNUSABLE)`（消息带脱敏 cause）、3 → 可重试 blocked；解析出的报告优先于退出码。
+- **主色**：`design init` 从 tokens 推导（命名角色优先，其次最高频；绝不写死 hex），`verify-ui` 可运行；无颜色 token 时记录缺口。
+- **init flags**：`--page-roots`、`--exclude`、`--url`；exclude 走锁定的路径归一化（反斜杠、`./`、app 相对），扫描器真正消费。
+- **页面可用性探针**（G2 与 G3a 共用）：HTTP 阶段（状态/跨路径重定向/密码框）+ 真实截图的绘制指标（空白视口 → blocked，带 nonModalPct / 色数 / 亮度标准差，绝不给分）；截图为 `node:zlib` 自解码，无法解码的形状一律拒绝而非误读；路由身份在工具暴露 title/headings 时检查，其余如实记录缺口。
+- **`peaks mut asserts` 判定修复**：不再用 0 变异体评估 killRate；报告标明被评估的轴，`passed` 由弱断言率决定；`mut run` 行为不变（0 突变体仍失败）。
+- 本地 PreToolUse hook 容忍门禁在读取 stdin 前退出（不再报"管道已结束"）。
+
+### 2. 验证
+
+- 全量单测 756 files / 8331 passed；`tsc` 0。
+- 作用域变异 **0.8823**（1147/1300，阈值 0.8；`page-probe-http` 单文件 0.7522，剩余为已记录的等价变异体）。
+- 代码评审 APPROVED；安全审计 PASS（0 违规，11/11 judged hash）；性能审计 PASS；Karpathy pass；QA pass（冻结快照）。
+- 试点复跑记录在 `.peaks/_runtime/` 的 pilot-report（round 2/4）；后端缺失与路由身份仍是已知缺口。
+
 ## 4.3.3 — 2026-11-24（peaks design S4：范例保真 G3）
 
 **版本级别**：**patch**（按维护者指定版本号发布；G3a 只对"已记录 baseline 的变更路由"生效，G3b 仍为 advisory）。
