@@ -48,7 +48,7 @@ describe('Scenario: render — the three-page report is a stable snapshot', () =
     // then: the scope, ratio columns, top-3 fixes and unmeasured list match the snapshot
     const report = reportOf(TREE);
     expect(renderAuditMarkdown(report, META)).toMatchInlineSnapshot(`
-      "schemaVersion: 5
+      "schemaVersion: 7
       rid: r7
       generatedAt: 2026-11-25T00:00:00.000Z
       audit-verdict: findings
@@ -78,6 +78,12 @@ describe('Scenario: render — the three-page report is a stable snapshot', () =
       | hierarchy | 95 | 0 | 0 | 2 | 0 | 2 | 0 |
       | a11y | 100 | 0 | 0 | 0 | 0 | 0 | 0 |
       | states | not judged | 0 | 0 | 0 | 0 | 0 | 0 |
+      | palette | not judged | 0 | 0 | 0 | 0 | 0 | 0 |
+      | overflow | not judged | 0 | 0 | 0 | 0 | 0 | 1 |
+
+      ## Render evidence
+
+      - no capture was supplied: every render dimension is absent, not 0.
 
       ## Pages
 
@@ -116,8 +122,10 @@ describe('Scenario: render — the three-page report is a stable snapshot', () =
 
       ## Unmeasured
 
-      - responsive overflow — needs the rendered page (S8) (known gap: no source-readable signal)
+      - responsive overflow — needs the rendered page (S8) (known gap: the capture carries no scroll/client/overflow geometry: designlang extract exposes only 2–5 top-level regions[].bounds, --width 390 still reports w=1280, and --responsive-shots is a dead flag in 13.4.1; a real two-viewport capture is a new capture mode measured at ~7 s/page)
       - an over-cap tsconfig declares no alias table, so aliased imports are not followed (the unread config is named in the runtime state) (known gap: path aliases are an optional hint, not the design contract, so the audit still runs)
+      - overflow design/probe:1 — 页面在手机宽度下是否溢出无法判定：截图里没有 scroll/client/overflow 几何信息（extract 只有 2–5 个顶层 regions[].bounds，--width 390 仍报告 w=1280，--responsive-shots 在 designlang 13.4.1 是空操作），双视口截图是每页约 7 秒的新采集模式，本切片没有实现。
+        \`design/probe:1 overflow:responsive-overflow unmeasured (the capture carries no scroll/client/overflow geometry: designlang extract exposes only 2–5 top-level regions[].bounds, --width 390 still reports w=1280, and --responsive-shots is a dead flag in 13.4.1; a real two-viewport capture is a new cap…\`
       - spacing pages/spacing.tsx:5 — 第 5 行的 padding 是 calc(4px * 2)，它用了 calc()，源码里无法判断是否在刻度上。
         \`pages/spacing.tsx:5 padding:calc(4px * 2) unmeasured (calc())\`
       "
@@ -246,6 +254,24 @@ describe('Scenario: behavior — the numbers are the worst page, never an averag
         unmeasured: 0,
         measured: 0,
         onContract: 0
+      },
+      {
+        dimension: 'palette',
+        score: null,
+        hard: 0,
+        soft: 0,
+        unmeasured: 0,
+        measured: 0,
+        onContract: 0
+      },
+      {
+        dimension: 'overflow',
+        score: null,
+        hard: 0,
+        soft: 0,
+        unmeasured: 1,
+        measured: 0,
+        onContract: 0
       }
     ]);
     // Review M1: the hard colour finding sets the page even though its ratio is
@@ -289,13 +315,18 @@ describe('Scenario: behavior — the numbers are the worst page, never an averag
     // when: the unmeasured list is read
     // then: it is visible with its reason, not dropped and not a violation
     const report = reportOf(TREE);
-    expect(report.data.unmeasured).toHaveLength(1);
-    expect(report.data.unmeasured[0]).toMatchObject({
+    expect(report.data.unmeasured).toHaveLength(2);
+    const spacing = report.data.unmeasured.find((item) => item.dimension === 'spacing');
+    expect(spacing).toMatchObject({
       dimension: 'spacing',
       file: 'pages/spacing.tsx',
       line: 5
     });
-    expect(report.data.unmeasured[0]?.techText).toContain('calc()');
+    expect(spacing?.techText).toContain('calc()');
+    // S8 Task 4: the fixed overflow row is exactly one gap, never a heuristic.
+    const overflow = report.data.unmeasured.filter((item) => item.dimension === 'overflow');
+    expect(overflow).toHaveLength(1);
+    expect(overflow[0]?.techText).toContain('--responsive-shots is a dead flag in 13.4.1');
   });
 
   it('when the JSON document is rendered, should carry schemaVersion and per-page findings', () => {
@@ -303,12 +334,13 @@ describe('Scenario: behavior — the numbers are the worst page, never an averag
     // when: the JSON sibling is rendered
     // then: the document carries the table, the findings, the scope and the version
     const document = renderAuditJson(reportOf(TREE), META);
-    expect(document.schemaVersion).toBe(5);
+    expect(document.schemaVersion).toBe(7);
+    expect(document.render).toMatchObject({ captures: [], pageUnits: 3, pagesWithoutCapture: 3 });
     expect(document.rid).toBe('r7');
     expect(document.overall).toBe(0);
     expect(document.knownGaps.map((gap) => gap.id)).toContain('responsive-overflow');
     expect(document.scope).toMatchObject({ scored: 3, pageRootsDeclared: true });
-    expect(document.dimensions).toHaveLength(8);
+    expect(document.dimensions).toHaveLength(10);
     expect(document.pages).toHaveLength(3);
     expect(document.pages[2]?.findings[0]?.severity).toBe('hard');
   });
@@ -360,7 +392,12 @@ describe('Scenario: integration — not-a-UI and missing-contract verdicts', () 
     // then: the fixed AC7 known gap and the measured gap are separate entries
     const report = reportOf(TREE);
     expect(report.data.knownGaps).toEqual([
-      { id: 'responsive-overflow', text: 'responsive overflow — needs the rendered page (S8)' },
+      {
+        id: 'responsive-overflow',
+        text: 'responsive overflow — needs the rendered page (S8)',
+        reason:
+          'the capture carries no scroll/client/overflow geometry: designlang extract exposes only 2–5 top-level regions[].bounds, --width 390 still reports w=1280, and --responsive-shots is a dead flag in 13.4.1; a real two-viewport capture is a new capture mode measured at ~7 s/page'
+      },
       {
         id: 'alias-config-oversize',
         text: 'an over-cap tsconfig declares no alias table, so aliased imports are not followed (the unread config is named in the runtime state)',

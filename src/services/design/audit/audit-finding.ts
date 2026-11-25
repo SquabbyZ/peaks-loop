@@ -14,9 +14,23 @@
 import type { DesignTokenScale } from '../paved-road.js';
 import type { CssVariableTable } from './css-variables.js';
 
-/** Dimensions this slice implements; later slices extend the union. */
+/**
+ * Dimensions this slice implements; later slices extend the union.
+ *
+ * S8 adds `palette` (families measured from the captured PNG) and `overflow`
+ * (one fixed `unmeasured` row); `contrast` is upgraded in place.
+ */
 export type AuditDimension =
-  'spacing' | 'type' | 'color' | 'contrast' | 'surface' | 'hierarchy' | 'a11y' | 'states';
+  | 'spacing'
+  | 'type'
+  | 'color'
+  | 'contrast'
+  | 'surface'
+  | 'hierarchy'
+  | 'a11y'
+  | 'states'
+  | 'palette'
+  | 'overflow';
 
 export type AuditSeverity = 'hard' | 'soft' | 'unmeasured';
 

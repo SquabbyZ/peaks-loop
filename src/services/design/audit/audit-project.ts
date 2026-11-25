@@ -26,28 +26,43 @@
  * (Task 6c): the alias table is read from the app's tsconfig, an alias that
  * names no file is counted in `readGaps`, and test modules are never followed.
  * Runtime CSS-in-JS remains a named gap, never silently absent.
+ *
+ * S8 render evidence is optional: `render` carries captures decoded once and
+ * bound to a page by route or probe slug. `renderGap` carries the `--render`
+ * reader's truncation/skip note. The result's `render` summary names every
+ * capture, its measured non-app share and the page it bound to, so the report
+ * can show what was used instead of implying full coverage.
  */
 
 import { existsSync } from 'node:fs';
-import { join, relative, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 
-import { normalizePath } from '../../../shared/path-utils.js';
-import { oversizedContracts, readCappedText, type OversizedFile } from '../file-cap.js';
+import { oversizedContracts, type OversizedFile } from '../file-cap.js';
 import type { PavedRoadFile } from '../paved-road.js';
 import { readPavedRoad } from '../source-scan/inputs.js';
-import type { AuditFinding, AuditSource } from './audit-finding.js';
-import { sanitizeFindings } from './audit-echo.js';
-import type { ColorTokenGroup } from './audit-color.js';
-import { auditContrast, type DeclaredColorPair } from './audit-contrast.js';
+import type { AuditFinding, AuditSource, AuditDimension } from './audit-finding.js';
+import { readAuditContract } from './audit-contract.js';
 import { readCssProject, type CssProject } from './audit-css.js';
-import { buildAuditScope, pageRootsOf, type AuditScope } from './audit-scope.js';
-import { auditPages, pagePaths, type AuditPage, type AuditRuntimeState } from './audit-pages.js';
+import { pageRootsOf, type AuditScope } from './audit-scope.js';
+import { auditedOutcome, unmatchedCaptureGap } from './audit-outcome.js';
+import {
+  auditPages,
+  pagePaths,
+  runtimeState,
+  type AuditPage,
+  type AuditRuntimeState
+} from './audit-pages.js';
 import type { AuditContract } from './audit-unit.js';
 import { walkFiles } from './audit-walk.js';
 import { readPathAliases, type PathAlias } from './path-aliases.js';
+import {
+  readRenderFrames,
+  type RenderCapture,
+  type RenderEvidenceSummary,
+  type RenderFrame
+} from './render/render-audit.js';
 import { createSourceCache, type SourceCache } from './source-cache.js';
 import { isNonUiRoot } from './source-filters.js';
-import { stateNames, type CssVariableTable } from './css-variables.js';
 
 export type { AuditPage, AuditRuntimeState } from './audit-pages.js';
 
@@ -78,91 +93,22 @@ export type AuditProjectResult =
       warnings: string[];
       pages: AuditPage[];
       globalFindings: AuditFinding[];
+      /** Which contract-level dimensions were actually judged (S8). */
+      contractJudged: Partial<Record<AuditDimension, boolean>>;
+      /** The captures supplied, what was measured from each, and the read gap. */
+      render: RenderEvidenceSummary;
     };
-
-function readJson(filePath: string): Record<string, unknown> {
-  const read = readCappedText(filePath);
-  if (read.kind !== 'read') return {};
-  try {
-    const parsed: unknown = JSON.parse(read.text);
-    return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>)
-      : {};
-  } catch {
-    return {};
-  }
-}
-
-function colorGroup(value: unknown): ColorTokenGroup | undefined {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined;
-  const group: ColorTokenGroup = {};
-  for (const [key, token] of Object.entries(value as Record<string, unknown>)) {
-    if (token === null || typeof token !== 'object') continue;
-    const parsed = token as { $value?: unknown };
-    if (typeof parsed.$value === 'string') group[key] = { $value: parsed.$value };
-  }
-  return group;
-}
-
-/** The declared pairs are validated again by `auditContrast`; this only shapes. */
-function declaredPairs(value: unknown): DeclaredColorPair[] {
-  return Array.isArray(value) ? (value as DeclaredColorPair[]) : [];
-}
 
 /**
  * True when the app root holds at least one UI-bearing source file. A tree
  * whose only UI files are a shipped `examples/` demo, the `docs/` site or a
- * `fixtures/` set is not a UI project — those trees are not the product's UI
- * (Task 6c), and treating them as one turned a missing contract into a refusal
- * for a repository that has no UI at all.
+ * `fixtures/` set is not a UI project.
  */
 export function hasUiSources(appRoot: string): boolean {
   return walkFiles(appRoot, '.', UI_EXTENSIONS).some((file) => !isNonUiRoot(file));
 }
 
-/** States in which a variable resolved to exactly one value — the ones used. */
-function scoredStates(table: CssVariableTable): string[] {
-  const names = new Set<string>();
-  for (const definitions of table.values()) {
-    if (new Set(definitions.map((definition) => definition.value)).size !== 1) continue;
-    const states = new Set(definitions.map((definition) => definition.state));
-    if (states.size !== 1) continue;
-    const only = [...states][0];
-    if (only !== null && only !== undefined) names.add(only);
-  }
-  return [...names].sort((left, right) => left.localeCompare(right));
-}
-
-function runtimeState(cssProject: CssProject): AuditRuntimeState {
-  const scored = scoredStates(cssProject.variables);
-  const skipped = stateNames(cssProject.variables).filter((state) => !scored.includes(state));
-  const readGaps = [...cssProject.skipped];
-  if (cssProject.truncated) readGaps.push('stylesheet walk stopped at its file bound');
-  return {
-    scored,
-    skipped,
-    readGaps: readGaps.sort((left, right) => left.localeCompare(right)),
-    truncated: cssProject.truncated
-  };
-}
-
-function contractRef(appRoot: string, designRoot: string): AuditContractRef {
-  const rel = (file: string): string => normalizePath(relative(appRoot, join(designRoot, file)));
-  return { tokens: rel('tokens.json'), pavedRoad: rel('paved-road.json') };
-}
-
-/** The contrast audit needs the colour group only when the contract declares one. */
-function globalContrast(contract: AuditContract, tokensFile: string): AuditFinding[] {
-  const color = contract.color === undefined ? {} : { color: contract.color };
-  return auditContrast({ ...color, pairs: contract.pairs }, tokensFile);
-}
-
-/**
- * Squash the per-import alias gaps into ONE counted read-gap line. The pilot
- * had 3,465 alias imports; after alias resolution the remaining gaps are the
- * genuinely broken ones, and a person needs their count and a witness, not
- * a thousand near-identical lines.
- */
+/** Squash the per-import alias gaps into ONE counted read-gap line. */
 function summarizeAliasGaps(gaps: readonly string[]): string[] {
   const aliases = gaps.filter((gap) => gap.startsWith('alias '));
   const rest = gaps.filter((gap) => !gap.startsWith('alias '));
@@ -173,15 +119,8 @@ function summarizeAliasGaps(gaps: readonly string[]): string[] {
   return rest;
 }
 
-/** Deduplicate and order the final read gaps, squashing the alias set first. */
-function finalizeReadGaps(state: AuditRuntimeState): void {
-  state.readGaps = summarizeAliasGaps([...new Set(state.readGaps)]).sort((left, right) =>
-    left.localeCompare(right)
-  );
-}
-
 /** Everything one contract read produces, so the entry point stays short. */
-type ContractRead = {
+export type ContractRead = {
   appRoot: string;
   paved: PavedRoadFile;
   contract: AuditContract;
@@ -198,13 +137,12 @@ function readContractProject(
   cache: SourceCache
 ): ContractRead {
   const paved = readPavedRoad(designRoot);
-  const raw = readJson(join(designRoot, 'tokens.json'));
   const roots = pageRootsOf(paved.pageRoots);
   const cssProject = readCssProject({ appRoot, pageRoots: roots, exclude: paved.exclude, cache });
   return {
     appRoot,
     paved,
-    contract: { color: colorGroup(raw.color), pairs: declaredPairs(raw.pairs) },
+    contract: readAuditContract(designRoot),
     roots,
     aliases: readPathAliases(appRoot, cssProject.skipped),
     cssProject,
@@ -212,17 +150,44 @@ function readContractProject(
   };
 }
 
-/** The page units plus the two file sets the scope reports (Task 6a / 6d). */
-function readPages(
-  read: ContractRead,
-  paths: readonly string[],
-  state: AuditRuntimeState,
-  cache: SourceCache
-): { pages: AuditPage[]; context: Set<string>; valueFiles: Set<string> } {
+/**
+ * The three verdicts/refusals that stop before any page is read: no UI source
+ * at all, a missing contract file, or a contract file past the byte cap.
+ */
+function refusedBeforeReading(appRoot: string, designRoot: string): AuditProjectResult | null {
+  if (!hasUiSources(appRoot)) return { kind: 'not-a-ui-project', appRoot };
+  const missing = CONTRACT_FILES.filter((file) => !existsSync(join(designRoot, file)));
+  if (missing.length > 0) return { kind: 'contract-missing', appRoot, missing };
+  // A contract larger than the cap is REFUSED, never parsed: an over-cap file
+  // is not a declaration this audit can trust.
+  const oversized = oversizedContracts(designRoot, CONTRACT_FILES);
+  if (oversized.length > 0) return { kind: 'contract-too-large', appRoot, files: oversized };
+  return null;
+}
+
+/** Discover the page units and audit each one, accumulating the two file sets. */
+function readPages(input: {
+  appRoot: string;
+  read: ContractRead;
+  state: AuditRuntimeState;
+  cache: SourceCache;
+  frames: readonly RenderFrame[];
+}): { pages: AuditPage[]; context: Set<string>; valueFiles: Set<string> } {
+  const { appRoot, read, state, cache, frames } = input;
+  const paths = pagePaths(
+    {
+      appRoot,
+      roots: read.roots,
+      declaredRoots: read.paved.pageRoots.length > 0,
+      exclude: read.paved.exclude,
+      cssFiles: read.cssFiles
+    },
+    { gaps: state.readGaps }
+  );
   const context = new Set<string>();
   const valueFiles = new Set<string>();
   const pages = auditPages({
-    appRoot: read.appRoot,
+    appRoot,
     paths,
     cssFiles: read.cssFiles,
     paved: read.paved,
@@ -230,6 +195,7 @@ function readPages(
     variables: read.cssProject.variables,
     styles: read.cssProject.sources,
     aliases: read.aliases,
+    render: frames,
     cache,
     state,
     context,
@@ -242,57 +208,46 @@ function readPages(
  * Read one app root and audit every page unit. The three outcomes are the
  * caller's exit contract: `not-a-ui-project` is a verdict, `contract-missing`
  * is a refusal, and only `audited` carries scores.
+ *
+ * `render` is optional S8 evidence: each capture is decoded once and bound to a
+ * page by route (or probe slug). A tree with no captures still audits its
+ * source dimensions exactly as S7 did; the render dimensions then report
+ * `unmeasured`/`not judged`, never 0 and never a silent 100.
  */
-export function runAuditProject(input: { appRoot: string }): AuditProjectResult {
+export function runAuditProject(input: {
+  appRoot: string;
+  render?: readonly RenderCapture[];
+  /** The `--render` reader's truncation/skip note, printed as a read gap. */
+  renderGap?: string;
+}): AuditProjectResult {
   const appRoot = resolve(input.appRoot);
-  if (!hasUiSources(appRoot)) return { kind: 'not-a-ui-project', appRoot };
   const designRoot = join(appRoot, 'design');
-  const missing = CONTRACT_FILES.filter((file) => !existsSync(join(designRoot, file)));
-  if (missing.length > 0) return { kind: 'contract-missing', appRoot, missing };
-  // A contract larger than the cap is REFUSED, never parsed: an over-cap file
-  // is not a declaration this audit can trust.
-  const oversized = oversizedContracts(designRoot, CONTRACT_FILES);
-  if (oversized.length > 0) return { kind: 'contract-too-large', appRoot, files: oversized };
+  const refused = refusedBeforeReading(appRoot, designRoot);
+  if (refused !== null) return refused;
 
   // ONE cache for the whole run: stylesheets, pages and closures read each real
   // file once and share its AuditSource object (Task 6e).
   const cache = createSourceCache(appRoot);
   const read = readContractProject(appRoot, designRoot, cache);
+  const frames = readRenderFrames(input.render ?? []);
   const state = runtimeState(read.cssProject);
-  const paths = pagePaths(
-    {
-      appRoot,
-      roots: read.roots,
-      declaredRoots: read.paved.pageRoots.length > 0,
-      exclude: read.paved.exclude,
-      cssFiles: read.cssFiles
-    },
-    { gaps: state.readGaps }
+  const { pages, context, valueFiles } = readPages({ appRoot, read, state, cache, frames });
+  const unmatched = unmatchedCaptureGap(pages, frames);
+  if (unmatched !== null) state.readGaps.push(unmatched);
+  state.readGaps = summarizeAliasGaps([...new Set(state.readGaps)]).sort((left, right) =>
+    left.localeCompare(right)
   );
-  const { pages, context, valueFiles } = readPages(read, paths, state, cache);
-  finalizeReadGaps(state);
 
-  const scope = buildAuditScope({
-    declaredRoots: read.paved.pageRoots,
-    scoredPages: pages.length,
-    contextFiles: context,
-    scoredPaths: new Set(pages.map((page) => page.path)),
-    valueFiles
-  });
-  const globalFindings = sanitizeFindings(
-    globalContrast(read.contract, contractRef(appRoot, designRoot).tokens)
-  );
-  const truncated = state.truncated || pages.some((page) => page.truncated);
-  return {
-    kind: 'audited',
+  return auditedOutcome({
     appRoot,
     designRoot,
-    contract: contractRef(appRoot, designRoot),
-    contractSource: read.contract,
-    state: { ...state, truncated },
-    scope,
-    warnings: (read.paved.warnings ?? []).map((warning) => warning.message),
+    read,
+    frames,
+    state,
     pages,
-    globalFindings
-  };
+    context,
+    valueFiles,
+    ...(input.render?.[0]?.capture === undefined ? {} : { probeFile: input.render[0].capture }),
+    ...(input.renderGap === undefined ? {} : { renderGap: input.renderGap })
+  });
 }

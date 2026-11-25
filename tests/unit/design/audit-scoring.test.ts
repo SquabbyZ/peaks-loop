@@ -118,6 +118,8 @@ describe('Scenario: behavior — the severity table is exhaustive and pinned', (
       'a11y',
       'contrast',
       'hierarchy',
+      'overflow',
+      'palette',
       'states',
       'surface'
     ]);
@@ -127,7 +129,13 @@ describe('Scenario: behavior — the severity table is exhaustive and pinned', (
     }
     for (const dimension of AUDIT_COST_DIMENSIONS) {
       expect(DIMENSION_RULES[dimension].kind).toBe('cost');
-      expect(DIMENSION_RULES[dimension].cost).toBeGreaterThan(0);
+      // An `unmeasured`-class row is source-blind today: it can never fire a
+      // hard/soft finding, so its cost is pinned to 0 instead of a phantom decrement.
+      if (DIMENSION_RULES[dimension].severity === 'unmeasured') {
+        expect(DIMENSION_RULES[dimension].cost).toBe(0);
+      } else {
+        expect(DIMENSION_RULES[dimension].cost).toBeGreaterThan(0);
+      }
     }
     expect(DIMENSION_RULES.spacing.severity).toBe('soft');
     expect(DIMENSION_RULES.type.severity).toBe('soft');
@@ -137,6 +145,8 @@ describe('Scenario: behavior — the severity table is exhaustive and pinned', (
     expect(DIMENSION_RULES.hierarchy.severity).toBe('soft');
     expect(DIMENSION_RULES.a11y.severity).toBe('hard');
     expect(DIMENSION_RULES.states.severity).toBe('hard');
+    expect(DIMENSION_RULES.palette.severity).toBe('soft');
+    expect(DIMENSION_RULES.overflow.severity).toBe('unmeasured');
     expect(DIMENSION_RULES.color.cost).toBe(0);
     expect(DIMENSION_RULES.a11y.cost).toBeGreaterThan(DIMENSION_RULES.surface.cost);
   });
@@ -401,6 +411,28 @@ describe('Scenario: integration — a page score is the minimum, never an averag
         hard: 0,
         soft: 0,
         unmeasured: 0,
+        measured: 0,
+        onContract: 0
+      },
+      {
+        dimension: 'palette',
+        score: null,
+        judged: false,
+        distinctSites: 0,
+        hard: 0,
+        soft: 0,
+        unmeasured: 0,
+        measured: 0,
+        onContract: 0
+      },
+      {
+        dimension: 'overflow',
+        score: null,
+        judged: false,
+        distinctSites: 0,
+        hard: 0,
+        soft: 0,
+        unmeasured: 1,
         measured: 0,
         onContract: 0
       }

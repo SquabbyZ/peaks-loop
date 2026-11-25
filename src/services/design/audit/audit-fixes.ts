@@ -15,6 +15,7 @@
  * one responsibility and the ranking rules another.
  */
 
+import { capDetail, plainText } from '../evidence-text.js';
 import type { AuditDimension, AuditFinding, AuditSeverity } from './audit-finding.js';
 
 /** The user's workflow is "fix the three most obvious, then re-audit". */
@@ -124,7 +125,9 @@ export function unmeasuredItems(findings: readonly AuditFinding[]): UnmeasuredIt
     seen.add(key);
     items.push({
       dimension: finding.dimension,
-      file: finding.file,
+      // `file` is a repository path, but the JSON envelope also prints it: strip
+      // control bytes and bound it here, the one seam both outputs share.
+      file: capDetail(plainText(finding.file)),
       line: finding.line,
       humanText: finding.humanText,
       techText: finding.techText

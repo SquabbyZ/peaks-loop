@@ -64,13 +64,14 @@ type Envelope = {
 };
 
 describe('Scenario: render — the audit command exposes its flags and envelope', () => {
-  it('when the command help renders, should list project, rid and json', () => {
+  it('when the command help renders, should list project, rid, render and json', () => {
     // given: the registered design audit command
     // when: its help is rendered
-    // then: the three documented flags appear
+    // then: the four documented flags appear
     const help = auditCommand().helpInformation();
     expect(help).toContain('--project <path>');
     expect(help).toContain('--rid <rid>');
+    expect(help).toContain('--render <dir>');
     expect(help).toContain('--json');
   });
 
@@ -90,6 +91,7 @@ describe('Scenario: render — the audit command exposes its flags and envelope'
       'knownGaps',
       'overall',
       'pages',
+      'render',
       'scope',
       'state',
       'topFixes',

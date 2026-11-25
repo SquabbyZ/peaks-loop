@@ -72,3 +72,12 @@ export function evidenceSnippet(value: string): string {
 export function capDetail(detail: string): string {
   return capped(detail, EVIDENCE_DETAIL_MAX);
 }
+
+/**
+ * One untrusted report FIELD (a file path, a capture slug, a read-gap line):
+ * control sequences stripped and bounded, so a hostile value can neither
+ * repaint a terminal nor lengthen the report without limit.
+ */
+export function safeField(value: string): string {
+  return capDetail(plainText(value));
+}

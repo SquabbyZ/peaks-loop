@@ -117,7 +117,10 @@ describe('Scenario: integration — the project reader builds page units from so
       severity: 'soft',
       techText: 'pages/clean.tsx:1 heading:h1 missing'
     });
-    expect(result.globalFindings).toEqual([]);
+    // S8 adds one fixed global row — the overflow gap — and nothing else for a
+    // tree with no captures; unmeasured is a gap, never a finding.
+    expect(result.globalFindings.map((finding) => finding.dimension)).toEqual(['overflow']);
+    expect(result.globalFindings.every((finding) => finding.severity === 'unmeasured')).toBe(true);
     expect(result.contract).toEqual({
       tokens: 'design/tokens.json',
       pavedRoad: 'design/paved-road.json'
@@ -162,8 +165,7 @@ describe('Scenario: integration — an over-cap contract input is refused, not p
   it('when tsconfig.json is past the byte cap, should name the skip and still audit', () => {
     // given: a UI tree whose tsconfig.json is past the cap
     // when: the project is read
-    // then: no alias is read, the skip is named in the read gaps, and the run is
-    // still audited — aliases are an optional hint, so this is exit 0 by design
+    // then: no alias is read, the skip is named, and the run is still audited
     const result = runAuditProject({ appRoot: makeContractTree({ 'tsconfig.json': OVERSIZE }) });
     if (result.kind !== 'audited') throw new Error(`unexpected result ${result.kind}`);
     expect(result.state.readGaps).toContain(

@@ -33,6 +33,7 @@ import { topFixes, unmeasuredItems, type TopFix, type UnmeasuredItem } from './a
 import { scoreAudit } from './audit-score-table.js';
 import type { DimensionScore } from './audit-scoring.js';
 import { renderAuditJson, renderAuditMarkdown } from './audit-report-markdown.js';
+import { OVERFLOW_KNOWN_GAP, type RenderEvidenceSummary } from './render/render-audit.js';
 
 export { renderAuditJson, renderAuditMarkdown } from './audit-report-markdown.js';
 export type { AuditJsonDocument } from './audit-report-markdown.js';
@@ -54,7 +55,7 @@ export type KnownGap = { id: string; text: string; reason?: string };
 
 /** The fixed known gaps; the markdown and JSON both render every entry. */
 export const KNOWN_GAPS: readonly KnownGap[] = [
-  { id: 'responsive-overflow', text: 'responsive overflow — needs the rendered page (S8)' },
+  { ...OVERFLOW_KNOWN_GAP },
   {
     // The tsconfig cap is NOT a contract refusal (see `path-aliases.ts`): the
     // audit continues with no alias table rather than exiting 2. Declared here
@@ -74,11 +75,18 @@ export type AuditPageReport = {
   truncated?: boolean;
 };
 
+/** The render evidence the report shows: each capture and the uncaptured pages. */
+export type AuditRenderEvidence = RenderEvidenceSummary & {
+  pageUnits: number;
+  pagesWithoutCapture: number;
+};
+
 /** THE stable `--json` `data` shape; see the module header. */
 export type AuditReportData = {
   contract: AuditContractRef | null;
   scope: AuditScope;
   state: AuditRuntimeState;
+  render: AuditRenderEvidence;
   pages: AuditPageReport[];
   /** Worst unit score, or null for a non-UI verdict. */
   overall: number | null;
@@ -112,6 +120,7 @@ function notUiReport(): AuditReport {
       contract: null,
       scope: notUiScope(),
       state: { ...NO_STATE },
+      render: { captures: [], gap: null, pageUnits: 0, pagesWithoutCapture: 0 },
       pages: [],
       overall: null,
       dimensions: [],
@@ -142,8 +151,11 @@ export function buildAuditReport(result: AuditProjectResult): AuditReport {
   }
   const findings = [...result.pages.flatMap((page) => page.findings), ...result.globalFindings];
   // Contrast is judged by the CONTRACT, so a passing pair set leaves no page
-  // finding to prove it ran; the declared pairs are that proof (review K1).
-  const contractJudged = { contrast: result.contractSource.pairs.length > 0 };
+  // finding to prove it ran. With render evidence the reader says whether a
+  // pair actually rendered (S8); without it, S7's "pairs declared" rule holds.
+  const contractJudged = result.contractJudged ?? {
+    contrast: result.contractSource.pairs.length > 0
+  };
   const score = scoreAudit(result.pages, result.globalFindings, contractJudged);
   const findingsByPath = new Map(result.pages.map((page) => [page.path, page.findings]));
   const pages = score.pages.map((page) => ({
@@ -155,6 +167,11 @@ export function buildAuditReport(result: AuditProjectResult): AuditReport {
       contract: result.contract,
       scope: result.scope,
       state: result.state,
+      render: {
+        ...result.render,
+        pageUnits: result.pages.length,
+        pagesWithoutCapture: result.pages.filter((page) => page.capture === undefined).length
+      },
       pages: score.pages,
       overall: score.overall,
       dimensions: score.dimensions,

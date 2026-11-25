@@ -27,7 +27,9 @@ export const AUDIT_DIMENSIONS = [
   'surface',
   'hierarchy',
   'a11y',
-  'states'
+  'states',
+  'palette',
+  'overflow'
 ] as const;
 
 type ListedDimension = (typeof AUDIT_DIMENSIONS)[number];
@@ -72,7 +74,13 @@ export const DIMENSION_RULES: Record<AuditDimension, DimensionRule> = {
   surface: { severity: 'soft', kind: 'cost', cost: 5 },
   hierarchy: { severity: 'soft', kind: 'cost', cost: 5 },
   a11y: { severity: 'hard', kind: 'cost', cost: 25 },
-  states: { severity: 'hard', kind: 'cost', cost: 25 }
+  states: { severity: 'hard', kind: 'cost', cost: 25 },
+  // S8 render dimensions. `palette` is aesthetic and finding-based; a rendered
+  // frame with no finding is a judged 100. `overflow` is source-blind today:
+  // its only row is the fixed `unmeasured` gap (Task 4), so it renders "not
+  // judged" and its cost never fires.
+  palette: { severity: 'soft', kind: 'cost', cost: 5 },
+  overflow: { severity: 'unmeasured', kind: 'cost', cost: 0 }
 };
 
 /**

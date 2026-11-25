@@ -5,27 +5,24 @@
  * `measured` / `on-contract` columns and the scope line. Both renderers read
  * one `AuditReport`; neither recomputes a score.
  *
- * `schemaVersion: 2` recorded the Task 6a change: a ratio dimension's score may
- * be `null` (all its values were unmeasured), and every dimension row now
- * carries `measured` / `onContract`. `schemaVersion: 3` (Task 6b) adds the
- * optional `lowSample: true` flag: the ratio is still reported, but a value
- * denominator under five cannot set a page or the overall score.
- * `schemaVersion: 4` (Task 6d) records that a value dimension's `measured`
- * counts the page PLUS its import closure, and that the scope carries
- * `valueFiles`.
- * `schemaVersion: 5` (Task 6e / S7 review) adds `judged` ("not judged" is never
- * a silent 100), `distinctSites` (a finding row is a page view, not a distinct
- * defect), the per-page closure-truncation flag and the fixed `knownGaps`.
+ * `schemaVersion` history: 2 = null ratio scores + `measured`/`onContract`
+ * columns; 3 = optional `lowSample`; 4 = closure-counted `measured` + scope
+ * `valueFiles`; 5 = `judged` (never a silent 100), `distinctSites`, closure
+ * truncation and `knownGaps`; 6 = render dimensions `palette`/`overflow`
+ * (overflow is one fixed `unmeasured` row with a measured reason); 7 (S8
+ * close-out) = `render` evidence (each capture file, its measured non-app
+ * share and the page it bound to), the uncaptured-page count and the
+ * `--render` read gap, plus the same sanitiser on every JSON `file` field.
  */
 
-import { capDetail, plainText } from '../evidence-text.js';
+import { plainText, safeField } from '../evidence-text.js';
 import type { AuditRuntimeState } from './audit-project.js';
 import type { AuditScope } from './audit-scope.js';
 import type { TopFix, UnmeasuredItem } from './audit-fixes.js';
 import type { AuditReport, AuditReportMeta, AuditVerdict, KnownGap } from './audit-report.js';
 import type { DimensionScore } from './audit-scoring.js';
 
-export const AUDIT_JSON_SCHEMA_VERSION = 5;
+export const AUDIT_JSON_SCHEMA_VERSION = 7;
 
 /** How many package names one summary line may cite. */
 // eslint-disable-next-line no-magic-numbers -- one short, readable line.
@@ -69,18 +66,6 @@ function summarizeReadGaps(gaps: readonly string[]): string {
   return `${gaps.length} gaps: ${parts.join('; ')}`;
 }
 
-/**
- * One untrusted report FIELD — a scored/skipped state list, a read-gap summary,
- * a declared root list: control bytes and whole ANSI/OSC sequences are stripped
- * and the field is bounded to the evidence cap. Each field is bounded rather
- * than the assembled line, so a hostile value can neither repaint a terminal
- * nor lengthen the report without limit, while the line's own structure (and
- * the facts a Task 6d note must state) survives.
- */
-function safeField(value: string): string {
-  return capDetail(plainText(value));
-}
-
 function stateLine(state: AuditRuntimeState): string {
   const scored = state.scored.length > 0 ? safeField(state.scored.join(', ')) : 'default';
   const skipped = state.skipped.length > 0 ? safeField(state.skipped.join(', ')) : 'none';
@@ -99,6 +84,30 @@ function scoreCell(row: DimensionScore): string {
   if (row.judged === false) return 'not judged';
   const score = row.score === null ? 'null' : String(row.score);
   return row.lowSample === true ? `${score} (low sample)` : score;
+}
+
+/**
+ * Which captures were used, what was measured from each, and how many pages had
+ * none. A page with no capture has NO render row — the section states that
+ * absence so it can never be read as a zero.
+ */
+function renderLines(render: AuditReport['data']['render']): string[] {
+  if (render.captures.length === 0) {
+    return ['- no capture was supplied: every render dimension is absent, not 0.'];
+  }
+  const lines = render.captures.map((usage) => {
+    const measured = usage.decoded
+      ? `non-app mask ${usage.maskShare}%`
+      : 'refused (see the unmeasured gap)';
+    const bound =
+      usage.boundTo === null ? 'bound to no page' : `bound to ${safeField(usage.boundTo)}`;
+    return `- ${safeField(usage.capture)} — ${measured} — ${bound}`;
+  });
+  lines.push(
+    `- page units without a capture: ${render.pagesWithoutCapture} of ${render.pageUnits} (their render dimensions are absent, not 0)`
+  );
+  if (render.gap !== null) lines.push(`- capture read gap: ${safeField(render.gap)}`);
+  return lines;
 }
 
 function dimensionTable(rows: readonly DimensionScore[]): string[] {
@@ -207,6 +216,10 @@ export function renderAuditMarkdown(report: AuditReport, meta: AuditReportMeta):
     '',
     ...dimensionTable(report.dimensions),
     '',
+    '## Render evidence',
+    '',
+    ...renderLines(report.data.render),
+    '',
     '## Pages',
     '',
     ...(report.pages.length === 0
@@ -234,6 +247,7 @@ export type AuditJsonDocument = {
   contract: AuditReport['data']['contract'];
   scope: AuditScope;
   state: AuditRuntimeState;
+  render: AuditReport['data']['render'];
   dimensions: DimensionScore[];
   pages: AuditReport['pages'];
   topFixes: TopFix[];
@@ -242,6 +256,28 @@ export type AuditJsonDocument = {
 };
 
 export function renderAuditJson(report: AuditReport, meta: AuditReportMeta): AuditJsonDocument {
+  // Every FILE field is sanitised as the markdown sanitises it, so the JSON
+  // sibling cannot carry control bytes a markdown reader never sees.
+  const pages = report.pages.map((page) => ({
+    ...page,
+    path: safeField(page.path),
+    findings: page.findings.map((finding) => ({ ...finding, file: safeField(finding.file) }))
+  }));
+  const unmeasured = report.data.unmeasured.map((item) => ({
+    ...item,
+    file: safeField(item.file)
+  }));
+  const render = {
+    ...report.data.render,
+    captures: report.data.render.captures.map((usage) => ({
+      ...usage,
+      capture: safeField(usage.capture),
+      slug: usage.slug === null ? null : safeField(usage.slug),
+      boundTo: usage.boundTo === null ? null : safeField(usage.boundTo)
+    })),
+    gap: report.data.render.gap === null ? null : safeField(report.data.render.gap)
+  };
+  const state = { ...report.data.state, readGaps: report.data.state.readGaps.map(safeField) };
   return {
     schemaVersion: AUDIT_JSON_SCHEMA_VERSION,
     rid: meta.rid ?? null,
@@ -250,11 +286,12 @@ export function renderAuditJson(report: AuditReport, meta: AuditReportMeta): Aud
     overall: report.overall,
     contract: report.data.contract,
     scope: report.data.scope,
-    state: report.data.state,
+    state,
+    render,
     dimensions: report.dimensions,
-    pages: report.pages,
+    pages,
     topFixes: report.data.topFixes,
-    unmeasured: report.data.unmeasured,
+    unmeasured,
     knownGaps: report.data.knownGaps
   };
 }

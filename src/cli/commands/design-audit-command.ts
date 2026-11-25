@@ -20,7 +20,15 @@ import { fail, ok } from 'peaks-loop-shared/result';
 
 import { repoRelativeKey } from '../../shared/path-utils.js';
 import { MAX_SOURCE_BYTES } from '../../services/design/file-cap.js';
-import { runAuditProject } from '../../services/design/audit/audit-project.js';
+import {
+  runAuditProject,
+  type AuditProjectResult
+} from '../../services/design/audit/audit-project.js';
+import {
+  MAX_RENDER_FRAMES,
+  readRenderDir,
+  type RenderDirRead
+} from '../../services/design/audit/render/render-captures.js';
 import {
   buildAuditReport,
   writeAuditReport,
@@ -32,6 +40,8 @@ export type DesignAuditCliOptions = {
   project: string;
   rid?: string;
   json?: boolean;
+  /** The probe capture directory (`<probe-slug>/screenshots/full-page.png`). */
+  render?: string;
 };
 
 const CONTRACT_MISSING_CODE = 'DESIGN_AUDIT_CONTRACT_MISSING';
@@ -96,11 +106,60 @@ async function writeAndDescribe(
   }
 }
 
-export async function runDesignAudit(options: DesignAuditCliOptions, io: ProgramIO): Promise<void> {
-  const appRoot = resolve(options.project);
-  let result;
+/** How many skipped-capture names one gap line cites. */
+const GAP_WITNESSES = 3;
+
+/** The `--render` read's truncation/skip note, or undefined when it was clean. */
+function renderGapOf(read: Extract<RenderDirRead, { ok: true }>): string | undefined {
+  const parts: string[] = [];
+  if (read.truncated) {
+    parts.push(
+      `capture read stopped at the ${MAX_RENDER_FRAMES}-frame bound (${read.found} found)`
+    );
+  }
+  if (read.skipped.length > 0) {
+    parts.push(
+      `${read.skipped.length} capture(s) skipped: ${read.skipped.slice(0, GAP_WITNESSES).join('; ')}`
+    );
+  }
+  return parts.length === 0 ? undefined : parts.join('; ');
+}
+
+/** Read `--render`, refusing with a named code before any audit runs. */
+function readEvidence(
+  options: DesignAuditCliOptions,
+  appRoot: string,
+  io: ProgramIO
+): Extract<RenderDirRead, { ok: true }> | null {
+  if (options.render === undefined) return null;
+  const read = readRenderDir({ dir: options.render, appRoot });
+  if (read.ok) return read;
+  failWith(io, options.json, {
+    code: read.code,
+    message: read.message,
+    data: { appRoot, render: options.render },
+    exitCode: 2,
+    actions: [
+      'Point --render at the probe capture directory, or an absolute directory you trust; a link that escapes it is refused.'
+    ]
+  });
+  return null;
+}
+
+/** Read the project, turning an unexpected throw into the named failure. */
+function projectFor(
+  options: DesignAuditCliOptions,
+  appRoot: string,
+  evidence: Extract<RenderDirRead, { ok: true }> | null,
+  io: ProgramIO
+): AuditProjectResult | null {
   try {
-    result = runAuditProject({ appRoot });
+    const gap = evidence === null ? undefined : renderGapOf(evidence);
+    return runAuditProject({
+      appRoot,
+      ...(evidence === null ? {} : { render: evidence.captures }),
+      ...(gap === undefined ? {} : { renderGap: gap })
+    });
   } catch (error) {
     failWith(io, options.json, {
       code: 'DESIGN_AUDIT_FAILED',
@@ -108,8 +167,17 @@ export async function runDesignAudit(options: DesignAuditCliOptions, io: Program
       data: { appRoot },
       exitCode: 1
     });
-    return;
+    return null;
   }
+}
+
+/** The two pre-audit refusals, as a boolean "already handled". */
+function refusedOutcome(
+  result: AuditProjectResult,
+  appRoot: string,
+  options: DesignAuditCliOptions,
+  io: ProgramIO
+): boolean {
   if (result.kind === 'contract-missing') {
     failWith(io, options.json, {
       code: CONTRACT_MISSING_CODE,
@@ -118,7 +186,7 @@ export async function runDesignAudit(options: DesignAuditCliOptions, io: Program
       exitCode: 2,
       actions: CONTRACT_MISSING_ACTIONS
     });
-    return;
+    return true;
   }
   if (result.kind === 'contract-too-large') {
     const named = result.files.map((file) => `${file.path}: ${file.bytes} bytes`).join(', ');
@@ -129,8 +197,17 @@ export async function runDesignAudit(options: DesignAuditCliOptions, io: Program
       exitCode: 2,
       actions: CONTRACT_TOO_LARGE_ACTIONS
     });
-    return;
+    return true;
   }
+  return false;
+}
+
+export async function runDesignAudit(options: DesignAuditCliOptions, io: ProgramIO): Promise<void> {
+  const appRoot = resolve(options.project);
+  const evidence = readEvidence(options, appRoot, io);
+  if (options.render !== undefined && evidence === null) return;
+  const result = projectFor(options, appRoot, evidence, io);
+  if (result === null || refusedOutcome(result, appRoot, options, io)) return;
   const report = buildAuditReport(result);
   const warnings = result.kind === 'audited' ? result.warnings : [];
   const written = options.json === true ? [] : await writeAndDescribe(io, options, appRoot, report);
@@ -150,5 +227,9 @@ export function registerDesignAuditCommand(design: Command, io: ProgramIO): void
       .description('Score the design dimensions from source and the contract (advisory)')
       .requiredOption('--project <path>', 'app root')
       .option('--rid <rid>', 'request id used in design/audit-<rid>.md')
+      .option(
+        '--render <dir>',
+        'probe capture directory (<probe-slug>/screenshots/full-page.png); enables the rendered palette and contrast'
+      )
   ).action((options: DesignAuditCliOptions) => runDesignAudit(options, io));
 }

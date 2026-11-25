@@ -40,11 +40,15 @@ import { auditStatesDimension } from './audit-states.js';
 import { auditSurfaceDimension } from './audit-surface.js';
 import { auditTypeDimension } from './audit-type.js';
 import type { CssVariableTable } from './css-variables.js';
+import type { RenderFrame } from './render/render-audit.js';
+import { auditPaletteDimension } from './render/palette.js';
 
 /** The contract as read: the colour oracle and its declared contrast pairs. */
 export type AuditContract = {
   color: ColorTokenGroup | undefined;
   pairs: readonly DeclaredColorPair[];
+  /** The contract's own visible ΔE step for a declared scale, when it declares one. */
+  visibleDeltaE?: number;
 };
 
 /** One audited unit and everything the detectors may judge it against. */
@@ -58,6 +62,12 @@ export type AuditUnitInput = {
   imports: readonly AuditSource[];
   /** Every stylesheet the project reader read, consulted for focus styles. */
   styles: readonly AuditSource[];
+  /**
+   * The captured frame bound to this page (S8). Absent for a stylesheet unit
+   * and for a page with no capture: the page then has NO render dimension and
+   * keeps its S7 source behaviour.
+   */
+  render?: RenderFrame;
 };
 
 /** One unit's findings, plus the judged value counts the ratio score needs. */
@@ -80,6 +90,17 @@ function dedupeSources(sources: readonly AuditSource[]): AuditSource[] {
   return unique;
 }
 
+/** The palette judgement for a captured page, or null when there is no frame. */
+function paletteOf(input: AuditUnitInput): ReturnType<typeof auditPaletteDimension> | null {
+  const frame = input.render;
+  if (frame === undefined || !frame.palette.ok) return null;
+  return auditPaletteDimension({
+    measurement: frame.palette.measurement,
+    capture: frame.capture,
+    ...(input.contract.color === undefined ? {} : { color: input.contract.color })
+  });
+}
+
 /** Every detector's findings for one unit, in dimension order. */
 export function auditUnit(input: AuditUnitInput): UnitAudit {
   const pageSources = dedupeSources([input.source]);
@@ -99,6 +120,7 @@ export function auditUnit(input: AuditUnitInput): UnitAudit {
   const hierarchy = auditHierarchyDimension(pageScope);
   const a11y = auditA11yDimension(pageScope);
   const states = auditStatesDimension(pageScope);
+  const palette = paletteOf(input);
   return {
     // Every detector's finding passes the one echo sanitiser here, so a NEW
     // detector cannot reach the report, the files or the terminal unmasked.
@@ -109,7 +131,8 @@ export function auditUnit(input: AuditUnitInput): UnitAudit {
       ...surface.findings,
       ...hierarchy.findings,
       ...a11y.findings,
-      ...states.findings
+      ...states.findings,
+      ...(palette?.findings ?? [])
     ]),
     judgements: {
       spacing: spacing.judgement,
@@ -120,7 +143,8 @@ export function auditUnit(input: AuditUnitInput): UnitAudit {
       surface: surface.judged,
       hierarchy: hierarchy.judged,
       a11y: a11y.judged,
-      states: states.judged
+      states: states.judged,
+      palette: palette?.judged === true
     }
   };
 }

@@ -207,6 +207,7 @@ describe('Scenario: integration — a custom component is read through its defin
   it('when a click lands on an unwired span rendered by a component, should report it', () => {
     // given: `<StatusBadge onClick>` whose definition renders a bare span
     // when: the page is audited with the component's source as its closure
+    // then: the custom component's span is named as the hard finding
     const page = source('a11y-badge-page.tsx');
     const badge = source('a11y-status-badge.tsx');
     const findings = auditA11y({ tokenScale: scale, sources: [page], imports: [badge] });
@@ -221,6 +222,7 @@ describe('Scenario: integration — a custom component is read through its defin
   it('when the component renders a native button with focus, should stay silent', () => {
     // given: `<IconButton onClick>` whose definition renders a button with focus-visible
     // when: the page is audited with the component's source as its closure
+    // then: no finding fires, because the native button is keyboard-reachable
     const page = source('a11y-badge-clean-page.tsx');
     const button = source('a11y-icon-button.tsx');
     expect(auditA11y({ tokenScale: scale, sources: [page], imports: [button] })).toEqual([]);
