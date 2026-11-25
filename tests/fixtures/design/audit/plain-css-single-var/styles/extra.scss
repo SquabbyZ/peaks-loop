@@ -1,0 +1,6 @@
+// SCSS is read when present; `$gap` is a Sass variable, not a custom property.
+$gap: 12px;
+
+.tag {
+  gap: 12px;
+}

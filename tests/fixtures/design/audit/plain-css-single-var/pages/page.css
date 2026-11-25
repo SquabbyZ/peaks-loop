@@ -1,0 +1,6 @@
+@import '../styles/tokens.css';
+@use '../styles/extra.scss';
+
+.card {
+  padding: var(--space-md);
+}

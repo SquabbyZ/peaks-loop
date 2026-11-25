@@ -1,0 +1,15 @@
+{
+  "$schema": "https://design-tokens.org/schema.json",
+  "color": {
+    "background": { "$value": "#ffffff", "$type": "color" },
+    "foreground": { "$value": "#767676", "$type": "color" },
+    "ink": { "$value": "#000000", "$type": "color" }
+  },
+  "space": {},
+  "font": {},
+  "radius": {},
+  "pairs": [
+    { "fg": "foreground", "bg": "background" },
+    { "fg": "ink", "bg": "background" }
+  ]
+}

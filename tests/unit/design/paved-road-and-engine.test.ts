@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
-import { buildPavedRoad } from '../../../src/services/design/paved-road.js';
+import { buildPavedRoad, DEFAULT_TOKEN_SCALE } from '../../../src/services/design/paved-road.js';
 import { readPavedRoad } from '../../../src/services/design/source-scan/inputs.js';
 import { buildEngineContract } from '../../../src/services/design/engine-contract.js';
 
@@ -110,6 +110,65 @@ describe('Scenario: behavior — an older paved road still reads', () => {
       'utf8'
     );
     expect(readPavedRoad(root).routeMarkers).toEqual({});
+  });
+});
+
+describe('Scenario: behavior — the declared token scale is the oracle', () => {
+  const roots: string[] = [];
+  afterEach(() => {
+    while (roots.length) rmSync(roots.pop() as string, { recursive: true, force: true });
+  });
+
+  function pavedRoadWith(tokenScale: unknown): string {
+    const root = mkdtempSync(join(tmpdir(), 'peaks-token-scale-'));
+    roots.push(root);
+    writeFileSync(
+      join(root, 'paved-road.json'),
+      JSON.stringify({ pageRoots: ['src/app'], tokenScale }),
+      'utf8'
+    );
+    return root;
+  }
+
+  it('when a paved road declares a custom token scale, should round-trip every declared group', () => {
+    // given: a file whose scale differs from the built-in default in every group
+    // when: the tolerant reader parses it
+    // then: the declared scale is returned verbatim, including the weight group
+    const root = pavedRoadWith({
+      space: ['2', '6', '10'],
+      font: ['10', '13'],
+      radius: ['1', '3'],
+      color: ['--brand-*'],
+      weight: ['400', '700']
+    });
+    expect(readPavedRoad(root).tokenScale).toEqual({
+      space: ['2', '6', '10'],
+      font: ['10', '13'],
+      radius: ['1', '3'],
+      color: ['--brand-*'],
+      weight: ['400', '700']
+    });
+  });
+
+  it('when the token scale is absent, should use the default without a warning', () => {
+    // given: an older paved road that declares no tokenScale at all
+    // when: the tolerant reader parses it
+    // then: the built-in default is used and no warning is recorded
+    const road = readPavedRoad(pavedRoadWith(undefined));
+    expect(road.tokenScale).toEqual(DEFAULT_TOKEN_SCALE);
+    expect(road.warnings).toBeUndefined();
+  });
+
+  it('when the token scale is malformed, should use the default and name the warning', () => {
+    // given: a tokenScale whose space group is a string instead of a list
+    // when: the tolerant reader parses it
+    // then: the default is used and a named warning says what was replaced
+    const road = readPavedRoad(
+      pavedRoadWith({ space: 'wide', font: ['12'], radius: ['2'], color: ['--x'] })
+    );
+    expect(road.tokenScale).toEqual(DEFAULT_TOKEN_SCALE);
+    expect(road.warnings?.[0]?.code).toBe('token-scale-malformed');
+    expect(road.warnings?.[0]?.message).toContain('space');
   });
 });
 

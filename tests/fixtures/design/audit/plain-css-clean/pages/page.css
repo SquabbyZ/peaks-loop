@@ -1,0 +1,8 @@
+/* The all-on-ladder page: every spacing value is a declared step. */
+@import '../styles/tokens.css';
+
+.card {
+  padding: 16px;
+  margin: 8px;
+  gap: 12px;
+}

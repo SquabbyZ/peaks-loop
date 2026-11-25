@@ -1,0 +1,11 @@
+[data-density='compact'] {
+  --spacing: 13px;
+}
+
+[data-density='comfortable'] {
+  --spacing: 16px;
+}
+
+[data-density='spacious'] {
+  --spacing: 20px;
+}

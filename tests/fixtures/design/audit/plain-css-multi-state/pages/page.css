@@ -1,0 +1,5 @@
+@import '../styles/density.css';
+
+.card {
+  padding: var(--spacing);
+}

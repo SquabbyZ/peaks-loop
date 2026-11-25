@@ -1,0 +1,4 @@
+/* A raw CSS colour that IS a declared token: counted under it, not a finding. */
+.token-colour {
+  color: #c81e1e;
+}

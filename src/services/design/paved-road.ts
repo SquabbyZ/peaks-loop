@@ -19,6 +19,26 @@ export type DesignTokenScale = {
   font: string[];
   radius: string[];
   color: string[];
+  /**
+   * Optional weight ladder. Absent in the built-in default and in every
+   * contract written before S7, so the type audit reports the weight part as
+   * `unmeasured` instead of inventing a vocabulary the project never declared.
+   */
+  weight?: string[];
+};
+
+/**
+ * A contract field that could not be read and was replaced by its default.
+ * `code` is stable so a caller can surface the substitution rather than let a
+ * malformed file silently audit the project against a ladder it never declared.
+ */
+export type PavedRoadWarning = {
+  /**
+   * `token-scale-malformed` is a declared field replaced by its default;
+   * `contract-too-large` is a whole contract refused for its size.
+   */
+  code: 'token-scale-malformed' | 'contract-too-large';
+  message: string;
 };
 
 /** The three stylistic shapes the paved road bans outright. */
@@ -45,6 +65,11 @@ export type PavedRoadFile = {
   banned: PavedRoadBanned;
   rules: Record<DesignRuleCode, DesignRuleSeverity>;
   tokenScale: DesignTokenScale;
+  /**
+   * Set only by a reader that replaced a malformed declared field with its
+   * default. A builder never writes it, so a healthy contract carries none.
+   */
+  warnings?: PavedRoadWarning[];
 };
 
 export type PavedRoadInput = {
@@ -56,7 +81,11 @@ export type PavedRoadInput = {
   routeMarkers?: Readonly<Record<string, string>>;
 };
 
-const DEFAULT_TOKEN_SCALE: DesignTokenScale = {
+/**
+ * The ladder a contract is audited against when it declares none. Exported so
+ * a reader's fallback and a test's expectation are the same object of record.
+ */
+export const DEFAULT_TOKEN_SCALE: DesignTokenScale = {
   space: ['4', '8', '12', '16', '24', '32', '48'],
   font: ['12', '14', '16', '20', '24', '32'],
   radius: ['2', '4', '8', '12'],

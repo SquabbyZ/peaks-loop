@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "pageRoots": ["pages"],
+  "componentEntrypoints": [],
+  "tokenScale": {
+    "space": ["4", "8", "12", "16", "24", "32", "48"],
+    "font": ["12", "14", "16", "20", "24", "32"],
+    "radius": ["2", "4", "8", "12"],
+    "color": ["--color-*"],
+    "weight": ["400", "500", "600", "700"]
+  }
+}

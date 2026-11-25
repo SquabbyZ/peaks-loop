@@ -14,6 +14,7 @@ import { initDesignContract } from '../../services/design/design-init.js';
 import { readDesignStatus, removeDesignContract } from '../../services/design/design-status.js';
 import { redactUrl } from '../../services/design/url-redact.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
+import { registerDesignAuditCommand } from './design-audit-command.js';
 import {
   acceptanceFor,
   checkInput,
@@ -255,6 +256,7 @@ function registerInitCommand(design: Command, io: ProgramIO): void {
 export function registerDesignCommands(program: Command, io: ProgramIO): void {
   const design = program.command('design').description('Build and check the design contract');
   registerInitCommand(design, io);
+  registerDesignAuditCommand(design, io);
 
   addJsonOption(
     design

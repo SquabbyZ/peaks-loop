@@ -1,0 +1,17 @@
+{
+  "$schema": "https://design-tokens.org/schema.json",
+  "color": {
+    "background": { "$value": "#ffffff", "$type": "color" },
+    "foreground": { "$value": "#767676", "$type": "color" },
+    "muted": { "$value": "#777777", "$type": "color" },
+    "subtle": { "$value": "#949494", "$type": "color" }
+  },
+  "space": {},
+  "font": {},
+  "radius": {},
+  "pairs": [
+    { "fg": "foreground", "bg": "background" },
+    { "fg": "muted", "bg": "background" },
+    { "fg": "subtle", "bg": "background", "large": true }
+  ]
+}

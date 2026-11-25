@@ -1,0 +1,14 @@
+{
+  "$schema": "https://design-tokens.org/schema.json",
+  "color": {
+    "danger-500": { "$value": "#c81e1e", "$type": "color" },
+    "danger-400": { "$value": "#f87171", "$type": "color" },
+    "warning-500": { "$value": "#f59e0b", "$type": "color" },
+    "success-500": { "$value": "#16a34a", "$type": "color" },
+    "info-500": { "$value": "#2563eb", "$type": "color" },
+    "accent-500": { "$value": "#7c3aed", "$type": "color" }
+  },
+  "space": {},
+  "font": {},
+  "radius": {}
+}

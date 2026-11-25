@@ -1,0 +1,9 @@
+{
+  // The alias the pilot used, declared the way TypeScript reads it.
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+    },
+  },
+}
