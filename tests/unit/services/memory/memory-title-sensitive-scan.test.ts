@@ -480,7 +480,7 @@ describe('Scenario: a11y — the envelope names the check, and the advice answer
     // The term itself reaches the reader through `data`, and NOT through the
     // message. MEASURED, not assumed: `fail()` runs every failure MESSAGE
     // through `redactSensitiveErrorMessage`, whose last pattern
-    // (`/(secret|token|password|api[-_ ]?key)/gi`) is a blanket word rule, so
+    // (`/\b(?:secret|token|password|api[-_ ]?key)\b/gi`) is a blanket word rule, so
     // the term is stripped out of the prose on the way to the envelope. The
     // term is a word from a fixed vocabulary — never a value — so it rides the
     // field `fail()` does not redact. Pinned from both sides: if the term stops

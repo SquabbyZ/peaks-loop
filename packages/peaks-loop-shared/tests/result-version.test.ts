@@ -158,13 +158,52 @@ describe('a11y — redactSensitiveErrorMessage', () => {
     expect(redactSensitiveErrorMessage(`sk-${'B'.repeat(16)}`)).toBe('[redacted]');
   });
 
-  it('when the message only mentions a sensitive word in prose, should still redact the word', () => {
-    // given: the last pattern in the list is a bare-keyword catch-all
-    // when:  a message contains 'token' / 'password' with no credential at all
-    // then:  the word itself is replaced — deliberate over-redaction, pinned so a
-    //        future loosening of the list is a visible decision, not an accident
+  it('when the message names an artifact with a sensitive substring, should leave the filename intact', () => {
+    // given: the missing-file diagnostic the design audit prints for a project
+    //        without a contract — tokens.json is a first-class artifact name
+    // when:  the redactor runs over it
+    // then:  the filename survives whole. Before the catch-all was whole-word,
+    //        this arrived as `[redacted]s.json` and named no missing file at
+    //        all, so the reader had to guess which artifact was absent
+    const message = 'The design contract is missing (tokens.json, paved-road.json)';
+    expect(redactSensitiveErrorMessage(message)).toBe(message);
+  });
+
+  it('when the message carries a bare keyword or an assigned credential, should still redact it', () => {
+    // given: a lone keyword (the catch-all's own shape) and two assignments
+    //        (the assignment pattern's), each holding a real-looking value
+    // when:  the redactor runs
+    // then:  the keyword is replaced and neither assigned value survives
+    expect(redactSensitiveErrorMessage('token')).toBe('[redacted]');
+    expect(redactSensitiveErrorMessage('token=abcdefgh1234')).toBe('[redacted]');
+    expect(redactSensitiveErrorMessage('api_key: abcdefgh1234')).toBe('[redacted]');
+  });
+
+  it('when the message names a secret in prose or a bearer / sk credential, should still redact the sensitive part', () => {
+    // given: prose that mentions a secret word, plus the two credential shapes
+    //        the list already owned before the whole-word change
+    // when:  the redactor runs
+    // then:  the keyword is replaced and both credentials are gone. The prose
+    //        case has no assignment, so its trailing value was never matched
+    //        by this list — same result before and after; the point here is
+    //        that it must not regress into surviving
+    expect(redactSensitiveErrorMessage('my secret is hunter2hunter2')).toBe(
+      'my [redacted] is hunter2hunter2'
+    );
+    expect(redactSensitiveErrorMessage('Authorization: Bearer abcdefghijklmnop1234')).toBe(
+      'Authorization: [redacted]'
+    );
+    expect(redactSensitiveErrorMessage(`sk-${'B'.repeat(16)}`)).toBe('[redacted]');
+  });
+
+  it('when the message only mentions a sensitive word in prose, should redact the whole word but leave a longer word alone', () => {
+    // given: the last pattern in the list is a whole-word keyword catch-all
+    // when:  a message contains 'token' / 'secret' with no credential at all
+    // then:  the standalone word is replaced; a longer word that merely starts
+    //        with it is left alone, which is what keeps a plural artifact name
+    //        such as `tokens.json` legible in a failure message
     expect(redactSensitiveErrorMessage('the token was rotated')).toBe('the [redacted] was rotated');
-    expect(redactSensitiveErrorMessage('no secrets here')).toBe('no [redacted]s here');
+    expect(redactSensitiveErrorMessage('no secrets here')).toBe('no secrets here');
   });
 
   it('when the message holds no credential shape, should return it unchanged', () => {

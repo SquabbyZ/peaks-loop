@@ -339,12 +339,12 @@ export function assertSafeMemory(memory: ExtractedProjectMemory): void {
     // question, so the two paths are diagnosable the same way.
     //
     // The DETAIL is worded around the envelope redactor's vocabulary on
-    // purpose. Its catch-all (`/(secret|token|password|api[-_ ]?key)/gi`)
-    // rewrites those four words wherever they appear in a failure message, so
-    // naming the pattern families in their own words arrives on the CLI as
-    // "an [redacted] / [redacted] / [redacted] assignment" — a remedy sentence
-    // redacted into uselessness by the very policy it agrees with. The rule ids
-    // above are spelled to survive that pass.
+    // purpose. Its catch-all (`/\b(?:secret|token|password|api[-_ ]?key)\b/gi`)
+    // rewrites those four words wherever they appear as whole words in a failure
+    // message, so naming the pattern families in their own words arrives on the
+    // CLI as "an [redacted] / [redacted] / [redacted] assignment" — a remedy
+    // sentence redacted into uselessness by the very policy it agrees with. The
+    // rule ids above are spelled to survive that pass.
     throw new UnsafeMemoryError(
       SENSITIVE_MEMORY_CHECKS.content,
       `matched the credential pattern "${contentRule}" in the memory content`,

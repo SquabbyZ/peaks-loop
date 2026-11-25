@@ -61,7 +61,7 @@ const SENSITIVE_ERROR_PATTERNS = [
   /\bxox[abprse]-[0-9A-Za-z-]{20,}\b/g,
   /\bsk-[A-Za-z0-9_-]{16,}\b/g,
   /\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g,
-  /(secret|token|password|api[-_ ]?key)/gi
+  /\b(?:secret|token|password|api[-_ ]?key)\b/gi
 ] as const;
 
 export function getErrorMessage(error: unknown): string {
