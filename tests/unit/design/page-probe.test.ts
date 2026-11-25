@@ -62,26 +62,33 @@ type CaptureOptions = {
   timedOut?: boolean;
 };
 
-/** A fake capture runner (no browser): a written PNG plus the JSON that names it. */
+/** A fake pair of capture arms (no browser): identity JSON plus a written PNG. */
 function capture(options: CaptureOptions = {}): {
   outDir: string;
-  runCapture: PageProbeInput['runCapture'];
+  runIdentity: PageProbeInput['runIdentity'];
+  runScreenshot: PageProbeInput['runScreenshot'];
 } {
   const outDir = writePng(captureDir(), options.bytes ?? RENDERED_PNG);
   const stdout =
     options.stdout ??
     JSON.stringify({
-      componentScreenshots: { fullPage: { path: 'screenshots/full-page.png' } },
+      componentScreenshots: {},
       meta: { title: options.title ?? 'Ledgerly' },
       voice: { sampleHeadings: options.headings ?? ['Reconciliation'] }
     });
   return {
     outDir,
-    runCapture: async () => ({
+    runIdentity: async () => ({
       exitCode: options.exitCode ?? 0,
       stdout,
       stderr: '',
       timedOut: options.timedOut ?? false
+    }),
+    runScreenshot: async () => ({
+      exitCode: 0,
+      stdout: 'capture-out/screenshots/full-page.png\n',
+      stderr: '',
+      timedOut: false
     })
   };
 }
@@ -91,8 +98,8 @@ function capture(options: CaptureOptions = {}): {
  * capture, so no unit test launches a browser.
  */
 function probePageUsable(
-  input: Omit<PageProbeInput, 'runCapture' | 'outDir'> &
-    Partial<Pick<PageProbeInput, 'runCapture' | 'outDir'>>
+  input: Omit<PageProbeInput, 'runIdentity' | 'runScreenshot' | 'outDir'> &
+    Partial<Pick<PageProbeInput, 'runIdentity' | 'runScreenshot' | 'outDir'>>
 ): Promise<PageProbeResult> {
   const injected = capture();
   return probeWithCapture({ ...injected, ...input });

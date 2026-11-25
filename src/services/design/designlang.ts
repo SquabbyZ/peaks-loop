@@ -55,11 +55,17 @@ export type BuildDesignlangArgsInput =
   | { kind: 'grade'; url: string; outDir: string }
   | { kind: 'stats'; url: string }
   /**
-   * The page-probe capture, probed 2026-11-24: it writes
-   * `<outDir>/screenshots/full-page.png` and echoes that path as
-   * `componentScreenshots.fullPage.path` in its JSON.
+   * The screenshot-free page-probe identity extract, measured 3.1–3.7 s on the
+   * pilot. `--screenshots` is deliberately absent: with it the same run overran
+   * 120 s on an auth-gated route (round 4).
    */
-  | { kind: 'extract'; url: string; outDir: string };
+  | { kind: 'extract'; url: string; outDir: string }
+  /**
+   * The page-probe screenshot capture, measured 7.7–8.8 s on the pilot. It
+   * writes `<outDir>/screenshots/full-page.png`; its stdout is a file list, so
+   * no JSON is required from it (`--json` is deliberately absent).
+   */
+  | { kind: 'screenshots'; url: string; outDir: string };
 
 /** Positive evidence, or the exact code the caller must treat as blocked. */
 export type DesignlangEvidence =
@@ -89,7 +95,9 @@ export function buildDesignlangArgs(input: BuildDesignlangArgsInput): string[] {
     case 'stats':
       return ['stats', input.url, '--as-json'];
     case 'extract':
-      return [input.url, '--json', '--screenshots', '--no-history', '-o', input.outDir, '--quiet'];
+      return [input.url, '--json', '--no-history', '-o', input.outDir, '--quiet'];
+    case 'screenshots':
+      return [input.url, '--screenshots', '--no-history', '-o', input.outDir, '--quiet'];
   }
 }
 

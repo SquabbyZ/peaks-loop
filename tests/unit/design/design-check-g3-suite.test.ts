@@ -221,7 +221,10 @@ describe('Scenario: integration — the baseline and rubric sources', () => {
 
     expect(calls[0]?.baselineUrl).toBe(explicit);
     expect(result.checks.g3_exemplar.g3a[0]?.status).toBe('pass');
-    expect(result.checks.g3_exemplar.g3a[0]).toMatchObject({ probeMs: 5000 });
+    expect(result.checks.g3_exemplar.g3a[0]).toMatchObject({
+      probeMs: 5000,
+      routeEvidence: 'route /: inert (no routeMarkers entry)'
+    });
   });
 
   it('when a baseline is recorded, should use its URL and the candidate route', async () => {

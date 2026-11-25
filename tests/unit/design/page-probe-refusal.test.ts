@@ -13,6 +13,7 @@ declareDimensions('tests/unit/design/page-probe-refusal.test.ts', [
 ]);
 
 import type { DesignlangRunResult } from '../../../src/services/design/designlang.js';
+import { unusable } from '../../../src/services/design/page-probe-block.js';
 import { probePageUsable } from '../../../src/services/design/page-probe.js';
 import { rgbPng } from './_png-bytes.js';
 
@@ -23,21 +24,31 @@ afterEach(() => {
   while (roots.length > 0) rmSync(roots.pop() as string, { recursive: true, force: true });
 });
 
-/** One capture dir holding the blank PNG the fake capture JSON names. */
-function blankCapture(): { outDir: string; runCapture: () => Promise<DesignlangRunResult> } {
+/** One capture dir holding the blank PNG the fake screenshot arm writes. */
+function blankCapture(): {
+  outDir: string;
+  runIdentity: () => Promise<DesignlangRunResult>;
+  runScreenshot: () => Promise<DesignlangRunResult>;
+} {
   const outDir = mkdtempSync(join(tmpdir(), 'peaks-probe-refusal-'));
   roots.push(outDir);
   mkdirSync(join(outDir, 'screenshots'), { recursive: true });
   writeFileSync(join(outDir, 'screenshots', 'full-page.png'), BLANK_PNG);
   return {
     outDir,
-    runCapture: async () => ({
+    runIdentity: async () => ({
       exitCode: 0,
       stdout: JSON.stringify({
-        componentScreenshots: { fullPage: { path: 'screenshots/full-page.png' } },
+        componentScreenshots: {},
         meta: { title: 'Ledgerly' },
         voice: { sampleHeadings: ['Reconciliation'] }
       }),
+      stderr: '',
+      timedOut: false
+    }),
+    runScreenshot: async () => ({
+      exitCode: 0,
+      stdout: 'capture-out/screenshots/full-page.png\n',
       stderr: '',
       timedOut: false
     })
@@ -62,7 +73,8 @@ describe('Scenario: behavior — every echoed URL is redacted', () => {
     const result = await probePageUsable({
       url: 'http://user:pass@127.0.0.1:7611/',
       outDir: '.',
-      runCapture: async () => ({ exitCode: 0, stdout: '', stderr: '', timedOut: false }),
+      runIdentity: async () => ({ exitCode: 0, stdout: '{}', stderr: '', timedOut: false }),
+      runScreenshot: async () => ({ exitCode: 0, stdout: '', stderr: '', timedOut: false }),
       runStats: passingStats,
       fetchPage: async () => ({
         status: 200,
@@ -88,7 +100,8 @@ describe('Scenario: behavior — every echoed URL is redacted', () => {
     const result = await probePageUsable({
       url: 'http://127.0.0.1:7611/',
       outDir: injected.outDir,
-      runCapture: injected.runCapture,
+      runIdentity: injected.runIdentity,
+      runScreenshot: injected.runScreenshot,
       runStats: passingStats,
       fetchPage: async () => ({
         status: 200,
@@ -113,7 +126,8 @@ describe('Scenario: behavior — every echoed URL is redacted', () => {
     const result = await probePageUsable({
       url: 'http://127.0.0.1:7611/',
       outDir: '.',
-      runCapture: async () => ({ exitCode: 0, stdout: '', stderr: '', timedOut: false }),
+      runIdentity: async () => ({ exitCode: 0, stdout: '{}', stderr: '', timedOut: false }),
+      runScreenshot: async () => ({ exitCode: 0, stdout: '', stderr: '', timedOut: false }),
       runStats: passingStats,
       fetchPage: async () => ({
         status: 200,
@@ -126,5 +140,24 @@ describe('Scenario: behavior — every echoed URL is redacted', () => {
     if (result.ok) throw new Error('expected a block');
     expect(result.message).toContain('opaque:***@host');
     expect(result.message).not.toContain('user:pass');
+  });
+
+  it('when a measured URL carries an ESC sequence, should keep its byte out of the block', () => {
+    // given: a requested URL and a page-controlled finalUrl, each with a CSI sequence
+    // when: the unusable-page block renders its measured fields
+    // then: both echoes lose the whole sequence and keep the host a reader needs
+    const result = unusable('http://127.0.0.1:7611/\u001b[2J', 'it rendered nothing', {
+      status: 200,
+      finalUrl: 'http://127.0.0.1:7611/\u001b[1m',
+      fontFamilyCount: 2,
+      elapsedMs: 5
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('expected a block');
+    expect(result.message).not.toMatch(/\p{Cc}/u);
+    expect(result.message).not.toContain('[2J');
+    expect(result.message).not.toContain('[1m');
+    expect(result.message).toContain('The page http://127.0.0.1:7611/');
+    expect(result.message).toContain('finalUrl http://127.0.0.1:7611/');
   });
 });

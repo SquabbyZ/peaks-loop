@@ -181,4 +181,68 @@ describe('Scenario: a11y — a refusal never echoes URL credentials', () => {
       expect(result.message).not.toContain('s3cret');
     }
   });
+
+  it('when an untrusted URL carries an ESC sequence, should drop the sequence tail', async () => {
+    // given: an untrusted URL whose path carries a CSI clear-screen sequence
+    // when: the trust refusal is composed
+    // then: the echoed URL loses the whole sequence, not just the ESC byte
+    const root = makeRoot();
+    const entry = fakeEngine(root, join(root, 'argv.json'));
+
+    const result = await runFidelity(
+      inputFor(root, entry, {
+        baselineUrl: 'http://192.168.1.5:4311/\u001b[2J',
+        deps: depsFor(entry, { isTrusted: () => false })
+      })
+    );
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.code).toBe('DESIGN_URL_UNTRUSTED');
+      expect(result.message).not.toContain('[2J');
+      expect(result.message).toContain('http://192.168.1.5:4311/');
+    }
+  });
+
+  it('when an unreachable URL carries an ESC sequence, should drop the sequence tail', async () => {
+    // given: a URL whose path carries a CSI sequence and a probe answering 503
+    // when: the reachability refusal is composed
+    // then: the echoed URL loses the whole sequence, not just the ESC byte
+    const root = makeRoot();
+    const entry = fakeEngine(root, join(root, 'argv.json'));
+
+    const result = await runFidelity(
+      inputFor(root, entry, {
+        baselineUrl: 'http://127.0.0.1:4311/\u001b[2J',
+        deps: depsFor(entry, { probeStatus: async () => 503 })
+      })
+    );
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.code).toBe('DESIGN_FIDELITY_URL_UNREACHABLE');
+      expect(result.message).not.toContain('[2J');
+      expect(result.message).toContain('http://127.0.0.1:4311/');
+    }
+  });
+
+  it('when a self-compare URL is very long, should cap the echoed URL', async () => {
+    // given: one 300-character URL passed as both the baseline and the candidate
+    // when: the self-compare refusal is composed
+    // then: the echoed URL is bounded to the evidence-snippet cap
+    const root = makeRoot();
+    const entry = fakeEngine(root, join(root, 'argv.json'));
+    const longUrl = `http://127.0.0.1:4311/${'a'.repeat(300)}`;
+
+    const result = await runFidelity(
+      inputFor(root, entry, { baselineUrl: longUrl, candidateUrl: longUrl })
+    );
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.code).toBe('DESIGN_FIDELITY_SELF_COMPARE');
+      expect(result.message).not.toContain('a'.repeat(150));
+      expect(result.message).toContain('…');
+    }
+  });
 });

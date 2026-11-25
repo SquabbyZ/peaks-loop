@@ -28,6 +28,8 @@ export type BuildEngineDepsInput = {
   url?: string;
   /** Routes the probe capture under this session's `design/probe`; defaults to `local`. */
   sessionId?: string;
+  /** The app's `design/` root; the probe reads `routeMarkers` from it when given. */
+  designRoot?: string;
   env?: Readonly<Record<string, string | undefined>>;
 };
 
@@ -107,7 +109,8 @@ export function buildEngineDeps(input: BuildEngineDepsInput): DesignEngineDeps {
     probePage: buildPageProbe({
       availability,
       projectRoot: input.projectRoot,
-      ...(input.sessionId === undefined ? {} : { sessionId: input.sessionId })
+      ...(input.sessionId === undefined ? {} : { sessionId: input.sessionId }),
+      ...(input.designRoot === undefined ? {} : { designRoot: input.designRoot })
     }),
     run: (_kind, request) => {
       const entryPath = availability.entryPath;

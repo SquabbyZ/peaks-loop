@@ -64,6 +64,7 @@ describe('Scenario: behavior — an older paved road still reads', () => {
     const road = readPavedRoad(root);
     expect(road.exclude).toEqual([]);
     expect(road.pageRoots).toEqual(['src/app']);
+    expect(road.routeMarkers).toEqual({});
   });
 
   it('when the file records exclude, should keep every entry', () => {
@@ -78,6 +79,37 @@ describe('Scenario: behavior — an older paved road still reads', () => {
       'utf8'
     );
     expect(readPavedRoad(root).exclude).toEqual(['legacy', 'src/gen']);
+  });
+
+  it('when the file declares route markers, should read each route and drop bad entries', () => {
+    // given: a paved road whose routeMarkers mixes a string, a blank and a number
+    // when: the tolerant reader parses it
+    // then: only non-empty string markers survive, keyed by their route
+    const root = mkdtempSync(join(tmpdir(), 'peaks-paved-road-'));
+    roots.push(root);
+    writeFileSync(
+      join(root, 'paved-road.json'),
+      JSON.stringify({
+        pageRoots: ['src/app'],
+        routeMarkers: { '/reports': 'Quarterly reports', '/blank': '   ', '/number': 3 }
+      }),
+      'utf8'
+    );
+    expect(readPavedRoad(root).routeMarkers).toEqual({ '/reports': 'Quarterly reports' });
+  });
+
+  it('when routeMarkers is not an object, should read it as no markers declared', () => {
+    // given: a paved road whose routeMarkers is an array
+    // when: the tolerant reader parses it
+    // then: the malformed map is empty rather than a crash
+    const root = mkdtempSync(join(tmpdir(), 'peaks-paved-road-'));
+    roots.push(root);
+    writeFileSync(
+      join(root, 'paved-road.json'),
+      JSON.stringify({ pageRoots: ['src/app'], routeMarkers: ['/reports'] }),
+      'utf8'
+    );
+    expect(readPavedRoad(root).routeMarkers).toEqual({});
   });
 });
 

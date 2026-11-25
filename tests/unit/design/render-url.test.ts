@@ -292,6 +292,20 @@ describe('Scenario: a11y — the refusal text names the fix', () => {
     expect(result.message).not.toContain('alice');
   });
 
+  it('when a refused URL carries an ESC sequence, should keep its byte out of the message', () => {
+    // given: an untrusted URL whose path carries a CSI clear-screen sequence
+    // when: the resolver refuses it
+    // then: the echo names the host and no control byte reaches the persisted text
+    const result = resolveRenderUrl({
+      explicitUrl: 'http://10.0.0.5:3000/\u001b[2J',
+      engine: renderContract()
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('expected an untrusted refusal');
+    expect(result.message).not.toMatch(/\p{Cc}/u);
+    expect(result.message).toContain('http://10.0.0.5:3000/');
+  });
+
   it('when nothing is configured, should name the env key and the derived-port remedy', () => {
     // given: no flag, no env, no recorded URL, and no usable port
     // when: the resolver reports a missing URL

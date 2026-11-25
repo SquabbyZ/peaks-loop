@@ -16,7 +16,9 @@ import { getSessionDir, isSinglePathSegment } from '../session/getSessionDir.js'
 import { isInsidePath, pathsEqual, stableRealPath } from '../../shared/path-utils.js';
 import { buildDesignlangArgs, runDesignlang, type DesignlangRunResult } from './designlang.js';
 import type { EngineAvailability } from './engine-status.js';
+import { CAPTURE_TIMEOUT_MS, IDENTITY_TIMEOUT_MS } from './page-capture.js';
 import { probePageUsable, type PageProbeResult } from './page-probe.js';
+import { readPavedRoad } from './source-scan/inputs.js';
 import { redactUrl } from './url-redact.js';
 
 const NOT_AVAILABLE: DesignlangRunResult = {
@@ -40,7 +42,35 @@ export type PageProbeContext = {
   availability: EngineAvailability;
   projectRoot: string;
   sessionId?: string;
+  /** The app's `design/` root; when given, `routeMarkers` are read from it. */
+  designRoot?: string;
 };
+
+/** A route comparison key: no query, collapsed slashes, no leading/trailing slash. */
+function routeKey(value: string): string {
+  return value
+    .replace(/[?#].*$/, '')
+    .replace(/\/+/g, '/')
+    .replace(/^\/+|\/+$/g, '');
+}
+
+/**
+ * The marker `paved-road.json` declares for the route this URL names, if any.
+ * The URL's pathname is the route under test (G2 hands each page, G3a hands the
+ * route's resolved URL), so the lookup never invents a route. Module-private:
+ * `buildPageProbe` is its only caller.
+ */
+function declaredRouteMarker(
+  markers: Readonly<Record<string, string>>,
+  url: string
+): string | undefined {
+  if (!URL.canParse(url)) return undefined;
+  const wanted = routeKey(new URL(url).pathname);
+  for (const [route, marker] of Object.entries(markers)) {
+    if (routeKey(route) === wanted && marker.trim() !== '') return marker;
+  }
+  return undefined;
+}
 
 /** A filesystem-safe directory name for one page URL; never empty. */
 export function probeSlug(url: string): string {
@@ -179,16 +209,20 @@ export function pruneStaleProbes(
   return outcome;
 }
 
-/** The probe for one engine; each call runs stats, then the screenshot capture. */
+/** The probe for one engine; each call runs stats, identity, then screenshots. */
 export function buildPageProbe(
   context: PageProbeContext
 ): (url: string) => Promise<PageProbeResult> {
   const entryPath = context.availability.entryPath;
+  // Read once per bound probe: the markers are static contract data, and an
+  // older paved-road.json without `routeMarkers` reads as "none declared".
+  const routeMarkers =
+    context.designRoot === undefined ? {} : readPavedRoad(context.designRoot).routeMarkers;
   const sessionDir = (): string =>
     getSessionDir(context.projectRoot, context.sessionId ?? LOCAL_SESSION);
-  const run = (args: readonly string[]): Promise<DesignlangRunResult> => {
+  const run = (args: readonly string[], timeoutMs?: number): Promise<DesignlangRunResult> => {
     if (entryPath === null) return Promise.resolve({ ...NOT_AVAILABLE });
-    return runDesignlang({ entryPath, args });
+    return runDesignlang({ entryPath, args, ...(timeoutMs === undefined ? {} : { timeoutMs }) });
   };
   return (url) => {
     const target = captureDir(context, url);
@@ -204,13 +238,21 @@ export function buildPageProbe(
     // slug go before the new one is written. Failure to prune never blocks; the
     // outcome rides on the result so the caller can record what happened.
     const pruned = pruneStaleProbes(sessionDir(), url, target.dir);
-    const runCapture = (page: string, outDir: string): Promise<DesignlangRunResult> =>
-      run(buildDesignlangArgs({ kind: 'extract', url: page, outDir }));
+    const expectedMarker = declaredRouteMarker(routeMarkers, url);
     return probePageUsable({
       url,
+      ...(expectedMarker === undefined ? {} : { expectedMarker }),
       outDir: target.dir,
       runStats: (page) => run(buildDesignlangArgs({ kind: 'stats', url: page })),
-      runCapture
+      // Two bounded calls: the JSON must come back without waiting on the slow
+      // screenshot arm (round 4 measured >381 s when the two flags shared a run).
+      runIdentity: (page) =>
+        run(
+          buildDesignlangArgs({ kind: 'extract', url: page, outDir: target.dir }),
+          IDENTITY_TIMEOUT_MS
+        ),
+      runScreenshot: (page, outDir) =>
+        run(buildDesignlangArgs({ kind: 'screenshots', url: page, outDir }), CAPTURE_TIMEOUT_MS)
     }).then((result) => (result.ok ? { ...result, pruned } : result));
   };
 }

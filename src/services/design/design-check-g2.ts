@@ -20,6 +20,7 @@ import { resolvePageUrls } from './design-page-urls.js';
 import type { ContractRoot } from './design-types.js';
 import type { EngineContractFile } from './engine-contract.js';
 import type { EngineAvailability } from './engine-status.js';
+import { evidenceSnippet } from './evidence-text.js';
 import {
   buildDesignlangArgs,
   type DesignlangCheckKind,
@@ -27,9 +28,11 @@ import {
   type DesignlangRunResult
 } from './designlang.js';
 import { driftVerdict, verifyUiVerdict, type RenderVerdict } from './design-render-verdict.js';
+import { routeJudgmentLine } from './page-paint.js';
 import type { PageProbeResult } from './page-probe.js';
 import type { RenderUrlResult } from './render-url.js';
 import type { StartRenderServerResult } from './render-server.js';
+import { redactUrl } from './url-redact.js';
 
 export type DesignEngineRunInput = { args: readonly string[] };
 
@@ -79,9 +82,22 @@ function blockedReach(code: string): ReachResult {
   return { ok: false, code, message: blockedMessage(code) };
 }
 
+/**
+ * The unreachable refusal names the base URL the probe actually used (`--pages`
+ * never moves it; `--url` picks a different origin). The echo is redacted AND
+ * control-byte-sanitised, as describePaint is: engine.json is a tracked file.
+ */
+function unreachableMessage(url: string): string {
+  const probed = evidenceSnippet(redactUrl(url));
+  return (
+    `${blockedMessage('DESIGN_RENDER_UNREACHABLE')} It probed ${probed}; ` +
+    'pass --url to pick a different origin (--pages only names pages on this base).'
+  );
+}
+
 async function probeOrBlock(deps: DesignEngineDeps, url: string): Promise<ReachResult> {
   if (await deps.probe(url)) return { ok: true, stop: null };
-  return blockedReach('DESIGN_RENDER_UNREACHABLE');
+  return { ok: false, code: 'DESIGN_RENDER_UNREACHABLE', message: unreachableMessage(url) };
 }
 
 async function ensureReachable(
@@ -165,9 +181,10 @@ async function runChecks(
     const verifyOutcome = verdictOutcome(verifyUiVerdict(verify, url), warnings);
     if (verifyOutcome !== null) return verifyOutcome;
     evidence.push(`verify-ui ${url}`);
-    // The probe's own wall time is evidence too: a slow-but-passing probe is
-    // ~5 s per URL and was previously invisible once the page passed.
+    // A passing probe measured 13.6 s per URL; a refused ROUTE pays only the
+    // identity half, so this is what the capture added, not a constant.
     evidence.push(`probe ${url} elapsedMs ${String(usable.observation.elapsedMs)}`);
+    evidence.push(routeJudgmentLine(url, usable.observation.route));
     // Disk hygiene the probe performed is evidence too; a failure is advisory
     // because stale captures never change whether the page is usable.
     if (usable.pruned !== undefined && usable.pruned.removed.length > 0) {
@@ -262,6 +279,7 @@ export async function completeG2(
     buildEngineDeps({
       projectRoot: input.projectRoot,
       engine,
+      designRoot: root.designRoot,
       ...(input.url === undefined ? {} : { url: input.url }),
       ...(input.sessionId === undefined ? {} : { sessionId: input.sessionId }),
       env: process.env

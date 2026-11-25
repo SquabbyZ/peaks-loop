@@ -17,6 +17,7 @@ import { join } from 'node:path';
 import { getSessionDir, isSinglePathSegment } from '../session/getSessionDir.js';
 import { readEngineContract } from './design-engine-deps.js';
 import { resolveEngine, type EngineAvailability } from './engine-status.js';
+import { evidenceSnippet } from './evidence-text.js';
 import { type DesignlangRunResult, runDesignlang } from './designlang.js';
 import { type ParsedReport, readFidelityReport, REPORT_FILE } from './fidelity-report.js';
 import { isTrustedDesignUrl } from './url-trust.js';
@@ -166,7 +167,7 @@ async function requireHttp200(
       const answer = status === null ? 'did not answer' : `answered HTTP ${String(status)}`;
       return blocked(
         'DESIGN_FIDELITY_URL_UNREACHABLE',
-        `The fidelity URL ${redactUrl(url)} ${answer}; both the baseline and the candidate must ` +
+        `The fidelity URL ${evidenceSnippet(redactUrl(url))} ${answer}; both the baseline and the candidate must ` +
           'answer HTTP 200 before designlang runs.'
       );
     }
@@ -185,7 +186,7 @@ function sameUrlRefusal(input: RunFidelityInput): FidelityRunResult | null {
   if (baseline === null || baseline !== normalizedUrl(input.candidateUrl)) return null;
   return blocked(
     'DESIGN_FIDELITY_SELF_COMPARE',
-    `The fidelity baseline and candidate normalise to the same URL (${redactUrl(baseline)}); ` +
+    `The fidelity baseline and candidate normalise to the same URL (${evidenceSnippet(redactUrl(baseline))}); ` +
       'a page compared with itself always scores 100. Pass the base-revision render as the ' +
       'baseline or record it in the baseline store.'
   );
@@ -207,7 +208,7 @@ async function planFidelity(input: RunFidelityInput): Promise<Planned> {
   if (untrusted !== undefined) {
     return refuse(
       'DESIGN_URL_UNTRUSTED',
-      `Refusing untrusted fidelity URL ${redactUrl(untrusted)}: use a loopback host or record it ` +
+      `Refusing untrusted fidelity URL ${evidenceSnippet(redactUrl(untrusted))}: use a loopback host or record it ` +
         'as render.url.'
     );
   }

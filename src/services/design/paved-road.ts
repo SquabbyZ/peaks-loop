@@ -33,6 +33,12 @@ export type PavedRoadFile = {
   pageRoots: string[];
   /** Paths the source scan stays out of; absent in files written before S5. */
   exclude: string[];
+  /**
+   * Optional route -> marker copy the probe can expect on that route (S6).
+   * Absent in older files and in projects that declare none; the probe then
+   * judges only the measured generic signals.
+   */
+  routeMarkers: Record<string, string>;
   componentEntrypoints: string[];
   allowDirectLibraryImports: string[];
   bannedImportSpecifiers: string[];
@@ -47,6 +53,7 @@ export type PavedRoadInput = {
   exclude?: readonly string[];
   allowDirectLibraryImports?: readonly string[];
   bannedImportSpecifiers?: readonly string[];
+  routeMarkers?: Readonly<Record<string, string>>;
 };
 
 const DEFAULT_TOKEN_SCALE: DesignTokenScale = {
@@ -72,11 +79,25 @@ export function uniqueList(values: readonly string[]): string[] {
   return [...new Set(values)];
 }
 
+/**
+ * A route -> marker map read from disk. Only non-empty string values under a
+ * non-empty key survive; a malformed or absent map reads as "none declared".
+ */
+export function markerMap(value: unknown): Record<string, string> {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return {};
+  const entries = Object.entries(value as Record<string, unknown>).filter(
+    (entry): entry is [string, string] =>
+      entry[0].trim() !== '' && typeof entry[1] === 'string' && entry[1].trim() !== ''
+  );
+  return Object.fromEntries(entries);
+}
+
 export function buildPavedRoad(input: PavedRoadInput): PavedRoadFile {
   return {
     schemaVersion: 1,
     pageRoots: [...input.pageRoots],
     exclude: [...(input.exclude ?? [])],
+    routeMarkers: { ...(input.routeMarkers ?? {}) },
     componentEntrypoints: [...input.componentEntrypoints],
     allowDirectLibraryImports: [...(input.allowDirectLibraryImports ?? [])],
     bannedImportSpecifiers: [...(input.bannedImportSpecifiers ?? [])],

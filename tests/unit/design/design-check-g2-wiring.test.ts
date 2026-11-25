@@ -84,9 +84,11 @@ describe('Scenario: behavior — configured pages and start wiring', () => {
         `drift ${DEFAULT_URL}`,
         `verify-ui ${DEFAULT_URL}`,
         `probe ${DEFAULT_URL} elapsedMs 5000`,
+        'route /: inert (no routeMarkers entry)',
         `drift ${DEFAULT_URL}about`,
         `verify-ui ${DEFAULT_URL}about`,
-        `probe ${DEFAULT_URL}about elapsedMs 5000`
+        `probe ${DEFAULT_URL}about elapsedMs 5000`,
+        'route /about: inert (no routeMarkers entry)'
       ]
     });
   });
@@ -105,9 +107,11 @@ describe('Scenario: behavior — configured pages and start wiring', () => {
         `drift ${DEFAULT_URL}`,
         `verify-ui ${DEFAULT_URL}`,
         `probe ${DEFAULT_URL} elapsedMs 5000`,
+        'route /: inert (no routeMarkers entry)',
         `drift ${DEFAULT_URL}about`,
         `verify-ui ${DEFAULT_URL}about`,
-        `probe ${DEFAULT_URL}about elapsedMs 5000`
+        `probe ${DEFAULT_URL}about elapsedMs 5000`,
+        'route /about: inert (no routeMarkers entry)'
       ]
     });
   });
@@ -164,7 +168,8 @@ describe('Scenario: behavior — configured pages and start wiring', () => {
       evidence: [
         `drift ${DEFAULT_URL}`,
         `verify-ui ${DEFAULT_URL}`,
-        `probe ${DEFAULT_URL} elapsedMs 5000`
+        `probe ${DEFAULT_URL} elapsedMs 5000`,
+        'route /: inert (no routeMarkers entry)'
       ]
     });
   });
@@ -274,9 +279,11 @@ describe('Scenario: behavior — the two-page matrix', () => {
         `drift ${DEFAULT_URL}`,
         `verify-ui ${DEFAULT_URL}`,
         `probe ${DEFAULT_URL} elapsedMs 5000`,
+        'route /: inert (no routeMarkers entry)',
         `drift ${DEFAULT_URL}about`,
         `verify-ui ${DEFAULT_URL}about`,
-        `probe ${DEFAULT_URL}about elapsedMs 5000`
+        `probe ${DEFAULT_URL}about elapsedMs 5000`,
+        'route /about: inert (no routeMarkers entry)'
       ]
     });
   });
@@ -320,7 +327,8 @@ describe('Scenario: render — the direct G2 outcome document', () => {
         evidence: [
           `drift ${DEFAULT_URL}`,
           `verify-ui ${DEFAULT_URL}`,
-          `probe ${DEFAULT_URL} elapsedMs 5000`
+          `probe ${DEFAULT_URL} elapsedMs 5000`,
+          'route /: inert (no routeMarkers entry)'
         ]
       },
       warnings: [],
@@ -432,7 +440,8 @@ describe('Scenario: render — the full result document', () => {
       evidence: [
         `drift ${DEFAULT_URL}`,
         `verify-ui ${DEFAULT_URL}`,
-        `probe ${DEFAULT_URL} elapsedMs 5000`
+        `probe ${DEFAULT_URL} elapsedMs 5000`,
+        'route /: inert (no routeMarkers entry)'
       ]
     });
     expect(result.findings).toEqual([]);

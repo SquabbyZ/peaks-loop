@@ -84,6 +84,20 @@ describe('Scenario: behavior — every render page URL is trusted', () => {
     expect(result.message).not.toContain('s3cret');
     expect(result.message).not.toContain('alice');
   });
+
+  it('when an untrusted page carries an ESC sequence, should keep its tail out of the message', async () => {
+    // given: an untrusted page URL whose path carries a CSI clear-screen sequence
+    // when: the render check refuses it
+    // then: the echoed page loses the whole sequence, not just the ESC byte
+    const root = await createAdoptedApp();
+    const result = await checkDesign(
+      input(root, { pages: ['http://192.168.1.5:3000/\u001b[2J'] }),
+      fakeEngine()
+    );
+    expect(result.errorCode).toBe('DESIGN_URL_UNTRUSTED');
+    expect(result.message).toContain('Offending page: http://192.168.1.5:3000/.');
+    expect(result.message).not.toContain('[2J');
+  });
 });
 
 describe('Scenario: behavior — the recorded start policy gates --start', () => {
@@ -180,13 +194,31 @@ describe('Scenario: behavior — the G2 unavailability matrix', () => {
   it('when the URL does not answer, should block with DESIGN_RENDER_UNREACHABLE', async () => {
     // given: a trusted URL that refuses the probe
     // when: check runs without --start
-    // then: the probe failure blocks
+    // then: the probe failure blocks, naming the base it probed and the --url flag
     const root = await createAdoptedApp();
     const result = await checkDesign(input(root), fakeEngine({ probe: async () => false }));
     expect(result.checks.g2_render).toEqual({
       status: 'blocked',
       code: 'DESIGN_RENDER_UNREACHABLE'
     });
+    expect(result.message).toContain(`It probed ${DEFAULT_URL}`);
+    expect(result.message).toContain('--url');
+  });
+
+  it('when the probed URL carries an ESC sequence, should keep it out of the message', async () => {
+    // given: a trusted base URL whose path carries a CSI clear-screen sequence
+    // when: the reachability probe refuses it
+    // then: the persisted unreachable message carries no control byte
+    const root = await createAdoptedApp();
+    const resolveUrl = () =>
+      ({ ok: true, url: 'http://127.0.0.1:4321/\u001b[2J', source: 'flag' }) as const;
+    const result = await checkDesign(
+      input(root),
+      fakeEngine({ resolveUrl, probe: async () => false })
+    );
+    expect(result.errorCode).toBe('DESIGN_RENDER_UNREACHABLE');
+    expect(result.message).not.toMatch(/\p{Cc}/u);
+    expect(result.message).toContain('http://127.0.0.1:4321/');
   });
 });
 
@@ -272,7 +304,8 @@ describe('Scenario: behavior — the G2 verdict matrix', () => {
       evidence: [
         `drift ${DEFAULT_URL}`,
         `verify-ui ${DEFAULT_URL}`,
-        `probe ${DEFAULT_URL} elapsedMs 5000`
+        `probe ${DEFAULT_URL} elapsedMs 5000`,
+        'route /: inert (no routeMarkers entry)'
       ]
     });
     expect(result.warnings?.join(' ')).toContain('slop');

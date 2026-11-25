@@ -57,6 +57,8 @@ export type EvaluateG3aInput = {
   min?: number;
   /** Wall time the usability probe spent on `candidateUrl`, when it ran. */
   probeMs?: number;
+  /** The route stage's one-line judgment of `candidateUrl`, when the probe ran. */
+  routeEvidence?: string | undefined;
   deps: G3ADeps;
 };
 
@@ -75,6 +77,8 @@ type G3AEvidence = {
   baseCommit: string | null;
   /** Wall time the usability probe spent on `candidateUrl`, when it ran. */
   probeMs?: number;
+  /** The route stage's one-line judgment of `candidateUrl`, when the probe ran. */
+  routeEvidence?: string;
 };
 
 export type G3AResult =
@@ -219,7 +223,8 @@ export async function evaluateG3a(input: EvaluateG3aInput): Promise<G3AResult> {
     baselineUrl: target.url,
     candidateUrl: input.candidateUrl,
     baseCommit: target.baseCommit,
-    ...(input.probeMs === undefined ? {} : { probeMs: input.probeMs })
+    ...(input.probeMs === undefined ? {} : { probeMs: input.probeMs }),
+    ...(input.routeEvidence === undefined ? {} : { routeEvidence: input.routeEvidence })
   };
   if (result.score < min) return { status: 'fail', reason: 'below-min', ...evidence };
   return { status: 'pass', ...evidence };

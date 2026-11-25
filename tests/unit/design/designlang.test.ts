@@ -197,6 +197,40 @@ describe('Scenario: render — the designlang argument vectors', () => {
     expect(args).toEqual(['stats', 'http://127.0.0.1:4321/', '--as-json']);
   });
 
+  it('when the probe capture is requested, should split identity JSON from the screenshot', () => {
+    // given: a loopback URL and one output directory
+    // when: the identity and screenshot argument vectors are built
+    // then: neither run combines `--json` with `--screenshots` (round 4 overran 120 s)
+    const identity = buildDesignlangArgs({
+      kind: 'extract',
+      url: 'http://127.0.0.1:4321/',
+      outDir: '/t/probe'
+    });
+    expect(identity).toEqual([
+      'http://127.0.0.1:4321/',
+      '--json',
+      '--no-history',
+      '-o',
+      '/t/probe',
+      '--quiet'
+    ]);
+    const screenshot = buildDesignlangArgs({
+      kind: 'screenshots',
+      url: 'http://127.0.0.1:4321/',
+      outDir: '/t/probe'
+    });
+    expect(screenshot).toEqual([
+      'http://127.0.0.1:4321/',
+      '--screenshots',
+      '--no-history',
+      '-o',
+      '/t/probe',
+      '--quiet'
+    ]);
+    expect(identity).not.toContain('--screenshots');
+    expect(screenshot).not.toContain('--json');
+  });
+
   it('when any subcommand is built, should never force the system-chrome channel', () => {
     // given: every check kind the adapter wraps
     // when: each argument vector is built

@@ -10,15 +10,8 @@
  * baseline is `skipped('no-baseline')` and one with no exemplar
  * `skipped(no-exemplar-for-archetype)`. None of those is ever a pass.
  *
- * Only a G3a `fail` turns a passing verdict into `fail`, and a G3a `blocked`
- * (an unusable baseline, an untrusted URL, no engine) turns it into `blocked`.
- * G3b is advisory: pass, warn, blocked and skipped never touch the top verdict.
- *
- * `--skip-exemplar` records the acceptance as `explicitly-accepted` on G3b and
- * skips only the advisory rubric; the hard G3a regression still runs.
- *
- * `--baseline-url` names one route's baseline, so a change that touches any
- * other number of routes is a usage error (exit 3, nothing written).
+ * Only a G3a `fail`/`blocked` (an unusable baseline, an untrusted URL, no
+ * engine) changes the top verdict; G3b is advisory and never touches it.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -44,10 +37,11 @@ import {
   type ExemplarRegistry
 } from './exemplars.js';
 import { runFidelity } from './fidelity.js';
+import { routeJudgmentLine } from './page-paint.js';
 import { buildGatedPageProbe } from './page-probe-deps.js';
 import type { PageProbeResult } from './page-probe.js';
 import { resolveRenderUrl } from './render-url.js';
-import { deriveChangedRoutes, type ChangedRoutes } from './design-routes.js';
+import { deriveChangedRoutes } from './design-routes.js';
 import { readPavedRoad } from './source-scan/inputs.js';
 
 /** The session G2 also falls back to when no `--session-id` is given. */
@@ -129,14 +123,14 @@ function buildSuiteDeps(input: G3CheckInput, contractRoot: ContractRoot): G3Suit
         };
       }
     },
-    probePage: buildGatedPageProbe({ availability, projectRoot: input.projectRoot, sessionId }),
+    probePage: buildGatedPageProbe({
+      availability,
+      projectRoot: input.projectRoot,
+      sessionId,
+      designRoot: contractRoot.designRoot
+    }),
     rubricText: readTextOrNull
   };
-}
-
-/** The routes this change touched, derived from the G1 change set. */
-function changedRoutesFor(input: G3CheckInput, contractRoot: ContractRoot): ChangedRoutes {
-  return deriveChangedRoutes(input.changedFiles ?? [], readPavedRoad(contractRoot.designRoot));
 }
 
 /** `--baseline-url` names one route's baseline; any other count is a usage error. */
@@ -168,6 +162,7 @@ async function runG3a(
     }
     let candidateUrl = '';
     let probeMs: number | undefined;
+    let routeEvidence: string | undefined;
     if (recorded.issue === null) {
       const candidate = deps.candidateUrl(route);
       if (!candidate.ok) {
@@ -188,6 +183,7 @@ async function runG3a(
         continue;
       }
       probeMs = usable.observation.elapsedMs;
+      routeEvidence = routeJudgmentLine(candidateUrl, usable.observation.route);
     }
     results.push(
       await evaluateG3a({
@@ -195,6 +191,7 @@ async function runG3a(
         route,
         candidateUrl,
         ...(probeMs === undefined ? {} : { probeMs }),
+        routeEvidence,
         ...(input.baselineUrl === undefined ? {} : { baselineUrl: input.baselineUrl }),
         deps: { fidelity: deps.fidelity }
       })
@@ -275,7 +272,10 @@ export async function completeG3(
 ): Promise<DesignCheckResult> {
   const sessionId = input.sessionId ?? LOCAL_SESSION;
   if (!isSinglePathSegment(sessionId)) return applyG3(input, base, EMPTY_G3_EXEMPLAR);
-  const derived = changedRoutesFor(input, contractRoot);
+  const derived = deriveChangedRoutes(
+    input.changedFiles ?? [],
+    readPavedRoad(contractRoot.designRoot)
+  );
   assertBaselineUrlScope(input, derived.routes);
   if (derived.routes.length === 0 && derived.unknown.length === 0) {
     return applyG3(input, base, EMPTY_G3_EXEMPLAR);

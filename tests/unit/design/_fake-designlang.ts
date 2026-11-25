@@ -149,8 +149,9 @@ export function cleanProbe(url: string): PageProbeResult {
       fontFamilyCount: 2,
       typeScale: 4,
       paint: { nonModalPct: 5.5, quantisedColours: 1579, luminanceStd: 20.19 },
-      pageTitle: 'Ledgerly',
-      pageHeadings: ['Reconciliation'],
+      route: { kind: 'inert' },
+      identityElapsedMs: 3_000,
+      captureElapsedMs: 2_000,
       elapsedMs: 5_000
     }
   };

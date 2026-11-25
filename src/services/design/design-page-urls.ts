@@ -9,6 +9,7 @@
  */
 import { blockedMessage } from './acceptance.js';
 import type { EngineContractFile } from './engine-contract.js';
+import { evidenceSnippet } from './evidence-text.js';
 import { isTrustedDesignUrl } from './url-trust.js';
 import { redactUrl } from './url-redact.js';
 
@@ -19,7 +20,7 @@ function untrustedPage(page: string): PageUrlResult {
   return {
     ok: false,
     code: 'DESIGN_URL_UNTRUSTED',
-    message: `${blockedMessage('DESIGN_URL_UNTRUSTED')} Offending page: ${redactUrl(page)}.`
+    message: `${blockedMessage('DESIGN_URL_UNTRUSTED')} Offending page: ${evidenceSnippet(redactUrl(page))}.`
   };
 }
 

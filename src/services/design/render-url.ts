@@ -13,6 +13,7 @@
  * "no environment candidate".
  */
 import type { EngineContractFile } from './engine-contract.js';
+import { evidenceSnippet } from './evidence-text.js';
 import { isTrustedDesignUrl } from './url-trust.js';
 import { redactUrl } from './url-redact.js';
 
@@ -58,11 +59,14 @@ function derivedUrl(render: EngineContractFile['render']): string | null {
 }
 
 function refuseUntrusted(url: string, source: RenderUrlSource): RenderUrlResult {
+  // A `--url` flag or a tracked engine.json can carry control bytes; redaction
+  // masks credentials and sanitising removes the bytes before this is persisted.
+  const shown = evidenceSnippet(redactUrl(url));
   return {
     ok: false,
     code: 'DESIGN_URL_UNTRUSTED',
     message:
-      `Refusing untrusted render URL ${redactUrl(url)} (from ${source}): use a loopback host ` +
+      `Refusing untrusted render URL ${shown} (from ${source}): use a loopback host ` +
       'or record this exact URL as render.url in design/engine.json.'
   };
 }

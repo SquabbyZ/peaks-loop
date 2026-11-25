@@ -12,7 +12,7 @@ import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import { normalizePath } from '../../../shared/path-utils.js';
 import { DEFAULT_DESIGN_RULES, type DesignRuleCode } from '../design-rules.js';
-import { buildPavedRoad, stringList, type PavedRoadFile } from '../paved-road.js';
+import { buildPavedRoad, markerMap, stringList, type PavedRoadFile } from '../paved-road.js';
 import type { DesignTokensFile } from '../token-contract.js';
 
 function readJson(filePath: string): Record<string, unknown> {
@@ -44,7 +44,8 @@ export function readPavedRoad(designRoot: string): PavedRoadFile {
     pageRoots: stringList(raw.pageRoots),
     componentEntrypoints: stringList(raw.componentEntrypoints),
     exclude: stringList(raw.exclude),
-    bannedImportSpecifiers: stringList(raw.bannedImportSpecifiers)
+    bannedImportSpecifiers: stringList(raw.bannedImportSpecifiers),
+    routeMarkers: markerMap(raw.routeMarkers)
   });
   paved.rules = readRules(raw.rules);
   return paved;

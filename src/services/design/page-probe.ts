@@ -1,50 +1,57 @@
 /**
- * Is a page usable for a design check? Three stages, because one cannot decide.
+ * Is a page usable for a design check? Four stages, because one cannot decide.
  *
  * Stage A (HTTP) catches a refused server, a non-2xx answer, a redirect to a
  * different path (a sign-in wall), and a short sign-in form. It CANNOT tell a
- * rendered SPA route from a blank shell: both measured as 200, same URL, zero static text.
+ * rendered SPA route from a blank shell: both measured as 200, same URL, zero
+ * static text. Its reader lives in `page-probe-stages.ts`.
  *
  * Stage B runs one `designlang stats --as-json` per URL and blocks when no
- * rendered text element carries a font family. That catches a genuinely empty
- * shell, but on the pilot it PASSES the blank route (stats sees the global
- * stylesheet: fontFamilyCount 1, typeScale 7) because the DOM counts overlap.
+ * rendered text element carries a font family. It also passes the pilot's blank
+ * route (the global stylesheet supplies the counts), so it is corroboration only.
  *
- * Stage C is the measured paint signal: one `designlang` capture that writes
- * `<session>/design/probe/<url>/screenshots/full-page.png`, decoded in-process
- * and quantised to 5 bits per channel. The spike measured a blank frame at
- * nonModalPct 0.00 / 1 colour / luminanceStd 0.00 and the smallest rendered
- * frame over seven captures at 3.03 % / 1296 / 13.77 — a ≥3× margin. A
- * near-uniform frame blocks, so does a capture/decode failure, and so does a
- * page whose title or a rendered heading starts with an unusable marker
- * (sign-in / not-found / HTTP error); the route-identity limit is documented
- * in `page-paint.ts`.
+ * Stage C1 is the screenshot-free identity extract (title, headings, buttons,
+ * anatomy sample text, input count). The ROUTE STAGE judges that document
+ * BEFORE any screenshot runs: a sign-in wall or a 404 card is a
+ * `DESIGN_ROUTE_MISMATCH` that names the identity elapsed time and never pays
+ * its 7.6 s–60 s capture (round 6; round 4 measured >381 s on an auth page).
  *
- * Every failure is `blocked(DESIGN_PAGE_UNUSABLE)` carrying the measured
- * fields — never a score, and never a fail. The paint block carries
- * `status`, `finalUrl`, `nonModalPct`, `quantisedColours` and `luminanceStd`;
- * the earlier stages carry `fontFamilyCount`. An artwork-only page still
- * blocks at Stage B (no text element carries a font family), as the plan
- * recorded; Stage C's paint signal is only reached by pages Stage B passes.
+ * Stage C2 is the screenshot-only extract, reached only when the route is
+ * plausible. It writes `<session>/design/probe/<url>/screenshots/full-page.png`,
+ * decoded in-process and quantised to 5 bits per channel. The spike measured a
+ * blank frame at nonModalPct 0.00 / 1 colour / luminanceStd 0.00 and the
+ * smallest rendered frame over seven captures at 3.03 % / 1296 / 13.77 — a ≥3×
+ * margin. A near-uniform frame blocks, so does a capture/decode failure and a
+ * capture timeout with its measured elapsedMs.
+ *
+ * Every failure is `blocked` carrying the measured fields — never a score, and
+ * never a fail. The paint block carries `status`, `finalUrl`, `nonModalPct`,
+ * `quantisedColours`, `luminanceStd` and both call timings; the earlier stages
+ * carry `fontFamilyCount`.
  */
 import type { DesignlangRunResult } from './designlang.js';
-import { parseJsonObject } from './designlang-evidence.js';
-import { capturePaint, paintRefusal } from './page-paint.js';
-import { fetchPageHttp, type PageHttpObservation } from './page-probe-http.js';
+import { captureIdentity, captureScreenshot, type PaintFailureCause } from './page-capture.js';
+import { judgeRoute, paintRefusal, type RouteJudgment } from './page-paint.js';
+import { measured, unusable } from './page-probe-block.js';
+import { fetchPageHttp, httpRefusal, type PageHttpObservation } from './page-probe-http.js';
+import { readHttp, readStats, statsRefusal } from './page-probe-stages.js';
 import type { PaintMetric } from './paint-metric.js';
+import type { RouteObservation } from './route-identity.js';
 import { redactUrl } from './url-redact.js';
 
 /** Stage A's observation, the real fetch, and its text counter live in page-probe-http. */
-export { fetchPageHttp, visibleChars, type PageHttpObservation } from './page-probe-http.js';
+export {
+  fetchPageHttp,
+  MIN_SIGNIN_BODY_CHARS,
+  visibleChars,
+  type PageHttpObservation
+} from './page-probe-http.js';
 
-/** The code every unusable page reports; the caller blocks on it, never fails. */
-export const DESIGN_PAGE_UNUSABLE = 'DESIGN_PAGE_UNUSABLE';
+/** The unusable-page block and its measured fields live in page-probe-block. */
+export { DESIGN_PAGE_UNUSABLE } from './page-probe-block.js';
 
-/** Visible characters below which a password field means a sign-in wall. */
-export const MIN_SIGNIN_BODY_CHARS = 300;
-
-const HTTP_OK_MIN = 200;
-const HTTP_OK_MAX = 299;
+/** The route check's code: the page rendered a different route than requested. */
+const DESIGN_ROUTE_MISMATCH = 'DESIGN_ROUTE_MISMATCH';
 
 /** What Stage B measured from `designlang stats --as-json`. */
 export type PageStatsObservation = {
@@ -54,22 +61,26 @@ export type PageStatsObservation = {
   typeScale: number | null;
 };
 
-/** What Stage C measured from the captured viewport PNG. */
+/** What Stage C measured from the identity document and the viewport PNG. */
 export type PagePaintObservation = {
   paint: PaintMetric;
-  pageTitle: string | null;
-  /** Rendered headings the capture reported; empty when none were collected. */
-  pageHeadings: string[];
+  /** What the route stage could tell: inert, or a declared marker observed. */
+  route: RouteJudgment;
 };
 
 export type PageProbeObservation = PageHttpObservation &
   PageStatsObservation &
   PagePaintObservation & {
+    /** Wall time the screenshot-free identity extract took. */
+    identityElapsedMs: number;
+    /** Wall time the screenshot-only capture took. */
+    captureElapsedMs: number;
     /** Wall time this URL's probe spent, so a slow page or a hang is visible. */
     elapsedMs: number;
   };
 
-export type PageProbeCode = typeof DESIGN_PAGE_UNUSABLE | 'DESIGN_ENGINE_UNAVAILABLE';
+export type PageProbeCode =
+  'DESIGN_PAGE_UNUSABLE' | typeof DESIGN_ROUTE_MISMATCH | 'DESIGN_ENGINE_UNAVAILABLE';
 
 /**
  * What the probe's disk hygiene did to stale captures for this URL. Carried on
@@ -83,10 +94,14 @@ export type PageProbeResult =
 
 export type PageProbeInput = {
   url: string;
+  /** A declared marker from `design/paved-road.json`; absent means none. */
+  expectedMarker?: string;
   /** Spawns `designlang stats <url> --as-json`; injected so tests stay hermetic. */
   runStats: (url: string) => Promise<DesignlangRunResult>;
-  /** Spawns the probed capture vector; injected so no unit test launches a browser. */
-  runCapture: (url: string, outDir: string) => Promise<DesignlangRunResult>;
+  /** Spawns the screenshot-free identity extract; injected for hermetic tests. */
+  runIdentity: (url: string) => Promise<DesignlangRunResult>;
+  /** Spawns the screenshot-only extract; injected so no unit test launches a browser. */
+  runScreenshot: (url: string, outDir: string) => Promise<DesignlangRunResult>;
   /** Where the capture writes; `<session>/design/probe/<slug>` in production. */
   outDir: string;
   readCaptureBytes?: (path: string) => Promise<Uint8Array>;
@@ -94,138 +109,124 @@ export type PageProbeInput = {
   fetchPage?: (url: string) => Promise<PageHttpObservation>;
 };
 
-/** A finite number, or null for anything else (including `NaN`/`Infinity`). */
-function finiteNumber(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
+type IdentityRead =
+  | { ok: true; observation: RouteObservation; elapsedMs: number }
+  | { ok: false; detail: string; cause: PaintFailureCause; elapsedMs: number };
 
-function shown(value: string | number | null, fallback: string): string {
-  return value === null ? fallback : String(value);
-}
-
-/** The measured fields every block message must carry, and no score. */
-function measured(url: string, observed: Partial<PageProbeObservation>): string {
-  const status = observed.status ?? null;
-  const finalUrl = observed.finalUrl ?? null;
-  const fontFamilyCount = observed.fontFamilyCount ?? null;
-  const elapsedMs = observed.elapsedMs ?? null;
-  // A redirect's finalUrl is chosen by the tested page, so it can carry
-  // userinfo; both spellings go through redactUrl before they are persisted.
-  const shownUrl = finalUrl === null ? redactUrl(url) : redactUrl(finalUrl);
-  return `status ${shown(status, 'no response')}, finalUrl ${shownUrl}, fontFamilyCount ${shown(fontFamilyCount, 'unknown')}, elapsedMs ${shown(elapsedMs, 'unknown')}`;
-}
-
-function unusable(
-  url: string,
-  detail: string,
-  observed: Partial<PageProbeObservation> = {}
-): PageProbeResult {
-  return {
-    ok: false,
-    code: DESIGN_PAGE_UNUSABLE,
-    message:
-      `The page ${redactUrl(url)} cannot be judged: ${detail} (${measured(url, observed)}). ` +
-      'An unusable page is blocked, never turned into a render verdict.'
-  };
-}
-
-/** The path of a URL, or null when it cannot be parsed. */
-function pathOf(value: string | null): string | null {
-  if (value === null || !URL.canParse(value)) return null;
-  return new URL(value).pathname;
-}
-
-/** Why a 2xx answer's final path differs from the requested one, or null. */
-function redirectRefusal(url: string, http: PageHttpObservation): string | null {
-  const requested = pathOf(url);
-  const final = pathOf(http.finalUrl);
-  if (requested !== null && final !== null && requested !== final) {
-    return `the URL redirected to a different path (${redactUrl(http.finalUrl ?? url)}), which is a sign-in wall`;
-  }
-  return null;
-}
-
-/** Why Stage A refuses this answer, or null when it may proceed to Stage B. */
-function httpRefusal(url: string, http: PageHttpObservation): string | null {
-  // The untrusted hop is reported before the status bucket: a refused 302 is
-  // not the page "answering HTTP 302", it is a redirect this probe would not make.
-  if (http.untrustedRedirect !== null && http.untrustedRedirect !== undefined) {
-    return `the URL redirected to an untrusted host (${redactUrl(http.untrustedRedirect)})`;
-  }
-  if (http.status === null) {
-    return 'the URL did not answer (a refused connection, DNS failure, or timeout)';
-  }
-  if (http.status < HTTP_OK_MIN || http.status > HTTP_OK_MAX) {
-    return `the URL answered HTTP ${String(http.status)}`;
-  }
-  const redirected = redirectRefusal(url, http);
-  if (redirected !== null) return redirected;
-  if (http.hasPasswordField && http.textChars < MIN_SIGNIN_BODY_CHARS) {
-    return `the page carries a password field and only ${String(http.textChars)} visible characters`;
-  }
-  return null;
-}
-
-type StatsRead = { ok: true; observation: PageStatsObservation } | { ok: false; detail: string };
-
-/** Stage B: one stats run; a failed or shapeless run blocks, never passes. */
-async function readStats(runStats: PageProbeInput['runStats'], url: string): Promise<StatsRead> {
-  let result: DesignlangRunResult;
-  try {
-    result = await runStats(url);
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    return { ok: false, detail: `designlang stats threw before printing: ${detail}` };
-  }
-  const parsed = parseJsonObject(result.stdout);
-  if (parsed === null) {
+/** Stage C1: the screenshot-free identity extract; any failure blocks. */
+async function readIdentity(input: PageProbeInput): Promise<IdentityRead> {
+  const read = await captureIdentity({
+    url: input.url,
+    runIdentity: input.runIdentity
+  });
+  if (!read.ok) {
     return {
       ok: false,
-      detail: `designlang stats exited ${String(result.exitCode)} without a JSON document`
+      detail: read.reason,
+      cause: read.cause,
+      elapsedMs: read.elapsedMs
     };
   }
-  const fontFamilyCount = finiteNumber(parsed.fontFamilyCount);
-  if (fontFamilyCount === null) {
-    return {
-      ok: false,
-      detail: `designlang stats exited ${String(result.exitCode)} without a fontFamilyCount`
-    };
-  }
-  return { ok: true, observation: { fontFamilyCount, typeScale: finiteNumber(parsed.typeScale) } };
+  return { ok: true, observation: read.document.observation, elapsedMs: read.elapsedMs };
 }
 
-type PaintRead = { ok: true; observation: PagePaintObservation } | { ok: false; detail: string };
+type CaptureRead =
+  | { ok: true; paint: PaintMetric; elapsedMs: number }
+  | { ok: false; detail: string; cause: PaintFailureCause; elapsedMs: number };
 
-/** Stage C: one capture, its PNG decoded and measured; any failure blocks. */
-async function readPaint(input: PageProbeInput): Promise<PaintRead> {
-  const measured = await capturePaint({
+/** Stage C2: the screenshot extract and the fixed-path decode; any failure blocks. */
+async function readCapture(input: PageProbeInput): Promise<CaptureRead> {
+  const read = await captureScreenshot({
     url: input.url,
     outDir: input.outDir,
-    runCapture: input.runCapture,
+    runScreenshot: input.runScreenshot,
     ...(input.readCaptureBytes === undefined ? {} : { readBytes: input.readCaptureBytes })
   });
-  if (!measured.ok) return { ok: false, detail: measured.reason };
+  if (!read.ok) {
+    return { ok: false, detail: read.reason, cause: read.cause, elapsedMs: read.elapsedMs };
+  }
+  return { ok: true, paint: read.metric, elapsedMs: read.elapsedMs };
+}
+
+type RouteStageRead =
+  { ok: true; judgment: RouteJudgment } | { ok: false; result: PageProbeResult };
+
+/**
+ * The route stage, run BETWEEN the identity extract and the screenshot: a
+ * declared marker that was not observed, a negative marker in the title or a
+ * heading, or an unobserved marker beside rendered inputs. An ok carries the
+ * judgment (inert or declared marker observed) so the caller can record it.
+ */
+function routeStage(
+  input: PageProbeInput,
+  observed: Partial<PageProbeObservation>,
+  identity: Extract<IdentityRead, { ok: true }>
+): RouteStageRead {
+  const verdict = judgeRoute({
+    url: input.url,
+    ...(input.expectedMarker === undefined ? {} : { expectedMarker: input.expectedMarker }),
+    observation: identity.observation
+  });
+  if (verdict.ok) return { ok: true, judgment: verdict.judgment };
   return {
-    ok: true,
-    observation: {
-      paint: measured.metric,
-      pageTitle: measured.document.title,
-      pageHeadings: measured.document.headings
+    ok: false,
+    result: {
+      ok: false,
+      code: DESIGN_ROUTE_MISMATCH,
+      message:
+        `The page ${redactUrl(input.url)} cannot be judged: ${verdict.detail} ` +
+        `(signal ${verdict.signal}; ${measured(input.url, observed)}). ` +
+        'A route mismatch is blocked, never turned into a render verdict.'
     }
   };
+}
+
+/** Stage B through Stage C2, once Stage A and the stats run have passed. */
+async function probeRendered(
+  input: PageProbeInput,
+  statsObservation: PageHttpObservation & PageStatsObservation,
+  elapsed: () => number
+): Promise<PageProbeResult> {
+  const identity = await readIdentity(input);
+  if (!identity.ok) {
+    // The identity extract is the page's own rendered text; without it nothing
+    // can be judged, and the cause names which half of the capture failed.
+    return unusable(
+      input.url,
+      `the page identity could not be read: ${identity.detail} (cause ${identity.cause})`,
+      { ...statsObservation, identityElapsedMs: identity.elapsedMs, elapsedMs: elapsed() }
+    );
+  }
+  const routeObserved = { ...statsObservation, identityElapsedMs: identity.elapsedMs };
+  const routeRead = routeStage(input, { ...routeObserved, elapsedMs: elapsed() }, identity);
+  if (!routeRead.ok) return routeRead.result;
+  const capture = await readCapture(input);
+  if (!capture.ok) {
+    // A capture timeout names its own half and the measured elapsedMs, so the
+    // block can never be mistaken for a score or for a page that was measured.
+    return unusable(
+      input.url,
+      `the viewport capture could not be measured: ${capture.detail} (cause ${capture.cause})`,
+      { ...routeObserved, captureElapsedMs: capture.elapsedMs, elapsedMs: elapsed() }
+    );
+  }
+  const full: PageProbeObservation = {
+    ...routeObserved,
+    paint: capture.paint,
+    route: routeRead.judgment,
+    captureElapsedMs: capture.elapsedMs,
+    elapsedMs: elapsed()
+  };
+  const refusal = paintRefusal(full);
+  if (refusal !== null) return unusable(input.url, refusal, full);
+  return { ok: true, observation: full };
 }
 
 /** Probe one URL; `ok` means a rendered page was measured, anything else blocks. */
 export async function probePageUsable(input: PageProbeInput): Promise<PageProbeResult> {
   const startedAt = Date.now();
   const elapsed = (): number => Date.now() - startedAt;
-  const fetchPage = input.fetchPage ?? fetchPageHttp;
-  let http: PageHttpObservation;
-  try {
-    http = await fetchPage(input.url);
-  } catch {
-    http = { status: null, finalUrl: null, textChars: 0, hasPasswordField: false };
-  }
+  const http = await readHttp(input.url, input.fetchPage ?? fetchPageHttp);
   const httpDetail = httpRefusal(input.url, http);
   if (httpDetail !== null)
     return unusable(input.url, httpDetail, { ...http, elapsedMs: elapsed() });
@@ -235,27 +236,9 @@ export async function probePageUsable(input: PageProbeInput): Promise<PageProbeR
     ...http,
     ...stats.observation
   };
-  const { fontFamilyCount, typeScale } = statsObservation;
-  if (fontFamilyCount === 0 && (typeScale === null || typeScale <= 1)) {
-    return unusable(
-      input.url,
-      'no rendered text element carries a font family, so the page is blank or artwork-only',
-      { ...statsObservation, elapsedMs: elapsed() }
-    );
+  const statsDetail = statsRefusal(stats.observation);
+  if (statsDetail !== null) {
+    return unusable(input.url, statsDetail, { ...statsObservation, elapsedMs: elapsed() });
   }
-  const paint = await readPaint(input);
-  if (!paint.ok) {
-    return unusable(input.url, `the viewport capture could not be measured: ${paint.detail}`, {
-      ...statsObservation,
-      elapsedMs: elapsed()
-    });
-  }
-  const full: PageProbeObservation = {
-    ...statsObservation,
-    ...paint.observation,
-    elapsedMs: elapsed()
-  };
-  const refusal = paintRefusal(full);
-  if (refusal !== null) return unusable(input.url, refusal, full);
-  return { ok: true, observation: full };
+  return probeRendered(input, statsObservation, elapsed);
 }

@@ -216,6 +216,33 @@ describe('Scenario: behavior — the usability probe gates G3a before fidelity',
     const run = result.checks.g3_exemplar.g3a[0];
     expect(run?.status).toBe('blocked');
   });
+
+  it('when the probe observed a declared marker, should record the route judgment', async () => {
+    // given: a recorded baseline and a probe whose route stage observed its marker
+    // when: G3 completes the result
+    // then: the G3a evidence carries the declared-marker line beside the score
+    const root = makeRoot();
+    writeBaseline(root, ENTRY);
+    const result = await completeG3(
+      inputFor(root),
+      baseResult(),
+      contractRootOf(root),
+      suiteDeps({
+        probePage: async (url) => {
+          const probe = cleanProbe(url);
+          if (!probe.ok) return probe;
+          return {
+            ...probe,
+            observation: { ...probe.observation, route: { kind: 'declared-marker' } }
+          };
+        }
+      })
+    );
+
+    expect(result.checks.g3_exemplar.g3a[0]).toMatchObject({
+      routeEvidence: 'route /: declared marker observed'
+    });
+  });
 });
 
 describe('Scenario: render — the rubric path is the session design directory', () => {

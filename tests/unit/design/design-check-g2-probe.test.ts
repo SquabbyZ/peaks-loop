@@ -76,3 +76,33 @@ describe('Scenario: behavior — the shared page-usability probe gates G2', () =
     expect(probed).toEqual([DEFAULT_URL, `${DEFAULT_URL}about`]);
   });
 });
+
+describe('Scenario: behavior — the route judgment is recorded as evidence', () => {
+  it('when the route stage observed a declared marker, should record that judgment', async () => {
+    // given: a probe whose route stage observed the route's declared marker
+    // when: check runs
+    // then: the pass evidence names the declared-marker judgment, not a blank pass
+    const root = await createAdoptedApp();
+    const probe = cleanProbe(DEFAULT_URL);
+    if (!probe.ok) throw new Error('the fake probe must pass');
+    const result = await checkDesign(
+      input(root),
+      fakeEngine({
+        probePage: async () => ({
+          ...probe,
+          observation: { ...probe.observation, route: { kind: 'declared-marker' } }
+        })
+      })
+    );
+    expect(result.checks.g2_render).toEqual({
+      status: 'pass',
+      pages: 1,
+      evidence: [
+        `drift ${DEFAULT_URL}`,
+        `verify-ui ${DEFAULT_URL}`,
+        `probe ${DEFAULT_URL} elapsedMs 5000`,
+        'route /: declared marker observed'
+      ]
+    });
+  });
+});

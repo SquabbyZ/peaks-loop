@@ -16,6 +16,7 @@
  */
 import { TextDecoder } from 'node:util';
 
+import { redactUrl } from './url-redact.js';
 import { isLoopbackUrl } from './url-trust.js';
 
 /** The Stage A budget; a timeout is `status: null`, which blocks. */
@@ -27,6 +28,12 @@ export const PROBE_TIMEOUT_MS = 5_000;
 export const MAX_STAGE_A_BODY_BYTES = 262_144;
 
 const PASSWORD_FIELD = /<input\b[^>]*\btype\s*=\s*["']?password/i;
+
+/** Visible characters below which a password field means a sign-in wall. */
+export const MIN_SIGNIN_BODY_CHARS = 300;
+
+const HTTP_OK_MIN = 200;
+const HTTP_OK_MAX = 299;
 
 /** What Stage A measured from the HTTP answer. */
 export type PageHttpObservation = {
@@ -182,4 +189,41 @@ export async function fetchPageHttp(
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** The path of a URL, or null when it cannot be parsed. */
+function pathOf(value: string | null): string | null {
+  if (value === null || !URL.canParse(value)) return null;
+  return new URL(value).pathname;
+}
+
+/** Why a 2xx answer's final path differs from the requested one, or null. */
+function redirectRefusal(url: string, http: PageHttpObservation): string | null {
+  const requested = pathOf(url);
+  const final = pathOf(http.finalUrl);
+  if (requested !== null && final !== null && requested !== final) {
+    return `the URL redirected to a different path (${redactUrl(http.finalUrl ?? url)}), which is a sign-in wall`;
+  }
+  return null;
+}
+
+/** Why Stage A refuses this answer, or null when it may proceed to Stage B. */
+export function httpRefusal(url: string, http: PageHttpObservation): string | null {
+  // The untrusted hop is reported before the status bucket: a refused 302 is
+  // not the page "answering HTTP 302", it is a redirect this probe would not make.
+  if (http.untrustedRedirect !== null && http.untrustedRedirect !== undefined) {
+    return `the URL redirected to an untrusted host (${redactUrl(http.untrustedRedirect)})`;
+  }
+  if (http.status === null) {
+    return 'the URL did not answer (a refused connection, DNS failure, or timeout)';
+  }
+  if (http.status < HTTP_OK_MIN || http.status > HTTP_OK_MAX) {
+    return `the URL answered HTTP ${String(http.status)}`;
+  }
+  const redirected = redirectRefusal(url, http);
+  if (redirected !== null) return redirected;
+  if (http.hasPasswordField && http.textChars < MIN_SIGNIN_BODY_CHARS) {
+    return `the page carries a password field and only ${String(http.textChars)} visible characters`;
+  }
+  return null;
 }

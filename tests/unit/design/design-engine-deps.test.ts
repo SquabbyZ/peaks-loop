@@ -38,7 +38,9 @@ vi.mock('../../../src/services/design/engine-status.js', () => ({
 vi.mock('../../../src/services/design/designlang.js', () => ({
   runDesignlang: mocks.runDesignlang,
   readGradeEvidence: mocks.readGradeEvidence,
-  buildDesignlangArgs: mocks.buildDesignlangArgs
+  buildDesignlangArgs: mocks.buildDesignlangArgs,
+  // page-capture derives the identity budget from this real export.
+  DEFAULT_RUN_TIMEOUT_MS: 120_000
 }));
 vi.mock('../../../src/services/design/render-server.js', () => ({
   startRenderServer: mocks.startRenderServer

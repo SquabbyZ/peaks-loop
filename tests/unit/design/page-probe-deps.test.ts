@@ -22,6 +22,10 @@ import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
+import {
+  CAPTURE_TIMEOUT_MS,
+  IDENTITY_TIMEOUT_MS
+} from '../../../src/services/design/page-capture.js';
 import type { EngineAvailability } from '../../../src/services/design/engine-status.js';
 import { rgbPng } from './_png-bytes.js';
 
@@ -116,30 +120,53 @@ function writeCapture(args: readonly string[]): void {
 
 function captureStdout(): string {
   return JSON.stringify({
-    componentScreenshots: { fullPage: { path: 'screenshots/full-page.png' } },
+    componentScreenshots: {},
     meta: { title: 'Ledgerly' },
     voice: { sampleHeadings: ['Reconciliation'] }
   });
 }
 
+/** True when the argument vector is the separate screenshot arm. */
+function isScreenshotArm(args: readonly string[]): boolean {
+  return args.includes('--screenshots');
+}
+
+/** One fake designlang dispatch answer for stats, identity, or screenshots. */
+function fakeAnswer(args: readonly string[]): {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  timedOut: boolean;
+} {
+  if (args[0] === 'stats') {
+    return {
+      exitCode: 0,
+      stdout: JSON.stringify({ fontFamilyCount: 2, typeScale: 4 }),
+      stderr: '',
+      timedOut: false
+    };
+  }
+  if (isScreenshotArm(args)) {
+    writeCapture(args);
+    return {
+      exitCode: 0,
+      stdout: 'capture-out/screenshots/full-page.png\n',
+      stderr: '',
+      timedOut: false
+    };
+  }
+  return { exitCode: 0, stdout: captureStdout(), stderr: '', timedOut: false };
+}
+
 describe('Scenario: integration — G2 and G3a get stats plus the paint capture', () => {
-  it('when the probe runs, should spawn stats then the probed capture under the session dir', async () => {
-    // given: a mock designlang that answers stats and writes a rendered capture
+  it('when the probe runs, should spawn stats, identity, then the screenshot arm', async () => {
+    // given: a mock designlang that answers stats, identity JSON and a capture
     // when: the G2 probe runs one URL
-    // then: both vectors ran in order and the page passes on the decoded paint
+    // then: the two capture halves run in order, each under its own budget
     const root = projectRoot();
-    mocks.runDesignlang.mockImplementation(async ({ args }: { args: readonly string[] }) => {
-      if (args[0] === 'stats') {
-        return {
-          exitCode: 0,
-          stdout: JSON.stringify({ fontFamilyCount: 2, typeScale: 4 }),
-          stderr: '',
-          timedOut: false
-        };
-      }
-      writeCapture(args);
-      return { exitCode: 0, stdout: captureStdout(), stderr: '', timedOut: false };
-    });
+    mocks.runDesignlang.mockImplementation(async ({ args }: { args: readonly string[] }) =>
+      fakeAnswer(args)
+    );
     const result = await buildPageProbe({
       availability: AVAILABLE,
       projectRoot: root,
@@ -149,31 +176,38 @@ describe('Scenario: integration — G2 and G3a get stats plus the paint capture'
     if (!result.ok) throw new Error(result.message);
     expect(result.observation.paint.nonModalPct).toBeGreaterThan(1);
     expect(result.observation.elapsedMs).toBeGreaterThanOrEqual(0);
-    const vectors = (mocks.runDesignlang.mock.calls as [{ args: readonly string[] }][]).map(
-      ([input]) => input.args
-    );
+    const calls = mocks.runDesignlang.mock.calls as [
+      { args: readonly string[]; timeoutMs?: number }
+    ][];
+    const vectors = calls.map(([input]) => input.args);
     expect(vectors[0]).toEqual(['stats', servedUrl, '--as-json']);
-    expect(vectors[1]?.slice(0, 3)).toEqual([servedUrl, '--json', '--screenshots']);
-    const outDir = vectors[1]?.[vectors[1].indexOf('-o') + 1] ?? '';
+    expect(vectors[1]?.slice(0, 2)).toEqual([servedUrl, '--json']);
+    expect(vectors[1]).not.toContain('--screenshots');
+    expect(vectors[2]?.slice(0, 2)).toEqual([servedUrl, '--screenshots']);
+    expect(vectors[2]).not.toContain('--json');
+    expect(calls[1]?.[0].timeoutMs).toBe(IDENTITY_TIMEOUT_MS);
+    expect(calls[2]?.[0].timeoutMs).toBe(CAPTURE_TIMEOUT_MS);
+    const outDir = vectors[2]?.[vectors[2].indexOf('-o') + 1] ?? '';
     expect(outDir).toBe(
       join(root, '.peaks', '_runtime', 'sid-1', 'design', 'probe', probeSlug(servedUrl))
     );
   });
 
-  it('when the capture writes no PNG, should block rather than pass', async () => {
-    // given: a mock that answers stats but never writes the named capture
+  it('when the screenshot arm writes no PNG, should block rather than pass', async () => {
+    // given: a mock that answers stats and identity but never writes the PNG
     // when: the G2 probe runs
     // then: the missing file is a DESIGN_PAGE_UNUSABLE block
     const root = projectRoot();
-    mocks.runDesignlang.mockImplementation(async ({ args }: { args: readonly string[] }) => ({
-      exitCode: 0,
-      stdout:
-        args[0] === 'stats'
-          ? JSON.stringify({ fontFamilyCount: 2, typeScale: 4 })
-          : captureStdout(),
-      stderr: '',
-      timedOut: false
-    }));
+    mocks.runDesignlang.mockImplementation(async ({ args }: { args: readonly string[] }) =>
+      isScreenshotArm(args)
+        ? {
+            exitCode: 0,
+            stdout: 'capture-out/screenshots/full-page.png\n',
+            stderr: '',
+            timedOut: false
+          }
+        : fakeAnswer(args)
+    );
     const result = await buildPageProbe({
       availability: AVAILABLE,
       projectRoot: root,
@@ -212,6 +246,100 @@ describe('Scenario: integration — G2 and G3a get stats plus the paint capture'
     })(servedUrl);
     expect(result.ok).toBe(false);
     expect(mocks.runDesignlang).not.toHaveBeenCalled();
+  });
+});
+
+describe('Scenario: integration — the paved road’s route markers reach the probe', () => {
+  /** A project root whose `design/paved-road.json` declares the given markers. */
+  function rootWithMarkers(markers: Record<string, string>): string {
+    const root = projectRoot();
+    const designRoot = join(root, 'design');
+    mkdirSync(designRoot, { recursive: true });
+    writeFileSync(
+      join(designRoot, 'paved-road.json'),
+      JSON.stringify({ routeMarkers: markers }),
+      'utf8'
+    );
+    return root;
+  }
+
+  /** The identity arm answers a two-input page with the given headings. */
+  function mockRenderedIdentity(headings: string[]): void {
+    mocks.runDesignlang.mockImplementation(async ({ args }: { args: readonly string[] }) => {
+      if (args[0] === 'stats' || isScreenshotArm(args)) return fakeAnswer(args);
+      return {
+        exitCode: 0,
+        stdout: JSON.stringify({
+          meta: { title: 'Ledgerly' },
+          voice: { sampleHeadings: headings },
+          components: { inputs: { count: 2 } }
+        }),
+        stderr: '',
+        timedOut: false
+      };
+    });
+  }
+
+  it('when the declared marker is unobserved beside inputs, should block as a route mismatch', async () => {
+    // given: a paved road declaring a marker the rendered two-input page does not show
+    // when: the G2 probe runs that URL
+    // then: the probe blocks with DESIGN_ROUTE_MISMATCH and the rendered-form signal
+    const root = rootWithMarkers({ '/': 'Quarterly reports' });
+    mockRenderedIdentity([]);
+    const result = await buildPageProbe({
+      availability: AVAILABLE,
+      projectRoot: root,
+      sessionId: 'sid-1',
+      designRoot: join(root, 'design')
+    })(servedUrl);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('expected a block');
+    expect(result.code).toBe('DESIGN_ROUTE_MISMATCH');
+    expect(result.message).toContain('signal rendered-form');
+    expect(result.message).toContain('"Quarterly reports"');
+  });
+
+  it('when the declared marker is observed, should pass with the rendered inputs', async () => {
+    // given: the same declared marker, now rendered as a heading
+    // when: the G2 probe runs that URL
+    // then: the observed marker wins over the input count and the page passes
+    const root = rootWithMarkers({ '/': 'Quarterly reports' });
+    mockRenderedIdentity(['Quarterly reports']);
+    const result = await buildPageProbe({
+      availability: AVAILABLE,
+      projectRoot: root,
+      sessionId: 'sid-1',
+      designRoot: join(root, 'design')
+    })(servedUrl);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.message);
+    expect(result.observation.route).toEqual({ kind: 'declared-marker' });
+  });
+
+  it('when a marker key is spelled with slashes or a query, should still find the route', async () => {
+    // given: one marker per reachable key spelling — exact, doubled slash, query, other route
+    //        (a blank key never reaches here: markerMap drops it, pinned in paved-road tests)
+    // when: each paved road is read and the probe runs the served "/" route
+    // then: every spelling of "/" declares the marker and /other declares none
+    const cases: ReadonlyArray<readonly [string, boolean]> = [
+      ['/', true],
+      ['//', true],
+      ['/?tab=1', true],
+      ['/#top', true],
+      ['/other', false]
+    ];
+    for (const [key, matches] of cases) {
+      const root = rootWithMarkers({ [key]: 'Quarterly reports' });
+      mockRenderedIdentity([]);
+      const result = await buildPageProbe({
+        availability: AVAILABLE,
+        projectRoot: root,
+        sessionId: 'sid-1',
+        designRoot: join(root, 'design')
+      })(servedUrl);
+      expect(result.ok, key).toBe(!matches);
+      if (!result.ok && matches) expect(result.code, key).toBe('DESIGN_ROUTE_MISMATCH');
+    }
   });
 });
 
@@ -264,18 +392,9 @@ describe('Scenario: integration — stale probe captures are pruned', () => {
     };
     const oldest = staleDir('old', 2020);
     const previous = staleDir('previous', 2021);
-    mocks.runDesignlang.mockImplementation(async ({ args }: { args: readonly string[] }) => {
-      if (args[0] === 'stats') {
-        return {
-          exitCode: 0,
-          stdout: JSON.stringify({ fontFamilyCount: 2, typeScale: 4 }),
-          stderr: '',
-          timedOut: false
-        };
-      }
-      writeCapture(args);
-      return { exitCode: 0, stdout: captureStdout(), stderr: '', timedOut: false };
-    });
+    mocks.runDesignlang.mockImplementation(async ({ args }: { args: readonly string[] }) =>
+      fakeAnswer(args)
+    );
     const result = await buildPageProbe({
       availability: AVAILABLE,
       projectRoot: root,
