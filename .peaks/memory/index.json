@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-24T19:04:58.534Z",
+  "updatedAt": "2026-11-25T06:57:40.362Z",
   "hot": {
     "rule": [
       {
@@ -3768,6 +3768,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\custom-sop-domain-agnostic-positioning.md",
         "sourceArtifact": null,
         "updatedAt": "2026-10-08"
+      },
+      {
+        "name": "design-route-identity-is-page-identity",
+        "kind": "project",
+        "description": "路由身份 = 页面自身身份，不是共享外壳 S6 切片在 ModelMatrix 试点上测出来的两条硬事实，决定了  的 route-identity 阶段该怎么用： 1.",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\design-route-identity-is-page-identity.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-11-25"
       },
       {
         "name": "dispatch-prompt-is-the-choke-point-for-context-enforcement",
