@@ -146,7 +146,7 @@ function precheckBlockerEnvelope(
     `precheck blocker on layer '${layer?.name ?? 'unknown'}': ${layer?.result.message ?? ''}`,
     result.payload,
     [
-      `Run 'peaks release precheck --project ${projectRoot}' for the full 4-layer envelope.`,
+      `Run 'peaks release precheck --project ${projectRoot}' for the full 6-layer envelope.`,
       `Run 'peaks release precheck --strict' to also surface warning-layer issues.`,
       `Remediation: ${layer?.result.remediation ?? ''}`
     ]

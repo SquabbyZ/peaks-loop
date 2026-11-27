@@ -123,8 +123,8 @@ describe('peaks release precheck — integration', () => {
     expect(json.ok).toBe(true);
   });
 
-  // AC-2: --json envelope has exactly 4 layer keys.
-  it('AC-2 — envelope has exactly 4 layer keys', async () => {
+  // AC-2: --json envelope has exactly 6 layer keys.
+  it('AC-2 — envelope has exactly 6 layer keys', async () => {
     writePackageJson(tmp, { version: '4.0.0-beta.40', sharedDep: 'workspace:*' });
     writeSharedPackageJson(tmp, '4.0.0-beta.40');
     writeSharedDist(tmp, '4.0.0-beta.40');
@@ -133,6 +133,8 @@ describe('peaks release precheck — integration', () => {
     const data = json.data as { layers: Record<string, unknown> };
     expect(Object.keys(data.layers).sort()).toEqual([
       'changesetStaged',
+      'packageVersionBumped',
+      'registryPublished',
       'rootVsShared',
       'tagCollision',
       'workspaceLockstep'

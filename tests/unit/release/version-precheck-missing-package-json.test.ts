@@ -87,7 +87,10 @@ describe('release precheck — an unreadable root package.json is a structured b
         JSON.stringify({ name: 'peaks-loop-shared', version: '4.0.0' })
       );
 
-      const envelope = runAllLayers({ projectRoot: root });
+      const envelope = runAllLayers({
+        projectRoot: root,
+        registryUrl: 'http://127.0.0.1:1'
+      });
 
       expect(envelope.layers.rootVsShared.status).toBe('ok');
       expect(envelope.layers.workspaceLockstep.status).toBe('ok');

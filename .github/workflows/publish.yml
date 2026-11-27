@@ -217,6 +217,43 @@ jobs:
       # every publish. The shields npm badge serves the same fact and cannot
       # rot.
 
+      - name: Release preflight — registry + version-bump gates (before the 8-minute Build)
+        # The version-conflict classes that used to surface only inside
+        # release-pack, after a full build: a published version
+        # ("cannot publish over the previously published versions") and a
+        # subpackage left on the previous release's version. Both name the
+        # package. The CLI only needs the workspace packages' dist/ to load,
+        # which builds in seconds; the root tsc — the expensive half of
+        # `pnpm run build` — does not run here.
+        #
+        # --tag-already-pushed: this run IS the pushed vX.Y.Z tag, so
+        # tagCollision finding it is expected rather than a collision.
+        # --strict: a registry the runner could not reach is a blocker, never
+        # a pass — the check must not read "ok" when it could not check.
+        id: gate-release-preflight
+        run: |
+          set -euo pipefail
+          pnpm -r --filter "./packages/*" run build
+          precheck_json="${RUNNER_TEMP:-/tmp}/release-precheck.json"
+          set +e
+          node node_modules/tsx/dist/cli.mjs src/cli/index.ts release precheck \
+            --project . --strict --tag-already-pushed --json > "${precheck_json}"
+          rc=$?
+          set -e
+          PRECHECK_JSON="${precheck_json}" node -e '
+            const fs = require("node:fs");
+            const raw = fs.readFileSync(process.env.PRECHECK_JSON, "utf8");
+            const envelope = JSON.parse(raw.slice(0, raw.lastIndexOf("}") + 1));
+            const layers = (envelope.data && envelope.data.layers) || {};
+            for (const [name, layer] of Object.entries(layers)) {
+              if (layer.status !== "blocker") continue;
+              for (const line of String(layer.message).split("\n")) {
+                console.log(`::error title=release-precheck-${name}::${line}`);
+              }
+            }
+          '
+          exit $rc
+
       - name: Build (runs subpackage builds before root tsc — required so
           # workspace:* deps provide dist/* .d.ts/.js exports for typecheck
           # resolution against `tsconfig.build.json`; standalone tsc before

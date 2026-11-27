@@ -7,7 +7,7 @@
 // './version-precheck-service.js' keeps resolving them
 // (release-commands.ts, tests/unit/release/...).
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, type Dirent } from 'node:fs';
 import { join } from 'node:path';
 
 // ---------------------------------------------------------------------------
@@ -26,6 +26,13 @@ export interface LayerResult {
 export interface PrecheckOptions {
   readonly projectRoot: string;
   readonly strict?: boolean;
+  /** Registry base URL for `registryPublished`; defaults to `https://registry.npmjs.org`. */
+  readonly registryUrl?: string;
+  /**
+   * The tag under release already exists remotely (a tag-triggered publish), so
+   * `tagCollision` seeing `v<rootVersion>` is expected rather than a collision.
+   */
+  readonly tagAlreadyPushed?: boolean;
 }
 
 export interface PrecheckEnvelope {
@@ -40,6 +47,8 @@ export interface PrecheckEnvelope {
     readonly tagCollision: LayerResult;
     readonly changesetStaged: LayerResult;
     readonly workspaceLockstep: LayerResult;
+    readonly registryPublished: LayerResult;
+    readonly packageVersionBumped: LayerResult;
   };
 }
 
@@ -97,6 +106,74 @@ export function readPackageJson<T>(path: string, label: string): PackageJsonRead
 export type RootVersionRead =
   | { readonly ok: true; readonly version: string }
   | { readonly ok: false; readonly message: string; readonly remediation: string };
+
+/**
+ * One package `release-pack.mjs` publishes. `manifest` is the repo-relative
+ * POSIX path (`package.json` for the root), so the same string addresses both
+ * the working tree and `git show <tag>:<manifest>`.
+ */
+export type PublishablePackage = {
+  readonly name: string;
+  readonly version: string;
+  readonly manifest: string;
+};
+
+export type PublishablePackagesRead =
+  | { readonly ok: true; readonly packages: readonly PublishablePackage[] }
+  | { readonly ok: false; readonly message: string; readonly remediation: string };
+
+type ManifestSpec = { readonly name?: unknown; readonly version?: unknown };
+
+function toPublishable(manifest: string, spec: ManifestSpec): PublishablePackage | undefined {
+  if (typeof spec.name !== 'string' || spec.name.length === 0) {
+    return undefined;
+  }
+  return {
+    name: spec.name,
+    version: typeof spec.version === 'string' ? spec.version : '',
+    manifest
+  };
+}
+
+function candidateManifests(projectRoot: string): readonly string[] {
+  let entries: Dirent[] = [];
+  try {
+    entries = readdirSync(join(projectRoot, 'packages'), { withFileTypes: true });
+  } catch {
+    entries = [];
+  }
+  return entries
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
+    .map((entry) => `packages/${entry.name}/package.json`)
+    .filter((manifest) => existsSync(join(projectRoot, manifest)));
+}
+
+/** Enumerate root + `packages/<dir>/package.json` the way the release packer discovers them. */
+export function listPublishablePackages(projectRoot: string): PublishablePackagesRead {
+  const rootRead = readPackageJson<ManifestSpec>(
+    join(projectRoot, 'package.json'),
+    'root package.json'
+  );
+  if (!rootRead.ok) {
+    return rootRead;
+  }
+  const packages: PublishablePackage[] = [];
+  const rootPackage = toPublishable('package.json', rootRead.value);
+  if (rootPackage !== undefined) {
+    packages.push(rootPackage);
+  }
+  for (const manifest of candidateManifests(projectRoot)) {
+    const read = readPackageJson<ManifestSpec>(join(projectRoot, manifest), manifest);
+    if (!read.ok) {
+      return read;
+    }
+    const pkg = toPublishable(manifest, read.value);
+    if (pkg !== undefined) {
+      packages.push(pkg);
+    }
+  }
+  return { ok: true, packages };
+}
 
 export function readRootVersion(projectRoot: string): RootVersionRead {
   const path = join(projectRoot, 'package.json');
