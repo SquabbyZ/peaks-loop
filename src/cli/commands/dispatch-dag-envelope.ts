@@ -17,6 +17,7 @@ export type DagEnvelopeInput = {
   readonly existingContractCount: number;
   readonly dag: SliceDag;
   readonly isSliceComplexity: (value: string) => value is SliceComplexity;
+  readonly lane?: 'fast';
 };
 
 /**
@@ -55,9 +56,11 @@ export function buildDagSuccessEnvelope(input: DagEnvelopeInput) {
     firstLevelWaves,
     existingContractCount,
     dag,
-    isSliceComplexity
+    isSliceComplexity,
+    lane
   } = input;
   const dispatchCount = emittedSliceIds.length;
+  const nextActions = dagNextActions(lane, fromDag);
   return ok(
     'sub-agent.dispatch',
     {
@@ -76,10 +79,8 @@ export function buildDagSuccessEnvelope(input: DagEnvelopeInput) {
       artifactsPublicPaths: [],
       orchestratorVisibleHint: `⏳ Spawning ${dispatchCount} sub-agents via Task tool from DAG ${fromDag}, batch-id=${batchId} (ETA ~60s)`,
       sliceMeta: sliceMetaFor(emittedSliceIds, dag, isSliceComplexity),
-      nextActions: [
-        'Execute each toolCall in your IDE; on completion, write the slice contract to .peaks/_runtime/<sid>/dispatch/contracts/<slice-id>.json.',
-        'Re-invoke `peaks sub-agent dispatch --from-dag <file>` with the same batch-id to advance to the next level once all current-level slices have written contracts.'
-      ]
+      ...(lane !== undefined ? { lane } : {}),
+      nextActions
     },
     [],
     [
@@ -89,4 +90,22 @@ export function buildDagSuccessEnvelope(input: DagEnvelopeInput) {
         : 'No upstream contracts found; first-level prompts have empty ancestor blocks.'
     ]
   );
+}
+
+/**
+ * The next actions a `--from-dag` envelope advertises. The fast lane writes no
+ * artifact contract, so it points at `verify-files` instead of contract writes;
+ * every other run keeps the pre-existing contract-writing pair byte-identical.
+ */
+function dagNextActions(lane: 'fast' | undefined, fromDag: string): string[] {
+  if (lane === 'fast') {
+    return [
+      'Execute each toolCall in your IDE. The fast lane writes no rid, no artifact contract and no worktree lease.',
+      `After the run, prove the writes stayed inside the declared union: \`peaks sub-agent verify-files --dag ${fromDag} --project . --json\`. Any file in outside[] aborts the merge.`
+    ];
+  }
+  return [
+    'Execute each toolCall in your IDE; on completion, write the slice contract to .peaks/_runtime/<sid>/dispatch/contracts/<slice-id>.json.',
+    'Re-invoke `peaks sub-agent dispatch --from-dag <file>` with the same batch-id to advance to the next level once all current-level slices have written contracts.'
+  ];
 }

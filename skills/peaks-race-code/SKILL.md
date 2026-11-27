@@ -184,8 +184,8 @@ section.
 
 ## What this lane does not write
 
-No sub-agent dispatches — the read-only diagnosis fan-out of batch mode below is the one
-exception. No Gate A–G file chain. No `peaks request transition` state machine.
+No sub-agent dispatches — the read-only diagnosis fan-out of batch mode and the
+parallel-write dispatch are the two exceptions. No Gate A–G file chain. No `peaks request transition` state machine.
 No planning or review documents — no tech doc, bug analysis, review envelope, audit envelope,
 QA report or verdict. No job shape, no slice DAG, no swarm fan-out, no PRD phase, no
 orchestrator-to-implementer handoff.
@@ -257,6 +257,32 @@ and takes the single-task path on its own. That list lives in the norm and is no
 here; read it, judge each item against it, and pull the ones that hit it. A batch is not a
 way to carry a task that does not belong in this lane.
 
-**Where this lane leaves the window.** Batch mode is the only place it does, and only for
-the read-only diagnosis phase: the diagnosis fan-out writes nothing, and every write stays
-in this window.
+**Where this lane leaves the window.** Two places only. Batch mode's read-only diagnosis
+fan-out leaves it to read and write nothing. Parallel write leaves it to write, and only after
+the probe and the static file check pass; its writes are trusted only after `verify-files`
+proves the declared union was not escaped, and the single commit and the merge stay in this
+window.
+
+## Parallel write (并行写)
+
+Batch mode's diagnosis phase is read-only. **Parallel write** is the write-capable rung: several
+independent items whose fixes touch **pairwise-disjoint** files, dispatched together on a fast
+lane that creates no rid, writes no artifact contract and takes no worktree lease.
+
+**Precondition — the probe must not have asked for a handoff.** Parallel write is available
+only when the over-threshold probe of the risk-surface section returns `mustHandoff === false`:
+`peaks code orchestrator-can-do --lane race --race-subtasks <n> --race-files <n> --race-risk <list>`.
+When it is true, stop — the task belongs to `peaks-code`, exactly as the risk-surface rule says.
+
+**Dispatch — the static check.** Put every intended file in its node's `files[]` and run
+`peaks sub-agent dispatch <role> --from-dag <file> --lane fast`. The CLI refuses before any work
+when a node declares no `files[]` (`FAST_LANE_FILES_REQUIRED`) or when two nodes share a file
+(`FAST_LANE_FILES_OVERLAP`, naming the file and the node ids). A clean dispatch does not prove
+the writes stayed inside the declared set.
+
+**Verify — the actual check, then one commit.** After the run, the main window runs
+`peaks sub-agent verify-files --dag <file> --project . --json`. It reports `declared`, `changed`
+and `outside`. A non-empty `outside` is `FAST_LANE_FILES_ESCAPED`: **abort the merge**, keep the
+work in the main window, and settle the escaped file by hand. Only a clean `verify-files` may be
+followed by **one** commit from this window; the lane never commits per item and never merges an
+escaped run.

@@ -62,6 +62,13 @@ export type DispatchOptions = {
   force?: boolean;
   fromDag?: string;
   /**
+   * `--from-dag` execution lane. Only `fast` is recognised: it requires every
+   * node to declare a non-empty `files[]`, refuses pairwise overlap, stamps the
+   * envelope with `lane: 'fast'`, and drops the artifact-contract obligation.
+   * Absent → the pre-existing `--from-dag` behaviour is unchanged.
+   */
+  lane?: string;
+  /**
    * Only `worktree` is currently recognised. When set, dispatch
    * auto-spawns a worktree lease (delegates to `peaks worktree spawn`)
    * and injects `PEAKS_WORKTREE_LEASE_ID=<id>` into the dispatch

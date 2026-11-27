@@ -31,6 +31,7 @@ import type { SliceDag } from '../../services/dispatch/slice-dag.js';
 import { buildDagSuccessEnvelope } from './dispatch-dag-envelope.js';
 import { emitDagFailure } from './dispatch-dag-failure.js';
 import {
+  assertFastLaneFiles,
   assertGraphNodesMapped,
   loadDagRuntime,
   readDagOrFail,
@@ -59,7 +60,50 @@ type DagRun = {
   readonly ids: DagIds;
   readonly scope: DagScope;
   readonly fromDag: string;
+  readonly lane: 'fast' | undefined;
 };
+
+/** Refuse an unknown `--lane` value; `true` once the refusal is emitted. */
+function rejectUnknownLane(
+  lane: string | undefined,
+  role: string,
+  asJson: boolean,
+  io: ProgramIO
+): boolean {
+  if (lane === undefined || lane === 'fast') return false;
+  emitDagFailure(io, asJson, {
+    role,
+    code: 'INVALID_LANE',
+    message: `unknown lane "${lane}"; --from-dag accepts only "fast"`,
+    nextActions: ['Pass --lane fast, or drop --lane to keep the pre-existing DAG dispatch.']
+  });
+  return true;
+}
+
+/** Resolve the IDE dispatcher and prove it supports the role, or refuse. */
+function resolveSupportedDispatcherOrNull(
+  role: string,
+  ids: DagIds,
+  asJson: boolean,
+  io: ProgramIO
+): DagDispatcher | null {
+  const dispatched = resolveDagDispatcher(ids.projectRoot);
+  if (dispatched.dispatcher.supportsRole(role)) return dispatched;
+  emitDagFailure(io, asJson, {
+    role,
+    code: 'IDE_NOT_SUPPORTED',
+    message: `IDE ${dispatched.ide} does not support role "${role}"`,
+    nextActions: [
+      'Switch to a registered IDE (e.g. claude-code) or pick a role the current IDE supports.'
+    ]
+  });
+  return null;
+}
+
+/** Narrow an arbitrary `--lane` value to the only lane this path recognises. */
+function fastLaneOf(lane: string | undefined): 'fast' | undefined {
+  return lane === 'fast' ? 'fast' : undefined;
+}
 
 export async function runDispatchFromDag(
   role: string,
@@ -84,27 +128,29 @@ export async function runDispatchFromDag(
     return;
   }
   if (!options.fromDag) return;
+  const lane = options.lane;
+  if (rejectUnknownLane(lane, role, asJson, io)) return;
   const scope: DagScope = { role, asJson, io };
   const ids = resolveDagIds(options);
   const runtime = await loadDagRuntime();
   const dag = readDagOrFail(runtime, options.fromDag, scope);
   if (dag === null) return;
+  if (lane === 'fast' && assertFastLaneFiles(dag, scope) === null) return;
   if (assertGraphNodesMapped(dag, scope) === null) return;
   const levelArr = topologicalLevelsOrFail(runtime, dag, options.fromDag, scope);
   if (levelArr === null) return;
-  const dispatched = resolveDagDispatcher(ids.projectRoot);
-  if (!dispatched.dispatcher.supportsRole(role)) {
-    emitDagFailure(io, asJson, {
-      role,
-      code: 'IDE_NOT_SUPPORTED',
-      message: `IDE ${dispatched.ide} does not support role "${role}"`,
-      nextActions: [
-        'Switch to a registered IDE (e.g. claude-code) or pick a role the current IDE supports.'
-      ]
-    });
-    return;
-  }
-  await runLevels({ runtime, dag, levelArr, dispatched, ids, scope, fromDag: options.fromDag });
+  const dispatched = resolveSupportedDispatcherOrNull(role, ids, asJson, io);
+  if (dispatched === null) return;
+  await runLevels({
+    runtime,
+    dag,
+    levelArr,
+    dispatched,
+    ids,
+    scope,
+    fromDag: options.fromDag,
+    lane: fastLaneOf(lane)
+  });
 }
 
 /**
@@ -114,7 +160,7 @@ export async function runDispatchFromDag(
  * time, which is when the LLM re-invokes with fresh level-1 contracts).
  */
 async function runLevels(run: DagRun): Promise<void> {
-  const { runtime, dag, levelArr, dispatched, ids, scope, fromDag } = run;
+  const { runtime, dag, levelArr, dispatched, ids, scope, fromDag, lane } = run;
   const existingContracts = runtime.listContracts(ids.projectRoot, ids.sid);
   const firstLevelIds = new Set<string>(levelArr[0] ?? []);
   const emissions: DagEmissions = { toolCalls: [], sliceIds: [] };
@@ -134,15 +180,7 @@ async function runLevels(run: DagRun): Promise<void> {
       writeContractFn
     });
   } catch (err) {
-    emitDagFailure(scope.io, scope.asJson, {
-      role: scope.role,
-      code: 'INVALID_DAG',
-      message: `runLayeredDag failed for ${fromDag}: ${(err as Error).message}`,
-      nextActions: [
-        'runLayeredDag threw DagPlanError; the DAG passed validateDag() but failed at topologicalLevels or contractStore dispatch.',
-        'Inspect the DAG file and re-run.'
-      ]
-    });
+    emitLayeredFailure(scope, fromDag, err);
     return;
   }
   printResult(
@@ -158,8 +196,22 @@ async function runLevels(run: DagRun): Promise<void> {
       firstLevelWaves: planFirstLevelWaves(dag, levelArr),
       existingContractCount: existingContracts.length,
       dag,
-      isSliceComplexity: runtime.isSliceComplexity
+      isSliceComplexity: runtime.isSliceComplexity,
+      ...(lane !== undefined ? { lane } : {})
     }),
     scope.asJson
   );
+}
+
+/** Emit the `runLayeredDag` failure and mark the process failed. */
+function emitLayeredFailure(scope: DagScope, fromDag: string, err: unknown): void {
+  emitDagFailure(scope.io, scope.asJson, {
+    role: scope.role,
+    code: 'INVALID_DAG',
+    message: `runLayeredDag failed for ${fromDag}: ${(err as Error).message}`,
+    nextActions: [
+      'runLayeredDag threw DagPlanError; the DAG passed validateDag() but failed at topologicalLevels or contractStore dispatch.',
+      'Inspect the DAG file and re-run.'
+    ]
+  });
 }

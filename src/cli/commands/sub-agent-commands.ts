@@ -8,6 +8,7 @@
  *   - `dispatch-from-dag.ts`  — `dispatch --from-dag` codepath (slice 9 perf)
  *   - `heartbeat-commands.ts` — `heartbeat` action (G6)
  *   - `share-commands.ts`     — `share` + `shared-read` + `await` actions (G8.4 / 2.7.0)
+ *   - `verify-files-commands.ts` — `verify-files` fast-lane merge gate
  *   - `sub-agent-shared.ts`   — shared types, constants, helpers
  *
  *   These commands are primitives that the peaks-code / peaks-rd /
@@ -24,6 +25,7 @@ import {
   registerFinalizeCommand
 } from './share-commands.js';
 import { registerWavePlanCommand } from './wave-plan-commands.js';
+import { registerVerifyFilesCommand } from './verify-files-commands.js';
 
 // Re-export `validateRole` for backward compat — the integration test
 // suite and any external callers still import it from this entry file.
@@ -46,4 +48,5 @@ export function registerSubAgentCommands(program: Command, io: ProgramIO): void 
   registerAwaitCommand(subAgent, io);
   registerFinalizeCommand(subAgent, io); // D21
   registerWavePlanCommand(subAgent, io); // §3 file-overlap wave planner
+  registerVerifyFilesCommand(subAgent, io); // fast-lane merge gate
 }

@@ -138,3 +138,70 @@ export function topologicalLevelsOrFail(
     });
   }
 }
+
+/** One file declared by more than one DAG node. */
+export type FileOverlap = {
+  readonly file: string;
+  readonly nodeIds: readonly string[];
+};
+
+/**
+ * Every file that two or more nodes declare, with the owning node ids.
+ *
+ * A file repeated INSIDE one node's `files[]` is not an overlap with itself —
+ * only a second node counts. Sorted by file so the refusal message is stable.
+ */
+export function findFileOverlaps(dag: SliceDag): FileOverlap[] {
+  const ownersByFile = new Map<string, string[]>();
+  for (const node of dag.nodes) {
+    const seenInNode = new Set<string>();
+    for (const file of node.files ?? []) {
+      if (typeof file !== 'string' || file.length === 0 || seenInNode.has(file)) continue;
+      seenInNode.add(file);
+      const owners = ownersByFile.get(file);
+      if (owners === undefined) ownersByFile.set(file, [node.id]);
+      else owners.push(node.id);
+    }
+  }
+  const overlaps: FileOverlap[] = [];
+  for (const [file, nodeIds] of ownersByFile) {
+    if (nodeIds.length > 1) overlaps.push({ file, nodeIds });
+  }
+  return overlaps.sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : 0));
+}
+
+/**
+ * The static half of the fast lane's write safety: every node must declare a
+ * non-empty `files[]`, and no two nodes may share a file. Refuses by name and
+ * returns `null`; returns `true` when the DAG may dispatch on this lane.
+ */
+export function assertFastLaneFiles(dag: SliceDag, scope: DagScope): true | null {
+  const missing = dag.nodes
+    .filter((node) => !Array.isArray(node.files) || node.files.length === 0)
+    .map((node) => node.id);
+  if (missing.length > 0) {
+    return emitDagFailure(scope.io, scope.asJson, {
+      role: scope.role,
+      code: 'FAST_LANE_FILES_REQUIRED',
+      message: `--lane fast requires every DAG node to declare a non-empty files[]; missing: ${missing.join(', ')}`,
+      extra: { nodes: missing },
+      nextActions: [
+        'Add a non-empty files[] to every node, or drop --lane fast and use the serial DAG dispatch.'
+      ]
+    });
+  }
+  const overlaps = findFileOverlaps(dag);
+  if (overlaps.length > 0) {
+    const detail = overlaps.map((o) => `${o.file} (${o.nodeIds.join(', ')})`).join('; ');
+    return emitDagFailure(scope.io, scope.asJson, {
+      role: scope.role,
+      code: 'FAST_LANE_FILES_OVERLAP',
+      message: `--lane fast requires pairwise-disjoint files[]; overlapping: ${detail}`,
+      extra: { overlaps },
+      nextActions: [
+        'Defer one of the colliding nodes behind the other, or drop --lane fast and use the serial DAG dispatch.'
+      ]
+    });
+  }
+  return true;
+}

@@ -54,6 +54,10 @@ function applyDispatchInputOptions(command: Command): Command {
         '2.7.0 slice-dag-dispatcher MVP: read a SliceDag JSON file, dispatch one sub-agent per node in topological order; --batch-id overrides the auto-generated batch id (mutually exclusive with <role>)'
       )
       .option(
+        '--lane <lane>',
+        'lane to run --from-dag in. `fast` requires every node to declare non-empty files[] and refuses any pairwise overlap; the run then writes no rid, no artifact contract and no worktree lease, and must be followed by `peaks sub-agent verify-files`. Absent → the pre-existing --from-dag behaviour.'
+      )
+      .option(
         '--isolation <mode>',
         'slice 2026-07-29-worktree-l2-extended Part 2.C: isolation mode for the sub-agent. Accepts "worktree" (Part 2.C + Part 12 L2 surface) or "container" (Part 8 contract + Part 12 L4 docker runtime). Auto-spawns a lease + injects PEAKS_<MODE>_LEASE_ID into the dispatch envelope so the sub-agent can write to the isolated surface without a separate auth grant.'
       )
