@@ -35,6 +35,7 @@ import {
   type ComposedDispatchPrompt
 } from './dispatch-prompt-composition.js';
 import { buildDispatchToolCall } from './dispatch-tool-call.js';
+import { reviewPlanForDispatch } from './dispatch-review-plan.js';
 import { writeDispatchRecord, type DispatchRecordWrite } from './dispatch-record-write.js';
 import {
   emitDispatchEnvelope,
@@ -185,6 +186,12 @@ async function runDispatchPipeline(
   });
   if (composed === null) return;
   const { adapter, effectivePrompt, warnings, mustLsFilesVerification } = composed;
+  const plan = await reviewPlanForDispatch({
+    role,
+    projectRoot: ctx.projectRoot,
+    sessionId: ctx.sid,
+    requestId: options.requestId
+  });
   const toolCall = buildToolCallPhase(io, ctx, { adapter, effectivePrompt, lease });
   if (toolCall === null) return;
   const { artifactMeta, dispatchRecordPath, counter } = writeRecordPhase(ctx, options, {
@@ -205,9 +212,10 @@ async function runDispatchPipeline(
     decision: input.decision,
     artifactMeta,
     mustLsFilesVerification,
-    lease
+    lease,
+    ...(plan.reviewPlan !== undefined ? { reviewPlan: plan.reviewPlan } : {})
   };
-  emitDispatchEnvelope(io, envelopeInput, warnings, input.asJson);
+  emitDispatchEnvelope(io, envelopeInput, [...warnings, ...plan.warnings], input.asJson);
   writeDispatchLogEntry(ctx, counter.count, input.decision.forcedAt);
 }
 

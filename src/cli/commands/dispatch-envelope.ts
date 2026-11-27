@@ -10,6 +10,7 @@ import { buildContextImpact, type ArtifactMeta } from '../../services/context/ar
 import type { ContextGuardDecision } from '../../services/context/context-guard.js';
 import type { getAdapter } from '../../services/ide/ide-registry.js';
 import type { SubAgentToolCall } from '../../services/dispatch/sub-agent-dispatcher.js';
+import type { ReviewPlan } from '../../services/rd/reviewer-dispatch-policy.js';
 import { writeLogEntry } from '../../services/log/logger.js';
 import { type DispatchOptions } from './sub-agent-shared.js';
 import { type IsolationLease } from './dispatch-isolation-lease.js';
@@ -37,6 +38,12 @@ export interface DispatchEnvelopeInput {
   artifactMeta: ArtifactMeta | null;
   mustLsFilesVerification: { path: string; exists: boolean; files: readonly string[] } | null;
   lease: IsolationLease;
+  /**
+   * S2.1: RD review fan-out plan. `undefined` means this role has no plan
+   * (the key is omitted); `null` means the role has one but it could not be
+   * derived, and `warnings` names the reason.
+   */
+  reviewPlan?: ReviewPlan | null;
 }
 
 function buildDispatchNextActions(
@@ -108,7 +115,10 @@ function buildDispatchEnvelopeData(
     // pre-dispatch verification result so the orchestrator can
     // surface "the file exists" (or "missing — block") before
     // spawning the sub-agent. Null when the flag is absent.
-    mustLsFilesVerification: input.mustLsFilesVerification
+    mustLsFilesVerification: input.mustLsFilesVerification,
+    // Omitted for every role without a plan, so those envelopes stay
+    // byte-identical; `null` is published when the reason is in `warnings`.
+    ...(input.reviewPlan !== undefined ? { reviewPlan: input.reviewPlan } : {})
   };
 }
 

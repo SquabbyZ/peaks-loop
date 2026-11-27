@@ -27,10 +27,12 @@
  *
  * This module holds the machine-readable decision table for that collapse;
  * the prose the LLM runner actually reads is
- * `skills/bee/peaks-rd/references/parallel-review-fanout.md`. It used to
- * describe itself as "consumed by the LLM-side runner", which named no
- * mechanism — an LLM reads prose, not TypeScript exports — and that is the
- * reason every export below sat at zero importers until slice F2.
+ * `skills/bee/peaks-rd/references/parallel-review-fanout.md`. Prose cannot
+ * be the runtime answer, so the table also derives the
+ * `reviewPlan` field of the `peaks sub-agent dispatch rd` envelope
+ * (`src/cli/commands/dispatch-review-plan.ts` -> `reviewPlanFor`). The plan
+ * is envelope metadata only: it is never injected into the generated prompt,
+ * so the sub-agents' instructions are unchanged.
  *
  * Pinning is complete. The two test files this block used to cite were
  * both deleted in `f17aa377`. The **predicate half**
@@ -44,14 +46,12 @@
  * the review request types `isFanoutTriggerType` accepts, and no
  * deprecated reviewer appears in the returned list.
  *
- * `src/cli/commands/sub-agent-shared.ts` (`deprecatedReviewerWarnings`),
- * invoked from the dispatch chokepoint in
- * `src/cli/commands/dispatch-commands.ts` and pinned by
- * `tests/unit/cli/sub-agent-dispatch-deprecated-reviewer.test.ts`, is the
- * only runtime importer. The decision-table exports are pinned by tests
- * rather than imported, which is the point of the table. The three type
- * aliases derived from the tuple constants are module-internal: no
- * importer names them, so they are not exported.
+ * Runtime importers: `src/cli/commands/sub-agent-shared.ts`
+ * (`deprecatedReviewerWarnings`) and
+ * `src/cli/commands/dispatch-review-plan.ts` (`reviewPlanFor`), both reached
+ * from the dispatch chokepoint in `src/cli/commands/dispatch-commands.ts`.
+ * The three type aliases derived from the tuple constants stay
+ * module-internal: no importer names them, so they are not exported.
  *
  * For `config | docs | chore` request types, the slice already skips
  * the entire fanout (SKILL.md line 132 says "Config / docs / chore: no
@@ -78,8 +78,14 @@
  * does not disagree with the prereq side about the same deprecation.
  */
 
+/**
+ * The request types this table speaks, spelled exactly as the project's
+ * canonical `RequestType` (`feature`, never `feat`). The dispatch runtime
+ * hands these functions a request artifact's declared type; a second spelling
+ * would make `reviewerListFor('feature')` silently return no reviewers.
+ */
 export const RD_REVIEW_REQUEST_TYPES = [
-  'feat',
+  'feature',
   'bugfix',
   'refactor',
   'config',
@@ -118,7 +124,7 @@ export const RD_DEPRECATED_REVIEWERS = ['security-reviewer', 'perf-baseline-revi
 export type RdDeprecatedReviewer = (typeof RD_DEPRECATED_REVIEWERS)[number];
 
 /** Subset of request types that fire the 3-way fanout. */
-export const RD_FANOUT_REQUEST_TYPES = ['feat', 'bugfix', 'refactor'] as const;
+export const RD_FANOUT_REQUEST_TYPES = ['feature', 'bugfix', 'refactor'] as const;
 type RdFanoutRequestType = (typeof RD_FANOUT_REQUEST_TYPES)[number];
 
 /**
@@ -134,7 +140,7 @@ export function shouldDispatchKarpathy(type: RdReviewRequestType): boolean {
  * True iff the request type triggers the 3-way review fanout.
  */
 export function isFanoutTriggerType(type: RdReviewRequestType): type is RdFanoutRequestType {
-  return type === 'feat' || type === 'bugfix' || type === 'refactor';
+  return type === 'feature' || type === 'bugfix' || type === 'refactor';
 }
 
 /**
@@ -171,6 +177,34 @@ export function karpathySlotIndex(type: RdReviewRequestType): number {
     return -1;
   }
   return RD_FANOUT_REVIEWERS.indexOf('karpathy-reviewer');
+}
+
+/**
+ * The machine-readable review plan for one request type — the shape the
+ * dispatch envelope publishes as `data.reviewPlan`.
+ *
+ * `karpathySlotIndex` is `null` when karpathy is skipped (the policy's own
+ * `-1` is an internal sentinel), so a consumer reads "no slot" rather than
+ * an index that must be special-cased.
+ */
+export interface ReviewPlan {
+  reviewers: string[];
+  karpathy: boolean;
+  karpathySlotIndex: number | null;
+}
+
+/**
+ * The single aggregate over the three policy functions. Exported so the
+ * dispatch seam calls the decision table once instead of re-deriving the
+ * three fields, which would be a second implementation of the same policy.
+ */
+export function reviewPlanFor(type: RdReviewRequestType): ReviewPlan {
+  const karpathy = shouldDispatchKarpathy(type);
+  return {
+    reviewers: [...reviewerListFor(type)],
+    karpathy,
+    karpathySlotIndex: karpathy ? karpathySlotIndex(type) : null
+  };
 }
 
 /**

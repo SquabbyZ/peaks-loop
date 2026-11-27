@@ -19,6 +19,8 @@ The current fan-out is therefore **3 sub-agents**:
 
 Config / docs / chore: no fan-out (no review surface). Document N/A in the request artifact.
 
+**Machine-readable source:** the `peaks sub-agent dispatch rd --json` envelope publishes `data.reviewPlan` (`{ reviewers, karpathy, karpathySlotIndex }`), derived from the `--request-id` request's declared type by `reviewerListFor` / `shouldDispatchKarpathy` / `karpathySlotIndex`; it is `null` with a named warning when the request id or its declared type is unavailable.
+
 **Why 3 sub-agents (v2.12.0):** the original 3-way fan-out (code-review + security-review + perf-baseline — slice 002) cut the RD→QA wall-clock by running 3 LLM writes in parallel. Slice 004 added `qa-test-cases-writer` (4-way), slice 5/6 added `karpathy-reviewer` (5-way). The v2.12.0 collapse moves `security-reviewer` + `perf-baseline-reviewer` out of the fan-out into standalone pre-RD audit passes; the remaining 3 sub-agents are dispatched from the RD main loop as before. Wall-clock: the security + perf audit work shifts to pre-RD / pre-QA and runs as `peaks sub-agent dispatch peaks-security-audit` + `peaks sub-agent dispatch peaks-perf-audit` — those are also parallelizable, so the end-to-end wall-clock is unchanged or improved.
 
 **When to fan out:**

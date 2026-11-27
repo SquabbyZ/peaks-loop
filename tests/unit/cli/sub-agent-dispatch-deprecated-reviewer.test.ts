@@ -175,10 +175,12 @@ describe('(integration) the dispatch chokepoint calls the policy', () => {
   it(
     'when dispatching an ordinary role, should leave the envelope untouched',
     async () => {
-      // given: `rd`, a role the policy never governs
+      // given: `qa`, a role the deprecated-reviewer policy never governs
       // when:  the dispatch action runs
       // then:  the envelope is byte-identical in its warnings surface
-      const env = await runDispatch('rd');
+      //        (`rd` is excluded here: since slice S2.1 its envelope carries
+      //        the review plan, so a missing request artifact warns there)
+      const env = await runDispatch('qa');
       expect(env.ok).toBe(true);
       expect(env.warnings).toEqual([]);
     },
