@@ -3,6 +3,7 @@
  * block per visual-region node, with its box, ancestor role chain and the two
  * edge sources a direction may override.
  */
+import type { ComponentCapability, ComponentCapabilities } from '../component-capabilities.js';
 import { tokenFor } from './layout-align.js';
 import { formatNumber, type GraphNode, type LayoutEntry } from './layout-graph.js';
 import type { ElementBox } from './layout-geometry.js';
@@ -16,6 +17,12 @@ export type BlockSource = {
 
 export type BlockSources = { left: BlockSource; top: BlockSource };
 
+/** The component a block resolves to, and the props the prototype uses on it. */
+export type ResolvedComponent = {
+  name: string;
+  props: Record<string, string>;
+};
+
 export type PrototypeBlock = {
   blockId: string;
   role: string;
@@ -23,6 +30,7 @@ export type PrototypeBlock = {
   box: ElementBox;
   chainRoles: string[];
   sources: BlockSources;
+  component: ResolvedComponent | null;
 };
 
 export type ViolationCode =
@@ -44,6 +52,8 @@ export type Prototype = {
   section: PrototypeSection;
   blocks: PrototypeBlock[];
   violations: Violation[];
+  /** Named when a block resolves no component; null when the direction is valid. */
+  rejection: string | null;
 };
 
 export type PrototypeDirection = {
@@ -106,6 +116,42 @@ export function declaredValue(entry: LayoutEntry, tokenName: string): string {
   return token?.value ?? FALLBACK_TOKEN_VALUE;
 }
 
+/** The prototype uses each declared prop at its first enumerated value. */
+function defaultProps(capability: ComponentCapability): Record<string, string> {
+  const props: Record<string, string> = {};
+  for (const [prop, values] of Object.entries(capability.props)) {
+    const first = values[0];
+    if (first !== undefined) props[prop] = first;
+  }
+  return props;
+}
+
+/**
+ * The component that can express `role`, or null. A component that declares
+ * `roles` matches only when that list contains the role, compared trimmed and
+ * case-insensitively; a component that declares no `roles` falls back to the
+ * name-contains rule, which is a weak default kept only for manifests written
+ * before `roles` existed. Declaration order decides between two matching
+ * components, so the same manifest and role always resolve the same component.
+ */
+export function matchComponent(
+  role: string,
+  capabilities: ComponentCapabilities
+): ResolvedComponent | null {
+  const wanted = role.trim().toLowerCase();
+  if (wanted === '') return null;
+  for (const [name, capability] of Object.entries(capabilities)) {
+    const matches =
+      capability.roles === undefined
+        ? name.toLowerCase().includes(wanted)
+        : capability.roles.some((declared) => declared.trim().toLowerCase() === wanted);
+    if (matches) {
+      return { name, props: defaultProps(capability) };
+    }
+  }
+  return null;
+}
+
 function sourceFor(
   entry: LayoutEntry,
   node: GraphNode,
@@ -139,7 +185,8 @@ function sourceFor(
 export function blockFor(
   entry: LayoutEntry,
   node: GraphNode,
-  direction: PrototypeDirection
+  direction: PrototypeDirection,
+  capabilities: ComponentCapabilities | null = null
 ): PrototypeBlock {
   const chain = chainRolesOf(entry, node);
   return {
@@ -151,7 +198,8 @@ export function blockFor(
     sources: {
       left: sourceFor(entry, node, direction, 'left'),
       top: sourceFor(entry, node, direction, 'top')
-    }
+    },
+    component: capabilities === null ? null : matchComponent(node.role, capabilities)
   };
 }
 

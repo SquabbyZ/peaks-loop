@@ -6,7 +6,6 @@
  */
 import { createHash } from 'node:crypto';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 
 import { ok } from 'peaks-loop-shared/result';
@@ -19,12 +18,9 @@ import {
   type MixMove,
   type MixResult
 } from '../../services/design/layout/layout-mix.js';
-import {
-  filterPrototypes,
-  generatePrototypes,
-  type Prototype
-} from '../../services/design/layout/layout-prototype.js';
+import { filterPrototypes, type Prototype } from '../../services/design/layout/layout-prototype.js';
 import { getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
+import { generateFor, writePrototypes, type WrittenFile } from './design-layout-prototype-io.js';
 import {
   EXIT_REFUSED,
   failWith,
@@ -45,27 +41,6 @@ export type DesignLayoutMixOptions = DesignLayoutRebuildOptions & {
 
 function prototypeDir(projectRoot: string, route: string): string {
   return join(graphRoot(projectRoot), routeSlug(route), 'prototypes');
-}
-
-type WrittenFile = { name: string; path: string };
-
-type Written = { ok: true; files: WrittenFile[] } | { ok: false; reason: string };
-
-/** Every prototype file is written concurrently; one failure names the write. */
-async function writePrototypes(dir: string, prototypes: readonly Prototype[]): Promise<Written> {
-  try {
-    await mkdir(dir, { recursive: true });
-    const files = await Promise.all(
-      prototypes.map(async (prototype) => {
-        const path = join(dir, `${prototype.name}.html`);
-        await writeFile(path, prototype.html, 'utf8');
-        return { name: prototype.name, path };
-      })
-    );
-    return { ok: true, files };
-  } catch (error) {
-    return { ok: false, reason: `the prototypes could not be written (${getErrorMessage(error)})` };
-  }
 }
 
 function prototypeData(
@@ -113,15 +88,8 @@ export async function runDesignLayoutPrototype(
   if (selection === null) return;
   const freshness = freshnessAllowed(selection, options, io, command);
   if (freshness === null) return;
-  const generated = generatePrototypes(selection.entry);
-  if (!generated.ok) {
-    failWith(io, command, options.json, {
-      code: 'DESIGN_LAYOUT_PROTOTYPE_FAILED',
-      message: generated.reason,
-      data: { route: selection.route }
-    });
-    return;
-  }
+  const generated = generateFor(selection, options, io, command);
+  if (!generated.ok) return;
   const filter = filterPrototypes(generated.prototypes);
   const dir =
     options.out === undefined
@@ -139,10 +107,15 @@ export async function runDesignLayoutPrototype(
         viewport: viewportLabel(selection.viewport),
         root: dir,
         freshness,
+        capabilities: generated.declared ? 'declared' : 'none',
         prototypes: prototypeData(generated.prototypes, files),
         kept: filter.kept.map((prototype) => prototype.name),
         capped: filter.capped,
-        dropped: filter.dropped.map((entry) => ({ name: entry.name, violations: entry.violations }))
+        dropped: filter.dropped.map((entry) => ({
+          name: entry.name,
+          violations: entry.violations
+        })),
+        rejected: filter.rejected
       },
       freshnessWarnings(freshness)
     ),
@@ -271,15 +244,8 @@ export function runDesignLayoutMix(options: DesignLayoutMixOptions, io: ProgramI
     });
     return;
   }
-  const generated = generatePrototypes(selection.entry);
-  if (!generated.ok) {
-    failWith(io, command, options.json, {
-      code: 'DESIGN_LAYOUT_PROTOTYPE_FAILED',
-      message: generated.reason,
-      data: { route: selection.route }
-    });
-    return;
-  }
+  const generated = generateFor(selection, options, io, command);
+  if (!generated.ok) return;
   const result = mixSequence(selection.entry, generated.prototypes, options.base, moves);
   if (!result.ok) {
     reportMixFailure(io, options, selection, result);

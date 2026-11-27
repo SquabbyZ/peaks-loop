@@ -3,6 +3,7 @@
  * preview pages over the same block set, plus the structural filter that
  * decides which of them reach the human handoff.
  */
+import type { ComponentCapabilities } from '../component-capabilities.js';
 import { formatNumber, type GraphNode, type LayoutEntry } from './layout-graph.js';
 import { PREVIEW_MARKER } from './layout-preview.js';
 import {
@@ -125,13 +126,29 @@ function violationsOf(
 export type GeneratedPrototypes =
   { ok: true; prototypes: Prototype[] } | { ok: false; reason: string };
 
+/** A direction is rejected when any of its blocks resolves no component. */
+function rejectionOf(
+  blocks: readonly PrototypeBlock[],
+  capabilities: ComponentCapabilities | null
+): string | null {
+  if (capabilities === null) return null;
+  const unresolved = blocks.filter((block) => block.component === null);
+  if (unresolved.length === 0) return null;
+  const roles = [...new Set(unresolved.map((block) => block.role))].join(', ');
+  const blockIds = unresolved.map((block) => block.blockId).join(', ');
+  return `role(s) ${roles} resolve no component declared in componentCapabilities (blocks ${blockIds})`;
+}
+
 /** One preview per direction, all sharing the entry's block set. */
-export function generatePrototypes(entry: LayoutEntry): GeneratedPrototypes {
+export function generatePrototypes(
+  entry: LayoutEntry,
+  capabilities: ComponentCapabilities | null = null
+): GeneratedPrototypes {
   const objects = entry.nodes.filter((node) => node.kind === 'object');
   if (objects.length === 0)
     return { ok: false, reason: 'the entry has no visual object to prototype' };
   const prototypes = PROTOTYPE_DIRECTIONS.map((direction) => {
-    const blocks = objects.map((node) => blockFor(entry, node, direction));
+    const blocks = objects.map((node) => blockFor(entry, node, direction, capabilities));
     const section = sectionFor(entry, direction);
     return {
       name: direction.name,
@@ -139,7 +156,8 @@ export function generatePrototypes(entry: LayoutEntry): GeneratedPrototypes {
       marker: PREVIEW_MARKER,
       section,
       blocks,
-      violations: violationsOf(entry, objects, blocks)
+      violations: violationsOf(entry, objects, blocks),
+      rejection: rejectionOf(blocks, capabilities)
     };
   });
   return { ok: true, prototypes };
@@ -149,18 +167,23 @@ export type PrototypeFilter = {
   kept: Prototype[];
   capped: Array<{ name: string; reason: string }>;
   dropped: Array<{ name: string; violations: Violation[] }>;
+  rejected: Array<{ name: string; reason: string }>;
 };
 
 /**
- * Keep the first two structurally clean prototypes in direction order; the rest
- * are reported as capped, and a violation is reported under its own code.
+ * Keep the first two structurally clean, non-rejected prototypes in direction
+ * order. A rejected direction never competes for the handoff cap; a violation
+ * is reported under its own code.
  */
 export function filterPrototypes(prototypes: readonly Prototype[]): PrototypeFilter {
   const kept: Prototype[] = [];
   const capped: PrototypeFilter['capped'] = [];
   const dropped: PrototypeFilter['dropped'] = [];
+  const rejected: PrototypeFilter['rejected'] = [];
   for (const prototype of prototypes) {
-    if (prototype.violations.length > 0) {
+    if (prototype.rejection !== null) {
+      rejected.push({ name: prototype.name, reason: prototype.rejection });
+    } else if (prototype.violations.length > 0) {
       dropped.push({ name: prototype.name, violations: prototype.violations });
     } else if (kept.length < PROTOTYPE_HANDOFF_LIMIT) {
       kept.push(prototype);
@@ -171,5 +194,5 @@ export function filterPrototypes(prototypes: readonly Prototype[]): PrototypeFil
       });
     }
   }
-  return { kept, capped, dropped };
+  return { kept, capped, dropped, rejected };
 }

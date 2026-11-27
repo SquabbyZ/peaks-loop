@@ -122,6 +122,41 @@ describe('Scenario: behavior — the validator refuses what it cannot decide', (
     });
   });
 
+  it('when a manifest declares roles, should accept them unchanged', () => {
+    // given: a component that declares the roles it can express
+    // when: the section is validated
+    // then: the role list is carried through the verdict
+    const verdict = validateComponentCapabilities(
+      { Button: { entrypoint: '@/ui/button', props: {}, roles: ['button', 'link'] } },
+      ['@/ui/button']
+    );
+    expect(verdict).toEqual({
+      ok: true,
+      capabilities: {
+        Button: { entrypoint: '@/ui/button', props: {}, roles: ['button', 'link'] }
+      }
+    });
+  });
+
+  it('when a roles entry is not a non-empty string, should refuse with the invalid code', () => {
+    // given: a roles list given as a bare string and one with a blank entry
+    // when: each section is validated
+    // then: both are refused by name instead of being coerced
+    const bare = validateComponentCapabilities(
+      { Button: { entrypoint: '@/ui/button', props: {}, roles: 'button' } },
+      ['@/ui/button']
+    );
+    expect(bare.ok).toBe(false);
+    expect(bare.ok ? null : bare.failure.code).toBe('DESIGN_CAPABILITIES_INVALID');
+    expect(bare.ok ? '' : bare.failure.message).toContain('roles');
+    const blank = validateComponentCapabilities(
+      { Button: { entrypoint: '@/ui/button', props: {}, roles: ['button', ' '] } },
+      ['@/ui/button']
+    );
+    expect(blank.ok).toBe(false);
+    expect(blank.ok ? null : blank.failure.code).toBe('DESIGN_CAPABILITIES_INVALID');
+  });
+
   it('when the section is absent, should read as no filtering at all', () => {
     // given: both spellings of "no section"
     // when: each is validated

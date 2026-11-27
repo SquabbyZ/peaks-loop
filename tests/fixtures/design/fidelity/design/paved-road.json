@@ -13,6 +13,7 @@
         "variant": ["primary", "secondary", "ghost"],
         "size": ["sm", "md"]
       },
+      "roles": ["button"],
       "tokens": ["space.sm", "space.md", "radius.sm", "color.accent"]
     },
     "Card": {
@@ -20,13 +21,15 @@
       "props": {
         "padding": ["none", "sm", "md"]
       },
+      "roles": ["region"],
       "tokens": ["space.sm", "space.md", "radius.md", "color.surface"]
     },
     "Field": {
       "entrypoint": "@/components/ui/field",
       "props": {
         "state": ["default", "error", "disabled"]
-      }
+      },
+      "roles": ["label", "textbox"]
     }
   }
 }

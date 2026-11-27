@@ -20,6 +20,8 @@ export type ComponentCapability = {
   entrypoint: string;
   /** Prop name -> the values the component renders. Enumerated props only. */
   props: Record<string, string[]>;
+  /** Roles this component declares it can express; optional. */
+  roles?: string[];
   /** Token names the component consumes inside itself; optional. */
   tokens?: string[];
 };
@@ -41,7 +43,7 @@ export type CapabilitiesVerdict =
   | { ok: false; failure: CapabilitiesFailure };
 
 /** The only keys a component entry may carry; anything else is a typo, not data. */
-const ENTRY_KEYS = new Set(['entrypoint', 'props', 'tokens']);
+const ENTRY_KEYS = new Set(['entrypoint', 'props', 'roles', 'tokens']);
 
 function invalid(message: string): CapabilitiesFailure {
   return { code: 'DESIGN_CAPABILITIES_INVALID', message };
@@ -69,6 +71,9 @@ type PropsResult =
 
 type TokensResult =
   { ok: true; tokens: string[] | undefined } | { ok: false; failure: CapabilitiesFailure };
+
+type RolesResult =
+  { ok: true; roles: string[] | undefined } | { ok: false; failure: CapabilitiesFailure };
 
 function readEntrypoint(
   name: string,
@@ -103,6 +108,17 @@ function readProps(name: string, value: unknown): PropsResult {
   return { ok: true, props };
 }
 
+function readRoles(name: string, value: unknown): RolesResult {
+  if (value === undefined) return { ok: true, roles: undefined };
+  if (!isStringArray(value)) {
+    return {
+      ok: false,
+      failure: invalid(`${name} roles is not a string array of non-empty strings`)
+    };
+  }
+  return { ok: true, roles: [...value] };
+}
+
 function readTokens(name: string, value: unknown): TokensResult {
   if (value === undefined) return { ok: true, tokens: undefined };
   if (!isStringArray(value)) {
@@ -127,6 +143,8 @@ function validateEntry(
   if (!entrypoint.ok) return entrypoint;
   const props = readProps(name, entry.props);
   if (!props.ok) return props;
+  const roles = readRoles(name, entry.roles);
+  if (!roles.ok) return roles;
   const tokens = readTokens(name, entry.tokens);
   if (!tokens.ok) return tokens;
   return {
@@ -134,6 +152,7 @@ function validateEntry(
     capability: {
       entrypoint: entrypoint.entrypoint,
       props: props.props,
+      ...(roles.roles === undefined ? {} : { roles: roles.roles }),
       ...(tokens.tokens === undefined ? {} : { tokens: tokens.tokens })
     }
   };
