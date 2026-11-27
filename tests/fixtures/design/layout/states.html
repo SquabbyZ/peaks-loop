@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Layout state fixture — query and action entries</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: system-ui, sans-serif;
+        background: #fff;
+        color: #111;
+      }
+      .section {
+        padding: 24px;
+      }
+      .tight {
+        padding-left: 16px;
+      }
+      h2 {
+        font-size: 18px;
+        line-height: 1.4;
+        margin: 0;
+        padding: 0;
+      }
+      p {
+        font-size: 14px;
+        line-height: 1.5;
+        margin: 8px 0 0;
+      }
+      .notice {
+        background: #eef2ff;
+        padding: 16px;
+      }
+      button {
+        padding: 16px;
+      }
+      [hidden] {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="section tight" id="panel">
+      <h2 id="title">Quarterly reports</h2>
+      <p id="body">Two reports are ready to review.</p>
+      <div class="notice" id="notice" hidden><p id="notice-text">Loading the next page</p></div>
+    </div>
+    <div class="section tight">
+      <h2>Saved views</h2>
+      <p>Three pinned views are available.</p>
+    </div>
+    <div class="section tight">
+      <button id="load-more" type="button">Load more reports</button>
+    </div>
+    <script>
+      const title = document.getElementById('title');
+      const body = document.getElementById('body');
+      const notice = document.getElementById('notice');
+      const state = new URLSearchParams(location.search).get('state');
+      if (state === 'empty') {
+        title.textContent = 'No reports yet';
+        body.textContent = 'Nothing has been filed this quarter.';
+      } else if (state === 'error') {
+        title.textContent = 'Reports unavailable';
+        body.textContent = 'The reporting service returned an error.';
+      }
+      document.getElementById('load-more').addEventListener('click', () => {
+        notice.hidden = false;
+      });
+    </script>
+  </body>
+</html>

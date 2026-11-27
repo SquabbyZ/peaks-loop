@@ -31,6 +31,7 @@ export type DesignLayoutBuildOptions = {
   url: string;
   state?: string;
   viewport?: string;
+  allStates?: boolean;
   json?: boolean;
 };
 
@@ -44,6 +45,7 @@ export type DesignLayoutReadOptions = {
   object?: string;
   edge?: string;
   capture?: string;
+  compare?: string;
   json?: boolean;
 };
 
@@ -66,6 +68,7 @@ export type DesignLayoutRebuildOptions = {
   out?: string;
   /** Consume a stale entry as a direction only; the output is labelled not-current. */
   allowStale?: boolean;
+  compare?: string;
   json?: boolean;
 };
 
@@ -73,6 +76,7 @@ export type CaptureFn = (input: {
   route: string;
   url: string;
   viewport: Viewport;
+  click?: string;
 }) => Promise<LayoutPageResult>;
 
 export type Failure = {

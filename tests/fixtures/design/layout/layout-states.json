@@ -1,0 +1,10 @@
+{
+  "routes": {
+    "/": {
+      "default": { "url": "/" },
+      "empty": { "url": "/?state=empty" },
+      "error": { "url": "/?state=error" },
+      "loading": { "url": "/", "click": "#load-more" }
+    }
+  }
+}

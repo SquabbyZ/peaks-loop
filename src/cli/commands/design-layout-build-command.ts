@@ -16,8 +16,19 @@ import {
   capturePath,
   graphRoot,
   MAX_ENTRY_BYTES,
-  writeBatch
+  writeBatch,
+  writeCoverage
 } from '../../services/design/layout/layout-graph-store.js';
+import {
+  ALL_STATES_VIEWPORTS,
+  driveStates,
+  LAYOUT_STATES,
+  readStateDeclarations
+} from '../../services/design/layout/layout-graph-query.js';
+import {
+  routeCoverage,
+  type RouteCoverage
+} from '../../services/design/layout/layout-graph-paths.js';
 import { recordDesignRoot } from '../../services/design/layout/layout-graph-root-record.js';
 import {
   captureLayoutPage,
@@ -159,11 +170,48 @@ function writeAll(projectRoot: string, built: readonly Built[]): string | null {
   return written.ok ? null : written.reason;
 }
 
+type Work = {
+  viewports: readonly Viewport[];
+  tokens: readonly SpacingToken[];
+  capture: CaptureFn;
+};
+
+/** Drive every declared state at every breakpoint, then persist what landed and what did not. */
+async function finishStates(
+  options: DesignLayoutBuildOptions,
+  io: ProgramIO,
+  work: Work
+): Promise<void> {
+  const states = await driveStates(
+    {
+      route: options.route,
+      baseUrl: options.url,
+      declarations: readStateDeclarations(designRootOf(options), options.route),
+      viewports: work.viewports,
+      trusted: (url) =>
+        trustedUrl({
+          project: options.project,
+          url,
+          ...(options.app === undefined ? {} : { app: options.app })
+        })
+    },
+    work.capture,
+    (state, viewport, page) => buildOne({ ...options, state }, viewport, work.tokens, page)
+  );
+  const coverage = routeCoverage(
+    options.route,
+    states.keys,
+    LAYOUT_STATES.length * work.viewports.length
+  );
+  finishBuild(options, io, states.built, coverage);
+}
+
 /** Persist the batch and print the one envelope; a write refusal writes nothing. */
 function finishBuild(
   options: DesignLayoutBuildOptions,
   io: ProgramIO,
-  built: readonly Built[]
+  built: readonly Built[],
+  coverage?: RouteCoverage
 ): void {
   const command = 'design.layout.build';
   const projectRoot = resolve(options.project);
@@ -176,16 +224,20 @@ function finishBuild(
     });
     return;
   }
+  const stored = coverage === undefined ? null : writeCoverage(projectRoot, coverage);
   const recorded = recordDesignRoot(projectRoot, designRootOf(options));
+  const warnings = stored !== null && !stored.ok ? [stored.reason] : [];
+  if (!recorded.ok) warnings.push(recorded.reason);
   printResult(
     io,
     ok(
       command,
       {
         root: graphRoot(projectRoot),
+        ...(coverage === undefined ? {} : { coverage }),
         entries: built.map((item) => builtData(item, projectRoot))
       },
-      recorded.ok ? [] : [recorded.reason]
+      warnings
     ),
     options.json === true
   );
@@ -197,7 +249,9 @@ export async function runDesignLayoutBuild(
   capture: CaptureFn = captureLayoutPage
 ): Promise<void> {
   const command = 'design.layout.build';
-  const viewports = viewportList(options.viewport);
+  const viewports = viewportList(
+    options.allStates === true ? (options.viewport ?? ALL_STATES_VIEWPORTS) : options.viewport
+  );
   if (viewports === null) {
     failWith(io, command, options.json, {
       code: 'DESIGN_LAYOUT_VIEWPORT_INVALID',
@@ -206,7 +260,7 @@ export async function runDesignLayoutBuild(
     });
     return;
   }
-  if (!trustedUrl(options)) {
+  if (options.allStates !== true && !trustedUrl(options)) {
     failWith(io, command, options.json, {
       code: 'DESIGN_LAYOUT_URL_UNTRUSTED',
       message: 'the render URL is outside the trust boundary',
@@ -222,6 +276,10 @@ export async function runDesignLayoutBuild(
       message: tokens.reason,
       exit: EXIT_REFUSED
     });
+    return;
+  }
+  if (options.allStates === true) {
+    await finishStates(options, io, { viewports, tokens: tokens.tokens, capture });
     return;
   }
   const result = await buildAll(options, viewports, tokens.tokens, capture);

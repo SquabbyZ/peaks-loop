@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+**一句话：补齐 `peaks design layout` 的四态驱动——一条路由的四种状态 × 三个断点，每个 `(state, viewport)` 键都留下真实的采集与具名结论。**
+
+- **`design layout build --all-states`**：对一条路由的四种状态（`default` / `empty` / `error` / `loading`）× 三个断点（`390x844`、`834x1112`、`1280x800`）逐一真实渲染，产出 12 个 `(state, viewport)` 条目。
+- **`design/layout-states.json` 状态入口声明**：由 LLM 代写，逐状态声明 `{ url, click? }`；`loading` 用一次页面动作（`click: '#load-more'`）进入。缺失的声明不会被猜成默认态。
+- **`coverage.json`**：按 `real / failed / state-unavailable` 逐键记录结论与具名原因；只有 12 个键全部 `real` 时才 `complete: true`，否则 `missing` 恰好列出非 `real` 的键。
+- **`--compare <state@WxH>`**：与当前选中条目跨键比较时回答 `not-comparable` 并指名不同的轴（route / state / viewport）；只有同一键自身可比较。
+
 ## 4.3.6 — 2026-11-27（peaks design：页面布局的外部记忆）
 
 **版本级别**：**minor**（新增一组 `peaks design layout` 子命令与旁路图谱存储；不改任何既有门禁判定，`backCompatUntil` 不变）。

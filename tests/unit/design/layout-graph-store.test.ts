@@ -7,13 +7,17 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
 import {
+  captureIo,
   disposeProjects,
   entryOf,
+  FIXTURES,
   geometryOf,
   tempProject,
   textOf,
   TOKENS
 } from './_layout-graph-fixtures.js';
+import { runDesignLayoutBuild } from '../../../src/cli/commands/design-layout-build-command.js';
+import type { Viewport } from '../../../src/services/design/layout/layout-geometry.js';
 import { readEntry, selectEntry } from '../../../src/services/design/layout/layout-graph-query.js';
 import { buildLayoutIndex } from '../../../src/services/design/layout/layout-align.js';
 import {
@@ -24,7 +28,11 @@ import {
   affectedEntries,
   indexMatchesDirectories
 } from '../../../src/services/design/layout/layout-graph-incremental.js';
-import { keyText } from '../../../src/services/design/layout/layout-graph-paths.js';
+import {
+  keyText,
+  coveragePath,
+  type RouteCoverage
+} from '../../../src/services/design/layout/layout-graph-paths.js';
 import { readSpacingTokens } from '../../../src/services/design/layout/layout-tokens.js';
 import { refreshLayoutGraphAtSliceBoundary } from '../../../src/services/design/layout/layout-graph-slice-refresh.js';
 import {
@@ -39,11 +47,12 @@ import {
   writeEntry
 } from '../../../src/services/design/layout/layout-graph-store.js';
 
-declareDimensions(
-  'tests/unit/design/layout-graph-store.test.ts',
-  ['render', 'behavior', 'integration'],
-  [{ dim: 'a11y', reason: 'the store writes files and prints no human-facing text' }]
-);
+declareDimensions('tests/unit/design/layout-graph-store.test.ts', [
+  'render',
+  'behavior',
+  'integration',
+  'a11y'
+]);
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const VIEW = { width: 390, height: 844 };
@@ -345,5 +354,134 @@ describe('(integration) the fast path does not trust a rewritten entry', () => {
     const affected = affectedEntries(root, readSpacingTokens(join(root, 'design')));
     expect(affected.mode).toBe('index');
     expect(affected.needsRewrite).toBe(false);
+  });
+});
+
+const STATES_BASE = 'http://127.0.0.1:3000/';
+
+type CaptureCall = { url: string; viewport: Viewport; click?: string };
+
+type DeclaredFile = {
+  routes: Record<string, Record<string, { url: string; click?: string }>>;
+};
+
+/** A project with the fixture token contract and, unless edited, its declaration. */
+function statesProject(edit?: (declaration: DeclaredFile) => void): string {
+  const root = tempProject();
+  const parsed = JSON.parse(
+    readFileSync(join(FIXTURES, 'layout-states.json'), 'utf8')
+  ) as DeclaredFile;
+  edit?.(parsed);
+  writeFileSync(join(root, 'design', 'layout-states.json'), JSON.stringify(parsed), 'utf8');
+  return root;
+}
+
+/** The fixture page measured as the recorded aligned document, per requested viewport. */
+function fakeCapture(options: { failError?: boolean; calls?: CaptureCall[] } = {}) {
+  return async (input: { route: string; url: string; viewport: Viewport; click?: string }) => {
+    options.calls?.push({ ...input });
+    if (options.failError === true && input.url.includes('state=error')) {
+      return { ok: false as const, reason: 'the error state page crashed' };
+    }
+    const geometry = { ...geometryOf('aligned'), route: input.route, viewport: input.viewport };
+    const html = readFileSync(join(FIXTURES, 'aligned.html'), 'utf8');
+    return { ok: true as const, page: { geometry, html } };
+  };
+}
+
+async function buildStates(root: string, capture = fakeCapture()): Promise<RouteCoverage> {
+  const output = captureIo();
+  await runDesignLayoutBuild(
+    { project: root, route: '/', url: STATES_BASE, allStates: true, json: true },
+    output.io,
+    capture
+  );
+  const envelope = JSON.parse(output.out()) as { data: { coverage: RouteCoverage } };
+  return envelope.data.coverage;
+}
+
+describe('(behavior) driving declared states', () => {
+  it('when the declaration is complete, should capture each declared address and action', async () => {
+    // given: a capture that records every address it is asked to measure
+    // when: the all-states build runs
+    // then: the empty and error queries and the loading click all reach the capture
+    const calls: CaptureCall[] = [];
+    await buildStates(statesProject(), fakeCapture({ calls }));
+    expect(calls).toHaveLength(12);
+    expect(calls.filter((call) => call.url === `${STATES_BASE}?state=empty`)).toHaveLength(3);
+    expect(calls.filter((call) => call.url === `${STATES_BASE}?state=error`)).toHaveLength(3);
+    const loading = calls.filter((call) => call.click !== undefined);
+    expect(loading).toHaveLength(3);
+    expect(loading.every((call) => call.click === '#load-more')).toBe(true);
+  });
+
+  it('when one declaration is removed, should name that state unavailable and stay incomplete', async () => {
+    // given: the fixture declaration without its empty state
+    // when: the all-states build runs
+    // then: the three empty keys are state-unavailable and the route is not complete
+    const coverage = await buildStates(
+      statesProject((declaration) => {
+        delete declaration.routes['/']?.empty;
+      })
+    );
+    expect(coverage.complete).toBe(false);
+    expect(coverage.completeKeys).toBe(9);
+    expect([...coverage.missing].sort()).toEqual([
+      'empty@1280x800',
+      'empty@390x844',
+      'empty@834x1112'
+    ]);
+    const empty = coverage.keys.filter((key) => key.state === 'empty');
+    expect(empty.every((key) => key.verdict === 'state-unavailable')).toBe(true);
+    expect(
+      empty.every((key) => String(key.reason).includes('no declaration for state empty'))
+    ).toBe(true);
+  });
+
+  it('when a declared state fails to render, should record failed rather than unavailable', async () => {
+    // given: a declaration that addresses the error state, and a capture that fails for it
+    // when: the all-states build runs
+    // then: the error keys are failed with the capture reason, not state-unavailable
+    const coverage = await buildStates(statesProject(), fakeCapture({ failError: true }));
+    const failed = coverage.keys.filter((key) => key.state === 'error');
+    expect(failed.every((key) => key.verdict === 'failed')).toBe(true);
+    expect(failed.every((key) => String(key.reason).includes('the error state page crashed'))).toBe(
+      true
+    );
+    expect(coverage.keys.filter((key) => key.verdict === 'real')).toHaveLength(9);
+  });
+});
+
+describe('(integration) the persisted state matrix', () => {
+  it('when every state is real, should write one entry per key and a matching coverage record', async () => {
+    // given: a complete declaration and a temporary project
+    // when: the all-states build runs
+    // then: the index lists twelve entries and coverage.json repeats the verdict
+    const root = statesProject();
+    await buildStates(root);
+    const scanned = scanEntries(root);
+    expect(scanned.ok).toBe(true);
+    if (!scanned.ok) return;
+    expect(scanned.entries).toHaveLength(12);
+    const stored = JSON.parse(readFileSync(coveragePath(root, '/'), 'utf8')) as RouteCoverage;
+    expect(stored.complete).toBe(true);
+    expect(stored.completeKeys).toBe(12);
+    expect(stored.keys).toHaveLength(12);
+  });
+});
+
+describe('(a11y) the named state gaps', () => {
+  it('when the declaration file is missing, should name the unreadable declaration', async () => {
+    // given: a project with no state declaration at all
+    // when: the all-states build runs
+    // then: every key is unavailable and the reason names the unreadable declaration
+    const coverage = await buildStates(tempProject());
+    expect(coverage.complete).toBe(false);
+    expect(coverage.keys.every((key) => key.verdict === 'state-unavailable')).toBe(true);
+    expect(
+      coverage.keys.every((key) =>
+        String(key.reason).includes('the state declaration could not be read')
+      )
+    ).toBe(true);
   });
 });

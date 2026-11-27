@@ -68,6 +68,8 @@ export type LayoutCaptureInput = {
   route: string;
   url: string;
   viewport: Viewport;
+  /** One page action, a CSS selector to click, performed after navigation. */
+  click?: string;
   /** Injected by a unit test so no test launches a browser. */
   launch?: () => Promise<PlaywrightBrowser>;
 };
@@ -202,6 +204,16 @@ async function capturePage(
     const page = await browser.newPage({ viewport: input.viewport });
     try {
       await page.goto(input.url);
+      if (input.click !== undefined) {
+        const selector = JSON.stringify(input.click);
+        const clicked = await page.evaluate<boolean>(
+          `(() => { const target = document.querySelector(${selector}); ` +
+            'if (target === null) return false; target.click(); return true; })()'
+        );
+        if (!clicked) {
+          return { ok: false, reason: `the declared action found no element for ${input.click}` };
+        }
+      }
       const elements = await page.evaluate<LayoutElement[]>(LAYOUT_GEOMETRY_SCRIPT);
       const html = withHtml ? await page.evaluate<string>(LAYOUT_HTML_SCRIPT) : '';
       return {

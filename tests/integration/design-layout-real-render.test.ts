@@ -11,6 +11,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { buildOne, type Built } from '../../src/cli/commands/design-layout-build-command.js';
 import {
   buildLayoutIndex,
   type LayoutAnchor
@@ -20,6 +21,14 @@ import {
   chainsOf,
   type LayoutEntry
 } from '../../src/services/design/layout/layout-graph.js';
+import { routeCoverage, viewportKey } from '../../src/services/design/layout/layout-graph-paths.js';
+import {
+  driveStates,
+  LAYOUT_STATES,
+  type LayoutState,
+  type StateDeclarations,
+  type StateDrive
+} from '../../src/services/design/layout/layout-graph-query.js';
 import {
   captureLayoutPage,
   type LayoutGeometry,
@@ -28,11 +37,30 @@ import {
 import { rebuildHtml } from '../../src/services/design/layout/layout-preview.js';
 import { verifyRoundTrip } from '../../src/services/design/layout/layout-roundtrip.js';
 import { readSpacingTokens } from '../../src/services/design/layout/layout-tokens.js';
+import { isLoopbackUrl } from '../../src/services/design/url-trust.js';
 
 const FIXTURES = resolve(dirname(fileURLToPath(import.meta.url)), '../fixtures/design/layout');
 const TOKENS = readSpacingTokens(FIXTURES);
 const VIEWPORT: Viewport = { width: 390, height: 844 };
 const TIMEOUT_MS = 120_000;
+
+/** The three breakpoints `--all-states` drives for every state. */
+const STATE_VIEWPORTS: Viewport[] = [
+  { width: 390, height: 844 },
+  { width: 834, height: 1112 },
+  { width: 1280, height: 800 }
+];
+
+/** How each state is reached: a query address, or the default page plus one click. */
+const DECLARED_STATES: Extract<StateDeclarations, { ok: true }> = {
+  ok: true,
+  states: {
+    default: { url: '/states.html' },
+    empty: { url: '/states.html?state=empty' },
+    error: { url: '/states.html?state=error' },
+    loading: { url: '/states.html', click: '#load-more' }
+  }
+};
 
 const pages = new Map<string, string>();
 let server: Server;
@@ -40,7 +68,8 @@ let base = '';
 
 beforeAll(async () => {
   server = createServer((request, response) => {
-    const body = pages.get(request.url ?? '');
+    const path = (request.url ?? '/').split('?')[0] ?? '/';
+    const body = pages.get(request.url ?? '') ?? pages.get(path);
     if (body === undefined) {
       response.writeHead(404);
       response.end('not found');
@@ -63,6 +92,58 @@ afterAll(() => {
 function serve(name: string, html: string): string {
   pages.set(`/${name}.html`, html);
   return `${base}/${name}.html`;
+}
+
+/** Register the state fixture once; its query variants reuse the same body. */
+function serveStates(): void {
+  pages.set('/states.html', readFileSync(join(FIXTURES, 'states.html'), 'utf8'));
+}
+
+/** Drive the real capture and the production entry build, exactly as `--all-states` does. */
+async function driveFixtureStates(declarations: StateDeclarations): Promise<StateDrive<Built>> {
+  serveStates();
+  const url = `${base}/states.html`;
+  return driveStates(
+    {
+      route: '/',
+      baseUrl: base,
+      declarations,
+      viewports: STATE_VIEWPORTS,
+      trusted: isLoopbackUrl
+    },
+    captureLayoutPage,
+    (state, viewport, page) =>
+      buildOne({ project: FIXTURES, route: '/', url, state }, viewport, TOKENS, page)
+  );
+}
+
+/** The declarations minus one state: the named keys that state owns become unavailable. */
+function declarationsWithout(state: LayoutState): StateDeclarations {
+  const states = { ...DECLARED_STATES.states };
+  delete states[state];
+  return { ok: true, states };
+}
+
+/** The built entries keyed by their `<state>@<WxH>` coordinate. */
+function entriesByCoordinate(built: readonly Built[]): Map<string, LayoutEntry> {
+  return new Map(
+    built.map((item) => [`${item.entry.state}@${viewportKey(item.entry.viewport)}`, item.entry])
+  );
+}
+
+/** One viewport's four entries, or the coordinate that was not built. */
+function entriesAt(byKey: Map<string, LayoutEntry>, viewport: Viewport): LayoutEntry[] {
+  return LAYOUT_STATES.map((state) => {
+    const key = `${state}@${viewportKey(viewport)}`;
+    const entry = byKey.get(key);
+    if (entry === undefined) throw new Error(`no built entry for ${key}`);
+    return entry;
+  });
+}
+
+/** The ordered node ids of one entry: each id is a structural fingerprint, never a DOM index. */
+function structureOf(entry: LayoutEntry): string {
+  return entry.nodes.map((node) => `${node.kind}:${node.id}`).join('|');
 }
 
 async function liveGeometry(url: string): Promise<LayoutGeometry> {
@@ -194,6 +275,61 @@ describe('(integration) the real-browser round trip', () => {
       const entry = entryFrom('inline', await liveGeometry(serve('inline-source', inlinePage)));
       expect(verifyRoundTrip(entry).ok).toBe(true);
       await assertRealRoundTrip(entry, 'inline-preview');
+    },
+    TIMEOUT_MS
+  );
+
+  it(
+    'when the four declared states render at three breakpoints, should measure every key for real',
+    async () => {
+      // given: the state fixture served behind three query variants and one click
+      // when: the production driver renders it at the three all-states viewports
+      // then: all twelve keys are real and complete, and the four states stay structurally distinct
+      const driven = await driveFixtureStates(DECLARED_STATES);
+      expect(driven.keys).toHaveLength(12);
+      expect(driven.keys.every((key) => key.verdict === 'real')).toBe(true);
+      expect(routeCoverage('/', driven.keys, 12)).toMatchObject({
+        complete: true,
+        completeKeys: 12,
+        expectedKeys: 12,
+        missing: []
+      });
+
+      const byKey = entriesByCoordinate(driven.built);
+      expect(byKey.size).toBe(12);
+      for (const viewport of STATE_VIEWPORTS) {
+        const entries = entriesAt(byKey, viewport);
+        const structures = new Set(entries.map(structureOf));
+        const fingerprints = new Set(entries.map((entry) => entry.fingerprint));
+        expect(structures.size).toBe(LAYOUT_STATES.length);
+        expect(fingerprints.size).toBe(LAYOUT_STATES.length);
+      }
+    },
+    TIMEOUT_MS
+  );
+
+  it(
+    'when the loading declaration is removed, should name its three keys unavailable and stay incomplete',
+    async () => {
+      // given: the same four-state fixture with no declaration for the loading state
+      // when: the driver renders the states it can still reach
+      // then: exactly the three loading keys are unavailable, named, and listed as missing
+      const driven = await driveFixtureStates(declarationsWithout('loading'));
+      const loading = driven.keys.filter((key) => key.state === 'loading');
+      expect(loading).toHaveLength(3);
+      expect(loading.every((key) => key.verdict === 'state-unavailable')).toBe(true);
+      expect(
+        loading.every((key) => String(key.reason).includes('no declaration for state loading'))
+      ).toBe(true);
+      const coverage = routeCoverage('/', driven.keys, 12);
+      expect(coverage.complete).toBe(false);
+      expect(coverage.completeKeys).toBe(9);
+      expect([...coverage.missing].sort()).toEqual([
+        'loading@1280x800',
+        'loading@390x844',
+        'loading@834x1112'
+      ]);
+      expect(driven.built).toHaveLength(9);
     },
     TIMEOUT_MS
   );

@@ -1,9 +1,23 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { Command } from 'commander';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
-import { entryOf, FIXTURES, textOf } from './_layout-graph-fixtures.js';
+import {
+  captureIo,
+  disposeProjects,
+  entryOf,
+  FIXTURES,
+  tempProject,
+  textOf
+} from './_layout-graph-fixtures.js';
+import { registerDesignLayoutCommand } from '../../../src/cli/commands/design-layout-command.js';
+import {
+  graphRoot,
+  routeSlug,
+  writeEntry
+} from '../../../src/services/design/layout/layout-graph-store.js';
 import {
   densityOf,
   verifyRoundTrip
@@ -161,5 +175,150 @@ describe('(integration) token density', () => {
       expect(density.asciiTokens).toBeLessThan(density.htmlTokens);
       expect(density.denser).toBe(true);
     }
+  });
+});
+
+type Comparison = { verdict: string; reason?: string; from?: string; to?: string };
+
+let savedExitCode: string | number | null | undefined;
+
+beforeEach(() => {
+  savedExitCode = process.exitCode;
+  process.exitCode = 0;
+});
+
+afterEach(() => {
+  process.exitCode = savedExitCode;
+  disposeProjects();
+});
+
+function comparisonOf(envelope: Record<string, unknown>): Comparison {
+  return (envelope.data as { comparison: Comparison }).comparison;
+}
+
+/** A project holding one entry at default@390x844 for the route `/`. */
+function storedProject(): string {
+  const root = tempProject();
+  writeEntry(root, entryOf('aligned'));
+  return root;
+}
+
+async function runLayout(
+  root: string,
+  args: readonly string[]
+): Promise<{ envelope: Record<string, unknown>; text: string }> {
+  const capture = captureIo();
+  const program = new Command();
+  const design = program.command('design');
+  registerDesignLayoutCommand(design, capture.io);
+  await program.parseAsync(['design', 'layout', ...args, '--project', root, '--json'], {
+    from: 'user'
+  });
+  return { envelope: JSON.parse(capture.out()) as Record<string, unknown>, text: capture.out() };
+}
+
+describe('(behavior) the cross-key comparison verdict', () => {
+  it('when the state differs, should name the state axis and both keys', async () => {
+    // given: a stored default entry and an empty coordinate at the same viewport
+    // when: read is asked to compare the two
+    // then: the answer is not-comparable and names the state axis and both keys
+    const { envelope, text } = await runLayout(storedProject(), [
+      'read',
+      '--route',
+      '/',
+      '--compare',
+      'empty@390x844'
+    ]);
+    const comparison = comparisonOf(envelope);
+    expect(comparison.verdict).toBe('not-comparable');
+    expect(comparison.reason).toContain('state differ');
+    expect(comparison.from).toContain('default@390x844');
+    expect(comparison.to).toContain('empty@390x844');
+    expect(text).not.toMatch(/aligned/);
+  });
+
+  it('when the viewport differs, should name the viewport axis and accept the same key', async () => {
+    // given: a stored default entry at 390x844 and two comparison targets
+    // when: read compares a 1280x800 target and then its own coordinate
+    // then: the first is not-comparable on the viewport axis and the second is comparable
+    const root = storedProject();
+    const moved = await runLayout(root, ['read', '--route', '/', '--compare', 'default@1280x800']);
+    expect(comparisonOf(moved.envelope).reason).toContain('viewport differ');
+    const same = await runLayout(root, ['read', '--route', '/', '--compare', 'default@390x844']);
+    expect(comparisonOf(same.envelope).verdict).toBe('comparable');
+  });
+});
+
+describe('(integration) the comparison entry on rebuild and mix', () => {
+  it('when rebuild compares a different state, should answer not-comparable and write no preview', async () => {
+    // given: a stored entry and a comparison target in another state
+    // when: rebuild runs with that comparison
+    // then: it answers not-comparable and the preview directory does not exist
+    const root = storedProject();
+    const { envelope } = await runLayout(root, [
+      'rebuild',
+      '--route',
+      '/',
+      '--compare',
+      'empty@390x844'
+    ]);
+    expect(comparisonOf(envelope).verdict).toBe('not-comparable');
+    expect(existsSync(join(graphRoot(root), routeSlug('/'), 'preview'))).toBe(false);
+  });
+
+  it('when mix compares another viewport, should answer not-comparable without needing a move', async () => {
+    // given: a stored entry and a comparison target at another viewport
+    // when: mix runs with a syntactically valid move list
+    // then: the comparison answers before any block work, so no mixed page is written
+    const { envelope } = await runLayout(storedProject(), [
+      'mix',
+      '--route',
+      '/',
+      '--base',
+      'stack',
+      '--move',
+      'a=b',
+      '--compare',
+      'default@1280x800'
+    ]);
+    expect(comparisonOf(envelope).verdict).toBe('not-comparable');
+  });
+});
+
+describe('(a11y) the comparison text', () => {
+  it('when a cross-key comparison is answered, should never print an aligned verdict', async () => {
+    // given: the same comparison target for each command
+    // when: read, rebuild and mix are each asked for it
+    // then: every answer says not-comparable and none of them mentions aligned
+    for (const command of ['read', 'rebuild', 'mix'] as const) {
+      const args =
+        command === 'mix'
+          ? [command, '--route', '/', '--base', 'stack', '--move', 'a=b']
+          : [command, '--route', '/'];
+      const { envelope, text } = await runLayout(storedProject(), [
+        ...args,
+        '--compare',
+        'empty@390x844'
+      ]);
+      expect(comparisonOf(envelope).verdict).toBe('not-comparable');
+      expect(text).not.toMatch(/aligned/);
+    }
+  });
+
+  it('when the coordinate is unreadable, should refuse with the expected shape', async () => {
+    // given: a comparison target without a viewport
+    // when: read runs
+    // then: the refusal names the accepted shape and exits with the refused code
+    const { envelope } = await runLayout(storedProject(), [
+      'read',
+      '--route',
+      '/',
+      '--compare',
+      'default'
+    ]);
+    expect(envelope.ok).toBe(false);
+    expect(envelope.code).toBe('DESIGN_LAYOUT_COMPARE_INVALID');
+    expect(String(envelope.message)).toContain('state@WxH');
+    expect(process.exitCode).toBe(2);
   });
 });

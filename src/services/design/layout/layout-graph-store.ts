@@ -17,10 +17,12 @@ import { TOKEN_INDEX_FILE, writeTokenIndex } from './layout-graph-token-index.js
 import {
   INDEX_FILE,
   capturePath,
+  coveragePath,
   entryPath,
   graphRoot,
   keyRefusal,
   type EntryKey,
+  type RouteCoverage,
   type StoreWrite
 } from './layout-graph-paths.js';
 
@@ -162,6 +164,18 @@ export function writeEntry(projectRoot: string, entry: LayoutEntry): StoreWrite 
     : { ok: true, path };
 }
 
+/** Record the route's coverage verdict beside its entries. */
+export function writeCoverage(projectRoot: string, coverage: RouteCoverage): StoreWrite {
+  const path = coveragePath(projectRoot, coverage.route);
+  try {
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, `${JSON.stringify(coverage)}\n`, 'utf8');
+    return { ok: true, path };
+  } catch (error) {
+    return { ok: false, reason: `the coverage record could not be written (${errorText(error)})` };
+  }
+}
+
 /** Keep the measured geometry that produced an entry, so a read can check it. */
 export function writeCapture(projectRoot: string, key: EntryKey, geometry: unknown): StoreWrite {
   const refusal = keyRefusal(key);
@@ -180,6 +194,7 @@ export {
   INDEX_FILE,
   INDEX_MAGIC,
   capturePath,
+  coveragePath,
   entryFileName,
   entryPath,
   graphRoot,

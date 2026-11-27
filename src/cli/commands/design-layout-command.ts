@@ -5,7 +5,10 @@
  */
 import type { Command } from 'commander';
 
-import { addJsonOption, type ProgramIO } from '../cli-helpers.js';
+import { ok } from 'peaks-loop-shared/result';
+
+import { comparisonOf } from '../../services/design/layout/layout-graph-paths.js';
+import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { runDesignLayoutBuild } from './design-layout-build-command.js';
 import {
   runDesignLayoutMix,
@@ -18,6 +21,8 @@ import { runDesignLayoutRefresh } from './design-layout-refresh-command.js';
 import {
   EXIT_REFUSED,
   failWith,
+  selectionFor,
+  viewportLabel,
   type DesignLayoutBuildOptions,
   type DesignLayoutReadOptions,
   type DesignLayoutRebuildOptions,
@@ -29,7 +34,48 @@ const ALLOW_STALE_HELP: [string, string] = [
   'use an entry the contract marks stale; the result is labelled direction preview'
 ];
 
+const COMPARE_HELP: [string, string] = [
+  '--compare <state@WxH>',
+  'compare with another coordinate; a different key answers not-comparable'
+];
+
+/**
+ * Answer a cross-key comparison instead of running the command. The selected
+ * entry and the requested coordinate are compared first; a different key is
+ * reported as not-comparable with both keys named, never as an aligned result.
+ */
+function comparisonGate(
+  command: string,
+  options: DesignLayoutReadOptions | DesignLayoutRebuildOptions,
+  io: ProgramIO
+): boolean {
+  if (options.compare === undefined) return false;
+  const selection = selectionFor(options, io, command);
+  if (selection === null) return true;
+  const compared = comparisonOf(selection, options.compare);
+  if (!compared.ok) {
+    failWith(io, command, options.json, {
+      code: 'DESIGN_LAYOUT_COMPARE_INVALID',
+      message: compared.reason,
+      exit: EXIT_REFUSED
+    });
+    return true;
+  }
+  printResult(
+    io,
+    ok(command, {
+      route: selection.route,
+      state: selection.state,
+      viewport: viewportLabel(selection.viewport),
+      comparison: compared.comparison
+    }),
+    options.json === true
+  );
+  return true;
+}
+
 function readAction(options: DesignLayoutReadOptions, io: ProgramIO): void {
+  if (comparisonGate('design.layout.read', options, io)) return;
   if (options.edge !== undefined && options.edge !== 'left' && options.edge !== 'top') {
     failWith(io, 'design.layout.read', options.json, {
       code: 'DESIGN_LAYOUT_EDGE_INVALID',
@@ -96,13 +142,14 @@ function registerMixCommand(layout: Command, io: ProgramIO): void {
       .option('--viewport <WxH>', 'viewport to mix')
       .option('--out <file>', 'write the mixed page to this file instead of the graph directory')
       .option(ALLOW_STALE_HELP[0], ALLOW_STALE_HELP[1])
-  ).action((options: DesignLayoutMixOptions) => runDesignLayoutMix(options, io));
+      .option(COMPARE_HELP[0], COMPARE_HELP[1])
+  ).action((options: DesignLayoutMixOptions) => {
+    if (comparisonGate('design.layout.mix', options, io)) return;
+    runDesignLayoutMix(options, io);
+  });
 }
 
-export function registerDesignLayoutCommand(design: Command, io: ProgramIO): void {
-  const layout = design
-    .command('layout')
-    .description('Build, read and rebuild the ASCII layout graph');
+function registerBuildCommand(layout: Command, io: ProgramIO): void {
   addJsonOption(
     layout
       .command('build')
@@ -113,7 +160,15 @@ export function registerDesignLayoutCommand(design: Command, io: ProgramIO): voi
       .option('--app <path>', 'app root when the design contract does not sit at the project root')
       .option('--state <name>', 'state the page is in (default default)')
       .option('--viewport <list>', 'comma-separated WxH viewports (default 390x844)')
+      .option('--all-states', 'drive every declared state at 390x844, 834x1112 and 1280x800')
   ).action((options: DesignLayoutBuildOptions) => runDesignLayoutBuild(options, io));
+}
+
+export function registerDesignLayoutCommand(design: Command, io: ProgramIO): void {
+  const layout = design
+    .command('layout')
+    .description('Build, read and rebuild the ASCII layout graph');
+  registerBuildCommand(layout, io);
   addJsonOption(
     layout
       .command('read')
@@ -130,6 +185,7 @@ export function registerDesignLayoutCommand(design: Command, io: ProgramIO): voi
         '--capture <file>',
         'a current measured geometry document; build writes one per entry'
       )
+      .option(COMPARE_HELP[0], COMPARE_HELP[1])
   ).action((options: DesignLayoutReadOptions) => readAction(options, io));
   addJsonOption(
     layout
@@ -141,7 +197,11 @@ export function registerDesignLayoutCommand(design: Command, io: ProgramIO): voi
       .option('--viewport <WxH>', 'viewport to rebuild')
       .option('--out <file>', 'write the preview to this file instead of the graph directory')
       .option(ALLOW_STALE_HELP[0], ALLOW_STALE_HELP[1])
-  ).action((options: DesignLayoutRebuildOptions) => runDesignLayoutRebuild(options, io));
+      .option(COMPARE_HELP[0], COMPARE_HELP[1])
+  ).action((options: DesignLayoutRebuildOptions) => {
+    if (comparisonGate('design.layout.rebuild', options, io)) return;
+    runDesignLayoutRebuild(options, io);
+  });
   registerRefreshCommand(layout, io);
   registerPrototypeCommand(layout, io);
   registerMixCommand(layout, io);

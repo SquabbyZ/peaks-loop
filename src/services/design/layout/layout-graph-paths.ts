@@ -11,6 +11,29 @@ import type { Viewport } from './layout-geometry.js';
 
 export const INDEX_FILE = 'index.txt';
 export const INDEX_MAGIC = 'lgi 1';
+export const COVERAGE_FILE = 'coverage.json';
+
+/** How one key of a route's state matrix was obtained. */
+export type CoverageVerdict = 'real' | 'failed' | 'state-unavailable';
+
+/** One key of a route's state matrix, with the named reason when it is not real. */
+export type CoverageKey = {
+  state: string;
+  viewport: Viewport;
+  verdict: CoverageVerdict;
+  reason?: string;
+};
+
+/** The route-level verdict: complete only when every expected key is a real entry. */
+export type RouteCoverage = {
+  route: string;
+  complete: boolean;
+  completeKeys: number;
+  expectedKeys: number;
+  /** The `<state>@<WxH>` keys that are not real entries. */
+  missing: string[];
+  keys: CoverageKey[];
+};
 
 const SLUG_MAX = 60;
 const SLUG_DIGEST = 6;
@@ -69,6 +92,83 @@ export function capturePath(projectRoot: string, key: EntryKey): string {
 
 export function viewportKey(viewport: Viewport): string {
   return `${String(viewport.width)}x${String(viewport.height)}`;
+}
+
+const COORDINATE_PATTERN = /^([a-z0-9][a-z0-9-]*)@(\d+)x(\d+)$/;
+
+/** A `<state>@<WxH>` coordinate, or null when the text is not one. */
+export function parseCoordinate(text: string): { state: string; viewport: Viewport } | null {
+  const match = COORDINATE_PATTERN.exec(text.trim());
+  const state = match?.[1];
+  const width = match?.[2];
+  const height = match?.[3];
+  if (state === undefined || width === undefined || height === undefined) return null;
+  const viewport = { width: Number(width), height: Number(height) };
+  return viewport.width > 0 && viewport.height > 0 ? { state, viewport } : null;
+}
+
+export type KeyComparison =
+  | { verdict: 'comparable' }
+  | { verdict: 'not-comparable'; reason: string; from: string; to: string };
+
+export type ComparisonRead =
+  { ok: true; comparison: KeyComparison } | { ok: false; reason: string };
+
+/** Two coordinates are comparable only when they are the same key. */
+export function compareEntryKeys(from: EntryKey, to: EntryKey): KeyComparison {
+  const differing: string[] = [];
+  if (from.route !== to.route) differing.push('route');
+  if (from.state !== to.state) differing.push('state');
+  if (from.viewport.width !== to.viewport.width || from.viewport.height !== to.viewport.height) {
+    differing.push('viewport');
+  }
+  if (differing.length === 0) return { verdict: 'comparable' };
+  return {
+    verdict: 'not-comparable',
+    reason:
+      `${differing.join(' and ')} differ: ${keyText(from)} against ${keyText(to)}; ` +
+      'only one key can be compared with itself',
+    from: keyText(from),
+    to: keyText(to)
+  };
+}
+
+/** The comparison a caller asked for against the entry it selected. */
+export function comparisonOf(selection: EntryKey, text: string): ComparisonRead {
+  const parsed = parseCoordinate(text);
+  if (parsed === null) return { ok: false, reason: `compare must be state@WxH, not "${text}"` };
+  return {
+    ok: true,
+    comparison: compareEntryKeys(selection, {
+      route: selection.route,
+      state: parsed.state,
+      viewport: parsed.viewport
+    })
+  };
+}
+
+/** Where a route's coverage verdict is recorded, beside its entries. */
+export function coveragePath(projectRoot: string, route: string): string {
+  return join(graphRoot(projectRoot), routeSlug(route), COVERAGE_FILE);
+}
+
+/** The route's verdict from one row per expected key; a short matrix is never complete. */
+export function routeCoverage(
+  route: string,
+  keys: readonly CoverageKey[],
+  expectedKeys: number
+): RouteCoverage {
+  const completeKeys = keys.filter((key) => key.verdict === 'real').length;
+  return {
+    route,
+    complete: completeKeys === expectedKeys && keys.length === expectedKeys,
+    completeKeys,
+    expectedKeys,
+    missing: keys
+      .filter((key) => key.verdict !== 'real')
+      .map((key) => `${key.state}@${viewportKey(key.viewport)}`),
+    keys: [...keys]
+  };
 }
 
 /** The one stable spelling of an entry key, used in index files and as a map key. */
