@@ -11,6 +11,7 @@ import type { ContextGuardDecision } from '../../services/context/context-guard.
 import type { getAdapter } from '../../services/ide/ide-registry.js';
 import type { SubAgentToolCall } from '../../services/dispatch/sub-agent-dispatcher.js';
 import type { ReviewPlan } from '../../services/rd/reviewer-dispatch-policy.js';
+import type { AuditPlan } from '../../services/rd/stack-dimensions.js';
 import { writeLogEntry } from '../../services/log/logger.js';
 import { type DispatchOptions } from './sub-agent-shared.js';
 import { type IsolationLease } from './dispatch-isolation-lease.js';
@@ -44,6 +45,11 @@ export interface DispatchEnvelopeInput {
    * derived, and `warnings` names the reason.
    */
   reviewPlan?: ReviewPlan | null;
+  /**
+   * S2.2: the stack-derived audit plan. Same contract as `reviewPlan`:
+   * `undefined` omits the key, `null` publishes it with a reason in `warnings`.
+   */
+  auditPlan?: AuditPlan | null;
 }
 
 function buildDispatchNextActions(
@@ -118,7 +124,8 @@ function buildDispatchEnvelopeData(
     mustLsFilesVerification: input.mustLsFilesVerification,
     // Omitted for every role without a plan, so those envelopes stay
     // byte-identical; `null` is published when the reason is in `warnings`.
-    ...(input.reviewPlan !== undefined ? { reviewPlan: input.reviewPlan } : {})
+    ...(input.reviewPlan !== undefined ? { reviewPlan: input.reviewPlan } : {}),
+    ...(input.auditPlan !== undefined ? { auditPlan: input.auditPlan } : {})
   };
 }
 

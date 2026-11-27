@@ -36,6 +36,8 @@ import {
 } from './dispatch-prompt-composition.js';
 import { buildDispatchToolCall } from './dispatch-tool-call.js';
 import { reviewPlanForDispatch } from './dispatch-review-plan.js';
+import { auditPlanForDispatch, planInputFor } from './dispatch-audit-plan.js';
+import type { AuditPlan } from '../../services/rd/stack-dimensions.js';
 import { writeDispatchRecord, type DispatchRecordWrite } from './dispatch-record-write.js';
 import {
   emitDispatchEnvelope,
@@ -61,6 +63,7 @@ interface WriteRecordPhaseInput {
   effectivePrompt: string;
   toolCall: SubAgentToolCall;
   lease: IsolationLease;
+  auditPlan: AuditPlan | null;
   warnings: string[];
 }
 
@@ -165,6 +168,7 @@ function writeRecordPhase(
     batchId: ctx.batchId,
     isolationMode: input.lease.isolationMode,
     leaseId: input.lease.leaseId,
+    auditPlan: input.auditPlan,
     warnings: input.warnings
   });
 }
@@ -186,18 +190,17 @@ async function runDispatchPipeline(
   });
   if (composed === null) return;
   const { adapter, effectivePrompt, warnings, mustLsFilesVerification } = composed;
-  const plan = await reviewPlanForDispatch({
-    role,
-    projectRoot: ctx.projectRoot,
-    sessionId: ctx.sid,
-    requestId: options.requestId
-  });
+  const planInput = planInputFor(role, ctx, options);
+  const plan = await reviewPlanForDispatch(planInput);
+  const auditPlan = await auditPlanForDispatch(planInput);
+  const planWarnings = [...plan.warnings, ...auditPlan.warnings];
   const toolCall = buildToolCallPhase(io, ctx, { adapter, effectivePrompt, lease });
   if (toolCall === null) return;
   const { artifactMeta, dispatchRecordPath, counter } = writeRecordPhase(ctx, options, {
     effectivePrompt,
     toolCall,
     lease,
+    auditPlan: auditPlan.auditPlan ?? null,
     warnings
   });
   const envelopeInput: DispatchEnvelopeInput = {
@@ -213,9 +216,10 @@ async function runDispatchPipeline(
     artifactMeta,
     mustLsFilesVerification,
     lease,
-    ...(plan.reviewPlan !== undefined ? { reviewPlan: plan.reviewPlan } : {})
+    ...(plan.reviewPlan !== undefined ? { reviewPlan: plan.reviewPlan } : {}),
+    ...(auditPlan.auditPlan !== undefined ? { auditPlan: auditPlan.auditPlan } : {})
   };
-  emitDispatchEnvelope(io, envelopeInput, [...warnings, ...plan.warnings], input.asJson);
+  emitDispatchEnvelope(io, envelopeInput, [...warnings, ...planWarnings], input.asJson);
   writeDispatchLogEntry(ctx, counter.count, input.decision.forcedAt);
 }
 

@@ -103,7 +103,8 @@ describe('Scenario: behavior — v3.2 schema additions', () => {
       mode: 'in-process',
       vendor: null,
       autoCompactEvents: [],
-      tokenUsage: null
+      tokenUsage: null,
+      auditPlan: null
     };
     expect(sample.version).toBe('4.1.0');
     expect(sample.serviceKill).toEqual([]);

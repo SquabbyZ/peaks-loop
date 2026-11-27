@@ -117,10 +117,10 @@ async function runDispatch(role: string, requestId: string | null): Promise<Disp
 describe('(render) the reviewPlan envelope field', () => {
   it('when the request declares feature, should publish the canonical three-reviewer plan', async () => {
     // given: an rd request whose body declares `- type: feature`
-    const rid = await seedRequest('feature');
     // when:  `peaks sub-agent dispatch rd` runs
-    const env = await runDispatch('rd', rid);
     // then:  the envelope carries the 3-way fan-out with karpathy in slot 2
+    const rid = await seedRequest('feature');
+    const env = await runDispatch('rd', rid);
     expect(env.data.reviewPlan).toEqual({
       reviewers: [...RD_FANOUT_REVIEWERS],
       karpathy: true,
@@ -130,20 +130,20 @@ describe('(render) the reviewPlan envelope field', () => {
 
   it('when a non-rd role is dispatched, should omit the key entirely', async () => {
     // given: a feature request and a reviewer role the plan does not govern
-    const rid = await seedRequest('feature');
     // when:  a non-rd sub-agent is dispatched
-    const env = await runDispatch('code-reviewer', rid);
     // then:  the envelope shape is unchanged, key and warnings alike
+    const rid = await seedRequest('feature');
+    const env = await runDispatch('code-reviewer', rid);
     expect('reviewPlan' in env.data).toBe(false);
     expect(env.warnings).toEqual([]);
   });
 
   it('when the plan is derived, should not leak into the generated prompt', async () => {
     // given: a feature request whose plan is non-null
-    const rid = await seedRequest('feature');
     // when:  the dispatch prompt is composed
-    const env = await runDispatch('rd', rid);
     // then:  the prompt is untouched — the plan is envelope metadata only
+    const rid = await seedRequest('feature');
+    const env = await runDispatch('rd', rid);
     expect(env.data.reviewPlan).not.toBeNull();
     expect(env.data.toolCall.args.prompt).not.toContain('reviewPlan');
     expect(env.data.toolCall.args.prompt).not.toContain('karpathySlotIndex');
@@ -151,22 +151,20 @@ describe('(render) the reviewPlan envelope field', () => {
 });
 
 describe('(behavior) parity with the one policy module', () => {
-  const fanoutTypes = ['feature', 'bugfix', 'refactor'] as const;
-
-  for (const type of fanoutTypes) {
-    it(`when the request declares ${type}, should equal reviewerListFor(${type})`, async () => {
-      // given: an rd request whose body declares this fanout request type
+  it('when the request declares a fanout type, should equal reviewerListFor for each', async () => {
+    // given: an rd request for each fanout request type
+    // when:  `peaks sub-agent dispatch rd` derives the plan
+    // then:  every field round-trips through the policy function
+    for (const type of ['feature', 'bugfix', 'refactor'] as const) {
       const rid = await seedRequest(type);
-      // when:  `peaks sub-agent dispatch rd` derives the plan
       const env = await runDispatch('rd', rid);
-      // then:  every field round-trips through the policy function
       expect(env.data.reviewPlan).toEqual({
         reviewers: [...reviewerListFor(type)],
         karpathy: shouldDispatchKarpathy(type),
         karpathySlotIndex: karpathySlotIndex(type)
       });
-    });
-  }
+    }
+  });
 
   it('when the request declares a non-fanout type, should return no reviewers and no karpathy slot', async () => {
     // given: config / docs / chore requests, which have no review surface
@@ -197,8 +195,8 @@ describe('(integration) the request artifact is the only source', () => {
   it('when --request-id is absent, should refuse to guess and name the reason', async () => {
     // given: a dispatch with no --request-id
     // when:  the review plan is derived
-    const env = await runDispatch('rd', null);
     // then:  the plan is null and the warning names the missing input
+    const env = await runDispatch('rd', null);
     expect(env.data.reviewPlan).toBeNull();
     expect(env.warnings.some((w) => w.includes('no request id'))).toBe(true);
   });
@@ -206,18 +204,18 @@ describe('(integration) the request artifact is the only source', () => {
   it('when no request artifact exists, should refuse to guess and name the reason', async () => {
     // given: a request id with no artifact on disk
     // when:  the review plan is derived
-    const env = await runDispatch('rd', 'rid-plan-absent');
     // then:  the plan is null and the warning names the unknown type
+    const env = await runDispatch('rd', 'rid-plan-absent');
     expect(env.data.reviewPlan).toBeNull();
     expect(env.warnings.some((w) => w.includes('request type unknown'))).toBe(true);
   });
 
   it('when the artifact records no type line, should treat the type as unknown', async () => {
     // given: a request artifact created without a request type
-    const rid = await seedRequest(null);
     // when:  the review plan is derived
-    const env = await runDispatch('rd', rid);
     // then:  the reader's `feature` default is NOT used as a guess
+    const rid = await seedRequest(null);
+    const env = await runDispatch('rd', rid);
     expect(env.data.reviewPlan).toBeNull();
     expect(env.warnings.some((w) => w.includes('request type unknown'))).toBe(true);
   });
@@ -227,12 +225,13 @@ describe('(a11y) the degraded path stays visible and successful', () => {
   it('when the plan cannot be derived, should still dispatch and name the remedy', async () => {
     // given: a dispatch with no --request-id
     // when:  the action completes
+    // then:  dispatch succeeds, both plan seams say what is missing, exit is clean
     const env = await runDispatch('rd', null);
-    // then:  dispatch succeeds, the warning is actionable, and exit is clean
     expect(env.ok).toBe(true);
-    expect(env.warnings).toHaveLength(1);
+    expect(env.warnings).toHaveLength(2);
     expect(env.warnings[0]).toContain('review plan unavailable');
     expect(env.warnings[0]).toContain('--request-id');
+    expect(env.warnings[1]).toContain('audit plan unavailable');
     expect(process.exitCode).toBe(0);
   });
 });

@@ -258,6 +258,14 @@ export async function checkPrerequisites(
     missing.push(...declaredEvidence.missing);
     warnings.push(...declaredEvidence.warnings);
 
+    // S2.2: a dispatch record that carries an `auditPlan` must have every
+    // dimension its stack profile added named in the matching audit artifact.
+    // No plan (every pre-S2.2 dispatch) leaves the request exactly as it was.
+    const { auditPlanCoverageViolations } = await import('../rd/audit-plan-gate.js');
+    const auditPlan = await auditPlanCoverageViolations(options);
+    missing.push(...auditPlan.missing);
+    warnings.push(...auditPlan.warnings);
+
     // The security audit artifact declares the paths it judged; the check
     // re-hashes them, so a repair after the audit is refused by name. An
     // artifact with no declaration is refused here, not waved through — a

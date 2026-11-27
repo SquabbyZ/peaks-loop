@@ -8,6 +8,7 @@ import { provisionDispatchNode } from '../../services/workflow/provision-dispatc
 import { buildArtifactMeta, type ArtifactMeta } from '../../services/context/artifact-meta.js';
 import { assertSafeArtifactPath } from 'peaks-loop-shared-channel';
 import { type SubAgentToolCall } from '../../services/dispatch/sub-agent-dispatcher.js';
+import type { AuditPlan } from '../../services/rd/stack-dimensions.js';
 import { type DispatchOptions } from './sub-agent-shared.js';
 
 export interface WriteDispatchRecordInput {
@@ -21,6 +22,9 @@ export interface WriteDispatchRecordInput {
   batchId: string;
   isolationMode: 'worktree' | 'container' | null;
   leaseId: string | null;
+  /** S2.2: the stack-derived audit plan, persisted so the handoff gate can
+   *  read it back. `null` when the dispatch carried none. */
+  auditPlan: AuditPlan | null;
   /** The dispatch's warning list — this function appends to it, as the inline block did. */
   warnings: string[];
 }
@@ -130,7 +134,8 @@ export function writeDispatchRecord(input: WriteDispatchRecordInput): DispatchRe
     // this directly off the dispatch record to compute
     // isolation duration without cross-referencing the
     // metrics stream.
-    isolationStartedAt: isolationMode !== null ? new Date().toISOString() : null
+    isolationStartedAt: isolationMode !== null ? new Date().toISOString() : null,
+    auditPlan: input.auditPlan
   });
   const counter = noteDispatched(projectRoot, sid, batchId);
   if (counter.warning) {

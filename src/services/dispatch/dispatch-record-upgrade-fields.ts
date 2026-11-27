@@ -10,6 +10,7 @@
  */
 import type { DispatchRecord } from './dispatch-record-types.js';
 import type { SubAgentToolCall } from './sub-agent-dispatcher.js';
+import { isAuditPlan } from '../rd/stack-dimensions.js';
 import {
   isDispatchStatus,
   isObject,
@@ -123,8 +124,16 @@ export function parseUpgradeRecordMigrationFields(obj: Record<string, unknown>) 
     // consumers (e.g. the dashboard, the merge-back-runner).
     mode,
     autoCompactEvents: autoCompact.autoCompactEvents,
-    tokenUsage: tokenUsage.tokenUsage
+    tokenUsage: tokenUsage.tokenUsage,
+    auditPlan: parseAuditPlanField(obj)
   };
+}
+
+/** S2.2: a plan the writer did not write, or one whose shape this build does
+ *  not recognise, reads as "no plan" — the gate then stays off for the
+ *  request, which is the pre-slice behaviour. */
+function parseAuditPlanField(obj: Record<string, unknown>): DispatchRecord['auditPlan'] {
+  return isAuditPlan(obj.auditPlan) ? obj.auditPlan : null;
 }
 
 /**
@@ -276,6 +285,7 @@ export function buildUpgradedRecord(
     mode: migration.mode,
     vendor,
     autoCompactEvents: migration.autoCompactEvents,
-    tokenUsage: migration.tokenUsage
+    tokenUsage: migration.tokenUsage,
+    auditPlan: migration.auditPlan
   };
 }

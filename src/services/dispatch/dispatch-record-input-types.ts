@@ -6,6 +6,7 @@
  * untouched.
  */
 import type { SubAgentToolCall } from './sub-agent-dispatcher.js';
+import type { AuditPlan } from '../rd/stack-dimensions.js';
 
 /** Input for the initial write. */
 export type WriteInitialDispatchInput = {
@@ -73,4 +74,9 @@ export type WriteInitialDispatchInput = {
    * usage from the vendor API.
    */
   tokenUsage?: { promptTokens: number; completionTokens: number; totalCostUsd?: number };
+  /**
+   * S2.2: the stack-derived audit plan the dispatch seam derived. Optional on
+   * input (a non-rd dispatch has none); the record writes `null` when absent.
+   */
+  auditPlan?: AuditPlan | null;
 };

@@ -1,4 +1,5 @@
 import type { SubAgentToolCall } from './sub-agent-dispatcher.js';
+import type { AuditPlan } from '../rd/stack-dimensions.js';
 
 /** G6.3 Heartbeat entry — single update written by a running sub-agent. */
 export interface Heartbeat {
@@ -205,6 +206,13 @@ export interface DispatchRecord {
     readonly completionTokens: number;
     readonly totalCostUsd?: number;
   } | null;
+  /**
+   * S2.2: the stack-derived audit plan this dispatch was given. `null` for
+   * every record written without one — legacy records upgrade to `null`, and a
+   * null plan is what keeps the handoff gate from demanding dimensions of work
+   * dispatched before the plan existed.
+   */
+  readonly auditPlan: AuditPlan | null;
 }
 
 /**

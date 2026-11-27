@@ -75,7 +75,7 @@ export function writeInitialDispatchRecord(input: WriteInitialDispatchInput): {
   const path = dispatchRecordPath(projectRoot, sessionId, requestId, now());
   const safePath = assertSafeDispatchRecordPath(path, projectRoot);
 
-  const record = buildInitialDispatchRecord(input, now);
+  const record = { ...buildInitialDispatchRecord(input, now), auditPlan: input.auditPlan ?? null };
   writeAtomic(safePath, record);
   // session's active-dispatches index so a future restart can
   // discover in-flight records without scanning the directory.
@@ -153,15 +153,15 @@ function reapLedgerBeforeRegister(input: {
 }
 
 /**
- * Construct the initial `DispatchRecord` from a `WriteInitialDispatchInput`.
- * PRD-002b slice 6: extracted from `writeInitialDispatchRecord` so the
- * writer stays under the `max-lines-per-function: 50` ESLint ceiling.
- * Behavior is byte-identical to the previous inline literal.
+ * Construct the initial record from a `WriteInitialDispatchInput`, minus the
+ * `auditPlan` the caller attaches (S2.2: the plan is dispatch policy, not input
+ * normalization). The body is the previous inline literal, byte for byte.
+ * PRD-002b slice 6: extracted to stay under the `max-lines-per-function` ceiling.
  */
 function buildInitialDispatchRecord(
   input: WriteInitialDispatchInput,
   now: () => Date
-): DispatchRecord {
+): Omit<DispatchRecord, 'auditPlan'> {
   const { role, requestId, sessionId, prompt, toolCall, batchId } = input;
   return {
     version: '4.1.0',

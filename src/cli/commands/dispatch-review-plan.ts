@@ -73,8 +73,10 @@ export async function reviewPlanForDispatch(input: ReviewPlanInput): Promise<Rev
  * The first carrier that exists answers, exactly as the canonical request-type
  * resolver reads the same order. A carrier that records no usable `- type:`
  * line answers `null` — an undeclared type is unknown, not the reader default.
+ * Exported so the audit-plan seam reads the type through THIS function instead
+ * of spelling the carrier order a second time.
  */
-async function readDeclaredRequestType(
+export async function readDeclaredRequestType(
   projectRoot: string,
   sessionId: string,
   requestId: string
