@@ -99,9 +99,9 @@ asking the user.
 ## Contract and gate discipline (when `design/` exists)
 
 - Read `design/contract.md` + `design/paved-road.json`; pages use `componentEntrypoints` only.
-- Run `peaks design check` toward the gate before delivery (the LLM runs it; the user never
-  types a CLI verb). A `blocked` is an environment problem to fix, not a pass; a `fail` is
-  yours to fix.
+- Before delivery, the LLM runs `peaks design check` toward the gate (the user never types
+  a CLI verb). A `blocked` is an environment problem to fix, not a pass; a `fail` is yours
+  to fix.
 - A `settings`-style page with inputs is legitimate: the probe's form signal only blocks when a
   declared route marker is unobserved.
 - Route identity reads the page's own identity (title, headings) against a marker declared per
@@ -110,9 +110,28 @@ asking the user.
   stage inert, and inert is not a pass.
 - Never commit runtime screenshots; only redacted or synthetic captures belong beside exemplars.
 
+## Per-route parallel read-only audit
+
+When the check spans two or more routes (the page plus a redirect target, or a shared shell
+that renders on several routes), the audit and the fidelity check may run in parallel — but
+only the reading and the judging:
+
+- **One read-only reader per route.** Each reader audits its own route's screenshot,
+  fidelity evidence and route-identity marker, and returns a bounded verdict. It never
+  writes the page, never edits anything, and never commits.
+- **Page writes stay single-threaded.** Only this window edits the page, and it does so
+  after merging the readers' verdicts. Parallelism stops at the edge of the read and the
+  judgment; it never reaches `Edit`, `Write` or the delivery gate.
+- **A failed reader is an ERROR, never a pass.** A reader that times out or errors is
+  marked **ERROR**, never "this route had no problem". Rerun it or read the routes serially,
+  and say in the conclusion that the audit was degraded.
+- **No rid, no artifact contract, no worktree lease.** Read-only auditing writes nothing,
+  so it binds and leases nothing; those belong to the parallel-write surface (S3.3).
+
 ## Boundaries
 
-- This is a sibling fast lane to `peaks-race-code`, not a sub-mode: it does design work in a
-  repository, and it does not orchestrate RD/QA.
+- It imports `.peaks/standards/loop-engineering-guidelines.md` and is a sibling fast lane to
+  `peaks-race-code`, not a sub-mode: it does design work in a repository, and it does not
+  orchestrate RD/QA.
 - The user speaks or picks; the LLM runs every command and reads every screenshot back to them
   in plain language.

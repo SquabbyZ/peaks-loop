@@ -200,8 +200,12 @@ applies to it. Batch mode is an addition to this lane, never a substitute for it
 
 **The four phases.**
 
-1. **Parallel read-only diagnosis.** One reader per item, each reporting the root cause,
-   the files it expects to touch, and whether it hit a risk surface.
+1. **Parallel read-only diagnosis.** The trigger is the batch trigger: **two or more
+   mutually independent items** — separate files, separate assumptions, or separate
+   failure points with no shared fix. Spawn one read-only reader per item. Each reader
+   reports the root cause, the files it expects to touch, and whether it hit a risk
+   surface. An item that needs another item's result is not independent; pull it out
+   into the serial path.
 2. **Topology.** The measured file sets decide what may run together: items whose file
    sets are disjoint may proceed together, and an item that collides with another is
    deferred behind it.
@@ -217,6 +221,30 @@ applies to it. Batch mode is an addition to this lane, never a substitute for it
 `Edit`, `Write` and `MultiEdit` are forbidden there, and the reason is mechanical rather
 than stylistic: the file set it reports is the only input the topology step has, so a
 diagnostician that also wrote files would be reporting a guess.
+
+**The reader contract (one reader per item).** Each reader is a host-parallel, read-only
+agent given a bounded brief, and the main window merges what comes back:
+
+- **One item only.** It reads its own item's files and nothing else; cross-item comparison
+  is the main window's job, not a reader's.
+- **Read-only, no writes.** `Edit`, `Write` and `MultiEdit` are forbidden, and so is
+  `git add` or any commit. A reader returns text, never a file.
+- **Bounded report.** The root cause, the files it expects to touch, the risk-row verdict,
+  and the evidence for each — a short report, not a transcript.
+- **No rid, no artifact contract, no worktree lease.** Read-only parallelism writes
+  nothing, so there is nothing to bind or lease. That paperwork belongs to the
+  parallel-write surface (S3.3), not here.
+
+**Merge in the main window.** Readers produce inputs; the main window produces the verdict.
+Its diagnosis is the merged set, and only it may schedule the fix step. A reader's report
+is evidence for the topology decision, never a verdict on its own.
+
+**A failed reader is an ERROR, never "no problem".** If a reader times out, errors, or
+returns nothing usable, mark its item **ERROR** — never read the missing report as "this
+item had no problem", because that turns a broken reader into a false clean bill of health,
+and the fix step would then run on a diagnosis that never happened. A batch with any ERROR
+reruns the failed readers or degrades the diagnosis to serial (one item at a time in this
+window). Say which one was chosen, and that it was a degradation, in the conclusion.
 
 **Risk surfaces are judged per item, not per batch.** An item that touches any of the risk
 surfaces in §2 of `../peaks-code/references/fast-lane-norm.md` is pulled out of the batch

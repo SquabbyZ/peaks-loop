@@ -110,6 +110,24 @@ Delegated, and never done here:
    `status` shows the contract age and the latest observed drift; an observed outlier is never
    adopted into the contract automatically.
 
+## Per-route parallel read-only audit
+
+The audit and the fidelity check are reads, so they may fan out; the page write never does.
+When the audit covers two or more routes, give each route one **read-only** reader:
+
+- **One reader per route.** Each reader inspects its route's screenshot, fidelity verdict
+  and declared `routeMarkers` evidence, and returns a bounded report. It reads and reports;
+  it does not edit, does not write the page, and never commits.
+- **Writes stay sequential.** `peaks-rd` still receives one sequential dispatch once the
+  readers' evidence is merged, and page edits stay single-threaded. Parallelism lives in the
+  audit, never in the remediation.
+- **A failed reader is an ERROR, never a pass.** A reader that times out or errors marks its
+  route **ERROR**; it is never read as "this route had no problem". Rerun it, or audit the
+  routes serially, and state the degradation in the conclusion. One route's `blocked` still
+  blocks the audit — it does not become a pass because another route was green.
+- **No rid, no artifact contract, no worktree lease.** Read-only auditing writes nothing, so
+  nothing is bound or leased; those belong to the parallel-write surface (S3.3).
+
 ## From usable to good-looking (the five moves)
 
 "The features are there, but it still looks wrong" is not fixed by "make it more premium".
