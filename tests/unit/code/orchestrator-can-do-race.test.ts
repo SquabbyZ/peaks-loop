@@ -61,6 +61,9 @@ const DEAD_BIN = process.execPath;
 
 describe('Scenario: render — the named thresholds and the verdict shape', () => {
   it('when invoked, should pin the three named thresholds', () => {
+    // given: the race-lane module's exported threshold constants
+    // when: they are read directly
+    // then: they are pinned at 3 subtasks, 8 files and the five named risk surfaces
     expect(RACE_MAX_SUBTASKS).toBe(3);
     expect(RACE_MAX_FILES).toBe(8);
     expect(RACE_RISK_SURFACES).toEqual([
@@ -78,6 +81,9 @@ describe('Scenario: render — the named thresholds and the verdict shape', () =
   });
 
   it('when invoked, should echo lane, mustHandoff, exceeded and thresholds', () => {
+    // given: a payload with one subtask, two files and an auth risk
+    // when: evaluateRaceLane is called
+    // then: the verdict echoes lane race, mustHandoff=true, risk:auth and the thresholds
     const verdict = evaluateRaceLane({
       subtasks: 1,
       files: 2,
@@ -92,11 +98,17 @@ describe('Scenario: render — the named thresholds and the verdict shape', () =
 
 describe('Scenario: behavior — subtasks threshold (at or above 3 hands off)', () => {
   it('when subtasks are below the threshold, should not hand off', () => {
+    // given: payloads with zero and two subtasks
+    // when: evaluateRaceLane runs with no files and no risks
+    // then: neither payload hands off
     expect(evaluateRaceLane({ subtasks: 0, files: 0, risks: [] }).mustHandoff).toBe(false);
     expect(evaluateRaceLane({ subtasks: 2, files: 0, risks: [] }).mustHandoff).toBe(false);
   });
 
   it('when subtasks equal or exceed the threshold, should hand off', () => {
+    // given: payloads at three and nine subtasks
+    // when: evaluateRaceLane runs with no files and no risks
+    // then: both hand off and report subtasks as the exceeded threshold
     const atThreshold = evaluateRaceLane({ subtasks: 3, files: 0, risks: [] });
     expect(atThreshold.mustHandoff).toBe(true);
     expect(atThreshold.exceeded).toEqual(['subtasks']);
@@ -106,10 +118,16 @@ describe('Scenario: behavior — subtasks threshold (at or above 3 hands off)', 
 
 describe('Scenario: behavior — files threshold (at or above 8 hands off)', () => {
   it('when expected files are below the threshold, should not hand off', () => {
+    // given: a payload with seven expected files
+    // when: evaluateRaceLane runs with no subtasks and no risks
+    // then: it does not hand off
     expect(evaluateRaceLane({ subtasks: 0, files: 7, risks: [] }).mustHandoff).toBe(false);
   });
 
   it('when expected files equal or exceed the threshold, should hand off', () => {
+    // given: a payload with eight expected files and no other signal
+    // when: evaluateRaceLane runs
+    // then: it hands off and reports files as the exceeded threshold
     const atThreshold = evaluateRaceLane({ subtasks: 0, files: 8, risks: [] });
     expect(atThreshold.mustHandoff).toBe(true);
     expect(atThreshold.exceeded).toEqual(['files']);
@@ -118,6 +136,9 @@ describe('Scenario: behavior — files threshold (at or above 8 hands off)', () 
 
 describe('Scenario: behavior — any risk surface hands off', () => {
   it('when any single risk surface is present, should hand off and name it', () => {
+    // given: each named risk surface, presented one at a time
+    // when: evaluateRaceLane runs with no size signal
+    // then: every surface hands off and is named risk:<surface>
     for (const surface of RACE_RISK_SURFACES) {
       const verdict = evaluateRaceLane({ subtasks: 0, files: 0, risks: [surface] });
       expect(verdict.mustHandoff, surface).toBe(true);
@@ -126,16 +147,25 @@ describe('Scenario: behavior — any risk surface hands off', () => {
   });
 
   it('when no risk surface is present, should not hand off', () => {
+    // given: an empty risk list
+    // when: evaluateRaceLane runs with zero subtasks and zero files
+    // then: it does not hand off
     expect(evaluateRaceLane({ subtasks: 0, files: 0, risks: [] }).mustHandoff).toBe(false);
   });
 
   it('when every threshold fires, should list them in a stable order', () => {
+    // given: a payload crossing all three thresholds, with risks given out of order
+    // when: evaluateRaceLane runs
+    // then: exceeded lists subtasks, files, then the risks ordered auth before release
     expect(
       evaluateRaceLane({ subtasks: 3, files: 8, risks: ['release', 'auth'] }).exceeded
     ).toEqual(['subtasks', 'files', 'risk:auth', 'risk:release']);
   });
 
   it('when flags are resolved, should trim and accept an empty risk list', () => {
+    // given: CLI flag strings with surrounding whitespace and a comma-separated risk list
+    // when: resolveRaceLaneInput parses them
+    // then: numbers are coerced, risks trimmed, and an empty risk string yields an empty list
     expect(resolveRaceLaneInput({ subtasks: '2', files: '7', risk: ' auth, filesystem ' })).toEqual(
       { subtasks: 2, files: 7, risks: ['auth', 'filesystem'] }
     );
@@ -145,6 +175,9 @@ describe('Scenario: behavior — any risk surface hands off', () => {
 
 describe('Scenario: integration — the CLI --lane race branch', () => {
   it('when a threshold is crossed, should stay ok with mustHandoff and a --from-dag next action', async () => {
+    // given: the CLI is invoked with --lane race and every threshold crossed
+    // when: it dispatches the race verdict as JSON
+    // then: the envelope is ok, names the --from-dag action, and the exit code stays 0
     const run = await runCli([
       '--lane',
       'race',
@@ -170,6 +203,9 @@ describe('Scenario: integration — the CLI --lane race branch', () => {
   });
 
   it('when nothing is crossed, should stay ok with mustHandoff=false', async () => {
+    // given: the CLI is invoked with --lane race and every input below threshold
+    // when: it dispatches the race verdict as JSON
+    // then: the envelope is ok with mustHandoff=false, no exceeded entries, and exit code 0
     const run = await runCli([
       '--lane',
       'race',
@@ -221,6 +257,9 @@ describe('Scenario: integration — the no-lane envelope is unchanged', () => {
   };
 
   it('when --lane is absent, should emit the same bytes and exit code as before', async () => {
+    // given: a no-lane invocation with both probes pinned to a dead bin
+    // when: the CLI runs without --lane
+    // then: stdout matches the captured pre-slice envelope byte for byte and exits 1
     const run = await runCli([
       '--slice-spec',
       'update docs/spec.md',
@@ -235,6 +274,9 @@ describe('Scenario: integration — the no-lane envelope is unchanged', () => {
 
 describe('Scenario: a11y — named errors and exit codes', () => {
   it('when --lane race is missing a flag, should refuse by name instead of passing', async () => {
+    // given: a race-lane invocation that omits --race-risk
+    // when: the CLI parses the flags
+    // then: it refuses with code MISSING_RACE_INPUTS and exits 1
     const run = await runCli([
       '--lane',
       'race',
@@ -251,6 +293,9 @@ describe('Scenario: a11y — named errors and exit codes', () => {
   });
 
   it('when a numeric flag is not an integer, should refuse by name', async () => {
+    // given: a race-lane invocation whose --race-subtasks is not a number
+    // when: the CLI parses the flags
+    // then: it refuses with code INVALID_RACE_INPUT and exits 1
     const run = await runCli([
       '--lane',
       'race',
@@ -268,6 +313,9 @@ describe('Scenario: a11y — named errors and exit codes', () => {
   });
 
   it('when a risk surface is misspelled, should refuse by name instead of under-counting', async () => {
+    // given: a race-lane invocation whose risk surface is misspelled as aut
+    // when: the CLI parses the flags
+    // then: it refuses with code INVALID_RACE_INPUT and exits 1 instead of counting nothing
     const run = await runCli([
       '--lane',
       'race',
@@ -285,6 +333,9 @@ describe('Scenario: a11y — named errors and exit codes', () => {
   });
 
   it('when an unknown lane is requested, should refuse by name', async () => {
+    // given: a CLI invocation with --lane fast
+    // when: the lane is resolved
+    // then: it refuses with code UNSUPPORTED_LANE and exits 1
     const run = await runCli(['--lane', 'fast', '--json']);
     const envelope = JSON.parse(run.stdout) as { ok: boolean; code: string };
     expect(envelope.code).toBe('UNSUPPORTED_LANE');
@@ -292,6 +343,9 @@ describe('Scenario: a11y — named errors and exit codes', () => {
   });
 
   it('when the resolver runs, should throw a RaceLaneError carrying the code', () => {
+    // given: flag input whose subtasks value is undefined
+    // when: resolveRaceLaneInput parses it
+    // then: it throws a RaceLaneError rather than returning a partial input
     expect(() => resolveRaceLaneInput({ subtasks: undefined, files: '0', risk: '' })).toThrow(
       RaceLaneError
     );
