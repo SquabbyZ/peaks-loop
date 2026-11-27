@@ -9,6 +9,29 @@
 - **`coverage.json`**：按 `real / failed / state-unavailable` 逐键记录结论与具名原因；只有 12 个键全部 `real` 时才 `complete: true`，否则 `missing` 恰好列出非 `real` 的键。
 - **`--compare <state@WxH>`**：与当前选中条目跨键比较时回答 `not-comparable` 并指名不同的轴（route / state / viewport）；只有同一键自身可比较。
 
+### 设计还原度：从"看起来差不多"到可测量、可拒绝
+
+- **`paved-road.json#componentCapabilities`**：声明每个组件能表达什么（入口、可枚举的 prop 值、消费的 token、能承担的角色）。缺失该段 = 不过滤（向后兼容）；形状错误按名拒绝。
+- **原型组件化**：原型每个块发 `data-peaks-object` 身份标记；能解析到组件时另发 `data-peaks-component` 与所用 props。任一方向有块解析不到组件 → 该方向写盘为 `rejected-<direction>.html` 并在 `rejected.json` 具名，**不进入 handoff 候选**。
+- **`peaks design fidelity <route>`**：以真浏览器在同一采集缝、同一断点下捕获原型与实现，按 `data-peaks-object` 配对，逐元素比锚点关系与间距 token；每视口要求零缺失/多余且两项都 ≥95%。阈值是代码常量，没有 `--min`。结论绑定原型 sha256，原型一改即 stale 并拒绝重发。实测：父容器 16px→24px 得到具名失败 `title spacing-token expected=space.md actual=space.roomy`。
+- **`DESIGN_FIDELITY` 前置**：挂在 `rd:qa-handoff`。无设计契约的项目自动 not-applicable；有契约但没跑过 → 拒绝（缺结论不等于通过）。
+
+### 守门员按栈加严，但只许加
+
+- **`reviewPlan`**：`peaks sub-agent dispatch rd` 信封给出机器可读的评审计划。接线时发现策略域写的是 `'feat'` 而规范类型是 `'feature'`——**每个 feature 切片都会选出零个评审者**，只因它是死代码才从未被发现。
+- **`auditPlan`**：按扫描出的技术栈**追加**审查维度（前端 xss/csp/bundle/冷启动、CLI 路径穿越/命令注入/fs 信任、后端 owasp/sql/authz）。类型上没有"移除"字段；`AUDIT_PLAN_REMOVAL_NOT_PERMITTED` 与 `AUDIT_PLAN_BASE_NOT_COVERED` 拒绝任何减法。仅当本会话的派发记录带计划时生效，不追溯历史请求。
+
+### race / design 车道的并行
+
+- **只读并行诊断**：race-code 与两个 design 车道按项/按路由派只读 reader，不建 rid、不落工件契约、不打租约；reader 失败一律记 ERROR，绝不读成"没问题"。
+- **超阈交接**：`peaks code orchestrator-can-do --lane race` 用三条常量（子任务 ≥3 / 文件 ≥8 / 触及风险面）判定，超阈返回 `mustHandoff: true` 并指向 peaks-code，而不是报错。
+- **薄派发并行写**：`--lane fast` 要求每个节点声明 `files[]`，两两重叠即 `FAST_LANE_FILES_OVERLAP`；跑完用 `peaks sub-agent verify-files` 以实际改动复核，越界即 `FAST_LANE_FILES_ESCAPED`，由主窗口单次提交。
+
+### 切片计划看见跨包依赖
+
+- 实测：五种耦合形态（普通 import、动态 import、re-export、仅 package.json 依赖、共享 JSON 契约）在旧实现里**全部无边**，10 个单元落在同一可并行批次。根因是调度器的边收集器丢弃所有非相对说明符且只解析静态 import。
+- 现在包名说明符按 workspace 解析到包入口，覆盖静态 import / `export … from` / 动态 `import()`；仅声明依赖的包对得到具名的 `package-dependency` 边（宁可多串行）。共享 JSON 契约无法从源码推断，如实留作残差并由测试断言。
+
 ## 4.3.6 — 2026-11-27（peaks design：页面布局的外部记忆）
 
 **版本级别**：**minor**（新增一组 `peaks design layout` 子命令与旁路图谱存储；不改任何既有门禁判定，`backCompatUntil` 不变）。
