@@ -10,12 +10,13 @@
 import { createHash } from 'node:crypto';
 
 import { buildLayoutIndex, type LayoutAnchor, type LayoutIndex } from './layout-align.js';
-import type {
-  ElementBox,
-  LayoutElement,
-  LayoutGeometry,
-  PaddingSides,
-  Viewport
+import {
+  LAYOUT_CAPTURE_VERSION,
+  type ElementBox,
+  type LayoutElement,
+  type LayoutGeometry,
+  type PaddingSides,
+  type Viewport
 } from './layout-geometry.js';
 import type { SpacingToken } from './layout-tokens.js';
 
@@ -35,6 +36,8 @@ export type LayoutEntry = {
   route: string;
   state: string;
   viewport: Viewport;
+  /** The capture format the geometry declared; a versionless geometry yields no value. */
+  captureVersion?: string;
   /** Fingerprint of the measured document; a source change moves it. */
   fingerprint: string;
   /** Fingerprint of the declared spacing tokens the anchors were attributed to. */
@@ -163,6 +166,9 @@ export function buildLayoutEntry(input: {
     route: input.index.route,
     state: input.state,
     viewport: input.index.viewport,
+    ...(input.geometry.captureVersion === undefined
+      ? {}
+      : { captureVersion: input.geometry.captureVersion }),
     fingerprint: geometryFingerprint(input.geometry),
     tokensFingerprint: dependencyFingerprint(citedTokens(nodes, input.tokens)),
     tokens: [...input.tokens],
@@ -247,13 +253,15 @@ export function chainsOf(nodes: readonly GraphNode[]): Map<string, string[]> {
 }
 
 /**
- * Whether an entry may be cited as current alignment evidence. A checked axis
- * that moved makes the entry stale; an unchecked axis leaves it unverified.
- * Only both axes matching is `current`.
+ * Whether an entry may be cited as current alignment evidence. An entry built
+ * under another capture format is stale outright; otherwise a checked axis that
+ * moved makes it stale and an unchecked axis leaves it unverified. Only both
+ * axes matching is `current`.
  */
 export function freshnessOf(entry: LayoutEntry, check: FreshnessCheck): EntryFreshness {
   const reasons: string[] = [];
   const unchecked: string[] = [];
+  if (entry.captureVersion !== LAYOUT_CAPTURE_VERSION) reasons.push('capture-version-outdated');
   if (check.geometry === undefined) unchecked.push('source-geometry-not-checked');
   else if (geometryFingerprint(check.geometry) !== entry.fingerprint) {
     reasons.push('source-geometry-changed');

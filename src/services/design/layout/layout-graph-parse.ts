@@ -44,6 +44,7 @@ type Header = {
   route: string;
   state: string;
   viewport: LayoutEntry['viewport'];
+  captureVersion?: string;
   fingerprint: string;
   tokens: SpacingToken[];
 };
@@ -164,6 +165,25 @@ function readNodes(lines: readonly string[], count: number): GraphNode[] | strin
   return nodes;
 }
 
+/**
+ * The closing line. An entry written before the format carried a capture
+ * version closes with the bare `end <count>` and reads as versionless.
+ */
+function parseClose(
+  line: string | undefined,
+  count: number
+): { ok: true; captureVersion?: string } | { ok: false; reason: string } {
+  const end = `end ${String(count)}`;
+  if (line === end) return { ok: true };
+  const prefix = `${end} capture `;
+  if (line !== undefined && line.startsWith(prefix)) {
+    const version = line.slice(prefix.length);
+    if (singleToken(version)) return { ok: true, captureVersion: version };
+    return { ok: false, reason: 'the capture version is not one field' };
+  }
+  return { ok: false, reason: `the entry does not close with "${end}"` };
+}
+
 /** Re-cut the stored nodes; a mismatch means the entry no longer numbers itself. */
 function deriveAnchors(
   header: Header,
@@ -212,12 +232,14 @@ export function parseEntry(text: string): AsciiRead {
   }
   const nodes = readNodes(lines, nodeCount);
   if (typeof nodes === 'string') return { ok: false, reason: nodes };
-  const end = `end ${String(nodeCount)}`;
-  if (lines[NODE_START + nodeCount] !== end) {
-    return { ok: false, reason: `the entry does not close with "${end}"` };
-  }
+  const close = parseClose(lines[NODE_START + nodeCount], nodeCount);
+  if (!close.ok) return close;
   if (lines.length !== FOOTER_OFFSET + nodeCount) {
     return { ok: false, reason: 'the entry carries lines past its close' };
   }
-  return deriveAnchors(header.header, nodes);
+  const withVersion: Header =
+    close.captureVersion === undefined
+      ? header.header
+      : { ...header.header, captureVersion: close.captureVersion };
+  return deriveAnchors(withVersion, nodes);
 }

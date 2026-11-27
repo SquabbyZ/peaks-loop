@@ -14,6 +14,16 @@ export type PaddingSides = { top: number; right: number; bottom: number; left: n
 /** A border box in viewport CSS pixels, rounded to two decimals by the script. */
 export type ElementBox = { left: number; top: number; right: number; bottom: number };
 
+/** The capture format; a document without it predates versioning and is not current. */
+export const LAYOUT_CAPTURE_VERSION = '2';
+
+/** Identity declared through `data-peaks-*`; `props` keys drop the prefix. */
+export type LayoutPeaks = {
+  object?: string;
+  component?: string;
+  props?: Record<string, string>;
+};
+
 /** One visible element as the injected script measures it. */
 export type LayoutElement = {
   /** Index of the nearest visible ancestor in this same array; -1 at the root. */
@@ -28,6 +38,10 @@ export type LayoutElement = {
   text: string;
   box: ElementBox;
   padding: PaddingSides;
+  /** Computed margin; absent in captures that predate the field. */
+  margin?: PaddingSides;
+  /** Declared identity markers; absent when the element declares none. */
+  peaks?: LayoutPeaks;
   /** A background distinct from the body's own, a visible border, or a shadow. */
   painted: boolean;
 };
@@ -36,6 +50,8 @@ export type LayoutElement = {
 export type LayoutGeometry = {
   route: string;
   viewport: Viewport;
+  /** Absent in captures that predate versioning, which read as not current. */
+  captureVersion?: string;
   elements: LayoutElement[];
 };
 
@@ -77,6 +93,11 @@ export type LayoutCaptureInput = {
 /** Subtree text is capped so one huge page cannot bloat the fingerprint input. */
 export const LAYOUT_TEXT_CAP = 200;
 
+/** Settle before measuring: webfonts, then one frame; exported for the capture test. */
+export const LAYOUT_READY_SCRIPT =
+  '(async () => { await document.fonts.ready; await new Promise((done) => ' +
+  'requestAnimationFrame(() => done(true))); return true; })()';
+
 /**
  * All elements in document order, each with a parent index into the SAME
  * filtered array. Visibility is filtered by computed display/visibility and a
@@ -88,6 +109,12 @@ export const LAYOUT_TEXT_CAP = 200;
 export const LAYOUT_GEOMETRY_SCRIPT = `(() => {
   const collapse = (value) => (value || '').replace(/\\s+/g, ' ').trim();
   const round = (value) => Math.round(value * 100) / 100;
+  const sides = (style, prefix) => ({
+    top: parseFloat(style[prefix + 'Top']) || 0,
+    right: parseFloat(style[prefix + 'Right']) || 0,
+    bottom: parseFloat(style[prefix + 'Bottom']) || 0,
+    left: parseFloat(style[prefix + 'Left']) || 0
+  });
   const bodyBackground = getComputedStyle(document.body).backgroundColor;
   const all = Array.from(document.querySelectorAll('*'));
   const visible = [];
@@ -124,6 +151,18 @@ export const LAYOUT_GEOMETRY_SCRIPT = `(() => {
       (side) =>
         parseFloat(style['border' + side + 'Width']) > 0 && style['border' + side + 'Style'] !== 'none'
     );
+    const props = {};
+    for (const attribute of Array.from(element.attributes)) {
+      if (attribute.name.startsWith('data-peaks-prop-')) {
+        props[attribute.name.slice('data-peaks-prop-'.length)] = attribute.value;
+      }
+    }
+    const peaks = {};
+    const objectName = element.getAttribute('data-peaks-object');
+    const componentName = element.getAttribute('data-peaks-component');
+    if (objectName !== null) peaks.object = objectName;
+    if (componentName !== null) peaks.component = componentName;
+    if (Object.keys(props).length > 0) peaks.props = props;
     return {
       parent,
       tag: element.tagName.toLowerCase(),
@@ -137,12 +176,9 @@ export const LAYOUT_GEOMETRY_SCRIPT = `(() => {
         right: round(rect.right),
         bottom: round(rect.bottom)
       },
-      padding: {
-        top: parseFloat(style.paddingTop) || 0,
-        right: parseFloat(style.paddingRight) || 0,
-        bottom: parseFloat(style.paddingBottom) || 0,
-        left: parseFloat(style.paddingLeft) || 0
-      },
+      padding: sides(style, 'padding'),
+      margin: sides(style, 'margin'),
+      ...(Object.keys(peaks).length > 0 ? { peaks } : {}),
       painted: paintedBackground || border || style.boxShadow !== 'none'
     };
   });
@@ -214,12 +250,16 @@ async function capturePage(
           return { ok: false, reason: `the declared action found no element for ${input.click}` };
         }
       }
+      await page.evaluate<boolean>(LAYOUT_READY_SCRIPT);
       const elements = await page.evaluate<LayoutElement[]>(LAYOUT_GEOMETRY_SCRIPT);
       const html = withHtml ? await page.evaluate<string>(LAYOUT_HTML_SCRIPT) : '';
-      return {
-        ok: true,
-        page: { geometry: { route: input.route, viewport: input.viewport, elements }, html }
+      const geometry: LayoutGeometry = {
+        route: input.route,
+        viewport: input.viewport,
+        captureVersion: LAYOUT_CAPTURE_VERSION,
+        elements
       };
+      return { ok: true, page: { geometry, html } };
     } finally {
       await closeQuietly(() => page.close());
     }

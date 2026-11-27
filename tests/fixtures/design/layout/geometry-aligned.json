@@ -1,6 +1,7 @@
 {
   "route": "/",
   "viewport": { "width": 390, "height": 844 },
+  "captureVersion": "2",
   "elements": [
     {
       "parent": -1,

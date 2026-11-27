@@ -67,10 +67,19 @@ function tokenRefusal(token: SpacingToken): string | null {
   return null;
 }
 
+/** The closing line, carrying the capture format when the entry declares one. */
+function closeLine(entry: LayoutEntry): string {
+  const close = `end ${String(entry.nodes.length)}`;
+  return entry.captureVersion === undefined ? close : `${close} capture ${entry.captureVersion}`;
+}
+
 /** One entry as the bytes both a parser and a reader of the graph see. */
 export function serializeEntry(entry: LayoutEntry): AsciiWrite {
   if (!singleToken(entry.route)) return { ok: false, reason: 'route is empty or holds whitespace' };
   if (!singleToken(entry.state)) return { ok: false, reason: 'state is empty or holds whitespace' };
+  if (entry.captureVersion !== undefined && !singleToken(entry.captureVersion)) {
+    return { ok: false, reason: 'the capture version is not one field' };
+  }
   for (const node of entry.nodes) {
     const refusal = nodeRefusal(node);
     if (refusal !== null) return { ok: false, reason: refusal };
@@ -89,7 +98,7 @@ export function serializeEntry(entry: LayoutEntry): AsciiWrite {
     `tokens ${tokenFields === '' ? ABSENT : tokenFields}`,
     `nodes ${String(entry.nodes.length)}`,
     ...entry.nodes.map(serializeNode),
-    `end ${String(entry.nodes.length)}`
+    closeLine(entry)
   ];
   return { ok: true, text: `${lines.join('\n')}\n` };
 }
