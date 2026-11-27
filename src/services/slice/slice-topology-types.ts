@@ -36,7 +36,8 @@ export type EdgeConfidence = 'structural' | 'semantic';
 export type LlmConfidence = 'high' | 'medium' | 'low';
 
 /** Edge kinds for edges within a single pass. */
-export type InternalEdgeKind = 'imports' | 'calls' | 'depends_on' | 'contains_flow' | 'flow_step';
+export type InternalEdgeKind =
+  'imports' | 'package-dependency' | 'calls' | 'depends_on' | 'contains_flow' | 'flow_step';
 
 /** Edge kinds for edges that connect two different passes. */
 export type CrossPassEdgeKind =

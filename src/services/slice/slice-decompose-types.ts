@@ -29,7 +29,8 @@
  * discount structural-only cuts.
  */
 
-export type EdgeKind = 'imports' | 'depends_on' | 'calls' | 'contains_flow' | 'flow_step';
+export type EdgeKind =
+  'imports' | 'package-dependency' | 'depends_on' | 'calls' | 'contains_flow' | 'flow_step';
 
 export interface WorkUnit {
   /** Stable id within the decomposition; usually "W1".."Wn". */
@@ -56,7 +57,8 @@ export interface DependencyEdge {
   kind: EdgeKind;
   /**
    * Edge weight for Stoer-Wagner. Lower weight = prefer to cut here.
-   * Locked values: flow_step=0.05, contains_flow=0.1, depends_on=5.0, calls=8.0, imports=10.0.
+   * Locked values: flow_step=0.05, contains_flow=0.1, package-dependency=4.0,
+   * depends_on=5.0, calls=8.0, imports=10.0.
    */
   weight: number;
   /** Human-readable evidence: the actual import statement or graph edge. */
@@ -221,6 +223,13 @@ export interface ImportEdgeRunner {
    * Output: array of {from, to, evidence} where `evidence` is the import line.
    */
   importsOf(projectRoot: string, files: readonly string[]): Promise<readonly ImportEdge[]>;
+  /**
+   * Reasons the last `importsOf` scan could not turn a specifier into an edge:
+   * a bare import of a workspace package whose entry source file does not
+   * resolve, or a workspace manifest that could not be read. Optional, so an
+   * injected fake need not implement it.
+   */
+  unresolvedImports?(): readonly string[];
 }
 
 export interface ImportEdge {

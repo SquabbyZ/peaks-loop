@@ -28,6 +28,11 @@ import { resolveNpxInvocation } from '../lint/npx-resolver.js';
 // shim. `runCodegraph` below needs exactly that, so it reuses the same helper
 // rather than growing a second mechanism.
 import { cliEntryPath, interpreterArgs } from '../web/daemon-supervisor.js';
+import {
+  loadWorkspacePackages,
+  packageNameOfSpecifier,
+  type WorkspacePackage
+} from './slice-workspace-packages.js';
 import type {
   CodegraphAffectedResult,
   CodegraphQueryHit,
@@ -186,32 +191,102 @@ function runCodegraph(args: string[], projectRoot: string): string {
   }
 }
 
+/**
+ * The three syntaxes that couple one module to another. Each yield the same
+ * scheduling edge, so they are scanned with the same handler rather than one
+ * path per form.
+ */
+const STATIC_IMPORT_PATTERN =
+  /import\s+(?:type\s+)?(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)?\s*(?:,\s*(?:\{[^}]*\}|\*\s+as\s+\w+|\w+))?\s*from\s+['"]([^'"]+)['"]/g;
+const RE_EXPORT_PATTERN =
+  /export\s+(?:type\s+)?(?:\*(?:\s+as\s+\w+)?|\{[^}]*\})\s*from\s+['"]([^'"]+)['"]/g;
+const DYNAMIC_IMPORT_PATTERN = /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
+
+interface SpecifierHit {
+  readonly specifier: string;
+  readonly evidence: string;
+}
+
+function specifierHits(content: string): SpecifierHit[] {
+  const hits: SpecifierHit[] = [];
+  for (const pattern of [STATIC_IMPORT_PATTERN, RE_EXPORT_PATTERN, DYNAMIC_IMPORT_PATTERN]) {
+    pattern.lastIndex = 0;
+    let match = pattern.exec(content);
+    while (match !== null) {
+      const [evidence, specifier] = match;
+      if (specifier !== undefined) hits.push({ specifier, evidence: evidence ?? '' });
+      match = pattern.exec(content);
+    }
+  }
+  return hits;
+}
+
+interface ResolveContext {
+  readonly projectRoot: string;
+  readonly workspacePackages: () => readonly WorkspacePackage[];
+  readonly reasons: string[];
+}
+
+/**
+ * Resolve one specifier to an edge. A relative specifier keeps its old
+ * path-join behaviour. A bare one is resolved only when it names a workspace
+ * package: the edge lands on that package's entry source file, and when no
+ * entry resolves no edge is invented — the reason is reported instead.
+ */
+function resolveImportEdge(
+  context: ResolveContext,
+  fromFile: string,
+  hit: SpecifierHit
+): ImportEdge | null {
+  const { projectRoot, reasons } = context;
+  if (hit.specifier.startsWith('.')) {
+    const tsPath = hit.specifier.replace(/\.js$/, '.ts').replace(/\.jsx$/, '.tsx');
+    const resolved = relative(projectRoot, join(projectRoot, dirname(fromFile), tsPath));
+    return { from: fromFile, to: resolved, evidence: hit.evidence };
+  }
+
+  const packageName = packageNameOfSpecifier(hit.specifier);
+  if (packageName === null) return null;
+  const pkg = context.workspacePackages().find((candidate) => candidate.name === packageName);
+  if (pkg === undefined) return null;
+  if (pkg.entryFile === null) {
+    reasons.push(
+      `${fromFile}: "${hit.specifier}" names workspace package ${pkg.name}, but no entry source file resolved`
+    );
+    return null;
+  }
+  return { from: fromFile, to: pkg.entryFile, evidence: hit.evidence };
+}
+
 export function defaultImportEdgeRunner(): ImportEdgeRunner {
+  let diagnostics: readonly string[] = [];
   return {
     async importsOf(projectRoot, files) {
       const edges: ImportEdge[] = [];
+      const reasons: string[] = [];
+      let packages: readonly WorkspacePackage[] | null = null;
+      const workspacePackages = (): readonly WorkspacePackage[] =>
+        (packages ??= loadWorkspacePackages(projectRoot, { reasons }));
+      const context: ResolveContext = { projectRoot, workspacePackages, reasons };
       for (const file of files) {
         const absPath = join(projectRoot, file);
         if (!existsSync(absPath)) continue;
         try {
           const content = readFileSync(absPath, 'utf8');
-          const importRe =
-            /import\s+(?:type\s+)?(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)?\s*(?:,\s*(?:\{[^}]*\}|\*\s+as\s+\w+|\w+))?\s*from\s+['"]([^'"]+)['"]/g;
-          let match: RegExpExecArray | null;
-          while ((match = importRe.exec(content)) !== null) {
-            const importPath = match[1]!;
-            if (!importPath.startsWith('.')) continue;
-            const fromDir = dirname(file);
-            const tsPath = importPath.replace(/\.js$/, '.ts').replace(/\.jsx$/, '.tsx');
-            const resolved = relative(projectRoot, join(projectRoot, fromDir, tsPath));
-            edges.push({ from: file, to: resolved, evidence: match[0] });
+          for (const hit of specifierHits(content)) {
+            const edge = resolveImportEdge(context, file, hit);
+            if (edge !== null) edges.push(edge);
           }
         } catch {
           // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
           // Skip unreadable files
         }
       }
+      diagnostics = reasons;
       return edges;
+    },
+    unresolvedImports() {
+      return diagnostics;
     }
   };
 }

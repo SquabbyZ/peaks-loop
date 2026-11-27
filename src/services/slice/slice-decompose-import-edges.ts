@@ -7,6 +7,19 @@
 
 import { dirname, join, relative } from 'node:path';
 import type { DependencyEdge, ImportEdge, WorkUnit } from './slice-decompose-types.js';
+import {
+  loadWorkspacePackages,
+  ownerPackageFor,
+  type WorkspacePackage
+} from './slice-workspace-packages.js';
+
+/**
+ * A declared workspace dependency is weaker evidence than a real import, so it
+ * carries a lower weight than an import edge. 4.0 keeps it above the min-cut's
+ * 0.5 cutoff, because the point of the edge is serialization rather than a
+ * candidate for splitting the packages apart.
+ */
+const PACKAGE_DEPENDENCY_WEIGHT = 4.0;
 
 /** Edge-builder FSM: classifies each import candidate as a structural
  *  edge or drops it, and emits a deduplicated list. The state machine
@@ -90,7 +103,83 @@ export function buildDependencyEdges(
   const fileToWu = indexFilesToWorkUnits(wus);
   const collector: EdgeCollector = { edges: [], seen: new Set() };
   collectImportEdges(importEdges, fileToWu, projectRoot, collector);
+  collectPackageDependencyEdges(wus, projectRoot, collector);
   return collector.edges;
+}
+
+/**
+ * Connect packages that declare a workspace dependency in `package.json` but
+ * share no file-level edge. This is the "serialize rather than parallelize"
+ * direction: a dependency that no source file expresses is still a coupling a
+ * parallel dispatch can break.
+ *
+ * A shared runtime contract — both packages reading the same JSON file — leaves
+ * neither an import nor a declared dependency, so it stays uncovered. An edge
+ * there would be a guess about a coupling the manifests do not state.
+ */
+function collectPackageDependencyEdges(
+  wus: readonly WorkUnit[],
+  projectRoot: string,
+  collector: EdgeCollector
+): void {
+  const packages = loadWorkspacePackages(projectRoot);
+  if (packages.length < 2) return;
+  const groups = groupWorkUnitsByPackage(wus, packages, projectRoot);
+  for (const pkg of packages) {
+    const dependentWuIds = groups.get(pkg.name);
+    if (dependentWuIds === undefined) continue;
+    for (const dependencyName of pkg.dependencyNames) {
+      if (dependencyName === pkg.name) continue;
+      const dependencyWuIds = groups.get(dependencyName);
+      if (dependencyWuIds === undefined) continue;
+      if (hasFileLevelEdge(collector.edges, dependentWuIds, dependencyWuIds)) continue;
+      for (const from of dependentWuIds) {
+        for (const to of dependencyWuIds) {
+          pushIfNew(collector, {
+            from,
+            to,
+            kind: 'package-dependency',
+            weight: PACKAGE_DEPENDENCY_WEIGHT,
+            evidence: `package.json: ${pkg.name} depends on ${dependencyName}`,
+            isSemantic: false,
+            confidence: 'structural'
+          });
+        }
+      }
+    }
+  }
+}
+
+function groupWorkUnitsByPackage(
+  wus: readonly WorkUnit[],
+  packages: readonly WorkspacePackage[],
+  projectRoot: string
+): Map<string, string[]> {
+  const groups = new Map<string, string[]>();
+  for (const wu of wus) {
+    const owner = ownerPackageFor(packages, wu.filePath, projectRoot);
+    if (owner === null) continue;
+    const ids = groups.get(owner.name) ?? [];
+    ids.push(wu.id);
+    groups.set(owner.name, ids);
+  }
+  return groups;
+}
+
+/** True when any edge between the two groups came from source, not a manifest. */
+function hasFileLevelEdge(
+  edges: readonly DependencyEdge[],
+  firstIds: readonly string[],
+  secondIds: readonly string[]
+): boolean {
+  const first = new Set(firstIds);
+  const second = new Set(secondIds);
+  return edges.some(
+    (edge) =>
+      edge.kind !== 'package-dependency' &&
+      ((first.has(edge.from) && second.has(edge.to)) ||
+        (first.has(edge.to) && second.has(edge.from)))
+  );
 }
 
 function resolveRelativeImport(projectRoot: string, sourceFile: string, evidence: string): string {
