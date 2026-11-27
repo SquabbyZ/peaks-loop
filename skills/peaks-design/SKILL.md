@@ -62,6 +62,10 @@ sibling lane, never a subclass or variant of `peaks-code`.
   a feature-development flow; when a request is the other lane's shape, each recommends the
   switch to the user instead of stretching its own boundary.
 
+**Probe before you start.** Before treating a request as a fast single-window task, run
+`peaks code orchestrator-can-do --lane race --race-subtasks <n> --race-files <n> --race-risk <list>`;
+when `raceVerdict.mustHandoff` is true, stop and hand the task to `peaks-code`.
+
 ## Owned vs delegated
 
 Owned by this skill:

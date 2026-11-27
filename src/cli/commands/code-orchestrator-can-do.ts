@@ -22,7 +22,25 @@ import {
   ORCHESTRATOR_PRECOMPACT_RATIO,
   ORCHESTRATOR_REDLINE_RATIO
 } from '../../services/code/orchestrator-can-do.js';
+import {
+  evaluateRaceLane,
+  RaceLaneError,
+  resolveRaceLaneInput,
+  type RaceLaneErrorCode,
+  type RaceVerdict
+} from '../../services/code/orchestrator-can-do-race.js';
 import { findProjectRoot } from '../../services/config/config-safety.js';
+
+interface OrchestratorCanDoOptions {
+  sliceSpec?: string;
+  lane?: string;
+  raceSubtasks?: string;
+  raceFiles?: string;
+  raceRisk?: string;
+  project?: string;
+  peaksBin?: string;
+  json?: boolean;
+}
 
 export function registerCodeOrchestratorCanDoCommand(code: Command, io: ProgramIO): void {
   addJsonOption(
@@ -37,56 +55,136 @@ export function registerCodeOrchestratorCanDoCommand(code: Command, io: ProgramI
           'sub-agent dispatch (`peaks sub-agent dispatch rd`) is the canonical delegation path ' +
           'for source-code changes.'
       )
-      .requiredOption(
+      .option(
         '--slice-spec <text>',
-        'short description of the slice (e.g. "modify src/services/foo.ts")'
+        'short description of the slice (e.g. "modify src/services/foo.ts"); ' +
+          'required unless --lane is set'
+      )
+      .option('--lane <lane>', 'optional lane probe; the only supported value is "race"')
+      .option(
+        '--race-subtasks <n>',
+        'race lane: independent subtasks; at or above 3 the task hands off'
+      )
+      .option(
+        '--race-files <n>',
+        'race lane: expected changed files; at or above 8 the task hands off'
+      )
+      .option(
+        '--race-risk <list>',
+        'race lane: comma-separated risk surfaces (auth, filesystem, external-call, ' +
+          'schema-migration, release); pass "" for none'
       )
       .option('--project <path>', 'target project root (default: findProjectRoot(cwd))')
       .option('--peaks-bin <path>', 'peaks binary path (test seam; default: peaks on PATH)')
-  ).action(
-    async (opts: { sliceSpec: string; project?: string; peaksBin?: string; json?: boolean }) => {
-      try {
-        const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
-        const peaksBin = opts.peaksBin ?? 'peaks';
-        const result = await evaluateOrchestratorCanDo({
-          sliceSpec: opts.sliceSpec,
-          projectRoot,
-          probeSubAgentAvailable: () => probeSubAgentAvailableWithBin(projectRoot, peaksBin),
-          probeContextRatio: () => probeContextRatioWithBin(projectRoot, peaksBin)
-        });
-        printResult(
-          io,
-          ok(
-            'code.orchestrator-can-do',
-            result,
-            [...result.warnings],
-            [...result.suggestions, ...summaryLines(result)]
-          ),
-          opts.json
-        );
-        if (!result.canDoInSession) process.exitCode = 1;
-      } catch (err) {
-        if (err instanceof OrchestratorCanDoError) {
-          printResult(
-            io,
-            fail('code.orchestrator-can-do', err.code, err.message, null, [
-              'Pass --slice-spec <text> describing what the slice should change'
-            ]),
-            opts.json
-          );
-          process.exitCode = 1;
-          return;
-        }
-        printResult(
-          io,
-          fail('code.orchestrator-can-do', 'PROBE_FAILED', getErrorMessage(err), null, [
-            'Verify --slice-spec is non-empty and --project is a valid path'
-          ]),
-          opts.json
-        );
-        process.exitCode = 1;
-      }
+  ).action(async (opts: OrchestratorCanDoOptions) => {
+    await runOrchestratorCanDo(io, opts);
+  });
+}
+
+async function runOrchestratorCanDo(io: ProgramIO, opts: OrchestratorCanDoOptions): Promise<void> {
+  try {
+    if (opts.lane !== undefined) {
+      runRaceLaneProbe(io, opts);
+      return;
     }
+    const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
+    const peaksBin = opts.peaksBin ?? 'peaks';
+    const result = await evaluateOrchestratorCanDo({
+      sliceSpec: opts.sliceSpec ?? '',
+      projectRoot,
+      probeSubAgentAvailable: () => probeSubAgentAvailableWithBin(projectRoot, peaksBin),
+      probeContextRatio: () => probeContextRatioWithBin(projectRoot, peaksBin)
+    });
+    printResult(
+      io,
+      ok(
+        'code.orchestrator-can-do',
+        result,
+        [...result.warnings],
+        [...result.suggestions, ...summaryLines(result)]
+      ),
+      opts.json
+    );
+    if (!result.canDoInSession) process.exitCode = 1;
+  } catch (err) {
+    printOrchestratorError(io, opts, err);
+  }
+}
+
+function printOrchestratorError(io: ProgramIO, opts: OrchestratorCanDoOptions, err: unknown): void {
+  if (err instanceof RaceLaneError) {
+    printResult(
+      io,
+      fail('code.orchestrator-can-do', err.code, err.message, null, [raceErrorHint(err.code)]),
+      opts.json
+    );
+    process.exitCode = 1;
+    return;
+  }
+  if (err instanceof OrchestratorCanDoError) {
+    printResult(
+      io,
+      fail('code.orchestrator-can-do', err.code, err.message, null, [
+        'Pass --slice-spec <text> describing what the slice should change'
+      ]),
+      opts.json
+    );
+    process.exitCode = 1;
+    return;
+  }
+  printResult(
+    io,
+    fail('code.orchestrator-can-do', 'PROBE_FAILED', getErrorMessage(err), null, [
+      'Verify --slice-spec is non-empty and --project is a valid path'
+    ]),
+    opts.json
+  );
+  process.exitCode = 1;
+}
+
+function runRaceLaneProbe(io: ProgramIO, opts: OrchestratorCanDoOptions): void {
+  if (opts.lane !== 'race') {
+    throw new RaceLaneError(
+      `unsupported --lane "${opts.lane}"; the only lane probe today is "race"`,
+      'UNSUPPORTED_LANE'
+    );
+  }
+  const verdict = evaluateRaceLane(
+    resolveRaceLaneInput({
+      subtasks: opts.raceSubtasks,
+      files: opts.raceFiles,
+      risk: opts.raceRisk
+    })
+  );
+  // A crossed threshold is a routing decision, not an error: `ok: true`, and
+  // `process.exitCode` is left alone.
+  printResult(
+    io,
+    ok('code.orchestrator-can-do', { raceVerdict: verdict }, [], raceNextActions(verdict)),
+    opts.json
+  );
+}
+
+function raceNextActions(verdict: RaceVerdict): string[] {
+  if (!verdict.mustHandoff) {
+    return ['no race threshold crossed; stay in the race lane'];
+  }
+  return [
+    `hand off to peaks-code (crossed ${verdict.exceeded.join(', ')}): ` +
+      'peaks sub-agent dispatch --from-dag <dag-file> --batch-id <id>'
+  ];
+}
+
+function raceErrorHint(code: RaceLaneErrorCode): string {
+  if (code === 'UNSUPPORTED_LANE') {
+    return 'Omit --lane for the standard probe, or pass --lane race';
+  }
+  if (code === 'MISSING_RACE_INPUTS') {
+    return 'With --lane race, pass --race-subtasks, --race-files and --race-risk ("" for no risk)';
+  }
+  return (
+    'Use non-negative integers for --race-subtasks/--race-files and a comma-separated ' +
+    'subset of auth, filesystem, external-call, schema-migration, release for --race-risk'
   );
 }
 

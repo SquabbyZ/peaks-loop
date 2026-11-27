@@ -52,6 +52,10 @@ component), needs a durable audit trail or acceptance gates, or touches a risk s
 or `peaks-code`. A fast lane is a smaller window, not a lower bar: if the repo has adopted a
 design contract, the delivery gate still applies.
 
+**Probe before you start.** Run
+`peaks code orchestrator-can-do --lane race --race-subtasks <n> --race-files <n> --race-risk <list>`
+first; when `raceVerdict.mustHandoff` is true, stop and hand the work to `peaks-code`.
+
 ## The five moves (what actually makes AI-made UI look right)
 
 The failure sentence is always the same: "the features are there, but it still looks wrong."

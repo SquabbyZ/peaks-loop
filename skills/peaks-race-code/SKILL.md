@@ -142,6 +142,11 @@ The list of changes that do not belong in a fast lane lives in
 before you start, and again once a diff exists. It is not restated here, and a second copy
 here would be exactly the drift the norm exists to prevent.
 
+**Probe before you start.** The norm's size row carries no number, but the probe does:
+`peaks code orchestrator-can-do --lane race --race-subtasks <n> --race-files <n> --race-risk <list>`
+returns `raceVerdict.mustHandoff`. When it is true, stop and hand the task to `peaks-code` —
+that is a routing decision, not a failure, so the probe's envelope is still `ok`.
+
 Two things that section says about itself, and that you must not paper over on its behalf: it
 is a judgement list rather than a gate, and its size row has no threshold behind it yet, so a
 size is not a decision you can make from it. What happens when a row is hit is the next
