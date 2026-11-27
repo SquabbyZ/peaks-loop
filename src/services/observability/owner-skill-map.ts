@@ -94,6 +94,10 @@ export const OWNER_SKILL_ENTRIES: readonly OwnerSkillEntry[] = [
   // which the RD role runs before handoff — so the artifact is RD's, and it is
   // not claimed by the generic `rd/` row because it lives under `design/`.
   { prefix: 'design/check-', skill: 'peaks-rd' },
+  // The fidelity evidence is written by `peaks design fidelity <route>`, also
+  // an RD-run design command, so it is RD's for the same reason. One file per
+  // route means only a directory prefix can claim it.
+  { prefix: 'design/fidelity/', skill: 'peaks-rd' },
   { prefix: 'ui/', skill: 'peaks-ui' },
   { prefix: 'rd/', skill: 'peaks-rd' },
   // The third-party review is the REVIEWER's artifact, not RD's: the prereq

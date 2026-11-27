@@ -96,7 +96,9 @@ describe('Scenario: behavior — which table a type selects', () => {
     // The provenance label is not decoration: the type it reports is the one
     // the refusal below is built from.
     const effective: RequestType = extractMetadata(typelessCarrier()).requestType;
-    expect(getPrerequisitesFor('rd', 'qa-handoff', effective).length).toBe(10);
+    // 11 since S4.3 added DESIGN_FIDELITY beside DESIGN_CONFORMANCE; the count
+    // pins the feature table rather than "any table with rows".
+    expect(getPrerequisitesFor('rd', 'qa-handoff', effective).length).toBe(11);
     expect(getPrerequisitesFor('rd', 'qa-handoff', 'chore').length).toBe(0);
   });
 

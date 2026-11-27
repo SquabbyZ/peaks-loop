@@ -139,7 +139,11 @@ const EXPECTED_OWNER_BY_PREFIX: ReadonlyArray<readonly [string, string]> = [
   ['audit/perf', 'peaks-perf-audit'],
   ['rd/security-review-', 'peaks-security-audit'],
   ['rd/third-party-review-', 'peaks-reviewer'],
-  ['design/check-', 'peaks-rd']
+  ['design/check-', 'peaks-rd'],
+  // S4.3: the fidelity artifact is an RD-run design command's output, like
+  // `design check --gate` above it. One file per route, so the row is a
+  // directory prefix.
+  ['design/fidelity/', 'peaks-rd']
 ];
 
 /**

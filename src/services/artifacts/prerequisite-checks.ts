@@ -3,7 +3,7 @@
  * downgrade a missing file gets inside a back-compat window.
  *
  * WHY THIS IS A SIBLING AND NOT THREE MORE LINES IN THE TABLE.
- * `artifact-prerequisites.ts` is over the 300-line file-size cap and
+ * `artifact-prerequisites.ts` is held under the 300-line file-size cap and
  * `fileSizeExcessLines` is a ratchet that may only go DOWN
  * (`.husky/peaks-gate-baseline-monotonic.mjs` — "Split the file; do not raise
  * the ceiling"). The soft-pass branch this module was split out for must ADD
