@@ -1,0 +1,77 @@
+:root {
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --color-surface: #ffffff;
+  --color-border: #d4d4d8;
+  --color-ink: #18181b;
+  --color-accent: #2563eb;
+  --color-danger: #b91c1c;
+}
+
+.pk-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font:
+    0.875rem/1.5 system-ui,
+    sans-serif;
+  cursor: pointer;
+}
+
+.pk-button--primary {
+  background: var(--color-accent);
+  color: var(--color-surface);
+}
+
+.pk-button--secondary {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-ink);
+}
+
+.pk-button--ghost {
+  background: transparent;
+  color: var(--color-accent);
+}
+
+.pk-button--sm {
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.pk-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.pk-card--none {
+  padding: 0;
+}
+
+.pk-card--sm {
+  padding: var(--space-sm);
+}
+
+.pk-card--md {
+  padding: var(--space-md);
+}
+
+.pk-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.pk-field--error .pk-field__label {
+  color: var(--color-danger);
+}
+
+.pk-field--disabled {
+  opacity: 0.6;
+}

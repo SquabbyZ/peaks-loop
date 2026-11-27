@@ -13,6 +13,7 @@ import { registerCapabilityWorkerConfigAndSCCommands } from './capability-worker
 import { registerCodeCommands } from './code-commands.js';
 import { registerCodeGateCommand } from './code-gate-command.js';
 import { registerDashboardCommands } from './dashboard-commands.js';
+import { registerDesignCapabilitiesCommand } from './design-capabilities-command.js';
 import { registerDesignCommands } from './design-commands.js';
 import { registerCodeReviewCommands } from './code-review-commands.js';
 import { registerCommentsCommands } from './comments-commands.js';
@@ -190,6 +191,10 @@ const REGISTRATIONS: readonly Registration[] = [
   ['code-gate-command', registerCodeGateCommand],
   ['dashboard-commands', registerDashboardCommands],
   ['design-commands', registerDesignCommands],
+  // Registered right after `design-commands` on purpose: it attaches
+  // `design capabilities` to the existing `design` parent (same rule as
+  // `job-add-slice-command` below).
+  ['design-capabilities-command', registerDesignCapabilitiesCommand],
   ['best-practice-scan-command', registerBestPracticeScanCommand],
   ['mut-commands', registerMutCommands],
   ['strat-tact-commands', registerStratTactCommands],

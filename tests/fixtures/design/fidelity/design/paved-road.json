@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "pageRoots": ["app"],
+  "componentEntrypoints": [
+    "@/components/ui/button",
+    "@/components/ui/card",
+    "@/components/ui/field"
+  ],
+  "componentCapabilities": {
+    "Button": {
+      "entrypoint": "@/components/ui/button",
+      "props": {
+        "variant": ["primary", "secondary", "ghost"],
+        "size": ["sm", "md"]
+      },
+      "tokens": ["space.sm", "space.md", "radius.sm", "color.accent"]
+    },
+    "Card": {
+      "entrypoint": "@/components/ui/card",
+      "props": {
+        "padding": ["none", "sm", "md"]
+      },
+      "tokens": ["space.sm", "space.md", "radius.md", "color.surface"]
+    },
+    "Field": {
+      "entrypoint": "@/components/ui/field",
+      "props": {
+        "state": ["default", "error", "disabled"]
+      }
+    }
+  }
+}
