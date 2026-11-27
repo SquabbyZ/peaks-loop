@@ -334,6 +334,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Install the Chromium the layout capture opens
+        # `designlang` declares playwright as a transitive range but has no
+        # postinstall that downloads a browser, so a plain install leaves no
+        # executable and the real-render layout graph test fails with
+        # "Executable doesn't exist". `playwright` is a pinned devDependency
+        # (1.65.1) for this step only; pnpm dedupes it with designlang's
+        # ^1.61.0 copy, so the runtime and this install share one build.
+        run: pnpm exec playwright install --with-deps chromium
+
       - name: Build
         # Same contract as every other job here: `npm run build` creates
         # packages/*/dist (which the shared `./version` subpath export

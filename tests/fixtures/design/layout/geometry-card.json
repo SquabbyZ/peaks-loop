@@ -1,0 +1,61 @@
+{
+  "route": "/card",
+  "viewport": { "width": 390, "height": 844 },
+  "elements": [
+    {
+      "parent": -1,
+      "tag": "html",
+      "ariaRole": null,
+      "display": "block",
+      "ownText": "",
+      "text": "Card title Body copy",
+      "box": { "left": 0, "top": 0, "right": 390, "bottom": 140 },
+      "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 },
+      "painted": false
+    },
+    {
+      "parent": 0,
+      "tag": "body",
+      "ariaRole": null,
+      "display": "block",
+      "ownText": "",
+      "text": "Card title Body copy",
+      "box": { "left": 0, "top": 0, "right": 390, "bottom": 140 },
+      "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 },
+      "painted": false
+    },
+    {
+      "parent": 1,
+      "tag": "div",
+      "ariaRole": null,
+      "display": "block",
+      "ownText": "",
+      "text": "Card title Body copy",
+      "box": { "left": 0, "top": 0, "right": 390, "bottom": 120 },
+      "padding": { "top": 16, "right": 16, "bottom": 16, "left": 16 },
+      "painted": true
+    },
+    {
+      "parent": 2,
+      "tag": "h2",
+      "ariaRole": null,
+      "display": "block",
+      "ownText": "Card title",
+      "text": "Card title",
+      "box": { "left": 16, "top": 16, "right": 300, "bottom": 40 },
+      "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 },
+      "painted": false
+    },
+    {
+      "parent": 2,
+      "tag": "p",
+      "ariaRole": null,
+      "display": "block",
+      "ownText": "Body copy",
+      "text": "Body copy",
+      "box": { "left": 16, "top": 40, "right": 300, "bottom": 100 },
+      "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 },
+      "painted": false
+    }
+  ]
+}

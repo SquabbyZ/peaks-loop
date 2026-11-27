@@ -18,6 +18,8 @@ packages/.dist-stamps.json
 .DS_Store
 .gstack/
 .codegraph/
+# Layout graph snapshots written at capture time: local state, not versioned truth.
+.peaks/layout-graph/
 .peaks/_runtime/
 # slice 2.5.0 sub-fix C: peaks playwright start session records.
 # The directory lives under _runtime/ so it is already covered by

@@ -1,6 +1,6 @@
 {
   "name": "peaks-loop",
-  "version": "4.3.5",
+  "version": "4.3.6",
   "description": "Loop Engineering CLI — workflow primitive / loop guards / evaluators / slice orchestration",
   "author": "SquabbyZ",
   "keywords": [
@@ -204,6 +204,7 @@
     "eslint": "8.57.1",
     "husky": "^9.1.7",
     "lint-staged": "^15.5.2",
+    "playwright": "1.65.1",
     "prettier": "^3.9.8",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",

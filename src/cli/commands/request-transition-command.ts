@@ -136,11 +136,13 @@ function printTransitionResult(
       {
         ...result,
         preCompactCheckpoint: hooks.preCompact?.data ?? null,
-        codegraphRefresh: hooks.codegraphRefresh
+        codegraphRefresh: hooks.codegraphRefresh,
+        layoutGraphRefresh: hooks.layoutGraphRefresh
       },
       [
         ...(note === null ? [] : [note]),
         ...(hooks.codegraphWarning === null ? [] : [hooks.codegraphWarning]),
+        ...(hooks.layoutGraphWarning === null ? [] : [hooks.layoutGraphWarning]),
         // A soft-passed prerequisite is a warning, not a silent pass: the
         // envelope carries it (and `printResult` puts it on stderr for a human
         // run). `data.prerequisiteWarnings` holds the structured entries.

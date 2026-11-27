@@ -20,6 +20,11 @@ import {
   type CodegraphAutorefreshResult
 } from '../../services/codegraph/codegraph-autorefresh.js';
 import {
+  layoutGraphRefreshNotice,
+  refreshLayoutGraphAtSliceBoundary,
+  type LayoutGraphSliceRefresh
+} from '../../services/design/layout/layout-graph-slice-refresh.js';
+import {
   asJson,
   failResult,
   projectRoot,
@@ -44,9 +49,34 @@ type CheckpointContext = {
 type CheckpointOutcome = {
   codegraph: CodegraphAutorefreshResult | null;
   codegraphWarning: string | null;
+  layoutGraph: LayoutGraphSliceRefresh | null;
+  layoutGraphWarning: string | null;
 };
 
-const NO_REFRESH: CheckpointOutcome = { codegraph: null, codegraphWarning: null };
+const NO_REFRESH: CheckpointOutcome = {
+  codegraph: null,
+  codegraphWarning: null,
+  layoutGraph: null,
+  layoutGraphWarning: null
+};
+
+/** The layout graph step, isolated twice: it catches internally and so does the caller. */
+function layoutGraphOutcome(
+  project: string
+): Pick<CheckpointOutcome, 'layoutGraph' | 'layoutGraphWarning'> {
+  let layoutGraph: LayoutGraphSliceRefresh;
+  try {
+    layoutGraph = refreshLayoutGraphAtSliceBoundary(project);
+  } catch (error) {
+    layoutGraph = {
+      reason: 'unavailable',
+      markedStale: null,
+      pendingCapture: null,
+      note: `auto layout graph refresh failed: ${error instanceof Error ? error.message : String(error)}`
+    };
+  }
+  return { layoutGraph, layoutGraphWarning: layoutGraphRefreshNotice(layoutGraph) };
+}
 
 /**
  * Auto codegraph refresh at the slice-complete boundary. Best-effort:
@@ -98,7 +128,11 @@ async function applyCheckpointDone(ctx: CheckpointContext): Promise<CheckpointOu
       note: `auto codegraph refresh failed: ${e instanceof Error ? e.message : String(e)}`
     };
   }
-  return { codegraph, codegraphWarning: codegraphRefreshNotice(codegraph) };
+  return {
+    codegraph,
+    codegraphWarning: codegraphRefreshNotice(codegraph),
+    ...layoutGraphOutcome(project)
+  };
 }
 
 async function applyCheckpointState(ctx: CheckpointContext): Promise<CheckpointOutcome> {
@@ -161,12 +195,20 @@ async function runJobCheckpoint(opts: JobCheckpointOpts, io: ProgramIO): Promise
     data: parsed.data,
     sliceId: slice.sliceId
   });
+  const warnings = [outcome.codegraphWarning, outcome.layoutGraphWarning].filter(
+    (warning): warning is string => warning !== null
+  );
   printResult(
     io,
     ok(
       'checkpoint',
-      { sliceId: slice.sliceId, status: parsed.data.state, codegraph: outcome.codegraph },
-      outcome.codegraphWarning === null ? [] : [outcome.codegraphWarning]
+      {
+        sliceId: slice.sliceId,
+        status: parsed.data.state,
+        codegraph: outcome.codegraph,
+        layoutGraph: outcome.layoutGraph
+      },
+      warnings
     ),
     asJson(opts)
   );

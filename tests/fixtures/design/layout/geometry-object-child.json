@@ -1,0 +1,61 @@
+{
+  "route": "/icon",
+  "viewport": { "width": 390, "height": 844 },
+  "elements": [
+    {
+      "parent": -1,
+      "tag": "html",
+      "ariaRole": null,
+      "display": "block",
+      "ownText": "",
+      "text": "Subscribe",
+      "box": { "left": 0, "top": 0, "right": 390, "bottom": 80 },
+      "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 },
+      "painted": false
+    },
+    {
+      "parent": 0,
+      "tag": "body",
+      "ariaRole": null,
+      "display": "block",
+      "ownText": "",
+      "text": "Subscribe",
+      "box": { "left": 0, "top": 0, "right": 390, "bottom": 80 },
+      "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 },
+      "painted": false
+    },
+    {
+      "parent": 1,
+      "tag": "div",
+      "ariaRole": null,
+      "display": "block",
+      "ownText": "",
+      "text": "Subscribe",
+      "box": { "left": 0, "top": 0, "right": 390, "bottom": 80 },
+      "padding": { "top": 16, "right": 16, "bottom": 16, "left": 16 },
+      "painted": false
+    },
+    {
+      "parent": 2,
+      "tag": "p",
+      "ariaRole": null,
+      "display": "block",
+      "ownText": "Subscribe",
+      "text": "Subscribe",
+      "box": { "left": 16, "top": 16, "right": 216, "bottom": 40 },
+      "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 },
+      "painted": false
+    },
+    {
+      "parent": 3,
+      "tag": "img",
+      "ariaRole": null,
+      "display": "block",
+      "ownText": "",
+      "text": "",
+      "box": { "left": 24, "top": 20, "right": 48, "bottom": 36 },
+      "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 },
+      "painted": false
+    }
+  ]
+}

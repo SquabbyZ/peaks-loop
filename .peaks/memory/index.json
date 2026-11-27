@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-25T15:42:24.769Z",
+  "updatedAt": "2026-11-26T23:25:59.989Z",
   "hot": {
     "rule": [
       {
@@ -1470,6 +1470,30 @@
         "updatedAt": "2026-10-08"
       },
       {
+        "name": "基线的合法重生成与非法抬顶怎么区分",
+        "kind": "lesson",
+        "description": "新增文件后  /  /  会因缺少  行而红，正确做法是  后跑 。但这有抬 ceiling 的风险，所以：让 RD 改代码、由编排器自己做重生成，并在重生成前后逐字段比对 （我这次用 node 读两个 JSON 比较，得到 ，生成器...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\基线的合法重生成与非法抬顶怎么区分.md",
+        "sourceArtifact": ".peaks/_runtime/2026-11-27-session-791264/txt/handoff.md",
+        "updatedAt": "2026-11-26"
+      },
+      {
+        "name": "静态解析的往返是自证-必须有一次真实渲染",
+        "kind": "lesson",
+        "description": "图谱 → 重建 HTML → 用自写静态解析器复算 → 比对，这条往返由构造保证自洽，证明不了重建页真的保持关系。实测反例：预览的  盒子是 0×0，采集把它丢掉，祖先角色链少一层，所有编号都变——静态解析完全看不出来，真实浏览器一跑...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\静态解析的往返是自证-必须有一次真实渲染.md",
+        "sourceArtifact": ".peaks/_runtime/2026-11-27-session-791264/txt/handoff.md",
+        "updatedAt": "2026-11-26"
+      },
+      {
+        "name": "未入库的新文件会让全树不变量假绿",
+        "kind": "lesson",
+        "description": "新增的 src/ 与 tests/ 文件在未被  时，仓库里两条全树不变量看不到它们：（读 tracked tests）与  基线普查（）。于是 scoped 测试全绿、 也 exit 0，一旦暂存就变红。做法：声称\"全树通过\"之前，...",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\未入库的新文件会让全树不变量假绿.md",
+        "sourceArtifact": ".peaks/_runtime/2026-11-27-session-791264/txt/handoff.md",
+        "updatedAt": "2026-11-26"
+      },
+      {
         "name": "a-brand-new-npm-package-cannot-be-first-published-through-oidc-trusted-publishing",
         "kind": "lesson",
         "description": "The tag-triggered release flow publishes with OIDC Trusted Publishing (no token).",
@@ -2228,6 +2252,14 @@
         "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\pass-shaped-output-that-verified-nothing.md",
         "sourceArtifact": null,
         "updatedAt": "2026-10-09"
+      },
+      {
+        "name": "peaks-的-windows-cmd-代理吃不下多行-prompt",
+        "kind": "lesson",
+        "description": "在 Windows 上会报 ，因为  是 .cmd 代理，多行/超长参数被 cmd.exe 拆坏。改走仓库内源码入口即可：。另外该命令的输出是 JSON + 一行  尾巴， 前要先按  截断。",
+        "sourcePath": "D:\\projects\\peaks-loop\\.peaks\\memory\\peaks-的-windows-cmd-代理吃不下多行-prompt.md",
+        "sourceArtifact": ".peaks/_runtime/2026-11-27-session-791264/txt/handoff.md",
+        "updatedAt": "2026-11-26"
       },
       {
         "name": "peaks-code-role-artifact-lifecycle-gotchas",

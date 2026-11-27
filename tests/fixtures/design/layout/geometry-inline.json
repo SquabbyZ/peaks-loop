@@ -1,0 +1,61 @@
+{
+  "route": "/inline",
+  "viewport": { "width": 390, "height": 844 },
+  "elements": [
+    {
+      "parent": -1,
+      "tag": "html",
+      "ariaRole": null,
+      "display": "block",
+      "ownText": "",
+      "text": "Quarterly report",
+      "box": { "left": 0, "top": 0, "right": 390, "bottom": 73 },
+      "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 },
+      "painted": false
+    },
+    {
+      "parent": 0,
+      "tag": "body",
+      "ariaRole": null,
+      "display": "block",
+      "ownText": "",
+      "text": "Quarterly report",
+      "box": { "left": 0, "top": 0, "right": 390, "bottom": 73 },
+      "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 },
+      "painted": false
+    },
+    {
+      "parent": 1,
+      "tag": "div",
+      "ariaRole": null,
+      "display": "block",
+      "ownText": "",
+      "text": "Quarterly report",
+      "box": { "left": 0, "top": 0, "right": 390, "bottom": 73 },
+      "padding": { "top": 24, "right": 24, "bottom": 24, "left": 16 },
+      "painted": false
+    },
+    {
+      "parent": 2,
+      "tag": "h2",
+      "ariaRole": null,
+      "display": "block",
+      "ownText": "Quarterly ",
+      "text": "Quarterly report",
+      "box": { "left": 16, "top": 24, "right": 366, "bottom": 49 },
+      "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 },
+      "painted": false
+    },
+    {
+      "parent": 3,
+      "tag": "em",
+      "ariaRole": null,
+      "display": "inline",
+      "ownText": "report",
+      "text": "report",
+      "box": { "left": 76, "top": 24, "right": 122, "bottom": 49 },
+      "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 },
+      "painted": false
+    }
+  ]
+}

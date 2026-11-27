@@ -13,6 +13,11 @@ import {
   refreshCodegraphAfterSlice,
   type CodegraphAutorefreshResult
 } from '../../services/codegraph/codegraph-autorefresh.js';
+import {
+  layoutGraphRefreshNotice,
+  refreshLayoutGraphAtSliceBoundary,
+  type LayoutGraphSliceRefresh
+} from '../../services/design/layout/layout-graph-slice-refresh.js';
 import { triggerBestPracticeScan } from '../../services/prd/best-practice-auto-trigger.js';
 import type { RequestTransitionOptions } from './request-command-options.js';
 
@@ -22,6 +27,8 @@ export type TransitionHooks = {
   preCompact: ResultEnvelope<unknown> | null;
   codegraphRefresh: CodegraphAutorefreshResult | null;
   codegraphWarning: string | null;
+  layoutGraphRefresh: LayoutGraphSliceRefresh | null;
+  layoutGraphWarning: string | null;
 };
 
 type PrdHandoffContext = {
@@ -35,7 +42,9 @@ type PrdHandoffContext = {
 const NO_HOOKS: TransitionHooks = {
   preCompact: null,
   codegraphRefresh: null,
-  codegraphWarning: null
+  codegraphWarning: null,
+  layoutGraphRefresh: null,
+  layoutGraphWarning: null
 };
 
 /**
@@ -88,10 +97,23 @@ export async function collectQaHandoffHooks(
       note: 'auto codegraph refresh failed after transition'
     };
   }
+  let layoutGraphRefresh: LayoutGraphSliceRefresh;
+  try {
+    layoutGraphRefresh = refreshLayoutGraphAtSliceBoundary(project);
+  } catch (error) {
+    layoutGraphRefresh = {
+      reason: 'unavailable',
+      markedStale: null,
+      pendingCapture: null,
+      note: `auto layout graph refresh failed: ${error instanceof Error ? error.message : String(error)}`
+    };
+  }
   return {
     preCompact,
     codegraphRefresh,
-    codegraphWarning: codegraphRefreshNotice(codegraphRefresh)
+    codegraphWarning: codegraphRefreshNotice(codegraphRefresh),
+    layoutGraphRefresh,
+    layoutGraphWarning: layoutGraphRefreshNotice(layoutGraphRefresh)
   };
 }
 

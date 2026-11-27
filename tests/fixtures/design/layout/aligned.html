@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Layout align fixture — matched parents</title>
+    <style>
+      /* The control arm: same structure as mismatched.html, but both parents
+         declare the same 16px spacing token, so the headings' left edges
+         coincide and no not-aligned finding may be produced. */
+      body {
+        margin: 0;
+        font-family: system-ui, sans-serif;
+        background: #fff;
+        color: #111;
+      }
+      .section {
+        padding: 24px;
+      }
+      .tight {
+        padding-left: 16px; /* space.section */
+      }
+      h2 {
+        font-size: 18px;
+        line-height: 1.4;
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="section tight"><h2>Quarterly report</h2></div>
+    <div class="section tight"><h2>Quarterly review</h2></div>
+  </body>
+</html>
