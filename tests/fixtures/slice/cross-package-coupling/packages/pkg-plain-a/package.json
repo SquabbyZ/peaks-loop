@@ -1,0 +1,1 @@
+{ "name": "@slice/pkg-plain-a", "version": "0.0.0", "private": true, "dependencies": { "@slice/pkg-plain-b": "workspace:*" } }
