@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 4.3.7 — 2026-11-28
+
+**版本级别**：**minor**（新增设计还原度测量与门禁、按栈加严的审查维度、race/design 车道并行、跨包调度边；不改既有门禁的 accepted verdict 集合，`backCompatUntil` 不变）。
 
 **一句话：补齐 `peaks design layout` 的四态驱动——一条路由的四种状态 × 三个断点，每个 `(state, viewport)` 键都留下真实的采集与具名结论。**
 
