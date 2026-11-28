@@ -106,6 +106,11 @@ function runCli(args: readonly string[], cwd: string = REPO): RunResult {
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
       timeout: BIN_TIMEOUT_MS,
+      // `scan api-surface` on this repository pretty-prints a JSON envelope of
+      // ~1.1 MiB (measured: 1,101,015 bytes), which exceeds execFileSync's
+      // default 1 MiB maxBuffer on every host. The resulting ENOBUFS has no
+      // numeric `status`, so it would be misreported as exit code 1.
+      maxBuffer: 32 * 1024 * 1024,
       env: { ...process.env, PEAKS_CALLER_ID: 'scan-commands-e2e' }
     }).toString('utf8');
     return { stdout, stderr: '', code: 0 };
@@ -248,12 +253,23 @@ describe('peaks scan api-surface', () => {
         'json',
         '--json'
       ]);
-      expect(result.code).toBe(0);
+      expect(result.code, `scan api-surface failed: ${result.stderr}`).toBe(0);
 
       const envelope = parseCliEnvelopeWith(result.stdout, apiSurfacePayload);
       expect(envelope.ok).toBe(true);
       expect(envelope.command).toBe('scan.api-surface');
       expect(Object.values(envelope.data.counts).every(Number.isInteger)).toBe(true);
+      // A zero scan is the failure mode this test exists to catch: a Windows
+      // host whose `path.relative` separators do not match the scanner's
+      // `src/...` filters reports 0/0/0/0 and used to pass on "integers only".
+      expect(
+        envelope.data.counts.cli,
+        `scan api-surface found no CLI commands: ${result.stderr}`
+      ).toBeGreaterThan(0);
+      expect(
+        envelope.data.counts.service,
+        `scan api-surface found no service exports: ${result.stderr}`
+      ).toBeGreaterThan(0);
       expect(
         [
           envelope.data.cli,

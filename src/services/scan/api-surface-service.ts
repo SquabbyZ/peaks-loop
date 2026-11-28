@@ -10,7 +10,7 @@
  */
 
 import { readdir, readFile, stat } from 'node:fs/promises';
-import { join, relative } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { lineOf, parseIncludeDirs, uniqueByName } from './api-surface-helpers.js';
 import type {
   ApiSurfaceOptions,
@@ -65,7 +65,11 @@ async function walkDir(dir: string, projectRoot: string, out: string[]): Promise
     if (entry.isDirectory()) {
       await walkDir(full, projectRoot, out);
     } else if (entry.isFile() && entry.name.endsWith('.ts') && !entry.name.endsWith('.d.ts')) {
-      out.push(relative(projectRoot, full));
+      // Normalize to POSIX separators: downstream filters below
+      // (`rel.startsWith('src/cli/commands/')` / `'src/services/'`) expect
+      // forward slashes regardless of host OS. Without this, Windows hosts
+      // report zero counts because `path.relative` returns `\`-separated paths.
+      out.push(relative(projectRoot, full).split(sep).join('/'));
     }
   }
 }
