@@ -32,6 +32,11 @@
 - 实测：五种耦合形态（普通 import、动态 import、re-export、仅 package.json 依赖、共享 JSON 契约）在旧实现里**全部无边**，10 个单元落在同一可并行批次。根因是调度器的边收集器丢弃所有非相对说明符且只解析静态 import。
 - 现在包名说明符按 workspace 解析到包入口，覆盖静态 import / `export … from` / 动态 `import()`；仅声明依赖的包对得到具名的 `package-dependency` 边（宁可多串行）。共享 JSON 契约无法从源码推断，如实留作残差并由测试断言。
 
+### 两笔旧账
+
+- **`scan api-surface` 在 Windows 上一直是空转的**：`path.relative` 返回反斜杠，而分类用 `startsWith('src/...')`，于是计数恒为 0；集成测试只断言"计数是整数"，0 也是整数，所以本地假绿。Linux 上扫到内容后，pretty-print 的信封约 **1.1 MiB**，超过 `execFileSync` 默认 1 MiB 的 `maxBuffer`，ENOBUFS 没有数字 status 又被映射成退出码 1——这才是 CI 那条红。修复后计数为 `cli=281 / service=2707 / type=2219 / constant=922`，测试断言计数 **> 0** 并把 stderr 带进失败消息。
+- **布局两单元的变异击杀率 56.2% → 84.3%**（阈值 80%）：补的是边界断言（epsilon 恰好等于、触碰/并排/反向/重叠配对、空白归一化、空字符串/空对象默认），不是改实现；剩余 24 个变异体为等价或不可达并逐条说明。顺带把 6 处 `toBeDefined`/`toBeTruthy` 换成具体值断言。
+
 ## 4.3.6 — 2026-11-27（peaks design：页面布局的外部记忆）
 
 **版本级别**：**minor**（新增一组 `peaks design layout` 子命令与旁路图谱存储；不改任何既有门禁判定，`backCompatUntil` 不变）。
