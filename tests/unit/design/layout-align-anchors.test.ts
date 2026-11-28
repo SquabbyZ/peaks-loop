@@ -12,6 +12,7 @@ import {
 import {
   captureLayoutGeometry,
   LAYOUT_GEOMETRY_SCRIPT,
+  type ElementBox,
   type LayoutElement,
   type LayoutGeometry,
   type PlaywrightBrowser
@@ -50,6 +51,18 @@ function indexOf(geometry: LayoutGeometry): LayoutIndex {
   return buildLayoutIndex({ geometry, spacingTokens: TOKENS });
 }
 
+/** Two root-level paragraphs with the given boxes, in document order. */
+function pairGeometry(route: string, first: ElementBox, second: ElementBox): LayoutGeometry {
+  return {
+    route,
+    viewport: { width: 390, height: 844 },
+    elements: [
+      el({ parent: -1, tag: 'p', ownText: 'A', text: 'A', box: first }),
+      el({ parent: -1, tag: 'p', ownText: 'B', text: 'B', box: second })
+    ]
+  };
+}
+
 const MISMATCHED = readGeometry('geometry-mismatched.json');
 const ALIGNED = readGeometry('geometry-aligned.json');
 
@@ -84,10 +97,10 @@ describe('(render) the numbered layout index', () => {
     const sourced = index.anchors.find(
       (anchor) => anchor.source !== null && anchor.source.token !== null
     );
-    expect(sourced).toBeDefined();
-    expect(sourced?.source?.parentId).toBeTruthy();
-    expect(sourced?.source?.token?.name).toMatch(/^space\./);
-    expect(sourced?.source?.token?.value).toMatch(/^\d+(\.\d+)?px$/);
+    expect(sourced?.edge).toBe('left');
+    expect(sourced?.source?.parentId).toMatch(/^[0-9a-f]{12}$/);
+    expect(sourced?.source?.token?.name).toBe('space.section');
+    expect(sourced?.source?.token?.value).toBe('16px');
     const ids = new Set(index.nodes.map((node) => node.id));
     expect(ids.has(sourced?.source?.parentId ?? '')).toBe(true);
   });
@@ -107,7 +120,7 @@ describe('(render) the numbered layout index', () => {
     // then: the heading's parent chain resolves to real nodes and ends at its parent
     const index = indexOf(MISMATCHED);
     const heading = index.nodes.find((node) => node.kind === 'object' && node.tag === 'h2');
-    expect(heading).toBeDefined();
+    expect(heading?.kind).toBe('object');
     const ids = new Set(index.nodes.map((node) => node.id));
     expect(heading?.parentChain.length).toBeGreaterThan(0);
     for (const id of heading?.parentChain ?? []) expect(ids.has(id)).toBe(true);
@@ -124,8 +137,8 @@ describe('(render) the numbered layout index', () => {
     const finding = findings[0];
     expect(finding?.edge).toBe('left');
     expect(finding?.difference).toBe(8);
-    expect(finding?.source?.parentId).toBeTruthy();
-    expect(finding?.otherSource?.parentId).toBeTruthy();
+    expect(finding?.source?.parentId).toMatch(/^[0-9a-f]{12}(-\d+)?$/);
+    expect(finding?.otherSource?.parentId).toMatch(/^[0-9a-f]{12}(-\d+)?$/);
     expect(finding?.source?.parentId).not.toBe(finding?.otherSource?.parentId);
     expect(finding?.source?.token?.name).toBe('space.section');
     expect(finding?.source?.token?.value).toBe('16px');
@@ -309,6 +322,51 @@ describe('(behavior) cutting and attribution', () => {
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids.some((id) => /-[2-9]$/.test(id))).toBe(true);
   });
+
+  it('when the later object sits above, should pair the touching edges on the left', () => {
+    // given: two root-level paragraphs where the second ends at the first's top
+    // when: the layout index is built
+    // then: the second stacked comparison is the one that detects the adjacency
+    const index = indexOf(
+      pairGeometry(
+        '/reversed-stack',
+        { left: 7, top: 40, right: 200, bottom: 60 },
+        { left: 23, top: 20, right: 200, bottom: 40 }
+      )
+    );
+    expect(index.anchors).toHaveLength(1);
+    expect(index.anchors[0]?.edge).toBe('left');
+  });
+
+  it('when the later object sits to the left, should pair the touching edges on top', () => {
+    // given: two paragraphs whose second right edge meets the first left edge
+    // when: the layout index is built
+    // then: the second side-by-side comparison detects the adjacency
+    const index = indexOf(
+      pairGeometry(
+        '/reversed-row',
+        { left: 100, top: 0, right: 200, bottom: 20 },
+        { left: 40, top: 0, right: 100, bottom: 20 }
+      )
+    );
+    expect(index.anchors).toHaveLength(1);
+    expect(index.anchors[0]?.edge).toBe('top');
+  });
+
+  it('when two horizontal boxes touch, should pair them on the top edge', () => {
+    // given: two paragraphs whose first right edge meets the second left edge
+    // when: the layout index is built
+    // then: touching counts as side by side
+    const index = indexOf(
+      pairGeometry(
+        '/touching-row',
+        { left: 0, top: 0, right: 100, bottom: 20 },
+        { left: 100, top: 0, right: 200, bottom: 20 }
+      )
+    );
+    expect(index.anchors).toHaveLength(1);
+    expect(index.anchors[0]?.edge).toBe('top');
+  });
 });
 
 describe('(integration) the contract and the capture seam', () => {
@@ -402,7 +460,7 @@ describe('(a11y) the finding text', () => {
     // when: the finding is written
     // then: the text carries both parent ids, both token names and values, and says it is non-blocking
     const finding = indexOf(MISMATCHED).findings[0];
-    expect(finding).toBeDefined();
+    expect(finding?.code).toBe('layout-not-aligned');
     const text = finding?.humanText ?? '';
     expect(text).toContain(finding?.source?.parentId ?? 'missing-parent');
     expect(text).toContain(finding?.otherSource?.parentId ?? 'missing-peer');
