@@ -11,7 +11,6 @@
  */
 import { sha256Hex } from './fidelity-evidence.js';
 import { checkedUrl, classifyPrototype } from './fidelity-input.js';
-import { servePrototype } from './layout/fidelity-static-server.js';
 import {
   FIDELITY_SCHEMA_VERSION,
   blockedFidelity,
@@ -189,6 +188,10 @@ async function captureFileSource(
   source: Extract<ReturnType<typeof classifyPrototype>, { kind: 'file' }>,
   implementationUrl: string
 ): Promise<FidelityResult> {
+  // Loaded lazily on the branch that actually serves a local file: the read-only
+  // proof replaces the `node:http` namespace to prove the CLI never reaches the
+  // network, so a static import here would break every command at startup.
+  const { servePrototype } = await import('./layout/fidelity-static-server.js');
   const served = await servePrototype(source.bytes);
   if (!served.ok) return blockedFidelity(input.route, input.mode, served.reason);
   const prototype: FidelityPrototype = {
